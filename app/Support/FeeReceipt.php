@@ -49,7 +49,9 @@ class FeeReceipt
                 ->get()
             : collect();
 
-        $net = self::netOf($gross, 'academic', $concessions);
+        // A concession on the Last Year Dues comes off them alone.
+        $off = FeeConcession::takeOff($concessions, 'academic', $gross, $duesGross);
+        $net = round(max(0, $gross - $off['taken']), 2);
 
         $paidSoFar = $student
             ? (float) FeePayment::where('organization_id', $orgId)
@@ -73,7 +75,7 @@ class FeeReceipt
             // Last Year Dues apart from this year's fee, as the ledger has it (FeeDues).
             'isDues'      => FeeDues::isDues($payment),
             'dues'        => $student
-                ? FeeDues::split($net, $duesGross, $paidSoFar, FeeDues::paidAsDues($orgId, (int) $student->id)) + ['has' => $duesGross > 0]
+                ? FeeDues::split($net, max(0, $duesGross - $off['dues']), $paidSoFar, FeeDues::paidAsDues($orgId, (int) $student->id)) + ['has' => $duesGross > 0]
                 : ['has' => false],
         ];
     }
@@ -120,25 +122,5 @@ class FeeReceipt
         }
 
         return (string) $value;
-    }
-
-    /** A concession-adjusted total for one side of the ledger. */
-    private static function netOf(float $gross, string $type, $concessions): float
-    {
-        $taken = 0.0;
-
-        foreach ($concessions as $c) {
-            if ($c->fee_type !== 'all' && $c->fee_type !== $type) {
-                continue;
-            }
-
-            $off = $c->concession_type === 'percent'
-                ? $gross * ((float) $c->value) / 100
-                : (float) $c->value;
-
-            $taken += min($off, max(0, $gross - $taken));
-        }
-
-        return round(max(0, $gross - $taken), 2);
     }
 }

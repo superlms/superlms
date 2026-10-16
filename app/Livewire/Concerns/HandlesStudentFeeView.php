@@ -78,12 +78,13 @@ trait HandlesStudentFeeView
         $transport = $this->transportSideFor($student, $concessions);
 
         // The academic fee as this year's and the Last Year Dues (FeeDues):
-        // a payment taken as Dues goes against the dues, not the installments.
+        // a payment taken as Dues goes against the dues, not the installments,
+        // and a concession on the dues comes off them alone.
         $duesGross = (float) $structures->where('fee_type', 'academic')
             ->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
         $dues = FeeDues::split(
             $academic['net'],
-            $duesGross,
+            max(0, $duesGross - $academic['concession_dues']),
             $academic['paid'],
             (float) $payments->where('fee_type', 'academic')->filter(fn ($p) => FeeDues::isDues($p))->sum('amount'),
         );
@@ -135,7 +136,7 @@ trait HandlesStudentFeeView
             'dues'         => $dues + ['has' => $duesGross > 0],
             'concessions'  => $concessions->map(fn (FeeConcession $c) => [
                 'reason' => $c->reason ?: 'Concession',
-                'scope'  => $c->fee_type === 'all' ? 'All fees' : ucfirst($c->fee_type),
+                'scope'  => FeeConcession::appliesToLabel($c->fee_type),
                 'value'  => $c->concession_type === 'percent'
                     ? rtrim(rtrim(number_format((float) $c->value, 2), '0'), '.') . '%'
                     : '₹' . number_format((float) $c->value, 2),
@@ -309,34 +310,27 @@ trait HandlesStudentFeeView
         return $rows;
     }
 
-    /** What a set of concessions takes off one side's gross. */
-    private function concessionOn(string $type, float $gross, $concessions): array
+    /**
+     * What a set of concessions takes off one side's gross (FeeConcession::takeOff):
+     * [taken, applied, of it off the Last Year Dues].
+     */
+    private function concessionOn(string $type, float $gross, $concessions, float $duesGross = 0.0): array
     {
-        $taken   = 0.0;
-        $applied = [];
+        $off = FeeConcession::takeOff($concessions, $type, $gross, $duesGross);
 
-        foreach ($concessions as $c) {
-            if ($c->fee_type !== 'all' && $c->fee_type !== $type) {
-                continue;
-            }
-            $off = $c->concession_type === 'percent'
-                ? $gross * ((float) $c->value) / 100
-                : (float) $c->value;
-            $off = round(min($off, max(0, $gross - $taken)), 2);
-            if ($off <= 0) {
-                continue;
-            }
-            $taken += $off;
-            $applied[] = [
+        $applied = array_map(function (array $a) {
+            $c = $a['concession'];
+            return [
                 'reason' => $c->reason ?: 'Concession',
-                'label'  => $c->concession_type === 'percent'
+                'label'  => ($c->concession_type === 'percent'
                     ? rtrim(rtrim(number_format((float) $c->value, 2), '0'), '.') . '% off'
-                    : '₹' . number_format((float) $c->value, 2) . ' off',
-                'amount' => $off,
+                    : '₹' . number_format((float) $c->value, 2) . ' off')
+                    . ($c->fee_type === 'dues' ? ' Last Year Dues' : ''),
+                'amount' => $a['amount'],
             ];
-        }
+        }, $off['applied']);
 
-        return [round($taken, 2), $applied];
+        return [$off['taken'], $applied, $off['dues']];
     }
 
     /** One side of the ledger — academic or transport — with its concession taken off. */
@@ -344,9 +338,12 @@ trait HandlesStudentFeeView
     {
         $rows  = $structures->where('fee_type', $type)->values();
         $gross = (float) $rows->sum('amount');
+        // The student's own rows — Last Year Dues — which a 'dues' concession is on.
+        $duesGross = (float) $rows->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
 
-        // 'all' concessions land on both sides; the rest only on their own.
-        [$taken, $applied] = $this->concessionOn($type, $gross, $concessions);
+        // 'all' concessions land on both sides; 'dues' on the academic side's
+        // dues; the rest only on their own.
+        [$taken, $applied, $takenDues] = $this->concessionOn($type, $gross, $concessions, $duesGross);
 
         $net  = round(max(0, $gross - $taken), 2);
         $paid = (float) $payments->where('fee_type', $type)->sum('amount');
@@ -361,6 +358,8 @@ trait HandlesStudentFeeView
             ])->all(),
             'gross'      => round($gross, 2),
             'concession' => round($taken, 2),
+            // Of the concession, what came off the Last Year Dues.
+            'concession_dues' => $takenDues,
             'applied'    => $applied,
             'net'        => $net,
             'paid'       => round($paid, 2),

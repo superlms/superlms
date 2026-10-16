@@ -31,7 +31,7 @@
                         <p class="text-xs text-gray-400">{{ $c->studentDetail->father_name ?? '' }}</p>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->standard->name ?? '—' }}{{ $c->section ? ' / ' . $c->section->name : '' }}</td>
-                    <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] bg-gray-100 text-gray-600 capitalize">{{ $c->fee_type }}</span></td>
+                    <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] bg-gray-100 text-gray-600">{{ \App\Models\Admin\Fee\FeeConcession::appliesToLabel($c->fee_type) }}</span></td>
                     <td class="px-4 py-3 text-right font-semibold text-emerald-600">{{ $c->concession_type === 'percent' ? $c->value . '%' : '₹' . number_format($c->value, 2) }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->reason ?: '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->created_at?->format('d M Y') ?? '—' }}</td>
@@ -124,10 +124,13 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Applies To</label>
                         <select wire:model="concFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-                            <option value="all">All Fees</option>
-                            <option value="academic">Academic</option>
-                            <option value="transport">Transport</option>
+                            @foreach (\App\Models\Admin\Fee\FeeConcession::APPLIES_TO as $appliesKey => $appliesLabel)
+                                <option value="{{ $appliesKey }}">{{ $appliesLabel }}</option>
+                            @endforeach
+                            {{-- An older concession on every fee keeps what it was when edited. --}}
+                            @if ($concFeeType === 'all')<option value="all">All fees</option>@endif
                         </select>
+                        @error('concFeeType')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Academic Year</label>
@@ -170,7 +173,7 @@
                     'Father\'s Name' => $viewingConcession->studentDetail->father_name ?? 'N/A',
                     'Type'           => $viewingConcession->concession_type === 'percent' ? 'Percentage' : 'Flat Amount',
                     'Value'          => $viewingConcession->concession_type === 'percent' ? $viewingConcession->value . '%' : '₹' . number_format($viewingConcession->value, 2),
-                    'Applies To'     => ucfirst($viewingConcession->fee_type),
+                    'Applies To'     => \App\Models\Admin\Fee\FeeConcession::appliesToLabel($viewingConcession->fee_type),
                     'Reason'         => $viewingConcession->reason ?: 'N/A',
                     'Granted On'     => $viewingConcession->created_at?->format('d M Y') ?? 'N/A',
                 ] as $label => $value)

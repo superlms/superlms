@@ -125,7 +125,8 @@ class AccountsNotifier
             ? rtrim(rtrim(number_format((float) $value, 2), '0'), '.') . '%'
             : '₹' . number_format((float) $value, 2);
 
-        $body = "{$student} was given a {$amount} concession on {$feeType} fee";
+        $on   = $feeType === 'dues' ? 'Last Year Dues' : "{$feeType} fee";
+        $body = "{$student} was given a {$amount} concession on {$on}";
         if (trim($reason) !== '') {
             $body .= ' — ' . Str::limit(trim($reason), 60);
         }

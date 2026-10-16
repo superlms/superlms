@@ -35,7 +35,11 @@ class StudentFeeTotals
 
         [, $transportGross] = TransportBilling::forStudent($orgId, $student->id);
 
-        $total = self::netOf((float) $structures->where('fee_type', 'academic')->sum('amount'), 'academic', $concessions)
+        $academic = $structures->where('fee_type', 'academic');
+        // The student's own rows — Last Year Dues, which a 'dues' concession is on.
+        $duesGross = (float) $academic->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
+
+        $total = self::netOf((float) $academic->sum('amount'), 'academic', $concessions, $duesGross)
             + self::netOf((float) $transportGross, 'transport', $concessions);
 
         $paid = (float) FeePayment::where('organization_id', $orgId)
@@ -52,19 +56,8 @@ class StudentFeeTotals
     }
 
     /** A concession-adjusted total for one side, as the receipt works it out. */
-    private static function netOf(float $gross, string $type, $concessions): float
+    private static function netOf(float $gross, string $type, $concessions, float $duesGross = 0.0): float
     {
-        $taken = 0.0;
-        foreach ($concessions as $c) {
-            if ($c->fee_type !== 'all' && $c->fee_type !== $type) {
-                continue;
-            }
-            $off = $c->concession_type === 'percent'
-                ? $gross * ((float) $c->value) / 100
-                : (float) $c->value;
-            $taken += min($off, max(0, $gross - $taken));
-        }
-
-        return round(max(0, $gross - $taken), 2);
+        return round(max(0, $gross - FeeConcession::takeOff($concessions, $type, $gross, $duesGross)['taken']), 2);
     }
 }

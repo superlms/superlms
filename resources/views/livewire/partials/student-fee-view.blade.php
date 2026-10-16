@@ -216,7 +216,9 @@
             'pending' => ['text-red-600', 'Due'],
             'na'      => ['text-gray-400', '—'],
         ];
-        $cycleCols = 'grid grid-cols-[2.5rem_minmax(0,1fr)_7rem_6.5rem_6.5rem_6.5rem_5rem_6rem] items-center';
+        // Due date is wide enough for "30 Sep 2026 · overdue" on one line, and
+        // each money column for ₹1,00,000.00, so nothing runs into its neighbour.
+        $cycleCols = 'grid grid-cols-[2.5rem_minmax(9rem,1fr)_12rem_8rem_8rem_8rem_5.5rem_7rem] items-center';
     @endphp
     <div wire:key="sv-cycle-{{ $cycle['fee_type'] }}" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
@@ -234,7 +236,7 @@
             </div>
         </div>
         <div class="overflow-x-auto">
-            <div class="min-w-[760px] text-sm">
+            <div class="min-w-[980px] text-sm">
                 <div class="{{ $cycleCols }} bg-gray-50 text-xs text-gray-500">
                     <span class="px-4 py-2">#</span>
                     <span class="px-4 py-2">Installment</span>
@@ -305,7 +307,7 @@
     $penaltyWaived = collect($sv['cycles'] ?? [])->sum('penalty_waived');
     $penaltyPaid   = collect($sv['cycles'] ?? [])->sum('penalty_paid');
     $penaltyNet    = collect($sv['cycles'] ?? [])->sum('penalty_net');
-    $penCols = 'grid grid-cols-[2.5rem_7rem_minmax(0,1fr)_7rem_5.5rem_6rem_6.5rem] items-center';
+    $penCols = 'grid grid-cols-[2.5rem_7rem_minmax(0,1fr)_8.5rem_6rem_7rem_8rem] items-center';
 @endphp
 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
@@ -324,7 +326,7 @@
         <p class="px-4 py-6 text-center text-xs text-gray-400">No penalties due — every installment is paid or within its due date.</p>
     @else
         <div class="overflow-x-auto">
-            <div class="min-w-[640px] text-sm">
+            <div class="min-w-[720px] text-sm">
                 <div class="{{ $penCols }} bg-gray-50 text-xs text-gray-500">
                     <span class="px-4 py-2">#</span>
                     <span class="px-4 py-2">Fee cycle</span>

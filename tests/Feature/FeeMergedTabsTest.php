@@ -285,6 +285,54 @@ class FeeMergedTabsTest extends TestCase
         $this->assertSame(1000.0, (float) collect($sita['cycles'])->firstWhere('fee_type', 'academic')['total']);
     }
 
+    public function test_a_concession_on_last_year_dues_comes_off_the_dues_alone(): void
+    {
+        Schema::table('fee_concessions', function (Blueprint $t) {
+            $t->unsignedBigInteger('standard_id')->nullable(); $t->unsignedBigInteger('section_id')->nullable(); $t->unsignedBigInteger('created_by')->nullable();
+        });
+        $s = $this->school();   // Ravi: 1,000 this year + 500 of dues; Sita: no dues
+
+        // Add Concession: Academic, Transport or Last Year Dues — no "All Fees" on a new one.
+        $page = Livewire::test(Fee::class)->call('showTab', 'concession')->call('openConcessionModal');
+        $html = $page->html();
+        $this->assertStringContainsString('<option value="academic">Academic</option>', $html);
+        $this->assertStringContainsString('<option value="transport">Transport</option>', $html);
+        $this->assertStringContainsString('<option value="dues">Last Year Dues</option>', $html);
+        $this->assertStringNotContainsString('<option value="all">', $html);
+        $this->assertSame('academic', $page->get('concFeeType'));
+
+        // A student with no dues cannot have a concession on them.
+        $page->set('concFilterStandard', (string) $s['std'])->set('concStudentId', (string) $s['sita'])
+            ->set('concType', 'percent')->set('concValue', '50')->set('concFeeType', 'dues')->call('saveConcession');
+        $page->assertHasErrors(['concFeeType']);
+        $this->assertSame(0, DB::table('fee_concessions')->count());
+
+        // Ravi: 50% off his dues, and ₹100 off the academic fee.
+        $page->set('concStudentId', (string) $s['ravi'])->call('saveConcession');
+        $page->assertHasNoErrors();
+        $this->assertSame('dues', DB::table('fee_concessions')->value('fee_type'));
+        DB::table('fee_concessions')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['ravi'],
+            'fee_type' => 'academic', 'concession_type' => 'amount', 'value' => 100]);
+
+        // 250 off the dues (50% of 500), 100 off this year's fee.
+        $sv = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['ravi'])->get('studentFeeView');
+        $this->assertSame([350.0, 1150.0], [(float) $sv['academic']['concession'], (float) $sv['academic']['net']]);
+        $this->assertSame(250.0, $sv['dues']['dues_total']);
+        $this->assertSame(900.0, $sv['dues']['cycle_total']);
+        $this->assertSame('Last Year Dues', collect($sv['concessions'])->firstWhere('value', '50%')['scope']);
+        $this->assertSame(1150.0, \App\Support\StudentFeeTotals::overall($this->org, \App\Models\Student\StudentDetail::find($s['ravi']))['total']);
+
+        // Never more than the dues come to, and never on transport.
+        $off = \App\Models\Admin\Fee\FeeConcession::takeOff(collect([
+            new \App\Models\Admin\Fee\FeeConcession(['fee_type' => 'dues', 'concession_type' => 'amount', 'value' => 900]),
+        ]), 'academic', 1500, 500);
+        $this->assertSame([500.0, 500.0], [$off['taken'], $off['dues']]);
+        $this->assertSame(0.0, \App\Models\Admin\Fee\FeeConcession::takeOff(collect([
+            new \App\Models\Admin\Fee\FeeConcession(['fee_type' => 'dues', 'concession_type' => 'amount', 'value' => 900]),
+        ]), 'transport', 1500, 500)['taken']);
+    }
+
     public function test_payments_read_with_father_section_collector_kind_and_two_header_figures(): void
     {
         $s   = $this->school();

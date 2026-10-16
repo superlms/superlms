@@ -3,6 +3,7 @@
 namespace App\Livewire\Concerns;
 
 use App\Models\Admin\Fee\FeeConcession;
+use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use App\Support\AccountsNotifier;
@@ -35,7 +36,7 @@ trait HandlesFeeConcessions
     public $concStudentId      = '';
     public $concType           = 'amount'; // amount | percent
     public $concValue          = '';
-    public $concFeeType        = 'all';    // academic | transport | all
+    public $concFeeType        = 'academic'; // academic | transport | dues (Last Year Dues); older rows: all
     public $concReason         = '';
     public $concYear           = '2026-27';
     public $editConcessionId   = null;
@@ -131,7 +132,7 @@ trait HandlesFeeConcessions
             'concStudentId', 'concType', 'concValue', 'concReason', 'concStudents',
         ]);
         $this->concType    = 'amount';
-        $this->concFeeType = 'all';
+        $this->concFeeType = 'academic';
         $this->concYear    = $this->currentConcessionYear();
         $this->resetValidation();
     }
@@ -150,12 +151,20 @@ trait HandlesFeeConcessions
             'concStudentId' => 'required|exists:student_details,id',
             'concType'      => 'required|in:amount,percent',
             'concValue'     => 'required|numeric|min:0.01' . ($this->concType === 'percent' ? '|max:100' : ''),
-            'concFeeType'   => 'required|in:academic,transport,all',
+            // 'all' only so an older concession on every fee can still be edited.
+            'concFeeType'   => 'required|in:academic,transport,dues' . ($this->editConcessionId ? ',all' : ''),
             'concReason'    => 'nullable|string|max:255',
             'concYear'      => 'required|string|max:20',
         ]);
 
         $student = StudentDetail::find($this->concStudentId);
+
+        // A concession on the Last Year Dues needs some dues to come off.
+        if ($this->concFeeType === 'dues'
+            && (float) (FeeStructure::ownTotals($this->orgId(), [(int) $student->id])[$student->id] ?? 0) <= 0) {
+            $this->addError('concFeeType', 'This student has no Last Year Dues.');
+            return;
+        }
 
         $payload = [
             'organization_id'   => $this->orgId(),

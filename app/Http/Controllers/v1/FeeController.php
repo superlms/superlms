@@ -330,7 +330,8 @@ class FeeController extends ApiController
             ]);
 
         $structureTotal = (float) $structures->sum('amount');
-        $concession     = $this->concessionFor($student, 'academic', $structureTotal);
+        $concession     = $this->concessionFor($student, 'academic', $structureTotal,
+            (float) (FeeStructure::ownTotals($orgId, [$student->id])[$student->id] ?? 0));
 
         $paidPayments = FeePayment::with(['standard:id,name', 'section:id,name'])
             ->forStudent($student->id)->forOrg($orgId)
@@ -561,7 +562,9 @@ class FeeController extends ApiController
         $penalties     = (float) $payments->sum('penalty_amount');
         $waived        = (float) $payments->sum('waiver_amount');
 
-        $concession = $this->concessionFor($student, 'academic', $academicDue)
+        $duesGross  = (float) $structures->where('fee_type', 'academic')
+            ->filter(fn ($s) => !empty($s->student_detail_id))->sum('amount');
+        $concession = $this->concessionFor($student, 'academic', $academicDue, $duesGross)
             + $this->concessionFor($student, 'transport', $transportDue);
 
         $totalDue  = $academicDue + $transportDue;
@@ -582,17 +585,23 @@ class FeeController extends ApiController
     }
 
     /**
-     * Total concession (₹) applicable to a fee type for the student.
+     * Total concession (₹) applicable to a fee type for the student. One on the
+     * Last Year Dues ($duesGross, part of the academic $base) is worked out on
+     * the dues alone and never comes to more than they do.
      */
-    private function concessionFor(StudentDetail $student, string $feeType, float $base): float
+    private function concessionFor(StudentDetail $student, string $feeType, float $base, float $duesGross = 0.0): float
     {
         if ($base <= 0) return 0.0;
 
-        $discount = FeeConcession::where('organization_id', $student->organization_id)
+        $concessions = FeeConcession::where('organization_id', $student->organization_id)
             ->where('student_detail_id', $student->id)
-            ->whereIn('fee_type', [$feeType, 'all'])
-            ->get()
-            ->sum(fn($c) => $c->discountOn($base));
+            ->whereIn('fee_type', $feeType === 'academic' ? [$feeType, 'all', 'dues'] : [$feeType, 'all'])
+            ->get();
+
+        $discount = $concessions->where('fee_type', '!=', 'dues')->sum(fn($c) => $c->discountOn($base));
+        if ($duesGross > 0) {
+            $discount += min($duesGross, $concessions->where('fee_type', 'dues')->sum(fn($c) => $c->discountOn($duesGross)));
+        }
 
         return round(min($discount, $base), 2);
     }

@@ -139,18 +139,30 @@ trait HandlesFeeSubmission
         // below (as a payment of type concession), but it reduces the fee via
         // this discount — NOT via the paid sum — so there's no double counting.
         $totalStructure = collect($this->classStructures)->sum(fn ($s) => (float) $s['amount']);
+        // A concession on the Last Year Dues is worked out on them alone, and
+        // never comes to more than they do.
+        $duesTotal = collect($this->classStructures)
+            ->filter(fn ($s) => !empty($s['student_detail_id']) && $s['fee_type'] === 'academic')
+            ->sum(fn ($s) => (float) $s['amount']);
+        $duesDiscount = 0.0;
         $discount = 0.0;
         $concessionRows = [];
         foreach ($this->studentConcessions as $c) {
+            $onDues = $c['fee_type'] === 'dues';
+            $base   = $onDues ? $duesTotal : $totalStructure;
             $amt = $c['concession_type'] === 'percent'
-                ? round($totalStructure * ((float) $c['value']) / 100, 2)
-                : min((float) $c['value'], $totalStructure);
+                ? round($base * ((float) $c['value']) / 100, 2)
+                : min((float) $c['value'], $base);
+            if ($onDues) {
+                $amt = round(min($amt, max(0, $duesTotal - $duesDiscount)), 2);
+                $duesDiscount += $amt;
+            }
             $discount += $amt;
             $concessionRows[] = [
                 'id'             => null,
                 'receipt_number' => 'CONCESSION',
                 'amount'         => $amt,
-                'fee_type'       => $c['fee_type'] === 'all' ? 'academic' : $c['fee_type'],
+                'fee_type'       => in_array($c['fee_type'], ['all', 'dues'], true) ? 'academic' : $c['fee_type'],
                 'payment_mode'   => 'concession',
                 'submitted_by'   => !empty($c['reason']) ? $c['reason'] : 'Concession',
                 'payment_date'   => $c['created_at'] ?? now()->toDateString(),

@@ -640,7 +640,7 @@ class StudentPushNotifier
         $paid = FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')
             ->selectRaw('student_detail_id, SUM(amount) as paid')->groupBy('student_detail_id')
             ->pluck('paid', 'student_detail_id');
-        $concessions = FeeConcession::where('organization_id', $orgId)->whereIn('fee_type', ['academic', 'all'])
+        $concessions = FeeConcession::where('organization_id', $orgId)->whereIn('fee_type', ['academic', 'all', 'dues'])
             ->get()->groupBy('student_detail_id');
 
         $sent = 0;
@@ -655,8 +655,12 @@ class StudentPushNotifier
             if ($academicDue <= 0) {
                 continue;
             }
-            $concession = min($academicDue, round((float) collect($concessions->get($student->id, []))
-                ->sum(fn ($c) => $c->discountOn($academicDue)), 2));
+            // A concession on the Last Year Dues is on the dues alone, never more than they come to.
+            $own        = collect($concessions->get($student->id, []));
+            $duesGross  = (float) ($ownFees[$student->id] ?? 0);
+            $concession = min($academicDue, round((float) $own->where('fee_type', '!=', 'dues')
+                ->sum(fn ($c) => $c->discountOn($academicDue))
+                + min($duesGross, (float) $own->where('fee_type', 'dues')->sum(fn ($c) => $c->discountOn($duesGross))), 2));
             $base = max(0, $academicDue - $concession - $tokenAmt);
             $left = (float) ($paid[$student->id] ?? 0);
 

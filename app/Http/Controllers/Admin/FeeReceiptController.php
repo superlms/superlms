@@ -53,9 +53,13 @@ class FeeReceiptController extends Controller
 
         $academicGross = (float) $structures->where('fee_type', 'academic')->sum('amount');
         [$route, $transportGross] = TransportBilling::forStudent($orgId, $student->id);
+        // The student's own rows — Last Year Dues, which a 'dues' concession is on.
+        $duesGross = (float) $structures->where('fee_type', 'academic')
+            ->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
 
-        $academicNet  = $this->netOf($academicGross, 'academic', $concessions);
-        $transportNet = $this->netOf($transportGross, 'transport', $concessions);
+        $academicOff  = FeeConcession::takeOff($concessions, 'academic', $academicGross, $duesGross);
+        $academicNet  = round(max(0, $academicGross - $academicOff['taken']), 2);
+        $transportNet = round(max(0, $transportGross - FeeConcession::takeOff($concessions, 'transport', (float) $transportGross)['taken']), 2);
 
         // ── What has actually come in ────────────────────────────────────────
         $academicPaid = (float) FeePayment::where('organization_id', $orgId)
@@ -66,10 +70,9 @@ class FeeReceiptController extends Controller
             ->where('student_detail_id', $student->id)->sum('amount');
 
         // The academic fee as this year's (the installments) and the Last Year
-        // Dues — a payment taken as Dues comes off the dues alone (FeeDues).
-        $duesGross = (float) $structures->where('fee_type', 'academic')
-            ->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
-        $dues = FeeDues::split($academicNet, $duesGross, $academicPaid, FeeDues::paidAsDues($orgId, $student->id))
+        // Dues — a payment taken as Dues comes off the dues alone (FeeDues), and
+        // so does a concession on them.
+        $dues = FeeDues::split($academicNet, max(0, $duesGross - $academicOff['dues']), $academicPaid, FeeDues::paidAsDues($orgId, $student->id))
             + ['has' => $duesGross > 0];
 
         // No dues: this year's fee is the whole academic fee, as it always was.
@@ -114,23 +117,6 @@ class FeeReceiptController extends Controller
         }
 
         return (string) $value;
-    }
-
-    /** A concession-adjusted total for one side of the ledger. */
-    private function netOf(float $gross, string $type, $concessions): float
-    {
-        $taken = 0.0;
-        foreach ($concessions as $c) {
-            if ($c->fee_type !== 'all' && $c->fee_type !== $type) {
-                continue;
-            }
-            $off = $c->concession_type === 'percent'
-                ? $gross * ((float) $c->value) / 100
-                : (float) $c->value;
-            $taken += min($off, max(0, $gross - $taken));
-        }
-
-        return round(max(0, $gross - $taken), 2);
     }
 
 }
