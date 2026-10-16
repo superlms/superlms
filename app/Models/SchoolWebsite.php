@@ -300,7 +300,9 @@ class SchoolWebsite extends Model
             'logo'          => $org?->logo ?? '',
             'board_logo'    => '',   // the board's seal, beside the name in the Classic masthead
             'page_banner'   => '',   // photo behind every inner page's title (Classic)
-            'map_embed'     => '',   // Google Maps embed link; blank → a map of the address
+            'map_embed'     => '',   // Google Maps embed link; blank → the pin, else a map of the address
+            'map_lat'       => '',   // the school's pin, set in Website Data (a pasted
+            'map_lng'       => '',   // Google Maps link, or the phone's own location)
 
             'hero_title'    => 'Welcome to ' . $name,
             'hero_subtitle' => 'Nurturing young minds with care, creativity and quality education for a brighter future.',
@@ -360,18 +362,56 @@ class SchoolWebsite extends Model
     /** Heading / body / image for one generic content page. */
     public function pageContent(string $slug): array
     {
-        $row = $this->resolvedContent()['pages'][$slug] ?? [];
+        $content = $this->resolvedContent();
+        $row     = $content['pages'][$slug] ?? [];
 
         // More photos, one URL a line — what makes Labs, Sports, Building and
         // the like a photo page.
         $photos = preg_split('/\s*[\r\n]+\s*/', trim((string) ($row['photos'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
 
+        // History, Vision and Mission show the About School page's own while
+        // they have no text of their own.
+        $body = (string) ($row['body'] ?? '');
+        if (trim($body) === '' && ($from = ['history' => 'history_text', 'vision' => 'vision', 'mission' => 'mission'][$slug] ?? null)) {
+            $body = (string) ($content[$from] ?? '');
+        }
+
         return [
-            'heading' => $row['heading'] ?? (static::allPages()[$slug] ?? 'Page'),
-            'body'    => $row['body'] ?? '',
+            'heading' => ($row['heading'] ?? '') !== '' ? $row['heading'] : (static::allPages()[$slug] ?? 'Page'),
+            'body'    => $body,
             'image'   => $row['image'] ?? '',
             'photos'  => $photos,
         ];
+    }
+
+    /**
+     * The Google Maps embed for the school's map, from resolved content: the
+     * embed link it saved (a pasted <iframe> works too), else its pin, else
+     * a search for its name and address; '' with none of them. Only Google
+     * Maps links are embedded.
+     */
+    public static function mapSrc(array $c): string
+    {
+        $embed = trim((string) ($c['map_embed'] ?? ''));
+        if (preg_match('/src=["\']([^"\']+)["\']/i', $embed, $m)) {
+            $embed = html_entity_decode($m[1]);
+        }
+        if (preg_match('#^https://(www\.)?google\.[a-z.]+/maps/embed#i', $embed) || preg_match('#^https://maps\.google\.[a-z.]+/#i', $embed)) {
+            return $embed;
+        }
+
+        $lat = trim((string) ($c['map_lat'] ?? ''));
+        $lng = trim((string) ($c['map_lng'] ?? ''));
+        if (is_numeric($lat) && is_numeric($lng) && abs((float) $lat) <= 90 && abs((float) $lng) <= 180) {
+            return "https://maps.google.com/maps?q={$lat},{$lng}&z=16&output=embed";
+        }
+
+        $address = trim((string) ($c['address'] ?? ''));
+        if ($address !== '') {
+            return 'https://maps.google.com/maps?q=' . urlencode(($c['school_name'] ?? '') . ', ' . $address) . '&z=14&output=embed';
+        }
+
+        return '';
     }
 
     /** The rows for a document page, falling back to the CBSE checklist. */

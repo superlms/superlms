@@ -150,11 +150,16 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->actingAs($admin);
 
         Livewire::test(WebsiteData::class)
-            ->call('addRow', 'heroSlides')
-            ->set('heroSlides.0.title', 'Welcome to Sunrise')
-            ->set('form.board_logo', 'https://example.com/cbse.png')
+            ->call('openPage', 'home')
+            ->call('addRow', 'hero_slides')
+            ->set('data.hero_slides.0.title', 'Welcome to Sunrise')
+            ->call('save')
+            ->call('openPage', 'details')
+            ->set('data.board_logo', 'https://example.com/cbse.png')
+            ->call('save')
+            ->call('openPage', 'result')
             ->call('addRow', 'results')
-            ->set('results.0.year', '2025')
+            ->set('data.results.0.year', '2025')
             ->call('save');
 
         $site = SchoolWebsite::first();
@@ -331,8 +336,9 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->actingAs($admin);
 
         Livewire::test(WebsiteData::class)
-            ->assertSet('form.logo', 'https://bucket.example/admin/profile/photos/a.png')   // shown, as before
-            ->set('form.motto', 'Learn to Serve')
+            ->call('openPage', 'details')
+            ->assertSet('data.logo', 'https://bucket.example/admin/profile/photos/a.png')   // shown, as before
+            ->set('data.motto', 'Learn to Serve')
             ->call('save');
 
         $content = SchoolWebsite::first()->content;

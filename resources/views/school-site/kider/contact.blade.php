@@ -34,4 +34,17 @@
             </div>
         </div>
     </section>
+
+    {{-- The map from Website Data (the school's pin, its embed link or its address). --}}
+    @php $mapSrc = \App\Models\SchoolWebsite::mapSrc($c); @endphp
+    @if ($mapSrc)
+        <section class="section" style="padding-top:0;">
+            <div class="section-inner reveal">
+                <div style="height:380px;border-radius:24px;overflow:hidden;background:#EEF0F4;">
+                    <iframe src="{{ $mapSrc }}" title="Map to {{ $c['school_name'] }}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                            style="width:100%;height:100%;border:0;" allowfullscreen></iframe>
+                </div>
+            </div>
+        </section>
+    @endif
 @endsection

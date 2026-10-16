@@ -3,254 +3,332 @@
 namespace App\Livewire\Admin;
 
 use App\Models\SchoolWebsite;
+use App\Support\MapLink;
+use App\Support\WebsitePages;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
 
 /**
- * Admin-side editor for the school's public website CONTENT.
+ * More → Website Data: the school fills in its website page by page.
  *
- * The school admin manages all the marketing data here (brand, hero, about,
- * leadership, facilities, admissions, gallery, …). It is stored in the same
- * SchoolWebsite `content` JSON the template reads, so every save reflects on
- * the live site immediately. Pages, theme, custom domain and publishing stay
- * with the super-admin (SchoolWebsiteBuilder) and are NOT touched here.
+ * It opens on the list of the site's pages, under the menus the site shows
+ * them in (with School Details — name, logo, contact — above them). A page
+ * opens on the blocks that page shows (WebsitePages): text, photos, files,
+ * lists, the map. Photos and files upload as soon as they are picked; Save
+ * writes the page's blocks into the site's content and they are live.
+ *
+ * Only content is written here — the super admin's template, pages, theme,
+ * domain and publish switch are left alone — and only what differs from the
+ * school's profile, so the site keeps following its logo, phone and the rest.
  */
 class WebsiteData extends Component
 {
-    use WireUiActions;
+    use WireUiActions, WithFileUploads;
 
     public $organization;
 
-    public array  $form              = [];   // scalar content fields
-    public array  $classes           = [];   // [{title,age,time,capacity,image}]
-    public array  $team              = [];   // [{name,role,photo}]
-    public array  $leadership        = [];   // [{name,role,photo,message}]
-    public array  $facilities        = [];   // [{icon,title,desc}]
-    public array  $whyUs             = [];   // [{icon,title,desc}]
-    public array  $stats             = [];   // [{value,label}]
-    public array  $admissionSteps    = [];   // [{title,desc}]
-    public array  $documentsRequired = [];   // [{text}]
-    public array  $admissionRules    = [];   // [{text}]
-    public array  $gallery           = [];   // [{image,caption}]
-    public array  $heroSlides        = [];   // [{image,title,subtitle}]
-    public array  $results           = [];   // [{year,appeared,passed}]
+    /** The page open ('' for the list, 'details' for School Details); a step for Back. */
+    #[Url(as: 'edit', history: true, except: '')]
+    public string $open = '';
 
-    /** Generic content pages: slug => {heading, body, image, photos}. */
-    public array  $pages   = [];
-    /** Document tables: slug => [{title,file,date}]. */
-    public array  $docs    = [];
+    /** The open page's blocks' values: block id => value. */
+    public array $data = [];
 
-    /** Which content page / document table the editor is currently on. */
-    public string $pageSlug = '';
-    public string $docSlug  = 'disclosures';
+    /** Files picked on the open page: uploaded and placed as soon as they arrive. */
+    public array $uploads = [];
 
-    // A tab switch is one step for the header's Back.
-    #[Url(history: true, except: 'details')]
-    public string $activeTab         = 'details';
-
-    /** Scalar content fields managed by the form. */
-    private array $scalarKeys = [
-        'school_name', 'tagline', 'motto', 'medium', 'board', 'affiliation_no', 'school_code', 'logo',
-        'board_logo', 'page_banner', 'map_embed',
-        'hero_title', 'hero_subtitle',
-        'about_heading', 'about_text', 'about_text2', 'history_text', 'philosophy', 'vision', 'mission',
-        'admission_intro', 'admission_session', 'fee_note', 'curriculum_text',
-        'cta_heading', 'cta_text',
-        'phone', 'email', 'address',
-        'facebook', 'instagram', 'youtube', 'twitter', 'telegram',
-    ];
-
-    /** Repeatable list fields: state property => [row template]. */
-    private array $listFields = [
-        'classes'           => ['title' => '', 'age' => '', 'time' => '', 'capacity' => '', 'image' => ''],
-        'team'              => ['name' => '', 'role' => '', 'photo' => ''],
-        'leadership'        => ['name' => '', 'role' => '', 'photo' => '', 'message' => ''],
-        'facilities'        => ['icon' => '', 'title' => '', 'desc' => '', 'image' => ''],
-        'whyUs'             => ['icon' => '', 'title' => '', 'desc' => ''],
-        'stats'             => ['value' => '', 'label' => ''],
-        'admissionSteps'    => ['title' => '', 'desc' => ''],
-        'documentsRequired' => ['text' => ''],
-        'admissionRules'    => ['text' => ''],
-        'gallery'           => ['image' => '', 'caption' => ''],
-        'heroSlides'        => ['image' => '', 'title' => '', 'subtitle' => ''],
-        'results'           => ['year' => '', 'appeared' => '', 'passed' => ''],
-    ];
-
-    /** Map builder state property => content JSON key (camel → snake). */
-    private array $listContentKey = [
-        'classes'           => 'classes',
-        'team'              => 'team',
-        'leadership'        => 'leadership',
-        'facilities'        => 'facilities',
-        'whyUs'             => 'why_us',
-        'stats'             => 'stats',
-        'admissionSteps'    => 'admission_steps',
-        'documentsRequired' => 'documents_required',
-        'admissionRules'    => 'admission_rules',
-        'gallery'           => 'gallery',
-        'heroSlides'        => 'hero_slides',
-        'results'           => 'results',
-    ];
+    /** Something on the open page changed since it was opened or saved. */
+    public bool $dirty = false;
 
     public function mount(): void
     {
         // Always scope to the signed-in admin's own organization.
         $this->organization = auth()->user()->organization?->load('schoolInfo.managementTeam');
 
-        $website = SchoolWebsite::firstOrNew(['organization_id' => $this->organization?->id]);
-        $website->setRelation('organization', $this->organization);
-
-        $content = $website->resolvedContent();
-
-        foreach ($this->scalarKeys as $k) {
-            $this->form[$k] = (string) ($content[$k] ?? '');
-        }
-
-        foreach ($this->listContentKey as $prop => $key) {
-            $this->{$prop} = array_values($content[$key] ?? []);
-        }
-
-        // Seed a row per content page so every page has a form to fill in,
-        // and per document table so the CBSE checklist is there to upload against.
-        $this->pages = $content['pages'] ?? [];
-        foreach (static::contentPageSlugs() as $slug) {
-            $this->pages[$slug] = [
-                'heading' => $this->pages[$slug]['heading'] ?? SchoolWebsite::allPages()[$slug] ?? '',
-                'body'    => $this->pages[$slug]['body'] ?? '',
-                'image'   => $this->pages[$slug]['image'] ?? '',
-                'photos'  => $this->pages[$slug]['photos'] ?? '',
-            ];
-        }
-        $this->pageSlug = array_key_first($this->pages) ?: '';
-
-        $this->docs = $content['documents'] ?? [];
-        foreach (static::documentPageSlugs() as $slug) {
-            $rows = $this->docs[$slug] ?? [];
-            if (empty($rows) && $slug === 'disclosures') {
-                $rows = SchoolWebsite::defaultDisclosures();
-            }
-            $this->docs[$slug] = array_values($rows);
+        if ($this->open !== '') {
+            $this->openPage($this->open);
         }
     }
 
-    /** Page slugs the template renders through the generic content blade. */
-    public static function contentPageSlugs(): array
-    {
-        return static::slugsOfType('content');
-    }
+    /** The school's site, read once a request. */
+    private ?SchoolWebsite $site = null;
 
-    /** Page slugs the template renders as a document table. */
-    public static function documentPageSlugs(): array
+    private function site(): SchoolWebsite
     {
-        return static::slugsOfType('documents');
-    }
-
-    private static function slugsOfType(string $type): array
-    {
-        $out = [];
-        foreach (SchoolWebsite::pageGroups() as $pages) {
-            foreach ($pages as $slug => [$label, $t]) {
-                if ($t === $type) {
-                    $out[] = $slug;
-                }
-            }
+        if (! $this->site) {
+            $this->site = SchoolWebsite::firstOrNew(['organization_id' => $this->organization?->id]);
+            $this->site->setRelation('organization', $this->organization);
         }
-        return $out;
+
+        return $this->site;
     }
 
-    public function switchTab(string $tab): void
+    private function page(): ?array
     {
-        $this->activeTab = $tab;
+        return $this->open === '' ? null : WebsitePages::page($this->open, $this->site()->templateKey());
     }
 
-    // ─── Repeatable rows (generic) ────────────────────────────────────
+    // ─── List ↔ page ─────────────────────────────────────────────────────
 
-    /** Append a blank row to any list field (e.g. addRow('facilities')). */
-    public function addRow(string $list): void
+    public function openPage(string $slug): void
     {
-        if (!isset($this->listFields[$list])) {
+        $page = WebsitePages::page($slug, $this->site()->templateKey());
+        if (! $page) {
+            $this->closePage();
+
             return;
         }
-        $this->{$list}[] = $this->listFields[$list];
+
+        $this->open    = $slug;
+        $this->data    = WebsitePages::values($page['blocks'], $this->site());
+        $this->uploads = [];
+        $this->dirty   = false;
+        $this->resetErrorBag();
     }
 
-    /** Remove a row from any list field and re-index. */
-    public function removeRow(string $list, int $i): void
+    public function closePage(): void
     {
-        if (!isset($this->listFields[$list]) || !isset($this->{$list}[$i])) {
+        $this->open    = '';
+        $this->data    = [];
+        $this->uploads = [];
+        $this->dirty   = false;
+        $this->resetErrorBag();
+    }
+
+    /** The browser's Back / Forward between the list and a page. */
+    public function updatedOpen(): void
+    {
+        $this->open === '' ? $this->closePage() : $this->openPage($this->open);
+    }
+
+    public function updated(string $name): void
+    {
+        if (str_starts_with($name, 'data.')) {
+            $this->dirty = true;
+        }
+        // Coordinates typed in replace a pasted embed.
+        if (in_array($name, ['data.location.lat', 'data.location.lng'], true)) {
+            $this->data['location']['embed'] = '';
+        }
+    }
+
+    // ─── Lists, photos ───────────────────────────────────────────────────
+
+    private function listBlock(string $id): ?array
+    {
+        $b = ($page = $this->page()) ? WebsitePages::block($page, $id) : null;
+
+        return $b && in_array($b['type'], ['list', 'images'], true) ? $b : null;
+    }
+
+    public function addRow(string $id): void
+    {
+        if (($b = $this->listBlock($id)) && $b['type'] === 'list') {
+            $this->data[$id][] = WebsitePages::row($b, []);
+            $this->dirty = true;
+        }
+    }
+
+    public function removeRow(string $id, int $i): void
+    {
+        if ($this->listBlock($id) && isset($this->data[$id][$i])) {
+            array_splice($this->data[$id], $i, 1);
+            $this->dirty = true;
+        }
+    }
+
+    public function moveRow(string $id, int $i, int $by): void
+    {
+        $to = $i + $by;
+        if ($this->listBlock($id) && isset($this->data[$id][$i], $this->data[$id][$to])) {
+            [$this->data[$id][$i], $this->data[$id][$to]] = [$this->data[$id][$to], $this->data[$id][$i]];
+            $this->dirty = true;
+        }
+    }
+
+    /** Empty one photo or file: "logo", or "hero_slides.2.image". */
+    public function clearValue(string $path): void
+    {
+        $page = $this->page();
+        if ($page && WebsitePages::block($page, explode('.', $path)[0]) && is_string(data_get($this->data, $path))) {
+            data_set($this->data, $path, '');
+            $this->dirty = true;
+        }
+    }
+
+    // ─── Uploads ─────────────────────────────────────────────────────────
+
+    /**
+     * A photo or file picked: "logo" (a photo block), "photos" or "gallery"
+     * (several, for a photos block or a list's photo column) or
+     * "hero_slides.2.image" (a list row's photo or file). It is checked,
+     * stored and put in its place; the page is saved with Save.
+     */
+    public function updatedUploads(mixed $value, string $key): void
+    {
+        $parts = explode('.', $key);
+        $page  = $this->page();
+        $b     = $page ? WebsitePages::block($page, $parts[0]) : null;
+
+        // The column a list row's upload goes to, or a list's bulk photo column.
+        $kind = match (true) {
+            ! $b                    => null,
+            count($parts) === 3     => isset($this->data[$parts[0]][(int) $parts[1]]) ? ($b['fields'][$parts[2]][0] ?? null) : null,
+            $b['type'] === 'list'   => isset($b['bulk']) ? 'image' : null,
+            default                 => $b['type'],
+        };
+        $files = array_values(array_filter(is_array($value) ? $value : [$value], fn ($f) => $f instanceof TemporaryUploadedFile));
+        $this->uploads = [];
+
+        if (! in_array($kind, ['image', 'images', 'file'], true) || ! $files) {
             return;
         }
-        $rows = $this->{$list};
-        unset($rows[$i]);
-        $this->{$list} = array_values($rows);
+
+        $rule = $kind === 'file'
+            ? ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480']
+            : ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'];
+        $urls = [];
+        foreach ($files as $file) {
+            if (Validator::make(['f' => $file], ['f' => $rule])->fails()) {
+                $this->addError("uploads.{$key}", $kind === 'file'
+                    ? 'Pick a PDF or a photo (JPG, PNG, WebP) under 20 MB.'
+                    : 'Pick a photo (JPG, PNG, WebP or GIF) under 5 MB.');
+                continue;
+            }
+            $urls[] = $this->store($file);
+        }
+        if (! $urls) {
+            return;
+        }
+
+        $id = $parts[0];
+        if (count($parts) === 3) {
+            data_set($this->data, $key, $urls[0]);
+        } elseif ($b['type'] === 'list') {
+            foreach ($urls as $url) {
+                $this->data[$id][] = array_merge(WebsitePages::row($b, []), [$b['bulk'] => $url]);
+            }
+        } elseif ($b['type'] === 'images') {
+            $this->data[$id] = array_merge($this->data[$id] ?? [], $urls);
+        } else {
+            $this->data[$id] = $urls[0];
+        }
+        $this->dirty = true;
+        $this->resetErrorBag("uploads.{$key}");
     }
 
-    // ─── Document tables (one list per document page) ──────────────────
-
-    public function addDocRow(string $slug): void
+    private function store(TemporaryUploadedFile $file): string
     {
-        $this->docs[$slug][] = ['title' => '', 'file' => '', 'date' => ''];
+        $path = $file->store('admin/website/' . $this->organization->id, 's3');
+        try {
+            Storage::disk('s3')->setVisibility($path, 'public');
+        } catch (\Throwable) {
+            // A bucket with ACLs off serves by its policy instead.
+        }
+
+        return Storage::disk('s3')->url($path);
     }
 
-    public function removeDocRow(string $slug, int $i): void
+    // ─── The map ─────────────────────────────────────────────────────────
+
+    /** A pasted Google Maps link (or coordinates) becomes the school's pin. */
+    public function setMapLink(): void
     {
-        if (isset($this->docs[$slug][$i])) {
-            unset($this->docs[$slug][$i]);
-            $this->docs[$slug] = array_values($this->docs[$slug]);
+        $found = MapLink::parse((string) ($this->data['location']['link'] ?? ''));
+        if (! $found) {
+            $this->addError('data.location.link', "Couldn't find a place in that. In Google Maps, open your school, tap Share → Copy link, and paste it here.");
+
+            return;
+        }
+
+        $this->data['location'] = array_merge($this->data['location'], [
+            'lat'   => $found['lat'] ?? '',
+            'lng'   => $found['lng'] ?? '',
+            'embed' => $found['embed'] ?? '',
+            'link'  => '',
+        ]);
+        $this->dirty = true;
+        $this->resetErrorBag('data.location.link');
+    }
+
+    /** The phone's own location (the browser's), standing at the school. */
+    public function setPin(float $lat, float $lng): void
+    {
+        if (! isset($this->data['location']) || ! ($pin = MapLink::pin($lat, $lng))) {
+            return;
+        }
+        $this->data['location'] = array_merge($this->data['location'], $pin, ['embed' => '']);
+        $this->dirty = true;
+    }
+
+    /** Back to the map searched from the address. */
+    public function clearPin(): void
+    {
+        if (isset($this->data['location'])) {
+            $this->data['location'] = array_merge($this->data['location'], ['lat' => '', 'lng' => '', 'embed' => '']);
+            $this->dirty = true;
         }
     }
 
-    // ─── Save (content only — never touches pages/theme/domain/status) ──
+    // ─── Save ────────────────────────────────────────────────────────────
 
     public function save(): void
     {
-        if (!$this->organization) {
+        if (! $this->organization) {
             $this->notification()->error('No organization', 'Could not resolve your school.');
+
+            return;
+        }
+        $site = $this->site();
+        $page = $this->page();
+        if (! $page) {
             return;
         }
 
-        $this->validate(
-            ['form.school_name' => 'required|string|max:255'],
-            ['form.school_name.required' => 'School name is required.']
-        );
-
-        $content = $this->form;
-        foreach ($this->listContentKey as $prop => $key) {
-            $content[$key] = array_values($this->{$prop});
-        }
-
-        // Drop content pages left completely blank so the template keeps
-        // showing its "being updated" note rather than an empty heading.
-        $content['pages'] = array_filter(
-            $this->pages,
-            fn ($p) => trim((string) ($p['body'] ?? '')) !== ''
-                || trim((string) ($p['image'] ?? '')) !== ''
-                || trim((string) ($p['photos'] ?? '')) !== ''
-        );
-
-        $content['documents'] = [];
-        foreach ($this->docs as $slug => $rows) {
-            $rows = array_values(array_filter($rows, fn ($r) => trim((string) ($r['title'] ?? '')) !== ''));
-            if ($rows) {
-                $content['documents'][$slug] = $rows;
+        $rules = $messages = [];
+        foreach ($page['blocks'] as $b) {
+            if (! empty($b['required'])) {
+                $rules["data.{$b['id']}"] = 'required|string|max:255';
+                $messages["data.{$b['id']}.required"] = "{$b['label']} is required.";
             }
         }
+        if ($rules) {
+            $this->validate($rules, $messages);
+        }
 
-        // Only content is written, which leaves the super-admin's template,
-        // pages, theme, domain and publish status untouched (a new record gets
-        // the column's default template) — and only what differs from the
-        // school's profile, so the site keeps following its logo, phone, etc.
-        $website = SchoolWebsite::firstOrNew(['organization_id' => $this->organization->id]);
-        $website->setRelation('organization', $this->organization);
-        $website->content = $website->overridesOnly($content);
-        $website->save();
+        $content = WebsitePages::apply($page['blocks'], $this->data, $site->content ?? []);
+        $site->content = $site->overridesOnly($content);
+        $site->save();
 
-        $this->notification()->success('Saved', 'Website content updated — it is now live on your site.');
+        $this->dirty = false;
+        $this->notification()->success('Saved', "{$page['label']} is updated on your website.");
     }
 
     public function render()
     {
-        return view('livewire.admin.website-data');
+        $site = $this->site();
+        $page = $this->page();
+        $live = $site->status && $site->domain;
+
+        return view('livewire.admin.website-data', [
+            'site'    => $site,
+            'page'    => $page,
+            'listing' => $page ? null : WebsitePages::listing($site),
+            'pageUrl' => $live && $page
+                ? 'https://' . $site->domain . '/' . (in_array($this->open, ['home', WebsitePages::DETAILS], true) ? '' : $this->open)
+                : null,
+            'mapSrc'  => isset($this->data['location']) ? SchoolWebsite::mapSrc([
+                'school_name' => $site->resolvedContent()['school_name'] ?? '',
+                'address'     => $this->data['location']['address'] ?? '',
+                'map_lat'     => $this->data['location']['lat'] ?? '',
+                'map_lng'     => $this->data['location']['lng'] ?? '',
+                'map_embed'   => $this->data['location']['embed'] ?? '',
+            ]) : '',
+        ]);
     }
 }

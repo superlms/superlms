@@ -1,583 +1,125 @@
-<div class="min-h-screen bg-gray-50">
+{{--
+    More → Website Data. Opens on the site's pages under the menus the site
+    shows them in, School Details above them; a page opens on the blocks that
+    page shows (App\Support\WebsitePages), saved with Save. Photos and files
+    upload as soon as they are picked.
+--}}
+@php
+    $leave = "if (! changed || confirm('Leave this page without saving your changes?'))";
+@endphp
+<div class="min-h-screen bg-gray-50"
+     x-data="{ changed: @entangle('dirty') }"
+     x-on:beforeunload.window="if (changed) { $event.preventDefault(); $event.returnValue = ''; }">
+    <style>[x-cloak]{display:none !important;}</style>
 
-    {{-- ══════════ TOP BAR ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-                {{-- No arrow back to More: the header's Back takes you there. --}}
-                <div class="min-w-0">
-                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Website Data</h1>
-                </div>
+    @if (! $page)
+        {{-- ══════════ THE PAGES ══════════ --}}
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+            <div class="px-1">
+                <h1 class="text-lg font-semibold text-gray-900">Website Data</h1>
+                <p class="text-sm text-gray-500 mt-0.5">Open a page to fill in what it shows. It is live on your website as soon as you save.</p>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <button wire:click="save"
-                    class="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Save
+
+            <button type="button" wire:click="openPage('details')"
+                class="w-full flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-left hover:bg-gray-50 transition-colors">
+                <span class="w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M9 11h.01M15 11h.01"/></svg>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-gray-900">School Details</span>
+                    <span class="block text-xs text-gray-500 truncate">Name, logo, phone, address and social links — on every page</span>
+                </span>
+                @include('livewire.admin.website-data.status', ['status' => $listing['details']['status']])
+                <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+
+            @foreach ($listing['groups'] as $group => $rows)
+                <section wire:key="grp-{{ \Illuminate\Support\Str::slug($group) }}">
+                    <h2 class="px-1 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $group }}</h2>
+                    <div class="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+                        @foreach ($rows as $slug => $row)
+                            <button type="button" wire:click="openPage('{{ $slug }}')" wire:key="pg-{{ $slug }}"
+                                class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-sm text-gray-800">{{ $row['label'] }}</span>
+                                    <span class="block text-xs text-gray-400 truncate">{{ $row['summary'] ?: 'A form — nothing to fill in' }}</span>
+                                </span>
+                                @include('livewire.admin.website-data.status', ['status' => $row['status']])
+                                <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        @endforeach
+                    </div>
+                    @if ($group === 'Mandatory Disclosure' && $site->templateKey() === 'classic')
+                        <p class="px-1 mt-1.5 text-xs text-gray-400">The Documents menu fills itself — every disclosure you upload gets a page of its own.</p>
+                    @endif
+                </section>
+            @endforeach
+
+            @if ($listing['off'])
+                <p class="px-1 text-xs text-gray-400">
+                    {{ $listing['off'] }} more {{ \Illuminate\Support\Str::plural('page', $listing['off']) }} switched off for your site — Super Admin can turn them on.
+                </p>
+            @endif
+        </div>
+    @else
+        {{-- ══════════ ONE PAGE ══════════ --}}
+        <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
+                <button type="button" x-on:click="{{ $leave }} $wire.closePage()" title="All pages"
+                    class="p-1.5 -ml-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[11px] text-gray-400 truncate leading-tight">Website Data{{ $page['group'] ? ' › ' . $page['group'] : '' }}</p>
+                    <h1 class="text-base font-semibold text-gray-900 truncate leading-tight">{{ $page['label'] }}</h1>
+                </div>
+                <span x-show="changed" x-cloak class="hidden sm:inline text-xs text-amber-600">Unsaved changes</span>
+                @if ($pageUrl)
+                    <a href="{{ $pageUrl }}" target="_blank" rel="noopener"
+                        class="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        View page
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </a>
+                @endif
+                @include('livewire.admin.website-data.save')
             </div>
         </div>
-        {{-- Tabs --}}
-        <nav class="flex gap-1 mt-3 -mb-3 overflow-x-auto">
-            @foreach (['details' => 'Details', 'about' => 'About', 'leadership' => 'Leadership', 'facilities' => 'Facilities', 'admission' => 'Admissions', 'gallery' => 'Gallery', 'pages' => 'Pages', 'documents' => 'Documents', 'results' => 'Results'] as $tab => $label)
-                <button wire:click="switchTab('{{ $tab }}')"
-                    class="py-2.5 px-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors
-                        {{ $activeTab === $tab ? 'border-indigo-500 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    {{ $label }}
-                </button>
-            @endforeach
-        </nav>
-    </div>
 
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-5 space-y-3" wire:key="page-{{ $open }}" x-on:input="changed = true">
+            @if ($page['intro'])
+                <p class="px-1 text-sm text-gray-500">{{ $page['intro'] }}</p>
+            @endif
 
-        {{-- ══════════ DETAILS ══════════ --}}
-        @if ($activeTab === 'details')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Details auto-filled from your school's profile where available. Edit anything below and add what's missing.
-            </div>
-
-            {{-- Brand --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Brand</h2>
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">School Name *</label>
-                        <input type="text" wire:model="form.school_name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                        @error('form.school_name')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+            @php
+                // Text and paragraph blocks in a row share one card; the rest have their own.
+                $runs = [];
+                foreach ($page['blocks'] as $b) {
+                    $plain = in_array($b['type'], ['text', 'textarea'], true);
+                    if ($plain && $runs && $runs[array_key_last($runs)]['plain']) {
+                        $runs[array_key_last($runs)]['blocks'][] = $b;
+                    } else {
+                        $runs[] = ['plain' => $plain, 'blocks' => [$b]];
+                    }
+                }
+            @endphp
+            @foreach ($runs as $run)
+                @if ($run['plain'])
+                    <div class="bg-white border border-gray-200 rounded-xl p-4 space-y-4" wire:key="run-{{ $run['blocks'][0]['id'] }}">
+                        @foreach ($run['blocks'] as $b)
+                            @include('livewire.admin.website-data.block', ['b' => $b, 'bare' => true])
+                        @endforeach
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Tagline</label>
-                        <input type="text" wire:model="form.tagline" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Motto <span class="text-gray-400">(e.g. Serving Nation Through Education)</span></label>
-                        <input type="text" wire:model="form.motto" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Medium <span class="text-gray-400">(e.g. English Medium, Co-Ed)</span></label>
-                        <input type="text" wire:model="form.medium" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Board <span class="text-gray-400">(e.g. CBSE)</span></label>
-                        <input type="text" wire:model="form.board" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Affiliation No.</label>
-                        <input type="text" wire:model="form.affiliation_no" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">School Code</label>
-                        <input type="text" wire:model="form.school_code" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Logo URL <span class="text-gray-400">(leave blank to use the school's saved logo)</span></label>
-                        <input type="text" wire:model="form.logo" placeholder="https://... or storage path" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Board Logo URL <span class="text-gray-400">(e.g. the CBSE logo, beside the name)</span></label>
-                        <input type="text" wire:model="form.board_logo" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Page Banner Photo URL <span class="text-gray-400">(behind every page's title)</span></label>
-                        <input type="text" wire:model="form.page_banner" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                </div>
-            </div>
-
-            {{-- Hero --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Hero Banner</h2>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Hero Title</label>
-                    <input type="text" wire:model="form.hero_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Hero Subtitle</label>
-                    <textarea wire:model="form.hero_subtitle" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-
-                {{-- Slides: the Classic template's home slider. --}}
-                <div class="pt-2 space-y-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <h3 class="text-sm font-semibold text-gray-800">Slider <span class="text-xs font-normal text-gray-400">({{ count($heroSlides) }}) — photos that slide on the home page; a slide without a photo shows your logo as a watermark</span></h3>
-                        <button wire:click="addRow('heroSlides')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap">+ Add Slide</button>
-                    </div>
-                    @forelse ($heroSlides as $i => $slide)
-                        <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-3 gap-2 items-end" wire:key="slide-{{ $i }}">
-                            <div><label class="block text-[11px] text-gray-500 mb-1">Photo URL</label><input wire:model="heroSlides.{{ $i }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="heroSlides.{{ $i }}.title" placeholder="e.g. Leading CBSE Affiliated School" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div class="flex gap-1">
-                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Subtitle</label><input wire:model="heroSlides.{{ $i }}.subtitle" placeholder="e.g. Classes from Nursery to Class X" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                                <button wire:click="removeRow('heroSlides', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="text-xs text-gray-400">No slides added — the slider uses your gallery photos, or your logo as a watermark, under the hero title.</p>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- About --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">About Section</h2>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">About Heading</label>
-                    <input type="text" wire:model="form.about_heading" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">About Text</label>
-                    <textarea wire:model="form.about_text" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">About Text (paragraph 2)</label>
-                    <textarea wire:model="form.about_text2" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Vision</label>
-                        <textarea wire:model="form.vision" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Mission</label>
-                        <textarea wire:model="form.mission" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                    </div>
-                </div>
-            </div>
-
-            {{-- CTA --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Call-to-Action</h2>
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Heading</label>
-                        <input type="text" wire:model="form.cta_heading" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Text</label>
-                        <input type="text" wire:model="form.cta_text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                </div>
-            </div>
-
-            {{-- Contact + Social --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Contact &amp; Social</h2>
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                        <input type="text" wire:model="form.phone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                        <input type="text" wire:model="form.email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
-                        <input type="text" wire:model="form.address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Google Maps Embed Link <span class="text-gray-400">(Google Maps → Share → Embed a map; leave blank to map the address)</span></label>
-                        <input type="text" wire:model="form.map_embed" placeholder="https://www.google.com/maps/embed?pb=..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Facebook URL</label>
-                        <input type="text" wire:model="form.facebook" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Instagram URL</label>
-                        <input type="text" wire:model="form.instagram" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">YouTube URL</label>
-                        <input type="text" wire:model="form.youtube" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Twitter URL</label>
-                        <input type="text" wire:model="form.twitter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Telegram URL</label>
-                        <input type="text" wire:model="form.telegram" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                </div>
-            </div>
-
-            {{-- Classes repeater --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Classes <span class="text-xs text-gray-400">({{ count($classes) }})</span></h2>
-                    <button wire:click="addRow('classes')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($classes as $i => $cls)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-5 gap-2 items-end" wire:key="cls-{{ $i }}">
-                        <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="classes.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Age</label><input wire:model="classes.{{ $i }}.age" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Time</label><input wire:model="classes.{{ $i }}.time" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Capacity</label><input wire:model="classes.{{ $i }}.capacity" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('classes', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No classes added — the template will show sample classes until you add your own.</p>
-                @endforelse
-            </div>
-
-            {{-- Team repeater --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Team <span class="text-xs text-gray-400">({{ count($team) }})</span></h2>
-                    <button wire:click="addRow('team')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($team as $i => $member)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-3 gap-2 items-end" wire:key="team-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Name</label><input wire:model="team.{{ $i }}.name" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Role</label><input wire:model="team.{{ $i }}.role" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Photo URL</label><input wire:model="team.{{ $i }}.photo" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('team', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No team members added — auto-filled from the school's management team if available.</p>
-                @endforelse
-            </div>
-        @endif
-
-        {{-- ══════════ ABOUT (history / philosophy / why-us / stats) ══════════ --}}
-        @if ($activeTab === 'about')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Richer About-page content. Vision &amp; Mission live under the <strong>Details</strong> tab.
-            </div>
-
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Our Story</h2>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">History</label>
-                    <textarea wire:model="form.history_text" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Philosophy</label>
-                    <textarea wire:model="form.philosophy" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-            </div>
-
-            {{-- Stats repeater --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Highlight Stats <span class="text-xs text-gray-400">({{ count($stats) }}) — shown on the home hero</span></h2>
-                    <button wire:click="addRow('stats')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($stats as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-2 gap-2 items-end" wire:key="stat-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Value (e.g. Nursery–X, CBSE, 500+)</label><input wire:model="stats.{{ $i }}.value" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Label</label><input wire:model="stats.{{ $i }}.label" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('stats', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No stats added — the hero shows default highlights.</p>
-                @endforelse
-            </div>
-
-            {{-- Why-us repeater --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Why Choose Us <span class="text-xs text-gray-400">({{ count($whyUs) }})</span></h2>
-                    <button wire:click="addRow('whyUs')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($whyUs as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-6 gap-2 items-end" wire:key="why-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Icon (emoji)</label><input wire:model="whyUs.{{ $i }}.icon" placeholder="🌟" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="whyUs.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-3 flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Description</label><input wire:model="whyUs.{{ $i }}.desc" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('whyUs', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No points added — a default set is shown.</p>
-                @endforelse
-            </div>
-        @endif
-
-        {{-- ══════════ LEADERSHIP ══════════ --}}
-        @if ($activeTab === 'leadership')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Leadership messages — Chairman, Founder, Principal, Director, etc. Each shows as a card with their photo and message.
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Leadership Messages <span class="text-xs text-gray-400">({{ count($leadership) }})</span></h2>
-                    <button wire:click="addRow('leadership')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($leadership as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 space-y-2" wire:key="lead-{{ $i }}">
-                        <div class="grid sm:grid-cols-3 gap-2">
-                            <div><label class="block text-[11px] text-gray-500 mb-1">Name</label><input wire:model="leadership.{{ $i }}.name" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div><label class="block text-[11px] text-gray-500 mb-1">Role</label><input wire:model="leadership.{{ $i }}.role" placeholder="Chairman / Principal" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div><label class="block text-[11px] text-gray-500 mb-1">Photo URL</label><input wire:model="leadership.{{ $i }}.photo" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        </div>
-                        <div class="flex gap-1 items-end">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Message</label><textarea wire:model="leadership.{{ $i }}.message" rows="3" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm resize-y"></textarea></div>
-                            <button wire:click="removeRow('leadership', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No leadership messages yet. Click "+ Add".</p>
-                @endforelse
-            </div>
-        @endif
-
-        {{-- ══════════ FACILITIES ══════════ --}}
-        @if ($activeTab === 'facilities')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Facilities &amp; features (Labs, Library, Transport, Playground…). Shown as an icon grid on the Facilities page and previewed on Home.
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Facilities <span class="text-xs text-gray-400">({{ count($facilities) }})</span></h2>
-                    <button wire:click="addRow('facilities')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($facilities as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-6 gap-2 items-end" wire:key="fac-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Icon (emoji)</label><input wire:model="facilities.{{ $i }}.icon" placeholder="🔬" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="facilities.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Photo URL (optional)</label><input wire:model="facilities.{{ $i }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-6 flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Description</label><input wire:model="facilities.{{ $i }}.desc" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('facilities', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No facilities added — a default set is shown on the site until you add your own.</p>
-                @endforelse
-            </div>
-        @endif
-
-        {{-- ══════════ ADMISSIONS ══════════ --}}
-        @if ($activeTab === 'admission')
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <h2 class="text-base font-semibold text-gray-900">Admissions</h2>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Intro</label>
-                    <textarea wire:model="form.admission_intro" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Session (e.g. 2026-2027)</label>
-                        <input type="text" wire:model="form.admission_session" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Fee Structure Note</label>
-                        <input type="text" wire:model="form.fee_note" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Curriculum</label>
-                    <textarea wire:model="form.curriculum_text" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
-                </div>
-            </div>
-
-            {{-- Admission steps --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Admission Steps <span class="text-xs text-gray-400">({{ count($admissionSteps) }})</span></h2>
-                    <button wire:click="addRow('admissionSteps')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($admissionSteps as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-3 gap-2 items-end" wire:key="step-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="admissionSteps.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-2 flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Description</label><input wire:model="admissionSteps.{{ $i }}.desc" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('admissionSteps', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No steps added — default steps are shown.</p>
-                @endforelse
-            </div>
-
-            {{-- Documents required + Rules (two simple text lists) --}}
-            <div class="grid lg:grid-cols-2 gap-6">
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-base font-semibold text-gray-900">Documents Required <span class="text-xs text-gray-400">({{ count($documentsRequired) }})</span></h2>
-                        <button wire:click="addRow('documentsRequired')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                    </div>
-                    @forelse ($documentsRequired as $i => $row)
-                        <div class="flex gap-1 items-center" wire:key="doc-{{ $i }}">
-                            <input wire:model="documentsRequired.{{ $i }}.text" placeholder="e.g. Birth Certificate" class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
-                            <button wire:click="removeRow('documentsRequired', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    @empty
-                        <p class="text-xs text-gray-400">No documents added — a default checklist is shown.</p>
-                    @endforelse
-                </div>
-
-                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-base font-semibold text-gray-900">Rules &amp; Regulations <span class="text-xs text-gray-400">({{ count($admissionRules) }})</span></h2>
-                        <button wire:click="addRow('admissionRules')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                    </div>
-                    @forelse ($admissionRules as $i => $row)
-                        <div class="flex gap-1 items-center" wire:key="rule-{{ $i }}">
-                            <input wire:model="admissionRules.{{ $i }}.text" placeholder="e.g. New session begins on April 1st" class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
-                            <button wire:click="removeRow('admissionRules', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    @empty
-                        <p class="text-xs text-gray-400">No rules added yet.</p>
-                    @endforelse
-                </div>
-            </div>
-        @endif
-
-        {{-- ══════════ GALLERY ══════════ --}}
-        @if ($activeTab === 'gallery')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Photo gallery — add image URLs with optional captions. Shown as a grid on the Gallery page.
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Gallery Images <span class="text-xs text-gray-400">({{ count($gallery) }})</span></h2>
-                    <button wire:click="addRow('gallery')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($gallery as $i => $row)
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-2 gap-2 items-end" wire:key="gal-{{ $i }}">
-                        <div><label class="block text-[11px] text-gray-500 mb-1">Image URL</label><input wire:model="gallery.{{ $i }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="flex gap-1">
-                            <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Caption</label><input wire:model="gallery.{{ $i }}.caption" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <button wire:click="removeRow('gallery', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No images added yet. Click "+ Add".</p>
-                @endforelse
-            </div>
-        @endif
-
-        {{-- ══════════ PAGES (generic content pages) ══════════ --}}
-        @if ($activeTab === 'pages')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Every simple page on your site — History, Vision, the desks, Labs, Transport, Rules and so on.
-                Pick a page, write its text, and it goes live. Leave one blank and the site shows a
-                "being updated" note instead of an empty page.
-            </div>
-
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="flex flex-wrap gap-1 p-3 border-b border-gray-100 bg-gray-50">
-                    @foreach (\App\Livewire\Admin\WebsiteData::contentPageSlugs() as $slug)
-                        @php $filled = trim((string) ($pages[$slug]['body'] ?? '')) !== ''; @endphp
-                        <button wire:click="$set('pageSlug', '{{ $slug }}')"
-                            class="px-2.5 py-1.5 text-xs font-medium rounded-md border transition
-                                {{ $pageSlug === $slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100' }}">
-                            {{ \App\Models\SchoolWebsite::allPages()[$slug] ?? $slug }}
-                            @if ($filled)<span class="{{ $pageSlug === $slug ? 'text-white' : 'text-emerald-600' }}">&check;</span>@endif
-                        </button>
-                    @endforeach
-                </div>
-
-                @if ($pageSlug)
-                    <div class="p-6 space-y-4" wire:key="page-{{ $pageSlug }}">
-                        <div>
-                            <label class="block text-[11px] text-gray-500 mb-1">Page Heading</label>
-                            <input wire:model="pages.{{ $pageSlug }}.heading" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] text-gray-500 mb-1">Body — leave a blank line between paragraphs</label>
-                            <textarea wire:model="pages.{{ $pageSlug }}.body" rows="14"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm leading-relaxed"
-                                placeholder="Write the page content here…"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] text-gray-500 mb-1">Image URL (optional — shown beside the text)</label>
-                            <input wire:model="pages.{{ $pageSlug }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] text-gray-500 mb-1">More Photos — one URL a line (shown as a photo gallery under the text; for Labs, Sports, Building and the like)</label>
-                            <textarea wire:model="pages.{{ $pageSlug }}.photos" rows="4" placeholder="https://...&#10;https://..."
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"></textarea>
-                        </div>
-                    </div>
+                @else
+                    @include('livewire.admin.website-data.block', ['b' => $run['blocks'][0], 'bare' => false])
                 @endif
-            </div>
-        @endif
+            @endforeach
 
-        {{-- ══════════ DOCUMENTS (mandatory disclosures etc.) ══════════ --}}
-        @if ($activeTab === 'documents')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                CBSE requires affiliated schools to publish these documents on their website.
-                The standard checklist is pre-filled — paste the URL of each uploaded PDF against its row.
-                Rows without a file still appear, marked "Not uploaded".
-            </div>
-
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="flex flex-wrap gap-1 p-3 border-b border-gray-100 bg-gray-50">
-                    @foreach (\App\Livewire\Admin\WebsiteData::documentPageSlugs() as $slug)
-                        <button wire:click="$set('docSlug', '{{ $slug }}')"
-                            class="px-2.5 py-1.5 text-xs font-medium rounded-md border transition
-                                {{ $docSlug === $slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100' }}">
-                            {{ \App\Models\SchoolWebsite::allPages()[$slug] ?? $slug }}
-                        </button>
-                    @endforeach
+            @if (array_filter($page['blocks'], fn ($b) => \App\Support\WebsitePages::counts($b)))
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <span x-show="changed" x-cloak class="text-xs text-amber-600">Unsaved changes</span>
+                    @include('livewire.admin.website-data.save')
                 </div>
-
-                <div class="p-6 space-y-3" wire:key="docs-{{ $docSlug }}">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-base font-semibold text-gray-900">
-                            {{ \App\Models\SchoolWebsite::allPages()[$docSlug] ?? $docSlug }}
-                            <span class="text-xs text-gray-400">({{ count($docs[$docSlug] ?? []) }})</span>
-                        </h2>
-                        <button wire:click="addDocRow('{{ $docSlug }}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                    </div>
-
-                    @forelse ($docs[$docSlug] ?? [] as $i => $row)
-                        <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-12 gap-2 items-end" wire:key="doc-{{ $docSlug }}-{{ $i }}">
-                            <div class="sm:col-span-5"><label class="block text-[11px] text-gray-500 mb-1">Document</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div class="sm:col-span-4"><label class="block text-[11px] text-gray-500 mb-1">File URL</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.file" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Updated</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.date" placeholder="Apr 2026" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                            <div class="sm:col-span-1">
-                                <button wire:click="removeDocRow('{{ $docSlug }}', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="text-xs text-gray-400">No rows yet. Click "+ Add".</p>
-                    @endforelse
-                </div>
-            </div>
-        @endif
-
-        {{-- ══════════ RESULTS ══════════ --}}
-        @if ($activeTab === 'results')
-            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
-                Board results, one row per session. The pass percentage is calculated for you.
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-900">Board Results <span class="text-xs text-gray-400">({{ count($results) }})</span></h2>
-                    <button wire:click="addRow('results')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
-                </div>
-                @forelse ($results as $i => $row)
-                    @php
-                        $ap = (int) ($row['appeared'] ?? 0);
-                        $ps = (int) ($row['passed'] ?? 0);
-                    @endphp
-                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-12 gap-2 items-end" wire:key="res-{{ $i }}">
-                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Year</label><input wire:model="results.{{ $i }}.year" placeholder="2026" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Appeared</label><input wire:model.live="results.{{ $i }}.appeared" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Passed</label><input wire:model.live="results.{{ $i }}.passed" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Pass %</label><p class="px-2 py-1.5 text-sm font-semibold text-indigo-700 tabular-nums">{{ $ap > 0 ? round($ps / $ap * 100, 1) : 0 }}%</p></div>
-                        <div class="sm:col-span-1">
-                            <button wire:click="removeRow('results', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-400">No results added yet. Click "+ Add".</p>
-                @endforelse
-            </div>
-        @endif
-
-    </div>
+            @endif
+        </div>
+    @endif
 </div>
