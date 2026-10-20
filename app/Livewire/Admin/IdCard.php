@@ -456,7 +456,7 @@ class IdCard extends Component
         ], fn ($v) => $v !== null && $v !== ''));
     }
 
-    /** What the panel shows: the fields, how many people, and the first rows as the sheet will have them. */
+    /** What the panel shows: the fields and how many people the file will have. */
     private function exportViewData(int $orgId): array
     {
         $standardId = $this->exportType === 'student' && $this->exportStandard ? (int) $this->exportStandard : null;
@@ -465,11 +465,6 @@ class IdCard extends Component
         return [
             'exportFields'   => IdCardExport::fields($this->exportType),
             'exportCount'    => IdCardExport::count($orgId, $this->exportType, $standardId, $sectionId, $this->exportWhich),
-            'exportPreview'  => $this->exportColumns
-                ? IdCardExport::rows($orgId, $this->exportType,
-                    IdCardExport::people($orgId, $this->exportType, $standardId, $sectionId, $this->exportWhich, 3),
-                    $this->exportColumns)
-                : [],
             'exportSections' => $standardId
                 ? \App\Models\Student\Section::where('standard_id', $standardId)->orderBy('id')->get(['id', 'name'])
                 : collect(),

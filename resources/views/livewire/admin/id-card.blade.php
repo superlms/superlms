@@ -383,10 +383,14 @@
             $unusedFields = array_diff_key($exportFields, array_flip($exportColumns));
             $whoWord      = ['student' => 'student', 'teacher' => 'teacher', 'employee' => 'person'][$exportType] ?? 'person';
         @endphp
+        {{-- As the Mark Attendance panels: plain header, one quiet toolbar
+             (whose, which of them, how many), a line on the order, the columns
+             as a flat list of rows, and the file and the actions in the footer. --}}
         <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeExport"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900">Export Data</h2>
@@ -398,177 +402,108 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto">
-                    <div class="px-6 py-6 space-y-6">
+                {{-- Toolbar: whose data, which of them, and how many --}}
+                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                        @foreach ($exportLabels as $t => $label)
+                            <button type="button" wire:click="$set('exportType', '{{ $t }}')" wire:key="xt-{{ $t }}"
+                                class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportType === $t ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
+                        @endforeach
+                    </div>
+                    @if ($exportType === 'student')
+                        <select wire:model.live="exportStandard"
+                            class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <option value="">All Classes</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+                        <select wire:model.live="exportSection" @disabled(!$exportStandard)
+                            class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:opacity-50">
+                            <option value="">All Sections</option>
+                            @foreach ($exportSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                    @endif
+                    <select wire:model.live="exportWhich"
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="all">Everyone</option>
+                        <option value="issued">With an ID card issued</option>
+                        <option value="not_issued">Without an ID card yet</option>
+                    </select>
+                    <span class="ml-auto text-xs text-gray-400 tabular-nums">
+                        <strong class="font-medium text-gray-700">{{ $exportCount }}</strong> {{ \Illuminate\Support\Str::plural($whoWord, $exportCount) }}
+                        · {{ count($exportColumns) }} {{ \Illuminate\Support\Str::plural('column', count($exportColumns)) }}
+                    </span>
+                </div>
 
-                        {{-- 1. Whose data --}}
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Whose data</label>
-                            <div class="grid grid-cols-3 gap-2">
-                                @foreach ($exportLabels as $t => $label)
-                                    <button type="button" wire:click="$set('exportType', '{{ $t }}')" wire:key="xt-{{ $t }}"
-                                        class="px-2 py-2.5 text-sm font-medium rounded-md border {{ $exportType === $t ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
+                {{-- One quiet line on the order --}}
+                <div class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
+                    <span>The sheet's columns, first to last — drag a row, or use ↑ ↓. The order is kept for the next export.</span>
+                    <button type="button" wire:click="resetExportColumns" class="font-medium text-gray-500 hover:text-gray-800 flex-shrink-0">Reset</button>
+                </div>
+
+                {{-- Rows: the columns, then the ones left out --}}
+                <div class="flex-1 overflow-y-auto">
+                    <ol class="divide-y divide-gray-100" x-data="{ drag: null, over: null }">
+                        @forelse ($exportColumns as $i => $key)
+                            <li wire:key="xc-{{ $exportType }}-{{ $key }}"
+                                draggable="true"
+                                x-on:dragstart="drag = '{{ $key }}'; $event.dataTransfer.effectAllowed = 'move'"
+                                x-on:dragend="drag = null; over = null"
+                                x-on:dragover.prevent="over = {{ $i }}"
+                                x-on:dragleave="over === {{ $i }} && (over = null)"
+                                x-on:drop.prevent="if (drag && drag !== '{{ $key }}') { $wire.dropExportColumn(drag, {{ $i }}) } drag = null; over = null"
+                                :class="{ 'bg-violet-50': over === {{ $i }} && drag !== '{{ $key }}' }"
+                                class="flex items-center gap-3 px-6 py-2.5 cursor-move">
+                                <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0" title="Column {{ $colLetter($i) }}">{{ $colLetter($i) }}</span>
+                                <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 16a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
+                                <p class="flex-1 min-w-0 text-sm text-gray-800 truncate">
+                                    {{ $exportFields[$key] ?? $key }}
+                                    @if ($key === 'photo')<span class="text-[11px] text-gray-400">· the picture, in its cell</span>@endif
+                                </p>
+                                <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                                    <button type="button" wire:click="moveExportColumn('{{ $key }}', -1)" @disabled($i === 0) title="Earlier"
+                                        class="px-2 py-1.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-transparent">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                                    </button>
+                                    <button type="button" wire:click="moveExportColumn('{{ $key }}', 1)" @disabled($i === count($exportColumns) - 1) title="Later"
+                                        class="px-2 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200 disabled:opacity-30 disabled:hover:bg-transparent">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <button type="button" wire:click="removeExportColumn('{{ $key }}')" title="Leave out"
+                                        class="px-2 py-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 border-l border-gray-200">&times;</button>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="py-16 text-center text-sm text-gray-400">No columns yet — add some from the list below.</li>
+                        @endforelse
+                    </ol>
+
+                    @if ($unusedFields)
+                        <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/60">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <p class="text-xs font-medium text-gray-600">Add a column</p>
+                                <button type="button" wire:click="addAllExportColumns" class="text-xs font-medium text-violet-600 hover:text-violet-800">Add all</button>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach ($unusedFields as $key => $label)
+                                    <button type="button" wire:click="addExportColumn('{{ $key }}')" wire:key="xa-{{ $exportType }}-{{ $key }}"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-gray-700 bg-white border border-gray-200 rounded-full hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                         {{ $label }}
                                     </button>
                                 @endforeach
                             </div>
                         </div>
-
-                        {{-- 2. Which of them --}}
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            @if ($exportType === 'student')
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Class</label>
-                                    <select wire:model.live="exportStandard" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                                        <option value="">All Classes</option>
-                                        @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Section</label>
-                                    <select wire:model.live="exportSection" @disabled(!$exportStandard) class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50">
-                                        <option value="">All Sections</option>
-                                        @foreach ($exportSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                                    </select>
-                                </div>
-                            @endif
-                            <div class="{{ $exportType === 'student' ? '' : 'sm:col-span-3' }}">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Who</label>
-                                <select wire:model.live="exportWhich" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                                    <option value="all">Everyone</option>
-                                    <option value="issued">With an ID card issued</option>
-                                    <option value="not_issued">Without an ID card yet</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {{-- 3. The columns, first to last --}}
-                        <div>
-                            <div class="flex items-center justify-between gap-2 mb-1.5">
-                                <label class="block text-sm font-medium text-gray-700">Columns in the sheet <span class="font-normal text-xs text-gray-400">· drag, or use ↑ ↓, to set the order</span></label>
-                                <button type="button" wire:click="resetExportColumns" class="text-xs font-medium text-gray-500 hover:text-gray-800">Reset</button>
-                            </div>
-
-                            <ol class="border border-gray-200 rounded-lg divide-y divide-gray-100"
-                                x-data="{ drag: null, over: null }">
-                                @forelse ($exportColumns as $i => $key)
-                                    <li wire:key="xc-{{ $exportType }}-{{ $key }}"
-                                        draggable="true"
-                                        x-on:dragstart="drag = '{{ $key }}'; $event.dataTransfer.effectAllowed = 'move'"
-                                        x-on:dragend="drag = null; over = null"
-                                        x-on:dragover.prevent="over = {{ $i }}"
-                                        x-on:dragleave="over === {{ $i }} && (over = null)"
-                                        x-on:drop.prevent="if (drag && drag !== '{{ $key }}') { $wire.dropExportColumn(drag, {{ $i }}) } drag = null; over = null"
-                                        :class="over === {{ $i }} && drag !== '{{ $key }}' ? 'bg-violet-50' : 'bg-white'"
-                                        class="flex items-center gap-3 px-3 py-2 cursor-move first:rounded-t-lg last:rounded-b-lg">
-                                        <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 16a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
-                                        <span class="w-7 h-6 rounded bg-gray-100 text-[11px] font-semibold text-gray-500 flex items-center justify-center flex-shrink-0 tabular-nums" title="Column {{ $colLetter($i) }}">{{ $colLetter($i) }}</span>
-                                        <span class="flex-1 text-sm text-gray-800 truncate">
-                                            {{ $exportFields[$key] ?? $key }}
-                                            @if ($key === 'photo')<span class="text-[11px] text-gray-400">· the picture, in its cell</span>@endif
-                                        </span>
-                                        <button type="button" wire:click="moveExportColumn('{{ $key }}', -1)" @disabled($i === 0) title="Earlier"
-                                            class="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
-                                        </button>
-                                        <button type="button" wire:click="moveExportColumn('{{ $key }}', 1)" @disabled($i === count($exportColumns) - 1) title="Later"
-                                            class="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                                        </button>
-                                        <button type="button" wire:click="removeExportColumn('{{ $key }}')" title="Leave out"
-                                            class="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        </button>
-                                    </li>
-                                @empty
-                                    <li class="px-3 py-6 text-center text-xs text-gray-400">No columns yet — add some from the list below.</li>
-                                @endforelse
-                            </ol>
-
-                            @if ($unusedFields)
-                                <div class="mt-3">
-                                    <div class="flex items-center justify-between gap-2 mb-1.5">
-                                        <p class="text-xs font-medium text-gray-600">Add a column</p>
-                                        <button type="button" wire:click="addAllExportColumns" class="text-xs font-medium text-violet-600 hover:text-violet-800">Add all</button>
-                                    </div>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @foreach ($unusedFields as $key => $label)
-                                            <button type="button" wire:click="addExportColumn('{{ $key }}')" wire:key="xa-{{ $exportType }}-{{ $key }}"
-                                                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-gray-700 bg-white border border-gray-200 rounded-full hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                                                {{ $label }}
-                                            </button>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- 4. How the sheet will look — the first few rows --}}
-                        @if ($exportColumns && $exportPreview)
-                            <div>
-                                <p class="text-xs font-medium text-gray-600 mb-1.5">Preview <span class="font-normal text-gray-400">· the first {{ count($exportPreview) }} of {{ $exportCount }}</span></p>
-                                <div class="border border-gray-200 rounded-lg overflow-x-auto">
-                                    <table class="min-w-full text-xs">
-                                        <thead>
-                                            <tr class="bg-gray-50 text-gray-400">
-                                                @foreach ($exportColumns as $i => $key)
-                                                    <th class="px-2.5 pt-1.5 text-left font-semibold">{{ $colLetter($i) }}</th>
-                                                @endforeach
-                                            </tr>
-                                            <tr class="bg-gray-50 text-gray-700 border-b border-gray-200">
-                                                @foreach ($exportColumns as $key)
-                                                    <th class="px-2.5 pb-1.5 text-left font-semibold whitespace-nowrap">{{ $exportFields[$key] ?? $key }}</th>
-                                                @endforeach
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-gray-100">
-                                            @foreach ($exportPreview as $r => $row)
-                                                <tr wire:key="xp-{{ $r }}">
-                                                    @foreach ($exportColumns as $key)
-                                                        <td class="px-2.5 py-1.5 text-gray-700 whitespace-nowrap max-w-[12rem] truncate">
-                                                            @if ($key === 'photo')
-                                                                @if ($row['photo'] !== '')
-                                                                    <img src="{{ $row['photo'] }}" alt="" class="w-8 h-10 object-cover rounded border border-gray-200">
-                                                                @else
-                                                                    <span class="text-gray-300">no photo</span>
-                                                                @endif
-                                                            @else
-                                                                {{ $row[$key] !== '' ? $row[$key] : '—' }}
-                                                            @endif
-                                                        </td>
-                                                    @endforeach
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        @endif
-
-                        {{-- 5. The file --}}
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">File</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                @foreach (['xlsx' => ['Excel (.xlsx)', 'Photos inside the sheet, one in each row'], 'zip' => ['Excel + photos folder (.zip)', 'The sheet, and every photo as a file named as the "Photo File Name" column says']] as $f => [$fLabel, $fDesc])
-                                    <label wire:key="xf-{{ $f }}" class="flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer {{ $exportFormat === $f ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:bg-gray-50' }}">
-                                        <input type="radio" wire:model.live="exportFormat" value="{{ $f }}" class="mt-0.5 text-violet-600 focus:ring-violet-500">
-                                        <span>
-                                            <span class="block text-sm font-medium text-gray-800">{{ $fLabel }}</span>
-                                            <span class="block text-[11px] text-gray-500 mt-0.5">{{ $fDesc }}</span>
-                                        </span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
+                    @endif
                 </div>
 
+                {{-- Footer: the file, then Close and Download --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-                    <p class="text-xs text-gray-500">
-                        <strong class="text-gray-800">{{ $exportCount }}</strong> {{ \Illuminate\Support\Str::plural($whoWord, $exportCount) }}
-                        · {{ count($exportColumns) }} {{ \Illuminate\Support\Str::plural('column', count($exportColumns)) }}
-                    </p>
+                    <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                        @foreach (['xlsx' => ['Excel (.xlsx)', 'Photos inside the sheet, one in each row'], 'zip' => ['Excel + photos (.zip)', 'The sheet, and every photo as a file named as the "Photo File Name" column says']] as $f => [$fLabel, $fDesc])
+                            <button type="button" wire:click="$set('exportFormat', '{{ $f }}')" wire:key="xf-{{ $f }}" title="{{ $fDesc }}"
+                                class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportFormat === $f ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $fLabel }}</button>
+                        @endforeach
+                    </div>
                     <div class="flex items-center gap-2">
                         <button wire:click="closeExport" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
                         @if ($exportColumns && $exportCount > 0)

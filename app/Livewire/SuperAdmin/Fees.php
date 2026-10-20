@@ -244,7 +244,9 @@ class Fees extends Component
                     ->where('fee_type', $this->filterFeeType)
                     ->where('is_active', true);
             }))
-            ->latest();
+            // A to Z by name, as the Schools list.
+            ->orderBy('name')
+            ->orderBy('id');
     }
 
     public function selectSchool($id): void

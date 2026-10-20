@@ -122,11 +122,11 @@ class IdCardExportTest extends TestCase
         $page->call('addExportColumn', 'password');
         $this->assertSame($cols, $page->get('exportColumns'));
 
-        // The preview shows the first rows as the sheet will: class V before VI.
+        // No preview of the rows: the panel says only how many the file will have.
         $html = $page->html();
         $this->assertStringContainsString('Export Data', $html);
-        $this->assertLessThan(strpos($html, 'Aarav Jain'), strpos($html, 'Zoya Khan'));
-        $this->assertStringNotContainsString('Another School', $html);
+        $this->assertStringNotContainsString('Zoya Khan', $html);
+        $this->assertStringNotContainsString('Preview', $html);
         $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
 
         // Teachers and management & staff have columns of their own.
