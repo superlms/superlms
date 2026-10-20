@@ -43,7 +43,7 @@ class SchoolSiteLiveDataTest extends TestCase
         });
         Schema::create('school_websites', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('organization_id')->unique(); $t->string('domain')->nullable()->unique();
-            $t->string('template')->default('kider'); $t->json('theme')->nullable(); $t->json('pages')->nullable();
+            $t->string('template')->default('classic'); $t->json('theme')->nullable(); $t->json('pages')->nullable();
             $t->json('content')->nullable(); $t->boolean('status')->default(false); $t->timestamps();
         });
         Schema::create('standards', function (Blueprint $t) {
@@ -239,19 +239,6 @@ class SchoolSiteLiveDataTest extends TestCase
         $this->assertStringContainsString('Documents 1 document S.No Document 1 Handbook Download', $text);
         $this->assertStringContainsString('href="https://cdn.example.com/handbook.pdf"', $rules);
         $this->assertStringNotContainsString('This page is being updated', $text);
-
-        // Playful shows them the same way.
-        SchoolWebsite::query()->delete();
-        $kider = $this->site('kider');
-        $admission = $this->render($kider, 'admission');
-        $this->assertStringNotContainsString('₹', $this->text($admission));
-        $this->assertStringContainsString('<option value="Class I">Class I</option>', $admission);
-        $this->assertStringContainsString('data-type="admission"', $admission);
-        $classes = $this->text($this->render($kider, 'classes'));
-        $this->assertStringContainsString('2 Class I A, B English, Hindi, Maths', $classes);
-        $this->assertStringNotContainsString('Art & Drawing', $classes);   // no samples beside the school's own
-        $this->assertStringContainsString('2 Class I All ₹1,200 ₹5,000 ₹6,200', $this->text($this->render($kider, 'fee-structure')));
-        $this->assertStringContainsString('1 Attendance 75% attendance is a must.', $this->text($this->render($kider, 'rules')));
     }
 
     public function test_many_fees_read_as_a_line_and_the_columns_follow_the_data(): void
@@ -340,12 +327,6 @@ class SchoolSiteLiveDataTest extends TestCase
         foreach (['contact' => 'contact', 'query' => 'query', 'appointment' => 'appointment', 'career' => 'career'] as $path => $type) {
             $this->assertStringContainsString('data-type="' . $type . '"', $this->render($site, $path), $path);
         }
-        SchoolWebsite::query()->delete();
-        $kider = $this->site('kider');
-        foreach (['contact' => 'contact', 'query' => 'query', 'appointment' => 'appointment', 'career' => 'career'] as $path => $type) {
-            $this->assertStringContainsString('data-type="' . $type . '"', $this->render($kider, $path), "kider {$path}");
-        }
-
         $send = fn (array $data) => app(WebsiteController::class)->schoolContact(new Request($data));
         $send([
             'organization_id' => 1, 'type' => 'appointment', 'name' => 'Ravi', 'phone' => '9876543210',

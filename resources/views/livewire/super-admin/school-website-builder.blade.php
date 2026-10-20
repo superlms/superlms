@@ -63,7 +63,7 @@
                 <div class="p-5 space-y-3">
                     <p class="text-xs text-gray-500">
                         Turn pages on or off for this school's website — listed under the same menus the site shows them in
-                        ({{ $templates[$template]['label'] ?? 'Playful' }} template). A page turned off leaves the site's menu
+                        ({{ $templates[$template]['label'] ?? 'Classic CBSE' }} template). A page turned off leaves the site's menu
                         and its link shows Page not found. The school writes each page under More → Website Data. Home is always on.
                     </p>
 
@@ -116,8 +116,7 @@
             @if ($activeTab === 'theme')
                 <div class="p-5 space-y-3">
                     <p class="text-xs text-gray-500">
-                        The site's design and colours. Every template reads the same Website Data, so switching keeps
-                        everything the school has filled in.
+                        The site's design and colours. Every school's website is on the Classic CBSE template; pick its colours here.
                     </p>
 
                     <div class="border border-gray-200 rounded-md">

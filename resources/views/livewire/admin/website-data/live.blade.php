@@ -121,6 +121,76 @@
                 @endif
                 </div>
                 @break
+
+            @case('transport')
+                @php $routes = $lms->transport(); @endphp
+                @if ($routes)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $th }} w-px">S.No</th>
+                                    <th class="{{ $th }}">Route</th>
+                                    <th class="{{ $th }}">Pickup</th>
+                                    <th class="{{ $th }}">Drop</th>
+                                    <th class="{{ $th }} !text-right">Monthly</th>
+                                    <th class="{{ $th }} !text-right">Annual</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($routes as $i => $r)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2 font-semibold text-gray-900">{{ $r['name'] }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $r['pickup'] ?: '—' }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $r['drop'] ?: '—' }}</td>
+                                        <td class="px-4 py-2 text-right text-gray-700 tabular-nums whitespace-nowrap">{{ SchoolSiteData::money($r['monthly']) }}</td>
+                                        <td class="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ SchoolSiteData::money($r['annual']) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="px-4 py-3 text-sm text-gray-500">No active routes yet — add them on {{ $where }} and they show on your website by themselves.</p>
+                @endif
+                @break
+
+            @case('events')
+                @php
+                    $events = $lms->events();
+                    [, , $session] = SchoolSiteData::session();
+                @endphp
+                @if ($events)
+                    <p class="px-4 pt-3 text-xs text-gray-500">Session {{ $session }} · {{ count($events) }} {{ \Illuminate\Support\Str::plural('event', count($events)) }}</p>
+                    <div class="overflow-x-auto mt-2 max-h-80 overflow-y-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-y border-gray-200">
+                                <tr>
+                                    <th class="{{ $th }} w-px">S.No</th>
+                                    <th class="{{ $th }} w-px">Date</th>
+                                    <th class="{{ $th }}">Event</th>
+                                    <th class="{{ $th }} w-px">Type</th>
+                                    <th class="{{ $th }} w-px">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($events as $i => $e)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ \Carbon\Carbon::parse($e['date'])->format('d M Y, D') }}</td>
+                                        <td class="px-4 py-2 font-semibold text-gray-900">{{ $e['title'] }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $e['type'] }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $e['time'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="px-4 py-3 text-sm text-gray-500">No events this session yet — add them on {{ $where }} and they show on your website by themselves.</p>
+                @endif
+                @break
         @endswitch
     </div>
 </div>

@@ -25,8 +25,8 @@ class SchoolWebsiteBuilder extends Component
     public Organization $organization;
 
     public array  $pages        = [];   // enabled page slugs
-    public string $template     = 'kider';
-    public string $theme_preset = 'sunset';
+    public string $template     = SchoolWebsite::DEFAULT_TEMPLATE;
+    public string $theme_preset = 'tricolour';
     public string $primary      = '';
     public string $domain       = '';
     public bool   $status       = false;
@@ -44,10 +44,11 @@ class SchoolWebsiteBuilder extends Component
             ? $website->enabledPages()
             : array_keys(SchoolWebsite::allPages());
 
-        $this->template = $website->exists ? $website->templateKey() : 'kider';
+        $this->template = $website->exists ? $website->templateKey() : SchoolWebsite::DEFAULT_TEMPLATE;
 
+        // A new site starts on Classic's own red-and-green; an existing one keeps its colours.
         $theme = $website->theme ?? [];
-        $this->theme_preset = $theme['preset'] ?? 'sunset';
+        $this->theme_preset = $theme['preset'] ?? ($website->exists ? 'sunset' : 'tricolour');
         $this->primary      = $theme['primary'] ?? '';
         $this->domain       = $website->domain ?? '';
         $this->status       = (bool) $website->status;

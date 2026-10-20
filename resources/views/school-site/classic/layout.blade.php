@@ -158,13 +158,14 @@
         .wm small { position: relative; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
 
         /* ══════════ INNER-PAGE BANNER ══════════ */
-        .banner { position: relative; height: clamp(150px, 22vw, 300px); overflow: hidden; background: var(--navy); }
+        /* A slim strip — under half its old height (it was up to 300px). */
+        .banner { position: relative; height: clamp(84px, 9vw, 130px); overflow: hidden; background: var(--navy); }
         .banner > img { width: 100%; height: 100%; object-fit: cover; }
         .banner::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.28); }
         .banner .wm { background: linear-gradient(135deg, var(--dark) 0%, var(--navy2) 100%); color: rgba(255,255,255,.5); }
         .banner .wm::before { opacity: .07; }
         .banner .wm img, .banner .wm svg { opacity: .16; max-height: 80%; color: #fff; }
-        .banner h1 { position: absolute; z-index: 2; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 20px; color: #fff; text-transform: uppercase; font-weight: 700; font-size: clamp(18px, 2.4vw, 28px); letter-spacing: .02em; text-shadow: 2px 2px 4px rgba(0,0,0,.55); }
+        .banner h1 { position: absolute; z-index: 2; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 20px; color: #fff; text-transform: uppercase; font-weight: 700; font-size: clamp(17px, 2vw, 24px); letter-spacing: .02em; text-shadow: 2px 2px 4px rgba(0,0,0,.55); }
 
         /* ══════════ FORMS ══════════ */
         .sform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }

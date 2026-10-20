@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Global middleware: when a request arrives on a school's custom domain, serve
- * that school's website (Kider template) instead of the main app. API calls
+ * that school's website (the Classic template) instead of the main app. API calls
  * and static assets are allowed to fall through to normal routing.
  */
 class ServeSchoolSite

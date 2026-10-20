@@ -4,21 +4,32 @@ namespace App\Support;
 
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\RulesAndRegulation;
+use App\Models\Admin\Transportation;
+use App\Models\Calendar\TimeTable;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
+use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
  * What a school's website reads live from the school's own records, so the
- * Online Admission pages never need typing twice: its classes with their
- * sections and subjects (Standard), its fee structure (Fee → Fee Structure)
- * and its rules (More → Rules & Regulations). Each is read once, when a page
- * asks for it; a school with none of it set up gets an empty list, and the
- * page shows what Website Data holds instead.
+ * pages never need typing twice: its classes with their sections and
+ * subjects (Standard), its fee structure (Fee → Fee Structure), its rules
+ * (More → Rules & Regulations), its transport routes (Transport) and the
+ * session's events (Calendar). Each is read once, when a page asks for it; a
+ * school with none of it set up gets an empty list, and the page shows what
+ * Website Data holds instead.
  */
 class SchoolSiteData
 {
+    /** The calendar's event types as the site names them (time_tables.event_type). */
+    public const EVENT_TYPES = [
+        'class' => 'Class', 'lab' => 'Lab', 'meeting' => 'Meeting', 'seminar' => 'Seminar', 'workshop' => 'Workshop',
+        'sports' => 'Sports', 'exam' => 'Exam', 'holiday' => 'Holiday', 'conference' => 'Conference', 'event' => 'Event',
+        'other' => 'Other',
+    ];
+
     private array $memo = [];
 
     public function __construct(private ?int $orgId)
@@ -144,6 +155,95 @@ class SchoolSiteData
         $r = $this->rules();
 
         return (bool) ($r['sections'] || $r['info'] || $r['files']);
+    }
+
+    /**
+     * The active transport routes as Transport sets them up, a row a route (a
+     * route run by a bus and a van is one), earliest pickup first:
+     * [{name, pickup, drop, monthly, annual}]. The annual fare is the monthly
+     * fare for eleven months — June off — as the admin app reckons a route's year.
+     */
+    public function transport(): array
+    {
+        return $this->memo['transport'] ??= $this->read(function () {
+            return Transportation::where('organization_id', $this->orgId)
+                ->where('is_active', true)
+                ->orderByRaw('pickup_time IS NULL, pickup_time')
+                ->orderBy('route_name')
+                ->orderBy('id')
+                ->get(['id', 'route_name', 'route_group', 'pickup_time', 'drop_time', 'monthly_fee'])
+                ->groupBy(fn ($r) => $r->route_group ?: 'r' . $r->id)
+                ->map(function ($rows) {
+                    $first   = $rows->first();
+                    $monthly = (float) $first->monthly_fee;
+
+                    return [
+                        'name'    => trim((string) $first->route_name),
+                        'pickup'  => self::clock($first->pickup_time),
+                        'drop'    => self::clock($first->drop_time),
+                        'monthly' => $monthly,
+                        'annual'  => round($monthly * 11, 2),
+                    ];
+                })
+                ->filter(fn ($r) => $r['name'] !== '')
+                ->values()
+                ->all();
+        });
+    }
+
+    /**
+     * Every event on the school's calendar in this session (1 April to 31
+     * March), by date, cancelled ones left out:
+     * [{date: Y-m-d, title, description, type, time}].
+     */
+    public function events(): array
+    {
+        return $this->memo['events'] ??= $this->read(function () {
+            [$from, $to] = self::session();
+
+            return TimeTable::where('organization_id', $this->orgId)
+                ->where('is_cancelled', false)
+                ->whereDate('date', '>=', $from->toDateString())
+                ->whereDate('date', '<=', $to->toDateString())
+                ->orderBy('date')
+                ->orderBy('start_time')
+                ->orderBy('id')
+                ->get(['id', 'title', 'description', 'date', 'start_time', 'end_time', 'event_type', 'is_all_day'])
+                ->map(fn ($e) => [
+                    'date'        => $e->date->toDateString(),
+                    'title'       => trim((string) $e->title),
+                    'description' => trim((string) $e->description),
+                    'type'        => self::EVENT_TYPES[$e->event_type] ?? ucfirst((string) $e->event_type),
+                    'time'        => $e->is_all_day || ! $e->start_time ? 'All day'
+                        : $e->start_time->format('g:i A') . ($e->end_time ? ' – ' . $e->end_time->format('g:i A') : ''),
+                ])
+                ->filter(fn ($e) => $e['title'] !== '')
+                ->values()
+                ->all();
+        });
+    }
+
+    /** This session: [1 April, 31 March, "2026-27"] — the school's year runs April to March. */
+    public static function session(): array
+    {
+        $start = now()->month >= 4 ? now()->year : now()->year - 1;
+
+        return [Carbon::create($start, 4, 1)->startOfDay(), Carbon::create($start + 1, 3, 31)->endOfDay(),
+            $start . '-' . substr((string) ($start + 1), -2)];
+    }
+
+    /** A time as the site shows it: "7:30 AM" (as typed when it can't be read). */
+    private static function clock(?string $time): ?string
+    {
+        $time = trim((string) $time);
+        if ($time === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse($time)->format('g:i A');
+        } catch (\Throwable) {
+            return $time;
+        }
     }
 
     /** An amount as the site shows it: ₹12,500 (paise only when there are some). */

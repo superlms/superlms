@@ -48,7 +48,7 @@ class WebsiteDataPagesTest extends TestCase
             $t->id();
             $t->unsignedBigInteger('organization_id')->unique();
             $t->string('domain')->nullable()->unique();
-            $t->string('template')->default('kider');
+            $t->string('template')->default('classic');
             $t->json('theme')->nullable();
             $t->json('pages')->nullable();
             $t->json('content')->nullable();
@@ -256,8 +256,8 @@ class WebsiteDataPagesTest extends TestCase
         [, $html] = $this->render('');
         $this->assertStringContainsString('maps.google.com/maps?q=Sunrise+Public+School%2C+Fatehabad+Road%2C+Agra', $html);
 
-        // Playful shows the map on Contact Us.
-        SchoolWebsite::first()->update(['template' => 'kider', 'content' => ['map_lat' => '27.2', 'map_lng' => '78.05']]);
+        // Contact Us shows the map too.
+        SchoolWebsite::first()->update(['content' => ['map_lat' => '27.2', 'map_lng' => '78.05']]);
         [, $contact] = $this->render('contact');
         $this->assertStringContainsString('maps.google.com/maps?q=27.2,78.05', $contact);
     }
@@ -288,26 +288,22 @@ class WebsiteDataPagesTest extends TestCase
         }
     }
 
-    public function test_school_details_follow_the_template(): void
+    public function test_school_details_are_classics(): void
     {
+        // A site still naming Playful (kider) is edited as Classic — the only template.
         $this->website(['template' => 'kider']);
 
-        $details = Livewire::test(WebsiteData::class)->call('openPage', 'details')
-            ->assertSee(['School name', 'Tagline', 'Logo', 'Social links'])
-            ->assertDontSee("Board's logo")
+        Livewire::test(WebsiteData::class)->call('openPage', 'details')
+            ->assertSee(['School name', 'Logo', 'Social links', "Board's logo", 'Page banner photo'])
+            ->assertDontSee('Tagline')
             ->assertSet('data.school_name', 'Sunrise Public School')
             ->set('data.school_name', '')
             ->call('save')
             ->assertHasErrors('data.school_name');
 
-        SchoolWebsite::first()->update(['template' => 'classic']);
-        Livewire::test(WebsiteData::class)->call('openPage', 'details')
-            ->assertSee(["Board's logo", 'Page banner photo'])
-            ->assertDontSee('Tagline');
-
-        // Playful's home has its banner, highlights and why-us; Classic's its slider and map.
-        Livewire::test(WebsiteData::class)->call('openPage', 'home')->assertSee(['Slider', 'Our Location'])->assertDontSee('Highlights');
-        SchoolWebsite::first()->update(['template' => 'kider']);
-        Livewire::test(WebsiteData::class)->call('openPage', 'home')->assertSee(['Banner title', 'Highlights', 'Why choose us'])->assertDontSee('Our Location');
+        // Home has Classic's slider and map, none of Playful's banner, highlights or why-us.
+        Livewire::test(WebsiteData::class)->call('openPage', 'home')
+            ->assertSee(['Slider', 'Our Location'])
+            ->assertDontSee(['Banner title', 'Highlights', 'Why choose us']);
     }
 }

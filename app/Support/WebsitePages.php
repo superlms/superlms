@@ -45,14 +45,17 @@ class WebsitePages
     public const DESKS = ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'manager-desk', 'principal-desk'];
 
     /**
-     * What the Online Admission pages read live from the school's records
+     * What the site's pages read live from the school's records — the Online
+     * Admission pages, Transport and the Academic Calendar
      * (App\Support\SchoolSiteData): source => [label, where it is kept, the
      * admin route it is set up on].
      */
     public const LIVE = [
-        'classes' => ['Classes, sections & subjects', 'Standard', 'admin.standard'],
-        'fees'    => ['Fee structure', 'Fee Structure', 'admin.fee-structure'],
-        'rules'   => ['Rules & Regulations', 'Rules & Regulations', 'admin.rules-and-regulation'],
+        'classes'   => ['Classes, sections & subjects', 'Standard', 'admin.standard'],
+        'fees'      => ['Fee structure', 'Fee Structure', 'admin.fee-structure'],
+        'rules'     => ['Rules & Regulations', 'Rules & Regulations', 'admin.rules-and-regulation'],
+        'transport' => ['Transport routes', 'Transport', 'admin.transport'],
+        'events'    => ["This session's events", 'Calendar', 'admin.calender'],
     ];
 
     /** The group School Details sits in, above the site's menus. */
@@ -310,8 +313,10 @@ class WebsitePages
         return match ($source) {
             'classes' => (bool) $lms->classes(),
             'fees'    => (bool) $lms->fees(),
-            'rules'   => $lms->hasRules(),
-            default   => false,
+            'rules'     => $lms->hasRules(),
+            'transport' => (bool) $lms->transport(),
+            'events'    => (bool) $lms->events(),
+            default     => false,
         };
     }
 
@@ -370,7 +375,6 @@ class WebsitePages
         return [
             ['id' => 'h-school', 'type' => 'heading', 'label' => 'School'],
             ['id' => 'school_name', 'type' => 'text', 'path' => 'school_name', 'label' => 'School name', 'required' => true],
-            ['id' => 'tagline', 'type' => 'text', 'path' => 'tagline', 'label' => 'Tagline', 'placeholder' => 'e.g. Quality Education', 'templates' => ['kider']],
             ['id' => 'motto', 'type' => 'text', 'path' => 'motto', 'label' => 'Motto', 'placeholder' => 'e.g. Serving Nation Through Education'],
             ['id' => 'medium', 'type' => 'text', 'path' => 'medium', 'label' => 'Medium', 'placeholder' => 'e.g. An English Medium Co-Educational School'],
             ['id' => 'board', 'type' => 'text', 'path' => 'board', 'label' => 'Board', 'placeholder' => 'e.g. CBSE'],
@@ -424,6 +428,11 @@ class WebsitePages
 
             return ['Your Rules & Regulations, with any text and photos of your own above them.', $blocks];
         }
+        if ($slug === 'transport') {
+            $blocks[] = self::live('transport');
+
+            return ['Your transport routes — pickup and drop times, the monthly and the annual fare — with any text and photos of your own above them.', $blocks];
+        }
 
         return [$desk ? 'A message from the desk, with their photo beside it.' : 'Text, with a photo beside it and more photos under it.', $blocks];
     }
@@ -457,6 +466,13 @@ class WebsitePages
             ]];
         }
 
+        if ($slug === 'academic-calendar') {
+            $list['label'] = 'Calendar documents';
+            $list['help']  = 'Optional — the calendar as a PDF or photo, shown under the events.';
+
+            return ['Every event on your calendar this session, with any documents under them.', [self::live('events'), $list]];
+        }
+
         return ['A table of documents to open or download.', [$list]];
     }
 
@@ -488,22 +504,11 @@ class WebsitePages
                         'subtitle' => ['text', 'Subtitle', 'e.g. Nursery to Class XII'],
                     ],
                     'add' => 'Add slide', 'bulk' => 'image'],
-                ['id' => 'hero_title', 'type' => 'text', 'path' => 'hero_title', 'label' => 'Banner title', 'templates' => ['kider']],
-                ['id' => 'hero_subtitle', 'type' => 'textarea', 'rows' => 2, 'path' => 'hero_subtitle', 'label' => 'Banner text', 'templates' => ['kider']],
-                ['id' => 'stats', 'type' => 'list', 'path' => 'stats', 'label' => 'Highlights', 'templates' => ['kider'],
-                    'help' => 'Short facts under the banner.',
-                    'fields' => ['value' => ['text', 'Value', 'e.g. 1200+'], 'label' => ['text', 'Label', 'e.g. Students']],
-                    'add' => 'Add highlight'],
                 ['id' => 'welcome', 'type' => 'link', 'to' => 'about', 'label' => 'Welcome', 'help' => 'The about text, with your logo.'],
                 ['id' => 'features', 'type' => 'link', 'to' => 'facilities', 'label' => 'Features & Facilities', 'help' => 'The facility cards.'],
-                ['id' => 'classes', 'type' => 'link', 'to' => 'classes', 'label' => 'Classes', 'help' => 'The class cards.', 'templates' => ['kider']],
-                ['id' => 'why_us', 'type' => 'list', 'path' => 'why_us', 'label' => 'Why choose us', 'templates' => ['kider'],
-                    'fields' => ['icon' => ['text', 'Icon', 'e.g. 🌟'], 'title' => ['text', 'Title'], 'desc' => ['textarea', 'Description']],
-                    'add' => 'Add point'],
                 ['id' => 'philosophy', 'type' => 'textarea', 'rows' => 3, 'path' => 'philosophy', 'label' => 'Our Philosophy', 'templates' => ['classic'],
                     'help' => 'Shown in a band with your vision and mission (from About School).'],
                 ['id' => 'campus', 'type' => 'link', 'to' => 'campus-life', 'label' => 'Campus & School Life', 'help' => 'The band with a photo.', 'templates' => ['classic']],
-                ['id' => 'team', 'type' => 'link', 'to' => 'team', 'label' => 'Our Team', 'help' => 'The team cards.', 'templates' => ['kider']],
                 ['id' => 'cta_heading', 'type' => 'text', 'path' => 'cta_heading', 'label' => 'Admission band heading', 'placeholder' => 'e.g. Admissions Open'],
                 ['id' => 'cta_text', 'type' => 'textarea', 'rows' => 2, 'path' => 'cta_text', 'label' => 'Admission band text'],
                 ['id' => 'admission', 'type' => 'link', 'to' => 'admission', 'label' => 'Admission schedule, steps and documents', 'help' => 'Under the admission band.', 'templates' => ['classic']],

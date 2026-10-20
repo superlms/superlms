@@ -37,22 +37,24 @@ class SchoolWebsite extends Model
     // ─── Catalogue: templates, pages & themes ──────────────────────────────
 
     /**
-     * The site designs a school can be given. Each one is a folder of blades
-     * under resources/views/school-site/<key> reading the same content, so
-     * switching a school's template never loses anything it has filled in.
+     * The site designs a school can be given, each a folder of blades under
+     * resources/views/school-site/<key>. Classic CBSE is the only one: the
+     * Playful (kider) template was taken out on the user's ask of 2026-10-20,
+     * and every site moved to Classic.
      */
+    public const DEFAULT_TEMPLATE = 'classic';
+
     public static function templates(): array
     {
         return [
-            'kider'   => ['label' => 'Playful', 'desc' => 'Pastel gradients, rounded cards and a floating menu.'],
             'classic' => ['label' => 'Classic CBSE', 'desc' => 'Tricolour masthead with the logo, school name and board, a photo slider and a menu of every page.'],
         ];
     }
 
-    /** This site's template, or the default when it names one that does not exist. */
+    /** This site's template, or Classic when it names one that does not exist. */
     public function templateKey(): string
     {
-        return array_key_exists((string) $this->template, static::templates()) ? $this->template : 'kider';
+        return array_key_exists((string) $this->template, static::templates()) ? $this->template : self::DEFAULT_TEMPLATE;
     }
 
     /**
@@ -83,13 +85,9 @@ class SchoolWebsite extends Model
      * with the pages switched off taken out; the Super Admin's Pages tab lists
      * it whole, so a page is ticked where the school's visitors will find it.
      */
-    public static function menuGroups(string $template): array
+    public static function menuGroups(string $template = self::DEFAULT_TEMPLATE): array
     {
         $labels = static::allPages();
-
-        if ($template !== 'classic') {
-            return array_map(fn ($pages) => array_map(fn ($page) => $page[0], $pages), static::pageGroups());
-        }
 
         $groups = static::classicNavGroups();
         $groups['More'] = array_merge($groups['More'], array_values(array_diff(array_keys($labels), array_merge(...array_values($groups)))));
@@ -482,12 +480,12 @@ class SchoolWebsite extends Model
     /**
      * Resolve a stored media value to a usable URL.
      * Absolute URLs are returned as-is; relative paths go through asset();
-     * empty values fall back to the given template asset.
+     * an empty value is null.
      */
-    public static function media(?string $value, ?string $fallback = null): ?string
+    public static function media(?string $value): ?string
     {
         if (! $value) {
-            return $fallback ? asset('school-templates/kider/img/' . $fallback) : null;
+            return null;
         }
         if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
             return $value;

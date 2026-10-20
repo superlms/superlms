@@ -47,7 +47,7 @@ class SchoolSiteClassicTemplateTest extends TestCase
             $t->id();
             $t->unsignedBigInteger('organization_id')->unique();
             $t->string('domain')->nullable()->unique();
-            $t->string('template')->default('kider');
+            $t->string('template')->default('classic');
             $t->json('theme')->nullable();
             $t->json('pages')->nullable();
             $t->json('content')->nullable();
@@ -235,7 +235,7 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->assertSame(404, $this->render($site, 'doc/9')[0]);
     }
 
-    public function test_every_classic_page_renders_and_kider_is_still_the_default(): void
+    public function test_every_classic_page_renders_and_classic_is_the_only_template(): void
     {
         $site = $this->site(['pages' => ['labs' => ['heading' => 'Labs', 'body' => 'Our labs.', 'photos' => "https://example.com/1.jpg\nhttps://example.com/2.jpg"]]]);
         foreach (array_keys(SchoolWebsite::allPages()) as $slug) {
@@ -246,17 +246,23 @@ class SchoolSiteClassicTemplateTest extends TestCase
         [, $labs] = $this->render($site, 'labs');
         $this->assertSame(2, preg_match_all('/class="ph[^"]*"\s+data-lb/', $labs));
 
-        $kider = $this->site([], 'unknown-template');
-        $this->assertSame('kider', $kider->templateKey());
-        [$status, $html] = $this->render($kider, 'query');
-        $this->assertSame(200, $status);
-        $this->assertStringNotContainsString('class="mast-name"', $html);
+        // Playful (kider) is gone (user's ask of 2026-10-20): a site naming it, or
+        // any other, is shown on Classic.
+        $this->assertSame(['classic'], array_keys(SchoolWebsite::templates()));
+        foreach (['kider', 'unknown-template'] as $name) {
+            SchoolWebsite::query()->delete();
+            $old = $this->site([], $name);
+            $this->assertSame('classic', $old->templateKey());
+            [$status, $html] = $this->render($old, 'query');
+            $this->assertSame(200, $status);
+            $this->assertStringContainsString('class="mast-name"', $html);
+        }
     }
 
     /**
      * The Super Admin ticks pages under the menus the site shows them in
      * (user's ask of 2026-10-16): Classic's About Us holds what its About Us
-     * menu holds, in that order; Playful keeps its own groups.
+     * menu holds, in that order.
      */
     public function test_the_builder_lists_pages_under_the_site_menu_of_its_template(): void
     {
@@ -279,15 +285,12 @@ class SchoolSiteClassicTemplateTest extends TestCase
             ['about', 'history', 'mission', 'vision', 'manager-desk', 'principal-desk', 'campus-life'],
             array_keys(SchoolWebsite::menuGroups('classic')['About Us'])
         );
-        // Every page is listed exactly once, whichever the template.
-        foreach (['classic', 'kider'] as $tpl) {
-            $listed = array_merge(...array_map('array_keys', array_values(SchoolWebsite::menuGroups($tpl))));
-            $this->assertEqualsCanonicalizing(array_keys(SchoolWebsite::allPages()), $listed, $tpl);
-        }
+        // Every page is listed exactly once.
+        $listed = array_merge(...array_map('array_keys', array_values(SchoolWebsite::menuGroups('classic'))));
+        $this->assertEqualsCanonicalizing(array_keys(SchoolWebsite::allPages()), $listed);
 
-        $playful = html_entity_decode($text($page->set('template', 'kider')));
-        $this->assertStringContainsString('Management Leadership', $playful);
-        $this->assertStringNotContainsString('Messaging', $playful);
+        // Classic is the only template there is to pick.
+        $page->call('switchTab', 'theme')->assertSee('Classic CBSE')->assertDontSee('Playful');
     }
 
     /**
