@@ -325,6 +325,7 @@
         'modules' => 'Modules',
         'whatsapp' => 'WhatsApp',
         'custom_fee' => 'Custom Fee',
+        'biometric' => 'Biometric',
         'bank' => 'Bank Details',
         'fees' => 'Fees Analytics',
         'students' => 'Students',
@@ -513,6 +514,116 @@
                             </div>
                         @else
                             <p class="text-center py-12 text-sm text-gray-400">Custom Fee is not set up yet.</p>
+                        @endif
+                    </div>
+                @endif
+
+                {{-- ════════ BIOMETRIC TAB ════════
+                     On: the school's fingerprint / 125 kHz card machines mark
+                     attendance as people punch (App\Support\BiometricPunches) —
+                     its times on the school's Setting page. The machines are
+                     added here by serial number; each is then sent every student
+                     and teacher (with their card) and keeps calling us. --}}
+                @if ($detailTab === 'biometric')
+                    <div class="p-5 space-y-4">
+                        @if ($bio = $this->biometricSummary())
+                            <div class="border border-gray-200 rounded-md">
+                                <div class="px-4 py-3 flex flex-wrap items-center gap-3">
+                                    <button type="button" role="switch" aria-checked="{{ $bio['enabled'] ? 'true' : 'false' }}"
+                                        wire:click="toggleBiometric" wire:loading.attr="disabled" wire:target="toggleBiometric"
+                                        title="{{ $bio['enabled'] ? 'Turn off — a code is emailed to you to confirm' : 'Turn on — a code is emailed to you to confirm' }}"
+                                        class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 {{ $bio['enabled'] ? 'bg-emerald-500' : 'bg-gray-300' }}">
+                                        <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {{ $bio['enabled'] ? 'translate-x-4.5' : 'translate-x-0.5' }}"></span>
+                                    </button>
+                                    <span class="text-sm font-medium text-gray-800">Biometric attendance</span>
+                                    <span class="text-xs {{ $bio['enabled'] ? 'text-emerald-600' : 'text-gray-400' }}">{{ $bio['enabled'] ? 'On' : 'Off' }}</span>
+                                </div>
+                                <div class="px-4 py-3 border-t border-gray-100">
+                                    <p class="text-xs text-gray-500 leading-relaxed">
+                                        When on, a punch on the school's machines — fingerprint or 125 kHz card — marks the day as it happens.
+                                        <strong class="text-gray-700">Students:</strong> a punch by the school's last time ({{ $bio['times']['student_last_time'] }}) is Present, a later one Absent.
+                                        <strong class="text-gray-700">Teachers:</strong> the first punch is the punch-in, the last the punch-out.
+                                        The student or teacher hears it on the app at once, and the web's Attendance page shows it.
+                                        The school sets its times on its Setting page, and assigns cards from View Student / View Teacher with a USB card reader.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                @foreach ([
+                                    ['Machines', number_format(count($bio['devices'])) . ' · ' . $bio['devices']->filter->online()->count() . ' online', 'text-gray-900'],
+                                    ['Cards — students', number_format($bio['cards']['student']), 'text-gray-900'],
+                                    ['Cards — teachers', number_format($bio['cards']['teacher']), 'text-gray-900'],
+                                    ['Punches today', number_format($bio['punches']) . ' · ' . number_format($bio['people']) . ' people', 'text-emerald-600'],
+                                ] as [$bLabel, $bValue, $bTone])
+                                    <div class="border border-gray-200 rounded-md px-4 py-3">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $bLabel }}</p>
+                                        <p class="mt-1 text-sm font-semibold tabular-nums {{ $bTone }}">{{ $bValue }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            {{-- The machines --}}
+                            <div class="border border-gray-200 rounded-md">
+                                <div class="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center gap-2">
+                                    <span class="text-sm font-medium text-gray-800">Machines</span>
+                                    <span class="ml-auto text-xs text-gray-400">In the machine: Comm. → Cloud Server (ADMS) — Server <strong class="text-gray-600">{{ $bio['host'] }}</strong>, Port <strong class="text-gray-600">80</strong>, Domain name on, Proxy off</span>
+                                </div>
+                                <div class="divide-y divide-gray-100">
+                                    @forelse ($bio['devices'] as $dev)
+                                        <div wire:key="bio-dev-{{ $dev->id }}" class="flex flex-wrap items-center gap-3 px-4 py-2.5">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $dev->online() ? 'bg-emerald-500' : 'bg-gray-300' }}"
+                                                title="{{ $dev->online() ? 'Online' : 'Not heard from' }}"></span>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-sm text-gray-800 truncate">{{ $dev->name ?: 'Machine' }} <span class="text-xs text-gray-400 font-mono">{{ $dev->serial_number }}</span></p>
+                                                <p class="text-[11px] text-gray-400">
+                                                    {{ $dev->last_seen_at ? 'Last heard ' . $dev->last_seen_at->diffForHumans() . ($dev->last_ip ? ' from ' . $dev->last_ip : '') : 'Not heard from yet — set the server in the machine' }}
+                                                    @if ($dev->waiting) · {{ number_format($dev->waiting) }} still to send @endif
+                                                </p>
+                                            </div>
+                                            <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs flex-shrink-0">
+                                                <button type="button" wire:click="syncBiometricDevice({{ $dev->id }})" wire:loading.attr="disabled"
+                                                    title="Send every student and teacher (with cards and fingerprints) to this machine again"
+                                                    class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">Send everyone</button>
+                                                <button type="button" wire:click="removeBiometricDevice({{ $dev->id }})"
+                                                    wire:confirm="Remove this machine? Its punches stop counting until it is added again."
+                                                    class="px-2.5 py-1.5 text-red-600 hover:bg-red-50 border-l border-gray-200">Remove</button>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <p class="px-4 py-6 text-center text-xs text-gray-400">No machine added yet.</p>
+                                    @endforelse
+                                </div>
+                                <div class="px-4 py-3 border-t border-gray-100 flex flex-wrap items-start gap-2">
+                                    <div class="flex-1 min-w-[10rem]">
+                                        <input type="text" wire:model="bioSerial" placeholder="Serial number (Menu → System Info)"
+                                            class="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 font-mono focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                        @error('bioSerial') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                    </div>
+                                    <input type="text" wire:model="bioName" placeholder="Name, e.g. Main gate"
+                                        class="flex-1 min-w-[10rem] text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                    <button type="button" wire:click="addBiometricDevice" wire:loading.attr="disabled" wire:target="addBiometricDevice"
+                                        class="px-4 py-1.5 text-sm font-medium rounded-md bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-60">Add Machine</button>
+                                </div>
+                                @if ($bio['unknown'])
+                                    {{-- Machines that called here but are no school's yet --}}
+                                    <div class="px-4 py-2.5 border-t border-gray-100 bg-amber-50/60">
+                                        <p class="text-xs font-medium text-amber-800 mb-1.5">Machines calling that are not added to any school</p>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @foreach ($bio['unknown'] as $sn => $seen)
+                                                <button type="button" wire:click="addBiometricDevice('{{ $sn }}')" wire:key="bio-unk-{{ $sn }}"
+                                                    title="Add to {{ $detailSchool->name }}"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-amber-200 rounded-full hover:bg-amber-100">
+                                                    <span class="font-mono">{{ $sn }}</span>
+                                                    <span class="text-amber-700">· {{ \Illuminate\Support\Carbon::createFromTimestamp($seen['at'])->diffForHumans() }} · Add here</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @else
+                            <p class="text-center py-12 text-sm text-gray-400">Biometric attendance is not set up yet.</p>
                         @endif
                     </div>
                 @endif
@@ -1571,6 +1682,60 @@
                             class="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
                             <span wire:loading.remove wire:target="verifyCustomFeeOtp">Verify &amp; Turn {{ $cfTurnOn ? 'On' : 'Off' }}</span>
                             <span wire:loading wire:target="verifyCustomFeeOtp">Verifying…</span>
+                        </button>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ BIOMETRIC ON / OFF (OTP-verified) ══════════
+         As Custom Fee above: what changes, a code emailed to the super admin,
+         then the code turns it on or off. --}}
+    @if ($showBiometricConfirm && $detailSchool)
+        @php $bioTurnOn = !\App\Support\Biometric::enabled((int) $detailSchool->id); @endphp
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelBiometric"></div>
+            <div class="relative z-10 bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+
+                @if ($biometricStep === 'confirm')
+                    <h3 class="text-base font-semibold text-gray-900">Turn biometric attendance {{ $bioTurnOn ? 'on' : 'off' }}?</h3>
+                    <p class="text-sm text-gray-500 mt-2">
+                        @if ($bioTurnOn)
+                            {{ $detailSchool->name }}'s fingerprint and card machines will mark students' and teachers' attendance as they punch.
+                        @else
+                            Punches from {{ $detailSchool->name }}'s machines will no longer mark attendance. What was marked stays.
+                        @endif
+                    </p>
+                    <p class="text-sm text-gray-500 mt-2">A code will be emailed to you to confirm.</p>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelBiometric" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="sendBiometricOtp" type="button" wire:loading.attr="disabled" wire:target="sendBiometricOtp"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="sendBiometricOtp">Send Code</span>
+                            <span wire:loading wire:target="sendBiometricOtp">Sending…</span>
+                        </button>
+                    </div>
+                @else
+                    <h3 class="text-base font-semibold text-gray-900">Enter the code</h3>
+                    <p class="text-sm text-gray-500 mt-2">Sent to {{ $biometricOtpEmailMasked }}. Enter it to turn biometric attendance {{ $bioTurnOn ? 'on' : 'off' }} for {{ $detailSchool->name }}.</p>
+                    <input type="text" inputmode="numeric" maxlength="6" wire:model="biometricOtpInput"
+                        wire:keydown.enter="verifyBiometricOtp" placeholder="6-digit code"
+                        class="mt-4 w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md tracking-widest focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    @error('biometricOtpInput') <p class="text-xs text-red-500 mt-1.5">{{ $message }}</p> @enderror
+                    <button wire:click="sendBiometricOtp" type="button" wire:loading.attr="disabled" wire:target="sendBiometricOtp"
+                        class="text-xs text-gray-500 hover:text-gray-800 underline mt-2">
+                        <span wire:loading.remove wire:target="sendBiometricOtp">Resend code</span>
+                        <span wire:loading wire:target="sendBiometricOtp">Sending…</span>
+                    </button>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelBiometric" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="verifyBiometricOtp" type="button" wire:loading.attr="disabled" wire:target="verifyBiometricOtp"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="verifyBiometricOtp">Verify &amp; Turn {{ $bioTurnOn ? 'On' : 'Off' }}</span>
+                            <span wire:loading wire:target="verifyBiometricOtp">Verifying…</span>
                         </button>
                     </div>
                 @endif

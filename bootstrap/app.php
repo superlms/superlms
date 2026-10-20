@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
+        // The schools' attendance machines (ADMS push): outside the web group —
+        // no session, cookies or CSRF, which a machine has none of.
+        then: fn () => \Illuminate\Support\Facades\Route::group([], __DIR__ . '/../routes/biometric.php'),
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Global: serve a school's site on its custom domain. Appended so it runs

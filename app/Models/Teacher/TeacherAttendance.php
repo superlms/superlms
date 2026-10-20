@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TeacherAttendance extends Model
 {
-    protected $fillable = ['teacher_detail_id', 'organization_id', 'attendance_date', 'status', 'remarks', 'marked_by'];
+    // punch_in / punch_out / source: a biometric machine's first and last punch of the day (App\Support\BiometricPunches).
+    protected $fillable = ['teacher_detail_id', 'organization_id', 'attendance_date', 'status', 'remarks', 'marked_by', 'punch_in', 'punch_out', 'source'];
 
     protected $dates = [
         'attendance_date',

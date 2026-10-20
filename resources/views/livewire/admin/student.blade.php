@@ -985,6 +985,11 @@
                         </div>
                     @endif
 
+                    {{-- The ID card the attendance machines know them by (biometric attendance on) --}}
+                    @if ($stuDet && \App\Support\Biometric::enabled((int) $stuDet->organization_id))
+                        <livewire:admin.biometric-card holder-type="student" :holder-id="(int) $stuDet->id" :key="'bio-card-s-' . $stuDet->id" />
+                    @endif
+
                     {{-- Attendance, marks and fee, overall — "-" where there is nothing yet --}}
                     <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
                         @foreach ([

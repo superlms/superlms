@@ -60,6 +60,20 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Admin\Fee\FeePayment::created($feeWhatsApp);
         \App\Models\Admin\TransportFeePayment::created($feeWhatsApp);
 
+        // A student or teacher added to a school on biometric attendance goes
+        // onto its machines straight away (App\Support\Biometric). Never stops a save.
+        $toMachines = function ($detail) {
+            try {
+                if (\App\Support\Biometric::enabled((int) $detail->organization_id)) {
+                    \App\Support\Biometric::queueHolder((int) $detail->organization_id, $detail->fresh('user') ?? $detail);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        };
+        \App\Models\Student\StudentDetail::created($toMachines);
+        \App\Models\Teacher\TeacherDetail::created($toMachines);
+
         // Record last login timestamp on every successful authentication
         Event::listen(Login::class, function (Login $event) {
             $user = $event->user;

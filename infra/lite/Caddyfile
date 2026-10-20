@@ -72,7 +72,25 @@ https:// {
 	}
 }
 
-# …and plain http on any of them goes to https.
+# The schools' attendance machines (ADMS push, App\Http\Controllers\BiometricPushController)
+# speak plain http and do not follow a redirect: their /iclock/ calls go
+# straight to the app, on the main domain as on the box's IP address.
+# Everything else on plain http goes to https, as before.
+http://{$APP_DOMAIN}, http://www.{$APP_DOMAIN} {
+	handle /iclock/* {
+		reverse_proxy web:80
+	}
+	handle {
+		redir https://{host}{uri} permanent
+	}
+}
+
+# …and plain http on any other name (or the bare IP) goes to https too.
 http:// {
-	redir https://{host}{uri} permanent
+	handle /iclock/* {
+		reverse_proxy web:80
+	}
+	handle {
+		redir https://{host}{uri} permanent
+	}
 }

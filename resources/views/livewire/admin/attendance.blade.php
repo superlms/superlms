@@ -18,6 +18,11 @@
         };
     @endphp
 
+    {{-- Biometric attendance on: the machines' punches show up here by themselves. --}}
+    @if (\App\Support\Biometric::enabled((int) auth()->user()->organization_id))
+        <div wire:poll.15s="biometricTick" class="hidden"></div>
+    @endif
+
     {{-- ══════════ HEADER + main tabs ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

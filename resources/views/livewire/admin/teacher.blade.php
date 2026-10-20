@@ -510,6 +510,11 @@
                         </div>
                     @endif
 
+                    {{-- The ID card the attendance machines know them by (biometric attendance on) --}}
+                    @if (!empty($viewData['detail']?->id) && \App\Support\Biometric::enabled((int) $viewData['detail']->organization_id))
+                        <livewire:admin.biometric-card holder-type="teacher" :holder-id="(int) $viewData['detail']->id" :key="'bio-card-t-' . $viewData['detail']->id" />
+                    @endif
+
                     {{-- Attendance, overall — "-" where nothing is marked yet --}}
                     <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
                         <div class="grid grid-cols-3 gap-3 text-sm">

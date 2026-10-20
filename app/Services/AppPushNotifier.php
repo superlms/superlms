@@ -122,6 +122,22 @@ class AppPushNotifier
         });
     }
 
+    /**
+     * A punch on a school's attendance machine marked the day (App\Support\BiometricPunches):
+     * the student (and so the parent's app) or the teacher hears it at once,
+     * as an attendance notice — the app opens Attendance on it.
+     */
+    public function biometricPunch(int $userId, string $title, string $body): void
+    {
+        $this->safe(function () use ($userId, $title, $body) {
+            $this->fcm()->notifyUserIds([$userId], 'attendance_marked', [
+                'title'  => $title,
+                'body'   => $body,
+                'screen' => 'Attendance',
+            ]);
+        });
+    }
+
     /** New homework was created → notify the students of that class & section. */
     public function homeworkAssigned(HomeWork $hw): void
     {

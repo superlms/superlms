@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class StudentAttendance extends Model
 {
-    protected $fillable = ['student_detail_id', 'user_id', 'organization_id', 'attendance_date', 'status', 'remarks', 'marked_by'];
+    // punch_time / source: the time a biometric machine's punch marked the day (App\Support\BiometricPunches).
+    protected $fillable = ['student_detail_id', 'user_id', 'organization_id', 'attendance_date', 'status', 'remarks', 'marked_by', 'punch_time', 'source'];
 
     public function user()
     {

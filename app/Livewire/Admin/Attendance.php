@@ -83,8 +83,28 @@ class Attendance extends Component
     public $ctFilterSection  = '';
     public $ctFilterTeacher  = '';
 
+    // ── Biometric attendance: the last machine punch this page has drawn ─────
+    public int $bioSeen = 0;
+
+    /**
+     * With biometric attendance on, every 15 seconds the page looks whether a
+     * machine has marked anything since it was drawn (App\Support\BiometricPunches),
+     * and draws again only then — never while a Mark Attendance panel is open,
+     * whose rows are being set by hand.
+     */
+    public function biometricTick(): void
+    {
+        $last = (int) cache()->get('biometric:last:' . Auth::user()->organization_id, 0);
+        if ($last === $this->bioSeen || $this->showTeacherMarkPanel || $this->showStudentMarkPanel) {
+            $this->skipRender();
+            return;
+        }
+        $this->bioSeen = $last;
+    }
+
     public function mount(): void
     {
+        $this->bioSeen = (int) cache()->get('biometric:last:' . Auth::user()->organization_id, 0);
         $today = now()->toDateString();
         $month = now()->format('Y-m');
         // The school year runs April → March, so "2026" means Apr 2026–Mar 2027.

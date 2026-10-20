@@ -211,6 +211,7 @@ class Schools extends Component
         $this->selectedTeacherId  = null;
         $this->resetWhatsAppFilters();
         $this->showCustomFeeConfirm = false;
+        $this->showBiometricConfirm = false;
     }
 
     public function backToList(): void
@@ -428,6 +429,214 @@ class Schools extends Component
             'collected' => $collected,
             'balance'   => max(0, round($total - $collected, 2)),
             'payments'  => \App\Models\Admin\Fee\CustomFeePayment::where('organization_id', $orgId)->count(),
+        ];
+    }
+
+    // ─── Biometric tab: attendance by the school's fingerprint / card machines ──
+    // As Custom Fee: the switch asks first, then a code emailed to the super
+    // admin turns it on or off. The machines are added here by serial number.
+    public bool    $showBiometricConfirm    = false;
+    public string  $biometricStep           = 'confirm'; // 'confirm' | 'otp'
+    public string  $biometricOtpInput       = '';
+    public ?string $biometricOtpEmailMasked = null;
+    public string  $bioSerial               = '';
+    public string  $bioName                 = '';
+
+    private function biometricOrgId(): ?int
+    {
+        $orgId = $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
+
+        return $orgId && \App\Support\Biometric::tracked() ? $orgId : null;
+    }
+
+    public function toggleBiometric(): void
+    {
+        if (!$this->biometricOrgId()) {
+            return;
+        }
+
+        $this->biometricStep           = 'confirm';
+        $this->biometricOtpInput       = '';
+        $this->biometricOtpEmailMasked = null;
+        $this->resetErrorBag('biometricOtpInput');
+        $this->showBiometricConfirm = true;
+    }
+
+    public function cancelBiometric(): void
+    {
+        $this->showBiometricConfirm = false;
+        $this->biometricStep        = 'confirm';
+        $this->biometricOtpInput    = '';
+        session()->forget(['biometric_otp', 'biometric_otp_expires', 'biometric_otp_target']);
+    }
+
+    /** A 6-digit code to the logged-in super admin, kept hashed in the session with the school and on / off. */
+    public function sendBiometricOtp(): void
+    {
+        $orgId = $this->biometricOrgId();
+        if (!$orgId) {
+            return;
+        }
+
+        $admin = auth('superadmin')->user() ?? Auth::user();
+        if (!$admin || !$admin->email) {
+            $this->notification()->error('No email on file', 'Your super-admin account has no email to receive the code.');
+            return;
+        }
+
+        $turnOn = !\App\Support\Biometric::enabled($orgId);
+        $otp    = (string) random_int(100000, 999999);
+        session([
+            'biometric_otp'         => Hash::make($otp),
+            'biometric_otp_expires' => now()->addMinutes(10)->timestamp,
+            'biometric_otp_target'  => $orgId . ':' . ($turnOn ? 'on' : 'off'),
+        ]);
+
+        try {
+            $this->mailSuperAdminCode(
+                $admin,
+                'SuperLMS — Biometric attendance verification code',
+                $this->biometricOtpEmailHtml($otp, $this->detailSchool->name ?? 'a school', $turnOn)
+            );
+        } catch (\Throwable $e) {
+            Log::error('Biometric OTP email failed: ' . $e->getMessage());
+            session()->forget(['biometric_otp', 'biometric_otp_expires', 'biometric_otp_target']);
+            $this->notification()->error('Could not send code', 'Email delivery failed. Please try again.');
+            return;
+        }
+
+        $this->biometricOtpEmailMasked = $this->maskEmail($admin->email);
+        $this->biometricStep           = 'otp';
+        $this->biometricOtpInput       = '';
+        $this->resetErrorBag('biometricOtpInput');
+        $this->notification()->success('Code sent', 'A verification code has been emailed to you.');
+    }
+
+    public function verifyBiometricOtp(): void
+    {
+        $orgId  = $this->biometricOrgId();
+        $hash   = session('biometric_otp');
+        $expiry = session('biometric_otp_expires');
+        [$target, $state] = array_pad(explode(':', (string) session('biometric_otp_target')), 2, null);
+
+        if (!$orgId || !$hash || !$expiry || (int) $target !== $orgId || !in_array($state, ['on', 'off'], true)) {
+            $this->addError('biometricOtpInput', 'No active code. Please request a new one.');
+            return;
+        }
+        if (now()->timestamp > (int) $expiry) {
+            $this->addError('biometricOtpInput', 'This code has expired. Request a new one.');
+            return;
+        }
+        if (!Hash::check(trim($this->biometricOtpInput), $hash)) {
+            $this->addError('biometricOtpInput', 'Incorrect code. Please check your email and try again.');
+            return;
+        }
+
+        session()->forget(['biometric_otp', 'biometric_otp_expires', 'biometric_otp_target']);
+
+        $on = $state === 'on';
+        \App\Support\Biometric::setEnabled($orgId, $on, auth()->id());
+
+        $this->showBiometricConfirm = false;
+        $this->biometricStep        = 'confirm';
+        $this->biometricOtpInput    = '';
+        $this->notification()->success('Biometric attendance is ' . ($on ? 'on' : 'off') . ' for ' . $this->detailSchool->name . '.');
+    }
+
+    private function biometricOtpEmailHtml(string $otp, string $schoolName, bool $turnOn): string
+    {
+        $safeSchool = e($schoolName);
+        $action     = $turnOn ? 'turn <strong>on</strong>' : 'turn <strong>off</strong>';
+        $effect     = $turnOn
+            ? 'Its fingerprint and card machines will mark students\' and teachers\' attendance as they punch.'
+            : 'Punches from its machines will no longer mark attendance; what was marked stays.';
+
+        return <<<HTML
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
+                <h2 style="margin:0 0 12px;font-size:18px;">Biometric attendance verification</h2>
+                <p style="font-size:14px;color:#374151;line-height:1.6;">
+                    You asked to {$action} biometric attendance for <strong>{$safeSchool}</strong> on SuperLMS.
+                    {$effect} Use the verification code below to confirm.
+                </p>
+                <div style="font-size:32px;font-weight:700;letter-spacing:8px;color:#1d4ed8;
+                            background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;
+                            padding:16px;text-align:center;margin:18px 0;">
+                    {$otp}
+                </div>
+                <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+                    This code expires in 10 minutes. If you did not ask for this, ignore this email —
+                    nothing changes without the code.
+                </p>
+            </div>
+        HTML;
+    }
+
+    /** A machine for the school, by the serial number it shows (or one that called and was listed). */
+    public function addBiometricDevice(?string $serial = null): void
+    {
+        $orgId = $this->biometricOrgId();
+        if (!$orgId) {
+            return;
+        }
+
+        try {
+            $device = \App\Support\Biometric::addDevice($orgId, $serial ?? $this->bioSerial, $this->bioName);
+        } catch (\RuntimeException $e) {
+            $this->addError('bioSerial', $e->getMessage());
+            return;
+        }
+
+        $this->reset(['bioSerial', 'bioName']);
+        $this->resetErrorBag('bioSerial');
+        $this->notification()->success('Machine added', $device->serial_number . ' gets the school\'s students and teachers when it next calls.');
+    }
+
+    public function removeBiometricDevice(int $id): void
+    {
+        $orgId = $this->biometricOrgId();
+        if ($orgId) {
+            \App\Models\Biometric\BiometricDevice::where('organization_id', $orgId)->whereKey($id)->delete();
+            $this->notification()->success('Machine removed.');
+        }
+    }
+
+    /** Everyone of the school (with cards and fingerprints) onto the machine again. */
+    public function syncBiometricDevice(int $id): void
+    {
+        $orgId  = $this->biometricOrgId();
+        $device = $orgId ? \App\Models\Biometric\BiometricDevice::where('organization_id', $orgId)->find($id) : null;
+        if ($device) {
+            $n = \App\Support\Biometric::queueEveryone($device);
+            $this->notification()->success('Sending ' . $n . ' students and teachers', 'The machine takes them as it next calls.');
+        }
+    }
+
+    /** What the Biometric tab shows: on or off, the machines, the cards, today's punches. */
+    public function biometricSummary(): ?array
+    {
+        $orgId = $this->biometricOrgId();
+        if (!$orgId) {
+            return null;
+        }
+
+        $devices = \App\Models\Biometric\BiometricDevice::where('organization_id', $orgId)
+            ->withCount(['commands as waiting' => fn ($q) => $q->whereIn('status', ['pending', 'sent'])])
+            ->orderBy('id')->get();
+        $cards = \App\Models\Biometric\BiometricCard::where('organization_id', $orgId)
+            ->selectRaw('holder_type, COUNT(*) as c')->groupBy('holder_type')->pluck('c', 'holder_type');
+        $today = \App\Models\Biometric\BiometricPunch::where('organization_id', $orgId)
+            ->whereBetween('punched_at', [now()->startOfDay(), now()->endOfDay()]);
+
+        return [
+            'enabled'  => \App\Support\Biometric::enabled($orgId),
+            'devices'  => $devices,
+            'cards'    => ['student' => (int) ($cards['student'] ?? 0), 'teacher' => (int) ($cards['teacher'] ?? 0)],
+            'punches'  => (clone $today)->count(),
+            'people'   => (clone $today)->whereNotNull('holder_id')->get(['holder_type', 'holder_id'])
+                ->unique(fn ($p) => $p->holder_type . ':' . $p->holder_id)->count(),
+            'unknown'  => \App\Support\Biometric::unknown(),
+            'host'     => parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'superlms.in',
+            'times'    => \App\Support\Biometric::times($orgId),
         ];
     }
 
