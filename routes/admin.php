@@ -217,6 +217,9 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         // ID Card printable / download
         Route::get('/id-card/{type}/{id}/print', [\App\Http\Controllers\Admin\IdCardPrintController::class, 'print'])
             ->name('admin.id-card.print');
+        // ID Card → Export: the data (with photos) as a spreadsheet, columns as picked
+        Route::get('/id-card/export', [\App\Http\Controllers\Admin\IdCardExportController::class, 'download'])
+            ->name('admin.id-card.export');
 
         // Transport fee receipt
         Route::get('/transport/receipt/{id}', [\App\Http\Controllers\Admin\TransportReceiptController::class, 'show'])

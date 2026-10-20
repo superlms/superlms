@@ -5,7 +5,9 @@
             'approved' => ['Approved', 'bg-green-50 text-green-700 border-green-100', 'bg-green-500'],
             'rejected' => ['Rejected', 'bg-red-50 text-red-600 border-red-100', 'bg-red-500'],
         ];
-        $feeLabel = fn ($r) => $r->fee_type === 'transport' ? 'Transport' : 'Academic';
+        // A school on Custom Fee has one fee of its own, not an academic one.
+        $customFee = \App\Support\CustomFee::enabled((int) auth()->user()->organization_id);
+        $feeLabel = fn ($r) => $r->fee_type === 'transport' ? 'Transport' : ($customFee ? 'Fee' : 'Academic');
         $forLine  = function ($r) {
             if ($months = $r->months()) {
                 return strtoupper(implode(', ', $months));
@@ -287,7 +289,9 @@
                 ? route('admin.fee.receipt', ['organization' => $orgId, 'id' => $review->fee_payment_id])
                 : ($review->transport_fee_payment_id
                     ? route('admin.transport.receipt', ['organization' => $orgId, 'id' => $review->transport_fee_payment_id])
-                    : null);
+                    : ($review->custom_fee_payment_id
+                        ? route('admin.fee.custom-receipt', ['organization' => $orgId, 'id' => $review->custom_fee_payment_id])
+                        : null));
             $side = $review->fee_type === 'transport' ? ($ledger['transport'] ?? null) : ($ledger['academic'] ?? null);
         @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" wire:key="qrp-panel-{{ $review->id }}">
@@ -384,7 +388,7 @@
                     {{-- Where the student stands --}}
                     @if ($side)
                         <div class="rounded-xl border border-gray-200 px-4 py-3">
-                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{{ $feeLabel($review) }} fee this year</p>
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{{ $customFee && $review->fee_type !== 'transport' ? 'Fee' : $feeLabel($review) . ' fee' }} this year</p>
                             <div class="grid grid-cols-3 gap-3 text-center">
                                 <div>
                                     <p class="text-sm font-semibold text-gray-900">₹{{ number_format($side['net'] ?? 0, 0) }}</p>

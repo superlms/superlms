@@ -17,7 +17,7 @@
 {{-- Five tabs swipe sideways on a phone rather than spill off it. --}}
 <div class="border-t border-gray-200 px-4 sm:px-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     <div class="flex gap-1 min-w-max">
-        @foreach (['' => 'All', 'academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'] as $tab => $label)
+        @foreach ($paymentTabs ?? ['' => 'All', 'academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'] as $tab => $label)
             <button wire:click="setFeeTypeFilter('{{ $tab }}')"
                 class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap {{ $feeTypeFilter === $tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $label }}</button>
         @endforeach

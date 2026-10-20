@@ -18,7 +18,9 @@ use App\Models\Admin\TeacherArrangement;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
-use App\Models\WebsiteContact;
+use App\Models\Admin\ContactAdminStudent;
+use App\Models\Admin\ContactAdminTeacher;
+use App\Models\SchoolWebsiteEnquiry;
 use App\Support\AcademicYear;
 use App\Support\CustomFee;
 use Illuminate\Support\Facades\DB;
@@ -940,14 +942,31 @@ class Analytics extends Component
 
     protected function loadEnquiryStats(): void
     {
-        $total     = WebsiteContact::count();
-        $responded = WebsiteContact::whereNotNull('remark')->where('remark', '!=', '')->count();
+        // The school's own enquiries — its students' and teachers' questions
+        // from the apps, and its public website's forms — never the superLMS
+        // site's (WebsiteContact), which only the Super Admin sees. Website
+        // enquiries have no reply flow, so they count in Total but not in
+        // Responded / Pending or the response rate.
+        $orgId = $this->orgId();
+        $count = fn ($model) => $model::where('organization_id', $orgId)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN admin_reply = 1 THEN 1 ELSE 0 END) as replied')
+            ->first();
+
+        $student = $count(ContactAdminStudent::class);
+        $teacher = $count(ContactAdminTeacher::class);
+        $website = SchoolWebsiteEnquiry::where('organization_id', $orgId)->count();
+
+        $app       = (int) ($student->total ?? 0) + (int) ($teacher->total ?? 0);
+        $responded = (int) ($student->replied ?? 0) + (int) ($teacher->replied ?? 0);
 
         $this->enquiryStats = [
-            'total'     => $total,
+            'total'     => $app + $website,
             'responded' => $responded,
-            'pending'   => max(0, $total - $responded),
-            'rate'      => $total > 0 ? round(($responded / $total) * 100, 1) : 0,
+            'pending'   => max(0, $app - $responded),
+            'rate'      => $app > 0 ? round(($responded / $app) * 100, 1) : 0,
+            'student'   => (int) ($student->total ?? 0),
+            'teacher'   => (int) ($teacher->total ?? 0),
+            'website'   => $website,
         ];
     }
 
@@ -1136,14 +1155,49 @@ class Analytics extends Component
 
     protected function loadAdminEnquiries(): void
     {
-        $this->adminEnquiries = WebsiteContact::latest()->take(3)->get()
-            ->map(fn($e) => [
-                'id'     => $e->id,
-                'name'   => $e->full_name,
-                'email'  => $e->email,
-                'time'   => $e->created_at->diffForHumans(),
-                'status' => $e->remark ? 'Responded' : 'Pending',
-            ])->toArray();
+        // The latest few across the school's three kinds of enquiry, newest first.
+        $orgId = $this->orgId();
+
+        $students = ContactAdminStudent::where('organization_id', $orgId)
+            ->with('user:id,name')->latest()->take(5)->get()
+            ->map(fn ($e) => [
+                'name'   => $e->user?->name ?? 'Student',
+                'source' => 'Student',
+                'tab'    => 'student',
+                'at'     => $e->created_at,
+                'status' => $e->admin_reply ? 'Responded' : 'Pending',
+            ]);
+
+        $teachers = ContactAdminTeacher::where('organization_id', $orgId)
+            ->with('user:id,name')->latest()->take(5)->get()
+            ->map(fn ($e) => [
+                'name'   => $e->user?->name ?? 'Teacher',
+                'source' => 'Teacher',
+                'tab'    => 'teacher',
+                'at'     => $e->created_at,
+                'status' => $e->admin_reply ? 'Responded' : 'Pending',
+            ]);
+
+        $website = SchoolWebsiteEnquiry::where('organization_id', $orgId)
+            ->latest()->take(5)->get()
+            ->map(fn ($e) => [
+                'name'   => $e->name ?: 'Website visitor',
+                'source' => 'Website',
+                'tab'    => 'website',
+                'at'     => $e->created_at,
+                'status' => 'New',
+            ]);
+
+        $this->adminEnquiries = $students->concat($teachers)->concat($website)
+            ->sortByDesc(fn ($e) => $e['at']?->timestamp ?? 0)
+            ->take(5)
+            ->map(fn ($e) => [
+                'name'   => $e['name'],
+                'source' => $e['source'],
+                'tab'    => $e['tab'],
+                'time'   => $e['at']?->diffForHumans() ?? '',
+                'status' => $e['status'],
+            ])->values()->toArray();
     }
 
     // ─── Arrangements ─────────────────────────────────────────────────────────

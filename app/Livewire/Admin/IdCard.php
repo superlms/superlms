@@ -10,6 +10,7 @@ use App\Models\Admin\TeacherIdCard;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Services\IdCardService;
+use App\Support\IdCardExport;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -51,6 +52,17 @@ class IdCard extends Component
 
     // Delete
     public $showDeleteModal = false;
+
+    // Export — the data (with photos) as a spreadsheet, columns picked and
+    // ordered here (App\Support\IdCardExport)
+    public bool $showExportPanel = false;
+    public string $exportType    = 'student';
+    public $exportStandard       = '';
+    public $exportSection        = '';
+    public string $exportWhich   = 'all';   // all | issued | not_issued
+    public string $exportFormat  = 'xlsx';  // xlsx | zip
+    /** The sheet's columns, first to last. */
+    public array $exportColumns  = [];
 
     public function updatedStandardFilter() { $this->sectionFilter = ''; $this->resetPage(); }
     public function updatedSectionFilter()  { $this->resetPage(); }
@@ -333,6 +345,138 @@ class IdCard extends Component
         }
     }
 
+    /* ───────────────────────── Export ───────────────────────── */
+
+    /** The header's Export: the tab's people, in the columns this school last picked. */
+    public function openExport(): void
+    {
+        $this->exportType     = $this->cardType;
+        $this->exportStandard = $this->cardType === 'student' ? (string) $this->standardFilter : '';
+        $this->exportSection  = $this->cardType === 'student' ? (string) $this->sectionFilter : '';
+        $this->exportWhich    = 'all';
+        $this->exportColumns  = IdCardExport::savedColumns((int) Auth::user()->organization_id, $this->exportType);
+        $this->showExportPanel = true;
+    }
+
+    public function closeExport(): void
+    {
+        $this->showExportPanel = false;
+    }
+
+    public function updatedExportType(): void
+    {
+        if (!in_array($this->exportType, IdCardExport::TYPES, true)) {
+            $this->exportType = 'student';
+        }
+        $this->exportStandard = '';
+        $this->exportSection  = '';
+        $this->exportColumns  = IdCardExport::savedColumns((int) Auth::user()->organization_id, $this->exportType);
+    }
+
+    public function updatedExportStandard(): void
+    {
+        $this->exportSection = '';
+    }
+
+    public function updatedExportWhich(): void
+    {
+        if (!in_array($this->exportWhich, IdCardExport::WHICH, true)) {
+            $this->exportWhich = 'all';
+        }
+    }
+
+    public function updatedExportFormat(): void
+    {
+        $this->exportFormat = $this->exportFormat === 'zip' ? 'zip' : 'xlsx';
+    }
+
+    public function addExportColumn(string $key): void
+    {
+        $this->setExportColumns([...$this->exportColumns, $key]);
+    }
+
+    public function removeExportColumn(string $key): void
+    {
+        $this->setExportColumns(array_values(array_diff($this->exportColumns, [$key])));
+    }
+
+    /** ↑ / ↓ beside a column: one place earlier or later. */
+    public function moveExportColumn(string $key, int $by): void
+    {
+        $cols = $this->exportColumns;
+        $from = array_search($key, $cols, true);
+        if ($from === false) {
+            return;
+        }
+        $to = max(0, min(count($cols) - 1, $from + $by));
+        array_splice($cols, $from, 1);
+        array_splice($cols, $to, 0, [$key]);
+        $this->setExportColumns($cols);
+    }
+
+    /** A column dragged onto another's place. */
+    public function dropExportColumn(string $key, int $to): void
+    {
+        $from = array_search($key, $this->exportColumns, true);
+        if ($from === false) {
+            return;
+        }
+        $this->moveExportColumn($key, $to - $from);
+    }
+
+    public function addAllExportColumns(): void
+    {
+        $all = array_keys(IdCardExport::fields($this->exportType));
+        $this->setExportColumns([...$this->exportColumns, ...array_diff($all, $this->exportColumns)]);
+    }
+
+    public function resetExportColumns(): void
+    {
+        $this->setExportColumns(IdCardExport::defaults($this->exportType));
+    }
+
+    /** The order is kept as it changes, so the next export opens on it. */
+    private function setExportColumns(array $columns): void
+    {
+        $this->exportColumns = IdCardExport::clean($this->exportType, $columns);
+        IdCardExport::saveColumns((int) Auth::user()->organization_id, $this->exportType, $this->exportColumns);
+    }
+
+    /** The download link for what is picked (the browser fetches the file from it). */
+    private function exportUrl(): string
+    {
+        return route('admin.id-card.export', array_filter([
+            'organization' => Auth::user()->organization_id,
+            'type'         => $this->exportType,
+            'cols'         => implode(',', $this->exportColumns),
+            'class'        => $this->exportType === 'student' ? $this->exportStandard : null,
+            'section'      => $this->exportType === 'student' ? $this->exportSection : null,
+            'which'        => $this->exportWhich,
+            'format'       => $this->exportFormat,
+        ], fn ($v) => $v !== null && $v !== ''));
+    }
+
+    /** What the panel shows: the fields, how many people, and the first rows as the sheet will have them. */
+    private function exportViewData(int $orgId): array
+    {
+        $standardId = $this->exportType === 'student' && $this->exportStandard ? (int) $this->exportStandard : null;
+        $sectionId  = $standardId && $this->exportSection ? (int) $this->exportSection : null;
+
+        return [
+            'exportFields'   => IdCardExport::fields($this->exportType),
+            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $standardId, $sectionId, $this->exportWhich),
+            'exportPreview'  => $this->exportColumns
+                ? IdCardExport::rows($orgId, $this->exportType,
+                    IdCardExport::people($orgId, $this->exportType, $standardId, $sectionId, $this->exportWhich, 3),
+                    $this->exportColumns)
+                : [],
+            'exportSections' => $standardId
+                ? \App\Models\Student\Section::where('standard_id', $standardId)->orderBy('id')->get(['id', 'name'])
+                : collect(),
+            'exportUrl'      => $this->exportUrl(),
+        ];
+    }
+
     public function resetFilters()
     {
         $this->reset(['search', 'standardFilter', 'sectionFilter', 'statusFilter', 'issueFilter']);
@@ -406,6 +550,8 @@ class IdCard extends Component
     public function render()
     {
         $orgId = Auth::user()->organization_id;
+        // The Export panel's own figures, only while it is open.
+        $export = $this->showExportPanel ? $this->exportViewData((int) $orgId) : [];
 
         if ($this->awaitingClass()) {
             return view('livewire.admin.id-card', [
@@ -416,7 +562,7 @@ class IdCard extends Component
                 'standards' => \App\Models\Student\Standard::where('organization_id', $orgId)
                     ->where('is_active', true)->inClassOrder()->get(['id', 'name']),
                 'sections'  => collect(),
-            ]);
+            ] + $export);
         }
 
         $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
@@ -430,7 +576,7 @@ class IdCard extends Component
                 'cards'     => $this->peopleWithoutCard($orgId)->paginate($this->perPage),
                 'standards' => $standards,
                 'sections'  => $sections,
-            ]);
+            ] + $export);
         }
 
         if ($this->cardType === 'student') {
@@ -520,6 +666,6 @@ class IdCard extends Component
             'cards'     => $cards,
             'standards' => $standards,
             'sections'  => $sections,
-        ]);
+        ] + $export);
     }
 }

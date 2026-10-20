@@ -5,6 +5,7 @@ namespace App\Models\Admin\Fee;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use App\Support\CustomFee;
 use App\Support\TransportBilling;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,7 @@ class FeePaymentRequest extends Model
         'review_note',
         'fee_payment_id',
         'transport_fee_payment_id',
+        'custom_fee_payment_id',
     ];
 
     protected $casts = [
@@ -69,6 +71,12 @@ class FeePaymentRequest extends Model
     public function feePayment(): BelongsTo
     {
         return $this->belongsTo(FeePayment::class);
+    }
+
+    /** Approved in a school on Custom Fee: the payment it booked there. */
+    public function customFeePayment(): BelongsTo
+    {
+        return $this->belongsTo(CustomFeePayment::class);
     }
 
     public function transportFeePayment(): BelongsTo
@@ -120,7 +128,9 @@ class FeePaymentRequest extends Model
 
     public function receiptNumber(): ?string
     {
-        return $this->feePayment?->receipt_number ?? $this->transportFeePayment?->receipt_number;
+        return $this->feePayment?->receipt_number
+            ?? $this->transportFeePayment?->receipt_number
+            ?? ($this->custom_fee_payment_id ? $this->customFeePayment?->receipt_number : null);
     }
 
     /** The months a transport payment was meant for, as the student picked them. */
@@ -179,6 +189,22 @@ class FeePaymentRequest extends Model
                     'submitted_by'      => $reviewer->id,
                 ]);
                 $req->transport_fee_payment_id = $tp->id;
+            } elseif (CustomFee::enabled((int) $req->organization_id)) {
+                // A school on Custom Fee: against the student's own fee, with
+                // its own receipt series (App\Support\CustomFee).
+                $cp = CustomFeePayment::create([
+                    'organization_id'   => $req->organization_id,
+                    'student_detail_id' => $student->id,
+                    'standard_id'       => $student->standard_id,
+                    'section_id'        => $student->section_id,
+                    'amount'            => $amount,
+                    'payment_mode'      => 'upi',
+                    'payment_date'      => $paidOn->toDateString(),
+                    'submitted_by'      => $reviewer->name ?: 'QR payment',
+                    'remark'            => $req->bookingRemark(),
+                    'created_by'        => $reviewer->id,
+                ]);
+                $req->custom_fee_payment_id = $cp->id;
             } else {
                 $fp = FeePayment::create([
                     'organization_id'   => $req->organization_id,

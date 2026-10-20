@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Admin\Fee\CustomFeeItem;
 use App\Models\Admin\Fee\CustomFeePayment;
 use App\Models\Admin\Fee\CustomFeeSetting;
+use App\Models\Admin\Fee\FeeCycle;
 use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Schema;
@@ -218,6 +219,68 @@ class CustomFee
             if (($class = $classOf[$studentId] ?? null) !== null) {
                 $out[$class]['paid'] = ($out[$class]['paid'] ?? 0) + (float) $total;
             }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A student's fee on the school's Fee Cycle — the same split the ordinary
+     * fee makes (Fee → Fee Cycle → Calculator): the Registration Fee off the
+     * top, then each installment its % of what is left, the year with
+     * installments latest; what they have paid goes against the earliest
+     * first. Empty when the school has no academic cycle.
+     *
+     * @return array<int, array{label: string, span: ?string, percent: ?float, due: ?\Carbon\Carbon,
+     *               amount: float, paid: float, left: float, status: string}>
+     */
+    public static function installments(int $orgId, float $total, float $paid): array
+    {
+        $cycles = FeeCycle::forOrg($orgId)->active()->where('fee_type', 'academic')->get();
+        $cycles = $cycles->where('academic_year', $cycles->max('academic_year'))
+            ->sortBy(fn ($c) => ($c->is_token ? '0' : '1') . str_pad((string) $c->payment_serial, 3, '0', STR_PAD_LEFT))
+            ->values();
+        if ($cycles->isEmpty()) {
+            return [];
+        }
+
+        $registration = min($total, (float) optional($cycles->firstWhere('is_token', true))->amount);
+        $base         = max(0, $total - $registration);
+        $left         = $paid;
+        $today        = today();
+        $out          = [];
+
+        foreach ($cycles as $c) {
+            $amount  = round($c->is_token ? $registration : $base * (float) $c->fee_percent / 100, 2);
+            $covered = round(min($left, $amount), 2);
+            $left    = max(0, round($left - $covered, 2));
+            $due     = $c->due_date ? \Carbon\Carbon::parse($c->due_date) : null;
+
+            $status = match (true) {
+                $amount <= 0                         => 'Nil',
+                $covered >= $amount - 0.01           => 'Paid',
+                $covered > 0                         => 'Partial',
+                $due !== null && $due->lt($today)    => 'Overdue',
+                default                              => 'Due',
+            };
+
+            $span = null;
+            if (!$c->is_token && $c->start_date && $c->end_date) {
+                $start = \Carbon\Carbon::parse($c->start_date);
+                $end   = \Carbon\Carbon::parse($c->end_date);
+                $span  = $start->isSameMonth($end) ? $start->format('M Y') : $start->format('M') . '–' . $end->format('M Y');
+            }
+
+            $out[] = [
+                'label'   => $c->is_token ? 'Registration Fee' : 'Installment ' . $c->payment_serial,
+                'span'    => $span,
+                'percent' => $c->is_token ? null : (float) $c->fee_percent,
+                'due'     => $due,
+                'amount'  => $amount,
+                'paid'    => $covered,
+                'left'    => round(max(0, $amount - $covered), 2),
+                'status'  => $status,
+            ];
         }
 
         return $out;

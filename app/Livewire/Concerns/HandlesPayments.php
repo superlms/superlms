@@ -182,10 +182,47 @@ trait HandlesPayments
      * Type is deliberately excluded here since the strip already breaks
      * academic and transport out side by side.
      */
+    /**
+     * A school on Custom Fee (App\Support\CustomFee): its fee is each
+     * student's own particulars and is paid into custom_fee_payments, so the
+     * screen lists and counts those (with the bus fee) in place of the
+     * ordinary fee's. Its Fee tab is the Academic one.
+     */
+    private function paymentsCustomFee(): bool
+    {
+        return \App\Support\CustomFee::enabled($this->orgId());
+    }
+
+    private function customFeePaymentQuery()
+    {
+        return \App\Models\Admin\Fee\CustomFeePayment::where('organization_id', $this->orgId())
+            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
+            ->when($this->paymentSectionId, fn ($q) => $q->where('section_id', $this->paymentSectionId))
+            ->when($this->paymentModeFilter, fn ($q) => $q->where('payment_mode', $this->paymentModeFilter))
+            ->when($this->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $this->dateFrom))
+            ->when($this->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $this->dateTo))
+            ->when($this->paymentStudentSearch, fn ($q) => $q->whereHas('studentDetail', function ($sq) {
+                $sq->where('full_name', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhere('admission_no', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$this->paymentStudentSearch}%"));
+            }));
+    }
+
     private function paymentHeaderStats(): array
     {
-        $orgId = $this->orgId();
+        $orgId  = $this->orgId();
+        $custom = $this->paymentsCustomFee();
 
+        $studentQuery = StudentDetail::where('organization_id', $orgId)
+            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
+            ->when($this->paymentSectionId, fn ($q) => $q->where('section_id', $this->paymentSectionId));
+
+        if ($custom) {
+            // Every student's own particulars, added up.
+            $totalAcademicFee = (float) \App\Models\Admin\Fee\CustomFeeItem::where('organization_id', $orgId)
+                ->whereIn('student_detail_id', (clone $studentQuery)->select('id'))
+                ->sum('amount');
+        } else {
         // ── Scheduled academic fee: what each student is billed — their
         //    class's whole-class heads and their own section's, as View Fee and
         //    Fee → Analytics read it. A head written for one section is not
@@ -197,10 +234,6 @@ trait HandlesPayments
             ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
             ->get(['standard_id', 'section_id', 'amount'])
             ->groupBy('standard_id');
-
-        $studentQuery = StudentDetail::where('organization_id', $orgId)
-            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
-            ->when($this->paymentSectionId, fn ($q) => $q->where('section_id', $this->paymentSectionId));
 
         // Students per class and section, so each pair's fee is worked out once.
         $pairs = (clone $studentQuery)
@@ -220,6 +253,7 @@ trait HandlesPayments
         $totalAcademicFee += $this->paymentStandardId || $this->paymentSectionId
             ? array_sum(FeeStructure::ownTotals($orgId, (clone $studentQuery)->pluck('id')->all()))
             : FeeStructure::ownTotalForSchool($orgId);
+        }
 
         // ── Scheduled transport fee: route.monthly_fee × each student's billed months ──
         $txRows = DB::table('transportation_students as ts')
@@ -240,8 +274,11 @@ trait HandlesPayments
 
         // ── Collected, filtered the same way as the listing ──
         $feeBase = $this->feePaymentQuery();
-        $academicCollected = (clone $feeBase)->where('fee_type', 'academic')->sum('amount');
-        $transportFromFeeTable = (clone $feeBase)->where('fee_type', 'transport')->sum('amount');
+        $academicCollected = $custom
+            ? $this->customFeePaymentQuery()->sum('amount')
+            : (clone $feeBase)->where('fee_type', 'academic')->sum('amount');
+        // On Custom Fee the ordinary fee table is not read at all.
+        $transportFromFeeTable = $custom ? 0 : (clone $feeBase)->where('fee_type', 'transport')->sum('amount');
         $transportFromTxTable = $this->transportPaymentQuery()->sum('amount');
         $transportCollected = (float) $transportFromFeeTable + (float) $transportFromTxTable;
 
@@ -317,17 +354,46 @@ trait HandlesPayments
     {
         $prefix = $this->paymentsRoutePrefix();
         $includeTransportTable = in_array($this->feeTypeFilter, ['', 'transport'], true);
+        $custom = $this->paymentsCustomFee();
 
-        $feePayments = $this->applyFeeTypeTab($this->feePaymentQuery())
-            ->with(['studentDetail.user', 'standard', 'section'])
-            ->get();
+        // On Custom Fee: its own payments in the ordinary fee's place.
+        $feePayments = $custom
+            ? collect()
+            : $this->applyFeeTypeTab($this->feePaymentQuery())
+                ->with(['studentDetail.user', 'standard', 'section'])
+                ->get();
+        $customPayments = $custom && in_array($this->feeTypeFilter, ['', 'academic'], true)
+            ? $this->customFeePaymentQuery()->with(['studentDetail.user', 'standard', 'section'])->get()
+            : collect();
 
         $transportPayments = $includeTransportTable
             ? $this->transportPaymentQuery()->with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section'])->get()
             : collect();
 
         $merged = collect();
-        $collectorType = $this->paymentCollectorTypes($feePayments, $transportPayments);
+        $collectorType = $this->paymentCollectorTypes($feePayments->concat($customPayments), $transportPayments);
+
+        foreach ($customPayments as $p) {
+            $merged->push((object) [
+                'id' => $p->id,
+                'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
+                'father_name' => $p->studentDetail?->father_name,
+                'collected_by_type' => $collectorType($p->submitted_by, $p->payment_mode),
+                'is_dues' => false,
+                'admission_no' => $p->studentDetail?->admission_no,
+                'standard_name' => $p->standard?->name,
+                'section_name' => $p->section?->name,
+                'fee_type' => 'fee',
+                'payment_mode' => $p->payment_mode,
+                'amount' => (float) $p->amount,
+                'penalty_amount' => 0.0,
+                'waiver_amount' => 0.0,
+                'waiver_reason' => null,
+                'payment_date' => $p->payment_date,
+                'submitted_by' => $p->submitted_by,
+                'receipt_route' => "{$prefix}.fee.custom-receipt",
+            ]);
+        }
 
         foreach ($feePayments as $p) {
             $merged->push((object) [
@@ -453,6 +519,10 @@ trait HandlesPayments
                 : collect(),
             'paymentsOrgId' => $orgId,
             'datePresets' => $this->datePresetOptions(),
+            // The tabs over the filters: a Custom Fee school has no dues or penalty.
+            'paymentTabs' => $this->paymentsCustomFee()
+                ? ['' => 'All', 'academic' => 'Fee', 'transport' => 'Transport']
+                : ['' => 'All', 'academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'],
         ];
     }
 }

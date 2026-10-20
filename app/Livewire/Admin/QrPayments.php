@@ -111,7 +111,7 @@ class QrPayments extends Component
             return;
         }
 
-        $req->load(['feePayment', 'transportFeePayment', 'studentDetail']);
+        $req->load(['feePayment', 'transportFeePayment', 'customFeePayment', 'studentDetail']);
         $req->notifyStudent();
 
         $this->notification()->success(
@@ -182,6 +182,7 @@ class QrPayments extends Component
                 'studentDetail.section:id,name',
                 'feePayment:id,receipt_number',
                 'transportFeePayment:id,receipt_number',
+                'customFeePayment:id,receipt_number',
             ])
             ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
             ->when($this->feeType !== '', fn ($q) => $q->where('fee_type', $this->feeType))
@@ -210,9 +211,16 @@ class QrPayments extends Component
                 'studentDetail.section:id,name',
                 'feePayment:id,receipt_number',
                 'transportFeePayment:id,receipt_number',
+                'customFeePayment:id,receipt_number',
                 'reviewer:id,name',
             ]);
-            $ledger = $this->buildStudentFeeView((int) $review->student_detail_id);
+            // A school on Custom Fee: where the student's own fee stands.
+            if (\App\Support\CustomFee::enabled($orgId)) {
+                $own    = \App\Support\CustomFee::forStudent($orgId, (int) $review->student_detail_id);
+                $ledger = ['academic' => ['net' => $own['total'], 'paid' => $own['paid'], 'remaining' => $own['balance']]];
+            } else {
+                $ledger = $this->buildStudentFeeView((int) $review->student_detail_id);
+            }
         }
 
         return view('livewire.admin.qr-payments', [

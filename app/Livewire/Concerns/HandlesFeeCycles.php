@@ -1138,42 +1138,56 @@ trait HandlesFeeCycles
             ->values();
         $registration = (float) optional($cycles->firstWhere('is_token', true))->amount;
 
-        $heads = FeeStructure::where('organization_id', $orgId)->where('is_active', true)
-            ->where('fee_type', 'academic')->where('standard_id', $this->calcStandardId)
-            ->get(['section_id', 'amount']);
-        $dues        = FeeStructure::ownTotals($orgId, $ids);
-        $concessions = $ids
-            ? FeeConcession::where('organization_id', $orgId)->where('is_penalty', false)
-                ->whereIn('student_detail_id', $ids)->get()->groupBy('student_detail_id')
-            : collect();
-        $sumBy = fn ($query) => $ids
-            ? $query->whereIn('student_detail_id', $ids)->selectRaw('student_detail_id, SUM(amount) as total')
-                ->groupBy('student_detail_id')->pluck('total', 'student_detail_id')
-            : collect();
-        $paid       = $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic'));
-        $paidAsDues = FeeDues::tracked()
-            ? $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')->where('applies_to', 'dues'))
-            : collect();
+        // A school on Custom Fee: each student's fee is their own particulars,
+        // and what they paid their Custom Fee payments (App\Support\CustomFee).
+        $custom = \App\Support\CustomFee::enabled($orgId);
+        $customTotals = $custom ? \App\Support\CustomFee::studentTotals($orgId, $ids) : [];
+
+        if (!$custom) {
+            $heads = FeeStructure::where('organization_id', $orgId)->where('is_active', true)
+                ->where('fee_type', 'academic')->where('standard_id', $this->calcStandardId)
+                ->get(['section_id', 'amount']);
+            $dues        = FeeStructure::ownTotals($orgId, $ids);
+            $concessions = $ids
+                ? FeeConcession::where('organization_id', $orgId)->where('is_penalty', false)
+                    ->whereIn('student_detail_id', $ids)->get()->groupBy('student_detail_id')
+                : collect();
+            $sumBy = fn ($query) => $ids
+                ? $query->whereIn('student_detail_id', $ids)->selectRaw('student_detail_id, SUM(amount) as total')
+                    ->groupBy('student_detail_id')->pluck('total', 'student_detail_id')
+                : collect();
+            $paid       = $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic'));
+            $paidAsDues = FeeDues::tracked()
+                ? $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')->where('applies_to', 'dues'))
+                : collect();
+        }
         $sectionNames = Section::where('standard_id', $this->calcStandardId)->pluck('name', 'id');
 
         $perCycle = $cycles->mapWithKeys(fn ($c) => [$c->id => ['total' => 0.0, 'collected' => 0.0, 'amounts' => []]])->all();
         $studentRows = [];
 
         foreach ($students as $s) {
-            $duesGross = (float) ($dues[$s->id] ?? 0);
-            $gross     = (float) $heads->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $s->section_id)->sum('amount')
-                + $duesGross;
-            $off   = FeeConcession::takeOff($concessions->get($s->id, collect()), 'academic', $gross, $duesGross);
-            $split = FeeDues::split(max(0, $gross - $off['taken']), max(0, $duesGross - $off['dues']),
-                (float) ($paid[$s->id] ?? 0), (float) ($paidAsDues[$s->id] ?? 0));
+            if ($custom) {
+                $own   = $customTotals[$s->id] ?? ['total' => 0.0, 'paid' => 0.0];
+                $split = ['cycle_total' => (float) $own['total'], 'cycle_paid' => (float) $own['paid']];
+            } else {
+                $duesGross = (float) ($dues[$s->id] ?? 0);
+                $gross     = (float) $heads->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $s->section_id)->sum('amount')
+                    + $duesGross;
+                $off   = FeeConcession::takeOff($concessions->get($s->id, collect()), 'academic', $gross, $duesGross);
+                $split = FeeDues::split(max(0, $gross - $off['taken']), max(0, $duesGross - $off['dues']),
+                    (float) ($paid[$s->id] ?? 0), (float) ($paidAsDues[$s->id] ?? 0));
+            }
 
             $fee  = $split['cycle_total'];
             $left = $split['cycle_paid'];
-            $base = max(0, $fee - $registration);
+            // On Custom Fee a student's Registration Fee is never more than their whole fee.
+            $reg  = $custom ? min($fee, $registration) : $registration;
+            $base = max(0, $fee - $reg);
 
             $parts = [];
             foreach ($cycles as $c) {
-                $amount  = $c->is_token ? $registration : round($base * (float) $c->fee_percent / 100, 2);
+                $amount  = $c->is_token ? $reg : round($base * (float) $c->fee_percent / 100, 2);
                 $covered = round(min($left, $amount), 2);
                 $left    = max(0, $left - $covered);
 

@@ -401,7 +401,7 @@
                                         <td class="px-4 py-3">
                                             <div class="flex items-center gap-1">
                                                 @foreach (['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'] as $st => $ltr)
-                                                    @php $active = ['present' => 'bg-green-500 text-white', 'absent' => 'bg-red-500 text-white', 'half_day' => 'bg-amber-500 text-white', 'leave' => 'bg-blue-500 text-white'][$st]; @endphp
+                                                    @php $active = ['present' => 'bg-green-500 text-white', 'absent' => 'bg-red-500 text-white', 'half_day' => 'bg-yellow-400 text-yellow-900', 'leave' => 'bg-blue-500 text-white'][$st]; @endphp
                                                     <button wire:click="setDraft({{ $emp->id }}, '{{ $st }}')"
                                                         class="w-8 h-7 text-xs font-bold rounded-lg transition-colors {{ $sel === $st ? $active : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">{{ $ltr }}</button>
                                                 @endforeach
@@ -431,8 +431,8 @@
                 {{-- ─── DATE VIEW: everyone's status on the chosen date — a plain list ─── --}}
                 @php
                     $dayText = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half day', 'holiday' => 'Holiday'];
-                    $dayTone = ['present' => 'text-emerald-600', 'absent' => 'text-red-500', 'half_day' => 'text-amber-600', 'leave' => 'text-blue-600', 'holiday' => 'text-indigo-500'];
-                    $dayDot  = ['present' => 'bg-emerald-500', 'absent' => 'bg-red-500', 'half_day' => 'bg-amber-500', 'leave' => 'bg-blue-500', 'holiday' => 'bg-indigo-400'];
+                    $dayTone = ['present' => 'text-emerald-600', 'absent' => 'text-red-500', 'half_day' => 'text-yellow-600', 'leave' => 'text-blue-600', 'holiday' => 'text-indigo-500'];
+                    $dayDot  = ['present' => 'bg-emerald-500', 'absent' => 'bg-red-500', 'half_day' => 'bg-yellow-400', 'leave' => 'bg-blue-500', 'holiday' => 'bg-indigo-400'];
                     $dayCount = collect($dayMarks)->countBy(fn ($m) => $m['status'] ?: 'not_marked');
                 @endphp
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -479,7 +479,7 @@
                     $dayCell = [
                         'present'  => 'bg-emerald-50 text-emerald-700',
                         'absent'   => 'bg-red-50 text-red-600',
-                        'half_day' => 'bg-amber-50 text-amber-700',
+                        'half_day' => 'bg-yellow-100 text-yellow-800',
                         'leave'    => 'bg-blue-50 text-blue-700',
                         'holiday'  => 'text-gray-300',
                     ];
@@ -554,7 +554,7 @@
                 <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 px-1">
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-100 align-middle"></span> Present</span>
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-100 align-middle"></span> Absent</span>
-                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-100 align-middle"></span> Half day</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-200 align-middle"></span> Half day</span>
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-200 align-middle"></span> Holiday / not marked</span>
                     <span class="text-gray-300">·</span>
                     <span>W working days · P present · A absent · H holiday</span>
@@ -1342,7 +1342,7 @@
         $markSel = [
             'present'  => 'bg-emerald-50 text-emerald-700 font-medium',
             'absent'   => 'bg-red-50 text-red-600 font-medium',
-            'half_day' => 'bg-amber-50 text-amber-700 font-medium',
+            'half_day' => 'bg-yellow-100 text-yellow-800 font-medium',
             'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
         ];
     @endphp

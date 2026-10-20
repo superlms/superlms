@@ -2,8 +2,12 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\HandlesFeeCycles;
+use App\Livewire\Concerns\HandlesPayments;
 use App\Models\Admin\Fee\CustomFeeItem;
 use App\Models\Admin\Fee\CustomFeePayment;
+use App\Models\Admin\Fee\FeePaymentRequest;
+use App\Models\Admin\Fee\PaymentQrCode;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
@@ -13,31 +17,57 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 /**
  * The Fee page of a school on Custom Fee (App\Support\CustomFee) — the
  * admin's Fee page shows it in place of its nine sections, and the accounts
- * desk has it as its Fees page. Three tabs, each picked Class → Section →
- * Student:
+ * desk has it as its Fees page. Its tabs:
  *
- *   Add Fee     the student's own particulars; Add Fee in the header opens a
- *               panel to put any number of them (name and amount) on them at
- *               once, or change the ones they have.
- *   Submit Fee  the same student's fee and payments; Update Fee in the
- *               header opens a panel to take a payment.
- *   View Fee    only the students with a fee set: their particulars and
- *               payments, each with its receipt.
+ *   Add Fee      the student's own particulars; Add Fee in the header opens a
+ *                panel to put any number of them (name and amount) on them at
+ *                once, or change the ones they have.
+ *   Submit Fee   the same student's fee and payments; Update Fee in the
+ *                header opens a panel to take a payment.
+ *   View Fee     only the students with a fee set: their particulars and
+ *                payments, each with its receipt.
+ *     (each of these three picked Class → Section → Student; Submit and View
+ *      also show the student's fee on the Fee Cycle, installment by installment)
+ *   Payments     every payment taken, as the ordinary fee's Payments lists them
+ *                (HandlesPayments, which reads Custom Fee's payments here).
+ *   QR Payments  what students paid on the school's QR, checked and approved
+ *                into Custom Fee payments; and the school's QR / UPI ID — the
+ *                ordinary fee's own two components (admin panel only).
+ *   Fee Cycle    the installments as a % of each student's fee, and the
+ *                Calculator — the ordinary fee's (HandlesFeeCycles).
  */
 class CustomFee extends Component
 {
-    use WireUiActions;
+    use WireUiActions, WithPagination, HandlesPayments, HandlesFeeCycles;
 
     /** 'admin' or 'accounts' — which panel's routes the receipts open on. */
     #[Locked]
     public string $panel = 'admin';
 
-    public string $tab = 'add'; // add | submit | view
+    public string $tab = 'add'; // add | submit | view | payments | qr | cycle
+
+    public const TABS = [
+        'add'      => 'Add Fee',
+        'submit'   => 'Submit Fee',
+        'view'     => 'View Fee',
+        'payments' => 'Payments',
+        'qr'       => 'QR Payments',
+        'cycle'    => 'Fee Cycle',
+    ];
+
+    // ── QR Payments (nested components — the filter bar lives in this header,
+    //    as on the ordinary Fee page) ────────────────────────────────────────
+    public string $qrSubTab  = 'payments'; // payments | qr
+    public string $qrStatus  = FeePaymentRequest::STATUS_PENDING;
+    public string $qrFeeType = '';
+    public string $qrSearch  = '';
+    public string $qrDate    = '';
 
     // ── Class → Section → Student, shared by the three tabs ───────────────
     public $standardId = '';
@@ -69,6 +99,7 @@ class CustomFee extends Component
     public const MODES = [
         'cash'          => 'Cash',
         'online'        => 'Online',
+        'upi'           => 'UPI',
         'cheque'        => 'Cheque',
         'bank_transfer' => 'Bank Transfer',
     ];
@@ -76,6 +107,7 @@ class CustomFee extends Component
     public function mount(): void
     {
         $this->panel = request()->routeIs('accounts.*') ? 'accounts' : 'admin';
+        $this->initPaymentFilters();
     }
 
     private function orgId(): int
@@ -83,13 +115,81 @@ class CustomFee extends Component
         return (int) Auth::user()->organization_id;
     }
 
+    /** Payments' slips open on this panel's routes. */
+    protected function paymentsRoutePrefix(): string
+    {
+        return $this->panel;
+    }
+
+    /** The tabs this panel shows — QR Payments is the school admin's. */
+    public function tabs(): array
+    {
+        return $this->panel === 'admin' ? self::TABS : array_diff_key(self::TABS, ['qr' => true]);
+    }
+
     // ── Tabs and filters ──────────────────────────────────────────────────
 
     /** Each tab opens on a clean filter — Class → Section → Student picked afresh. */
     public function setTab(string $tab): void
     {
-        $this->tab = in_array($tab, ['add', 'submit', 'view'], true) ? $tab : 'add';
+        $this->tab = array_key_exists($tab, $this->tabs()) ? $tab : 'add';
         $this->clearFilters();
+        $this->resetPage();
+        $this->qrSubTab = 'payments';
+        $this->resetQrFilters();
+    }
+
+    /** QR Payments' "Fee ledger →": the student's fee, on View Fee. */
+    public function openStudentLedger(int $studentId): void
+    {
+        $student = $this->student($studentId);
+        if (!$student) {
+            return;
+        }
+        $this->setTab('view');
+        $this->standardId = (string) $student->standard_id;
+        // Their own section too: a class of one section has it picked by
+        // itself (partials.sole-section), which would clear the student.
+        $this->sectionId  = (string) ($student->section_id ?? '');
+        $this->studentId  = (string) $student->id;
+    }
+
+    // ── QR Payments: the filter bar is here; the list is admin.qr-payments ─
+
+    public function setQrSubTab(string $tab): void
+    {
+        $this->qrSubTab = $tab === 'qr' ? 'qr' : 'payments';
+        $this->resetQrFilters();
+    }
+
+    public function updatedQrStatus(): void  { $this->pushQrFilters(); }
+    public function updatedQrFeeType(): void { $this->pushQrFilters(); }
+    public function updatedQrSearch(): void  { $this->pushQrFilters(); }
+    public function updatedQrDate(): void    { $this->pushQrFilters(); }
+
+    public function qrClearFilters(): void
+    {
+        $this->resetQrFilters();
+        $this->pushQrFilters();
+    }
+
+    private function resetQrFilters(): void
+    {
+        $this->qrStatus  = FeePaymentRequest::STATUS_PENDING;
+        $this->qrFeeType = '';
+        $this->qrSearch  = '';
+        $this->qrDate    = '';
+    }
+
+    private function pushQrFilters(): void
+    {
+        $this->dispatch(
+            'qr-filter',
+            status: $this->qrStatus,
+            feeType: $this->qrFeeType,
+            search: $this->qrSearch,
+            date: $this->qrDate,
+        )->to(QrPayments::class);
     }
 
     public function updatedStandardId(): void
@@ -442,7 +542,8 @@ class CustomFee extends Component
             return null;
         }
 
-        $orgId = $this->orgId();
+        $orgId  = $this->orgId();
+        $totals = CustomFeeSupport::forStudent($orgId, $student->id);
 
         return [
             'student'  => $student,
@@ -452,8 +553,29 @@ class CustomFee extends Component
             'payments' => CustomFeePayment::where('organization_id', $orgId)
                 ->where('student_detail_id', $student->id)
                 ->orderByDesc('payment_date')->orderByDesc('id')->get(),
-            'totals'   => CustomFeeSupport::forStudent($orgId, $student->id),
+            'totals'   => $totals,
+            // Their fee on the school's Fee Cycle, installment by installment.
+            'installments' => CustomFeeSupport::installments($orgId, $totals['total'], $totals['paid']),
         ];
+    }
+
+    /** QR Payments' header: the day's (or every) count, or whether the school has a QR yet. */
+    private function qrViewData(int $orgId): array
+    {
+        if ($this->qrSubTab === 'qr') {
+            return ['qrExists' => PaymentQrCode::where('organization_id', $orgId)->exists()];
+        }
+
+        $base = fn () => FeePaymentRequest::where('organization_id', $orgId)
+            ->when($this->qrDate !== '', fn ($q) => $q->whereDate('paid_on', $this->qrDate));
+
+        return ['qrStats' => [
+            'total'    => $base()->count(),
+            'amount'   => (float) $base()->sum('amount'),
+            'pending'  => $base()->where('status', FeePaymentRequest::STATUS_PENDING)->count(),
+            'approved' => $base()->where('status', FeePaymentRequest::STATUS_APPROVED)->count(),
+            'rejected' => $base()->where('status', FeePaymentRequest::STATUS_REJECTED)->count(),
+        ]];
     }
 
     public function render()
@@ -461,13 +583,28 @@ class CustomFee extends Component
         $orgId = $this->orgId();
 
         $standards = Standard::where('organization_id', $orgId)->where('is_active', true)->inClassOrder()->get();
-        $students  = $this->studentsOf($this->standardId, $this->sectionId, $this->tab !== 'add');
-        $open      = $this->studentId ? $this->student((int) $this->studentId) : null;
+        $studentTab = in_array($this->tab, ['add', 'submit', 'view'], true);
+        $students  = $studentTab ? $this->studentsOf($this->standardId, $this->sectionId, $this->tab !== 'add') : collect();
+        $open      = $studentTab && $this->studentId ? $this->student((int) $this->studentId) : null;
 
         $schoolTotal     = CustomFeeSupport::schoolTotal($orgId);
         $schoolCollected = CustomFeeSupport::collected($orgId);
 
-        return view('livewire.admin.custom-fee', [
+        // The other tabs' own figures — the ordinary fee's, read for Custom Fee.
+        $extra = match ($this->tab) {
+            'payments' => $this->paymentsViewData(),
+            'cycle'    => $this->feeCycleViewData(),
+            'qr'       => $this->qrViewData($orgId),
+            default    => [],
+        };
+        if ($this->panel === 'admin' && $this->tab !== 'qr') {
+            // The QR Payments tab carries how many wait to be checked.
+            $extra['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
+                ->where('status', FeePaymentRequest::STATUS_PENDING)->count();
+        }
+
+        return view('livewire.admin.custom-fee', $extra + [
+            'tabs'          => $this->tabs(),
             'standards'     => $standards,
             'sections'      => $this->sectionsOf($this->standardId),
             'students'      => $students,

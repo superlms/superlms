@@ -1,8 +1,9 @@
 <div class="min-h-screen bg-gray-50">
     @php
         $money = fn ($v) => '₹' . number_format((float) $v, 2);
-        $cfTabs = ['add' => 'Add Fee', 'submit' => 'Submit Fee', 'view' => 'View Fee'];
         $openStudent = $ledger['student'] ?? null;
+        // Add, Submit and View pick a student; the other tabs are the ordinary fee's own screens.
+        $studentTab = in_array($tab, ['add', 'submit', 'view'], true);
     @endphp
 
     {{-- ══════════════════════════════════════════════════
@@ -16,11 +17,36 @@
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fees</h1>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    @if ($studentTab)
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
                         <span class="pr-4">Total Fee: <strong class="text-gray-800">₹{{ number_format($school['total'], 0) }}</strong></span>
                         <span class="px-4">Collected: <strong class="text-emerald-600">₹{{ number_format($school['collected'], 0) }}</strong></span>
                         <span class="pl-4">Balance: <strong class="{{ $school['balance'] > 0 ? 'text-rose-500' : 'text-gray-800' }}">₹{{ number_format($school['balance'], 0) }}</strong></span>
                     </div>
+                    @elseif ($tab === 'payments')
+                        {{-- Total Fee (the students' own fees, and the bus) and Collected, for the filters picked --}}
+                        <div class="hidden lg:block">@include('livewire.partials.payments-header-figures')</div>
+                    @elseif ($tab === 'qr' && $qrSubTab === 'payments')
+                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
+                            <span class="pr-4">
+                                {{ $qrDate !== '' ? \Carbon\Carbon::parse($qrDate)->format('d M') . ':' : 'Total:' }}
+                                <strong class="text-gray-800">{{ $qrStats['total'] ?? 0 }}</strong>
+                                <span class="text-gray-400">· ₹{{ number_format($qrStats['amount'] ?? 0, 0) }}</span>
+                            </span>
+                            <span class="px-4">To check: <strong class="text-amber-600">{{ $qrStats['pending'] ?? 0 }}</strong></span>
+                            <span class="px-4">Approved: <strong class="text-emerald-600">{{ $qrStats['approved'] ?? 0 }}</strong></span>
+                            <span class="pl-4">Rejected: <strong class="text-rose-500">{{ $qrStats['rejected'] ?? 0 }}</strong></span>
+                        </div>
+                    @elseif ($tab === 'qr')
+                        {{-- The QR component owns the slide-in panel; the button lives here. --}}
+                        <button wire:click="$dispatchTo('admin.payment-qr', 'payment-qr-add')"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ ($qrExists ?? false) ? 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' : 'M12 4v16m8-8H4' }}" /></svg>
+                            <span>{{ ($qrExists ?? false) ? 'Edit QR' : 'Add QR' }}</span>
+                        </button>
+                    @elseif ($tab === 'cycle')
+                        @include('livewire.partials.fee-cycle-actions')
+                    @endif
 
                     @if ($tab === 'add')
                         <button wire:click="openFeePanel" @disabled(!$studentId)
@@ -42,27 +68,91 @@
             </div>
 
             {{-- Mobile/Tablet figures --}}
+            @if ($studentTab)
             <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
                 <span>Total Fee: <strong class="text-gray-800">₹{{ number_format($school['total'], 0) }}</strong></span>
                 <span>Collected: <strong class="text-emerald-600">₹{{ number_format($school['collected'], 0) }}</strong></span>
                 <span>Balance: <strong class="{{ $school['balance'] > 0 ? 'text-rose-500' : 'text-gray-800' }}">₹{{ number_format($school['balance'], 0) }}</strong></span>
             </div>
+            @elseif ($tab === 'payments')
+                <div class="lg:hidden mt-3 text-xs">@include('livewire.partials.payments-header-figures')</div>
+            @endif
         </div>
 
         {{-- Tabs --}}
         <div class="border-t border-gray-200 px-4 sm:px-6">
-            <div class="flex gap-1 overflow-x-auto">
-                @foreach ($cfTabs as $key => $label)
+            <div class="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                @foreach ($tabs as $key => $label)
                     <button wire:click="setTab('{{ $key }}')" wire:key="cf-tab-{{ $key }}"
-                        class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
+                        class="relative inline-flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
                                {{ $tab === $key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                         {{ $label }}
+                        @if ($key === 'qr' && ($qrPending ?? 0) > 0)
+                            <span title="{{ $qrPending }} to check" class="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
+                        @endif
                     </button>
                 @endforeach
             </div>
         </div>
 
+        @if ($tab === 'payments')
+            {{-- The ordinary fee's Payments filters: Fee / Transport, dates, class, section, mode, student --}}
+            @include('livewire.partials.payments-header')
+        @elseif ($tab === 'cycle')
+            {{-- Fee Cycle | Calculator, and the Calculator's class filter --}}
+            @include('livewire.partials.fee-cycle-header')
+        @elseif ($tab === 'qr')
+            {{-- Two tabs: what students reported, and the school's own QR / UPI ID --}}
+            <div class="border-t border-gray-200 px-4 sm:px-6">
+                <div class="flex gap-1">
+                    @foreach (['payments' => 'QR Payments', 'qr' => 'Payment QR'] as $sub => $subLabel)
+                        <button wire:key="cf-qr-sub-{{ $sub }}" wire:click="setQrSubTab('{{ $sub }}')"
+                            class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $qrSubTab === $sub ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $subLabel }}</button>
+                    @endforeach
+                </div>
+            </div>
+            @if ($qrSubTab === 'payments')
+                <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                            Filter by:
+                        </div>
+                        <input wire:model.live.debounce.300ms="qrSearch" type="text" placeholder="Search student, admission no. or UTR…"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        <select wire:model.live="qrStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="pending">To check</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="">All Status</option>
+                        </select>
+                        <select wire:model.live="qrFeeType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">All Fees</option>
+                            <option value="academic">Fee</option>
+                            <option value="transport">Transport</option>
+                        </select>
+                        <input wire:model.live="qrDate" type="date" title="Paid on"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                        @if ($qrSearch !== '' || $qrFeeType !== '' || $qrDate !== '' || $qrStatus !== 'pending')
+                            <button wire:click="qrClearFilters"
+                                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                Clear
+                            </button>
+                        @endif
+                    </div>
+                    <div class="flex lg:hidden items-center gap-3 text-xs text-gray-500 mt-3 flex-wrap">
+                        <span>{{ $qrDate !== '' ? \Carbon\Carbon::parse($qrDate)->format('d M') . ':' : 'Total:' }} <strong class="text-gray-800">{{ $qrStats['total'] ?? 0 }}</strong></span>
+                        <span>To check: <strong class="text-amber-600">{{ $qrStats['pending'] ?? 0 }}</strong></span>
+                        <span>Approved: <strong class="text-emerald-600">{{ $qrStats['approved'] ?? 0 }}</strong></span>
+                        <span>Rejected: <strong class="text-rose-500">{{ $qrStats['rejected'] ?? 0 }}</strong></span>
+                    </div>
+                </div>
+            @endif
+        @endif
+
         {{-- Grey filter band: Class → Section → Student --}}
+        @if ($studentTab)
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -110,13 +200,32 @@
                 @endif
             </div>
         </div>
+        @endif
     </div>
 
     {{-- ══════════════════════════════════════════════════
          BODY
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6 space-y-5">
-        @if (!$standardId)
+        @if ($tab === 'payments')
+            {{-- Every payment, with its slip — the ordinary fee's Payments list --}}
+            @include('livewire.partials.payments-table')
+
+        @elseif ($tab === 'qr')
+            @if ($qrSubTab === 'qr')
+                @livewire('admin.payment-qr', key('cf-qr-code'))
+            @else
+                @livewire('admin.qr-payments', key('cf-qr-payments'))
+            @endif
+
+        @elseif ($tab === 'cycle')
+            {{-- Installments as a % of each student's own fee; the Calculator splits each one's --}}
+            <p class="text-xs text-gray-500">
+                Each installment is its % of a student's own fee (after the Registration Fee); Submit Fee and View Fee show every student's installments.
+            </p>
+            @include('livewire.partials.fee-cycle-panel')
+
+        @elseif (!$standardId)
             <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-16 text-center">
                 <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                     <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -288,6 +397,72 @@
                     </div>
                 </div>
             </div>
+
+            {{-- ══════════ FEE CYCLE — the student's fee split as the school's Fee Cycle splits it ══════════ --}}
+            @if ($tab !== 'add')
+                @php
+                    $inst = $ledger['installments'] ?? [];
+                    $instTone = [
+                        'Paid'    => 'bg-emerald-50 text-emerald-700',
+                        'Partial' => 'bg-amber-50 text-amber-700',
+                        'Overdue' => 'bg-red-50 text-red-600',
+                        'Due'     => 'bg-gray-100 text-gray-600',
+                        'Nil'     => 'bg-gray-50 text-gray-400',
+                    ];
+                @endphp
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700">Installments</h3>
+                            <p class="text-[11px] text-gray-400">This student's fee on the school's Fee Cycle — what they paid goes against the earliest first</p>
+                        </div>
+                        @if ($inst)
+                            <span class="text-[11px] text-gray-600">
+                                Cleared <strong>{{ collect($inst)->where('status', 'Paid')->count() }}</strong> of {{ collect($inst)->where('amount', '>', 0)->count() }}
+                            </span>
+                        @endif
+                    </div>
+                    @if (!$inst)
+                        <p class="px-4 py-8 text-center text-xs text-gray-400">
+                            No fee cycle yet — add one in the Fee Cycle tab to split the fee into installments.
+                        </p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50 text-left text-xs text-gray-500">
+                                        <th class="px-4 py-2 font-normal">Installment</th>
+                                        <th class="px-4 py-2 font-normal text-right">%</th>
+                                        <th class="px-4 py-2 font-normal">Due date</th>
+                                        <th class="px-4 py-2 font-normal text-right">Amount</th>
+                                        <th class="px-4 py-2 font-normal text-right">Paid</th>
+                                        <th class="px-4 py-2 font-normal text-right">Remaining</th>
+                                        <th class="px-4 py-2 font-normal text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($inst as $n => $row)
+                                        <tr wire:key="cf-inst-{{ $n }}">
+                                            <td class="px-4 py-2.5">
+                                                <p class="text-gray-800">{{ $row['label'] }}</p>
+                                                @if ($row['span'])<p class="text-[11px] text-gray-400">{{ $row['span'] }}</p>@endif
+                                            </td>
+                                            <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ $row['percent'] !== null ? rtrim(rtrim(number_format($row['percent'], 2), '0'), '.') . '%' : '—' }}</td>
+                                            <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ $row['due']?->format('d M Y') ?? '—' }}</td>
+                                            <td class="px-4 py-2.5 text-right text-gray-800 tabular-nums">{{ $money($row['amount']) }}</td>
+                                            <td class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $money($row['paid']) }}</td>
+                                            <td class="px-4 py-2.5 text-right tabular-nums {{ $row['left'] > 0 ? 'text-red-600' : 'text-gray-400' }}">{{ $money($row['left']) }}</td>
+                                            <td class="px-4 py-2.5 text-center">
+                                                <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium {{ $instTone[$row['status']] ?? $instTone['Due'] }}">{{ $row['status'] }}</span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             {{-- ══════════ 3. PAYMENTS — full width, each with its slip (as the regular fee lists them) ══════════ --}}
             @if ($tab !== 'add')

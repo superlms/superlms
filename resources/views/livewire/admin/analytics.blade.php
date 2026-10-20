@@ -422,23 +422,27 @@
                             <p class="text-[10px] text-gray-400 uppercase tracking-wide">Pending</p>
                         </div>
                     </div>
-                    <div class="mt-4 flex-shrink-0">
+                    <p class="mt-2 text-[11px] text-gray-400 text-center flex-shrink-0">
+                        {{ $enquiryStats['student'] ?? 0 }} student · {{ $enquiryStats['teacher'] ?? 0 }} teacher · {{ $enquiryStats['website'] ?? 0 }} website
+                    </p>
+                    <div class="mt-3 flex-shrink-0">
                         <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">Response rate</span><span class="font-semibold text-gray-700">{{ $enquiryStats['rate'] ?? 0 }}%</span></div>
                         <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="h-1.5 rounded-full bg-emerald-500" style="width: {{ $enquiryStats['rate'] ?? 0 }}%"></div></div>
                     </div>
                     <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-5 mb-1 flex-shrink-0">Latest enquiries</p>
-                    <div class="divide-y divide-gray-100 flex-1 min-h-0 overflow-y-auto">
+                    <div class="divide-y divide-gray-100 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                         @forelse($adminEnquiries as $enq)
-                            <div class="flex items-center gap-2.5 py-2.5">
+                            <a href="{{ route('admin.enqueries', ['organization' => auth()->user()->organization_id, 'activeTab' => $enq['tab']]) }}"
+                               class="flex items-center gap-2.5 py-2.5 hover:bg-gray-50 rounded">
                                 <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 font-bold text-gray-500 text-xs">
-                                    {{ strtoupper(substr($enq['name'], 0, 1)) }}
+                                    {{ mb_strtoupper(mb_substr($enq['name'], 0, 1)) }}
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm text-gray-800 truncate">{{ $enq['name'] }}</p>
-                                    <p class="text-xs text-gray-400 truncate">{{ $enq['time'] }}</p>
+                                    <p class="text-xs text-gray-400 truncate">{{ $enq['source'] }} · {{ $enq['time'] }}</p>
                                 </div>
-                                <span class="flex-shrink-0 px-2 py-0.5 text-[10px] rounded-full font-medium {{ $enq['status'] === 'Responded' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">{{ $enq['status'] }}</span>
-                            </div>
+                                <span class="flex-shrink-0 px-2 py-0.5 text-[10px] rounded-full font-medium {{ $enq['status'] === 'Responded' ? 'bg-emerald-50 text-emerald-700' : ($enq['status'] === 'Pending' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700') }}">{{ $enq['status'] }}</span>
+                            </a>
                         @empty
                             <p class="text-center text-gray-400 text-sm py-4">No enquiries yet.</p>
                         @endforelse

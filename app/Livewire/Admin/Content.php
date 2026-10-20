@@ -30,11 +30,17 @@ class Content extends Component
     public array $expandedChapters = [];
 
     // ─── Content Modal ───────────────────────────────────────────────────
+    // One panel for all of it: a new chapter (with its content) for the class
+    // and subject picked, a new topic in a chapter, or an existing chapter's
+    // or topic's name and content. contentTargetId is null for a new one.
     public $openContentModal = false;
     public $contentTargetType = ''; // 'chapter' or 'topic'
     public $contentTargetId   = null;
     public $contentTargetName = '';
     public $contentEditMode   = false;
+    public $contentName       = ''; // the chapter's or topic's name, editable
+    public $contentOrder      = ''; // a chapter's number
+    public $contentParentId   = null; // a new topic's chapter
 
     // Content form fields
     public $contentType    = 'text'; // text, url, image, pdf
@@ -57,6 +63,10 @@ class Content extends Component
     public string $deleteTargetType  = ''; // 'chapter' | 'topic'
     public ?int   $deleteTargetId    = null;
     public string $deleteTargetName  = '';
+    /** 'content' clears what is in it and keeps it; 'record' deletes the chapter (with its topics) or the topic. */
+    public string $deleteMode        = 'content';
+    public bool   $deleteTargetHasContent = false;
+    public int    $deleteTargetTopics     = 0;
 
     // ─── Stats ───────────────────────────────────────────────────────────
     public $totalChapters = 0;
@@ -157,6 +167,71 @@ class Content extends Component
     //  ADD / EDIT CONTENT
     // ═══════════════════════════════════════════════════════════════════════
 
+    private function orgId(): int
+    {
+        return (int) Auth::user()->organization_id;
+    }
+
+    /**
+     * A section's chapters: its own, and the whole class's (saved with no
+     * section — 0, as Syllabus saves them), which are that section's too.
+     */
+    private function inSection($query)
+    {
+        return $query->where(fn ($w) => $w->where('section_id', $this->filterSection)
+            ->orWhere('section_id', 0)->orWhereNull('section_id'));
+    }
+
+    /** One of the school's chapters (never another school's). */
+    private function findChapter(?int $id): ?Chapter
+    {
+        return $id ? Chapter::where('organization_id', $this->orgId())->find($id) : null;
+    }
+
+    /** One of the school's topics — through its chapter, which carries the school. */
+    private function findTopic(?int $id): ?Topic
+    {
+        return $id
+            ? Topic::whereHas('chapter', fn ($q) => $q->where('organization_id', $this->orgId()))->find($id)
+            : null;
+    }
+
+    /** The header's Add Chapter: a new chapter, with its content, for the class and subject picked. */
+    public function openNewChapter(): void
+    {
+        if (!$this->filterStandard || !$this->filterSubject) {
+            $this->notification()->error('Pick a class and a subject first.');
+            return;
+        }
+
+        $this->resetContentForm();
+        $this->contentTargetType = 'chapter';
+        $this->contentTargetId   = null;
+        $this->contentTargetName = 'New chapter';
+        $this->contentOrder      = (string) ((int) Chapter::where('organization_id', $this->orgId())
+            ->where('standard_id', $this->filterStandard)
+            ->when($this->filterSection, fn ($q) => $this->inSection($q))
+            ->where('subject_id', $this->filterSubject)
+            ->max('order') + 1);
+        $this->openContentModal = true;
+    }
+
+    /** A chapter's Add Topic: a new topic in it, with its content. */
+    public function openNewTopic(int $chapterId): void
+    {
+        $chapter = $this->findChapter($chapterId);
+        if (!$chapter) {
+            return;
+        }
+
+        $this->resetContentForm();
+        $this->contentTargetType = 'topic';
+        $this->contentTargetId   = null;
+        $this->contentParentId   = $chapter->id;
+        $this->contentTargetName = 'New topic in ' . $chapter->name;
+        $this->openContentModal  = true;
+    }
+
     public function onAddContent(string $type, int $id): void
     {
         $this->resetContentForm();
@@ -165,11 +240,16 @@ class Content extends Component
         $this->contentEditMode   = false;
 
         if ($type === 'chapter') {
-            $ch = Chapter::find($id);
-            $this->contentTargetName = $ch?->name ?? '';
+            $ch = $this->findChapter($id);
+            if (!$ch) return;
+            $this->contentTargetName = $ch->name;
+            $this->contentName       = $ch->name;
+            $this->contentOrder      = (string) $ch->order;
         } else {
-            $tp = Topic::find($id);
-            $this->contentTargetName = $tp?->topic_name ?? '';
+            $tp = $this->findTopic($id);
+            if (!$tp) return;
+            $this->contentTargetName = $tp->topic_name;
+            $this->contentName       = $tp->topic_name;
         }
 
         $this->openContentModal = true;
@@ -183,9 +263,11 @@ class Content extends Component
         $this->contentEditMode   = true;
 
         if ($type === 'chapter') {
-            $ch = Chapter::find($id);
+            $ch = $this->findChapter($id);
             if (!$ch) return;
             $this->contentTargetName = $ch->name;
+            $this->contentName       = $ch->name;
+            $this->contentOrder      = (string) $ch->order;
 
             // Count how many content types exist
             $hasText  = !empty($ch->description);
@@ -211,9 +293,10 @@ class Content extends Component
             $this->existingImage = $ch->image_path ?? '';
             $this->existingPdf   = $ch->pdf_path ?? '';
         } else {
-            $tp = Topic::find($id);
+            $tp = $this->findTopic($id);
             if (!$tp) return;
             $this->contentTargetName = $tp->topic_name;
+            $this->contentName       = $tp->topic_name;
 
             $hasText  = !empty($tp->topic_content);
             $hasImage = !empty($tp->image_path);
@@ -251,6 +334,9 @@ class Content extends Component
             'contentTargetId',
             'contentTargetName',
             'contentEditMode',
+            'contentName',
+            'contentOrder',
+            'contentParentId',
             'contentType',
             'contentText',
             'contentUrl',
@@ -263,7 +349,7 @@ class Content extends Component
 
     public function onSaveContent(): void
     {
-        if (!$this->contentTargetId || !$this->contentTargetType) {
+        if (!in_array($this->contentTargetType, ['chapter', 'topic'], true)) {
             $this->notification()->error('Invalid target.');
             return;
         }
@@ -271,28 +357,87 @@ class Content extends Component
         // Limits: text max 10,000 chars, image max 500 KB. Rules run regardless
         // of the selected content type so an oversized upload can never slip in.
         $this->validate([
+            'contentName'  => 'required|string|max:255',
+            'contentOrder' => $this->contentTargetType === 'chapter' ? 'required|integer|min:1|max:999' : 'nullable',
             'contentText'  => 'nullable|string|max:10000',
             'contentUrl'   => 'nullable|url|max:2000',
             'contentImage' => 'nullable|image|max:500', // max is in KB → 500 KB
+            'contentPdf'   => 'nullable|file|mimes:pdf|max:5120',
         ], [
+            'contentName.required' => $this->contentTargetType === 'chapter' ? 'Enter the chapter name.' : 'Enter the topic name.',
+            'contentOrder.required' => 'Enter the chapter number.',
             'contentText.max'    => 'Text cannot exceed 10,000 characters.',
             'contentUrl.url'     => 'Please enter a valid URL.',
             'contentImage.image' => 'The file must be an image.',
             'contentImage.max'   => 'Image must be 500 KB or smaller.',
+            'contentPdf.mimes'   => 'The file must be a PDF.',
+            'contentPdf.max'     => 'PDF must be 5 MB or smaller.',
         ]);
+
+        $org  = $this->orgId();
+        $name = trim($this->contentName);
+        // The subject's teachers hear what changed in its outline, as Syllabus tells them.
+        $push = app(\App\Services\TeacherPushNotifier::class);
 
         try {
             if ($this->contentTargetType === 'chapter') {
-                $record = Chapter::findOrFail($this->contentTargetId);
-                $data   = $this->buildChapterContentData($record);
+                $record = $this->contentTargetId ? $this->findChapter((int) $this->contentTargetId) : null;
+                if ($this->contentTargetId && !$record) {
+                    throw new \RuntimeException('This chapter is no longer there.');
+                }
+                $subjectId = $record ? (int) $record->subject_id : (int) $this->filterSubject;
+                $before    = $push->outlineSnapshot($org, $subjectId);
+
+                if (!$record) {
+                    if (!$this->filterStandard || !$this->filterSubject) {
+                        throw new \RuntimeException('Pick a class and a subject first.');
+                    }
+                    $record = Chapter::create([
+                        'organization_id' => $org,
+                        'standard_id'     => $this->filterStandard,
+                        // No section = the whole class: 0, the column's default (as Syllabus saves it).
+                        'section_id'      => $this->filterSection ?: 0,
+                        'subject_id'      => $this->filterSubject,
+                        'user_id'         => Auth::id(),
+                        'name'            => $name,
+                        'order'           => (int) $this->contentOrder,
+                        'is_published'    => true,
+                    ]);
+                }
+
+                $data = ['name' => $name, 'order' => (int) $this->contentOrder] + $this->buildChapterContentData($record);
                 $record->update($data);
+                $push->outlineSaved($before);
             } else {
-                $record = Topic::findOrFail($this->contentTargetId);
-                $data   = $this->buildTopicContentData($record);
+                $record = $this->contentTargetId ? $this->findTopic((int) $this->contentTargetId) : null;
+                if ($this->contentTargetId && !$record) {
+                    throw new \RuntimeException('This topic is no longer there.');
+                }
+                $chapter = $record ? $record->chapter : $this->findChapter((int) $this->contentParentId);
+                if (!$chapter) {
+                    throw new \RuntimeException('This chapter is no longer there.');
+                }
+                $before = $push->outlineSnapshotOfChapter((int) $chapter->id);
+
+                if (!$record) {
+                    $record = Topic::create([
+                        'organization_id' => $org,
+                        'chapter_id'      => $chapter->id,
+                        'topic_name'      => $name,
+                        'order'           => (int) Topic::where('chapter_id', $chapter->id)->max('order') + 1,
+                    ]);
+                    // A chapter given a new topic opens to show it.
+                    if (!in_array($chapter->id, $this->expandedChapters, true)) {
+                        $this->expandedChapters[] = $chapter->id;
+                    }
+                }
+
+                $data = ['topic_name' => $name] + $this->buildTopicContentData($record);
                 $record->update($data);
+                $push->outlineSaved($before);
             }
 
-            $this->notification()->success('Content saved successfully!');
+            $this->notification()->success($this->contentTargetId ? 'Saved successfully!' : ucfirst($this->contentTargetType) . ' added!');
             $this->closeContentModal();
             $this->loadStats();
         } catch (\Exception $e) {
@@ -329,7 +474,7 @@ class Content extends Component
 
         switch ($this->contentType) {
             case 'text':
-                $data['description'] = $this->contentText;
+                $data['description'] = trim((string) $this->contentText) !== '' ? $this->contentText : null;
                 $data['file_path']   = null;
                 $data['image_path']  = $this->deleteFileIfNeeded($chapter->image_path);
                 $data['pdf_path']    = $this->deleteFileIfNeeded($chapter->pdf_path);
@@ -399,7 +544,7 @@ class Content extends Component
 
         switch ($this->contentType) {
             case 'text':
-                $data['topic_content'] = $this->contentText;
+                $data['topic_content'] = trim((string) $this->contentText) !== '' ? $this->contentText : null;
                 $data['image_path']    = $this->deleteFileIfNeeded($topic->image_path);
                 $data['pdf_path']      = $this->deleteFileIfNeeded($topic->pdf_path);
                 break;
@@ -457,7 +602,7 @@ class Content extends Component
     public function onViewContent(string $type, int $id): void
     {
         if ($type === 'chapter') {
-            $ch = Chapter::with(['standard', 'section', 'subject'])->find($id);
+            $ch = Chapter::with(['standard', 'section', 'subject'])->where('organization_id', $this->orgId())->find($id);
             if (!$ch) return;
             $this->viewContentTitle = $ch->name;
             $this->viewContentData  = [
@@ -469,14 +614,16 @@ class Content extends Component
             $this->viewContentMeta = $this->placeOf($ch);
         } else {
             // A topic has no class of its own -- it inherits its chapter's.
-            $tp = Topic::with(['chapter.standard', 'chapter.section', 'chapter.subject'])->find($id);
+            $tp = Topic::with(['chapter.standard', 'chapter.section', 'chapter.subject'])
+                ->whereHas('chapter', fn ($q) => $q->where('organization_id', $this->orgId()))->find($id);
             if (!$tp) return;
             $this->viewContentTitle = $tp->topic_name;
             $this->viewContentData  = [
                 'text'  => $tp->topic_content,
-                'url'   => null,
-                'image' => $tp->image_path,
-                'pdf'   => $tp->pdf_path,
+                'url'   => $tp->link ?: null,
+                // A topic saved from the app holds a bare S3 path; its *_url is the link.
+                'image' => $tp->image_path ? ($tp->image_url ?: $tp->image_path) : null,
+                'pdf'   => $tp->pdf_path ? ($tp->pdf_url ?: $tp->pdf_path) : null,
             ];
             $this->viewContentMeta = $this->placeOf($tp->chapter)
                 + ['Chapter' => $tp->chapter?->name ?? '—'];
@@ -506,18 +653,39 @@ class Content extends Component
     //  DELETE CONTENT
     // ═══════════════════════════════════════════════════════════════════════
 
+    /** Remove what is in a chapter or topic; the chapter or topic stays. */
     public function deleteContent(string $type, int $id): void
     {
-        $this->deleteTargetType = $type;
-        $this->deleteTargetId   = (int) $id;
+        $this->askDelete($type, $id, 'content');
+    }
 
-        if ($type === 'chapter') {
-            $this->deleteTargetName = Chapter::find($id)?->name ?? '';
-        } else {
-            $this->deleteTargetName = Topic::find($id)?->topic_name ?? '';
+    /** Delete a chapter (with its topics) or a topic outright. */
+    public function deleteRecord(string $type, int $id): void
+    {
+        $this->askDelete($type, $id, 'record');
+    }
+
+    private function askDelete(string $type, int $id, string $mode): void
+    {
+        $record = $type === 'chapter' ? $this->findChapter($id) : $this->findTopic($id);
+        if (!$record) {
+            return;
         }
 
-        $this->showDeleteConfirm = true;
+        $this->deleteTargetType       = $type === 'chapter' ? 'chapter' : 'topic';
+        $this->deleteTargetId         = (int) $id;
+        $this->deleteTargetName       = $type === 'chapter' ? $record->name : $record->topic_name;
+        $this->deleteTargetHasContent = $type === 'chapter' ? $this->chapterHasContent($record) : $this->topicHasContent($record);
+        $this->deleteTargetTopics     = $type === 'chapter' ? $record->topics()->count() : 0;
+        $this->deleteMode             = $mode;
+        $this->showDeleteConfirm      = true;
+    }
+
+    /** The delete box's other button: keep the chapter or topic, clear only what is in it. */
+    public function removeContentOnly(): void
+    {
+        $this->deleteMode = 'content';
+        $this->confirmDelete();
     }
 
     public function cancelDelete(): void
@@ -526,6 +694,9 @@ class Content extends Component
         $this->deleteTargetType  = '';
         $this->deleteTargetId    = null;
         $this->deleteTargetName  = '';
+        $this->deleteMode        = 'content';
+        $this->deleteTargetHasContent = false;
+        $this->deleteTargetTopics     = 0;
     }
 
     public function confirmDelete(): void
@@ -536,24 +707,62 @@ class Content extends Component
         }
 
         try {
-            if ($this->deleteTargetType === 'chapter') {
-                $ch = Chapter::findOrFail($this->deleteTargetId);
+            if ($this->deleteMode === 'record') {
+                $this->deleteRecordNow();
+            } elseif ($this->deleteTargetType === 'chapter') {
+                $ch = $this->findChapter($this->deleteTargetId) ?? throw new \RuntimeException('This chapter is no longer there.');
                 if ($ch->image_path) $this->deleteS3File($ch->image_path);
                 if ($ch->pdf_path)   $this->deleteS3File($ch->pdf_path);
                 $ch->update(['description' => null, 'file_path' => null, 'image_path' => null, 'pdf_path' => null]);
+                $this->notification()->success('Content removed!');
             } else {
-                $tp = Topic::findOrFail($this->deleteTargetId);
+                $tp = $this->findTopic($this->deleteTargetId) ?? throw new \RuntimeException('This topic is no longer there.');
                 if ($tp->image_path) $this->deleteS3File($tp->image_path);
                 if ($tp->pdf_path)   $this->deleteS3File($tp->pdf_path);
                 $tp->update(['topic_content' => null, 'image_path' => null, 'pdf_path' => null]);
+                $this->notification()->success('Content removed!');
             }
-            $this->notification()->success('Content removed!');
             $this->loadStats();
         } catch (\Exception $e) {
             $this->notification()->error('Error: ' . $e->getMessage());
         }
 
         $this->cancelDelete();
+    }
+
+    /** The chapter with its topics, or the topic — their files too — as the teacher app deletes them. */
+    private function deleteRecordNow(): void
+    {
+        $push = app(\App\Services\TeacherPushNotifier::class);
+
+        if ($this->deleteTargetType === 'chapter') {
+            $ch = $this->findChapter($this->deleteTargetId) ?? throw new \RuntimeException('This chapter is no longer there.');
+            $before = $push->outlineSnapshot($this->orgId(), (int) $ch->subject_id);
+
+            \Illuminate\Support\Facades\DB::transaction(function () use ($ch) {
+                foreach ($ch->topics as $tp) {
+                    if ($tp->image_path) $this->deleteS3File($tp->image_path);
+                    if ($tp->pdf_path)   $this->deleteS3File($tp->pdf_path);
+                    $tp->delete();
+                }
+                if ($ch->image_path) $this->deleteS3File($ch->image_path);
+                if ($ch->pdf_path)   $this->deleteS3File($ch->pdf_path);
+                $ch->delete();
+            });
+
+            $this->expandedChapters = array_values(array_diff($this->expandedChapters, [$ch->id]));
+            $push->outlineSaved($before);
+            $this->notification()->success('Chapter deleted!');
+            return;
+        }
+
+        $tp = $this->findTopic($this->deleteTargetId) ?? throw new \RuntimeException('This topic is no longer there.');
+        $before = $push->outlineSnapshotOfChapter((int) $tp->chapter_id);
+        if ($tp->image_path) $this->deleteS3File($tp->image_path);
+        if ($tp->pdf_path)   $this->deleteS3File($tp->pdf_path);
+        $tp->delete();
+        $push->outlineSaved($before);
+        $this->notification()->success('Topic deleted!');
     }
 
     // ─── Render ──────────────────────────────────────────────────────────
@@ -564,10 +773,10 @@ class Content extends Component
         $showList = $this->filterStandard && $this->filterSubject;
 
         if ($showList) {
-            $chapters = Chapter::with(['topics' => fn($q) => $q->orderBy('id'), 'standard', 'section', 'subject'])
+            $chapters = Chapter::with(['topics' => fn($q) => $q->orderBy('order')->orderBy('id'), 'standard', 'section', 'subject'])
                 ->where('organization_id', $org)
                 ->where('standard_id', $this->filterStandard)
-                ->when($this->filterSection, fn($q) => $q->where('section_id', $this->filterSection))
+                ->when($this->filterSection, fn($q) => $this->inSection($q))
                 ->where('subject_id', $this->filterSubject)
                 ->orderBy('order')
                 ->get();
