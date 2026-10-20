@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SchoolWebsite;
+use App\Support\SchoolSiteData;
 use Illuminate\Http\Response;
 
 /**
@@ -62,7 +63,11 @@ class SchoolSiteController extends Controller
         };
     }
 
-    /** Shared view data (content, theme, nav, current page). */
+    /**
+     * Shared view data (content, theme, nav, current page), and the school's
+     * own records the Online Admission pages read — classes, fees, rules —
+     * read only by a page that shows them.
+     */
     private function data(SchoolWebsite $site, string $current): array
     {
         return [
@@ -71,6 +76,7 @@ class SchoolSiteController extends Controller
             'theme'   => $site->resolvedTheme(),
             'nav'     => $this->nav($site),
             'current' => $current,
+            'lms'     => new SchoolSiteData($site->organization_id),
         ];
     }
 

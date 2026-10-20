@@ -506,6 +506,17 @@ class AdminContentController extends ApiController
         };
     }
 
+    /** The website's forms with how many enquiries each sent: [{type, label, count}]. */
+    private function websiteTypes(int $orgId): array
+    {
+        $counts = SchoolWebsiteEnquiry::where('organization_id', $orgId)
+            ->selectRaw('type, COUNT(*) as n')->groupBy('type')->pluck('n', 'type');
+
+        return collect(SchoolWebsiteEnquiry::TYPES)
+            ->map(fn ($label, $type) => ['type' => $type, 'label' => $label, 'count' => (int) ($counts[$type] ?? 0)])
+            ->values()->all();
+    }
+
     /** The tab a request names — teacher when it names none, as older builds expect. */
     private function enquiryTab($tab): string
     {
@@ -514,12 +525,17 @@ class AdminContentController extends ApiController
 
     private function shapeEnquiry($e, string $tab): array
     {
-        // What the school's public website sent: a name, contact, subject and message.
+        // What the school's public website sent: the form it came from (its
+        // type), a name, contact, subject and message, and every field filled
+        // in as [{label, value}] in the form's order.
         if ($tab === 'website') {
             return [
                 'id'          => $e->id,
+                'type'        => $e->type,
+                'type_label'  => $e->typeLabel(),
                 'topic'       => $e->subject,
                 'query'       => $e->message,
+                'fields'      => collect($e->fields())->map(fn ($value, $label) => ['label' => $label, 'value' => $value])->values()->all(),
                 'image_url'   => null,
                 'admin_text'  => null,
                 'replied'     => false,
@@ -547,11 +563,13 @@ class AdminContentController extends ApiController
     }
 
     /**
-     * GET /admin/enquiries?tab=student|teacher|website&search=&days=&status=&page=
+     * GET /admin/enquiries?tab=student|teacher|website&search=&days=&status=&type=&page=
      *
      * The panel's Enquiries: a tab's enquiries newest first, searched, from
      * the last so many days and — for students' and teachers' — pending or
-     * replied; the three tabs' totals and the tab's pending and replied.
+     * replied, for the website's of one form (type: contact, query,
+     * appointment, career, admission); the three tabs' totals and the tab's
+     * pending and replied, or the website's a form.
      * With a page, ten to a page as on the panel; without, the latest 100, as
      * older builds read it.
      */
@@ -572,6 +590,9 @@ class AdminContentController extends ApiController
         }
 
         if ($tab === 'website') {
+            if (isset(SchoolWebsiteEnquiry::TYPES[(string) $request->input('type')])) {
+                $q->where('type', $request->input('type'));
+            }
             if ($request->filled('search')) {
                 $s = $request->search;
                 $q->where(fn ($w) => $w->where('name', 'like', "%$s%")
@@ -605,10 +626,11 @@ class AdminContentController extends ApiController
             $items = $q->limit(100)->get()->map(fn ($e) => $this->shapeEnquiry($e, $tab));
         }
 
-        // Pending and replied are for students' and teachers' — the website's have no reply.
+        // Pending and replied are for students' and teachers' — the website's have
+        // no reply; theirs count by the form they came from instead.
         $base  = $model::where('organization_id', $orgId);
         $stats = $tab === 'website'
-            ? ['total' => (clone $base)->count(), 'pending' => 0, 'replied' => 0]
+            ? ['total' => (clone $base)->count(), 'pending' => 0, 'replied' => 0, 'types' => $this->websiteTypes($orgId)]
             : [
                 'total'   => (clone $base)->count(),
                 'pending' => (clone $base)->where('admin_reply', false)->count(),

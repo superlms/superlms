@@ -11,8 +11,18 @@
 @section('content')
     @include('school-site.classic.partials.banner', ['heading' => $heading])
 
+    @php $lmsFees = $current === 'fee-structure' ? $lms->fees() : []; @endphp
     <section class="page">
         <div class="wrap">
+            {{-- Fee Structure: the fees set on Fee → Fee Structure, always as they are now. --}}
+            @if ($lmsFees)
+                <div class="card">
+                    <h2 class="title" style="margin-bottom:14px;">Fee Structure</h2>
+                    @include('school-site.shared.lms-fees', ['fees' => $lmsFees])
+                </div>
+            @endif
+
+            @if (! $lmsFees || $documents)
             <div class="card">
                 @if ($current === 'disclosures')
                     <p style="color:var(--muted);margin-bottom:16px;">Information and documents published as required under the {{ $c['board'] ?: 'CBSE' }} Affiliation Bye-Laws.</p>
@@ -61,6 +71,7 @@
                     </p>
                 @endif
             </div>
+            @endif
         </div>
     </section>
 @endsection

@@ -1,12 +1,13 @@
 {{--
     An enquiry-style form (Admission, Query, Career, Contact, Appointment). The
     layout's script posts it to the school's enquiry inbox — see there.
-    Params: $kind (the subject it arrives under), $fields — each
-    [name, label, type: text|email|tel|date|select|textarea, required,
+    Params: $kind (the subject it arrives under), $type (the enquiry's type
+    in the admin's Website Enquiries — SchoolWebsiteEnquiry::TYPES), $fields —
+    each [name, label, type: text|email|tel|date|select|textarea, required,
     options, wide, subject (its answer is added to the subject), placeholder] —
     and optional $button.
 --}}
-<form class="sform" data-org="{{ (int) $site->organization_id }}" data-kind="{{ $kind }}" novalidate>
+<form class="sform" data-org="{{ (int) $site->organization_id }}" data-kind="{{ $kind }}" data-type="{{ $type ?? '' }}" novalidate>
     <input type="text" name="company" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
     <div class="sform-grid">
         @foreach ($fields as $f)

@@ -13,6 +13,8 @@
     use App\Models\SchoolWebsite;
     $img  = SchoolWebsite::media($page['image'] ?? null);
     $body = trim((string) ($page['body'] ?? ''));
+    // Rules & Regulations: the rules saved on More → Rules & Regulations, under the page's own text.
+    $rules = $current === 'rules' && $lms->hasRules() ? $lms->rules() : null;
 @endphp
 
 @section('content')
@@ -23,14 +25,14 @@
 
     <section class="section">
         <div class="section-inner">
-            @if ($body === '')
+            @if ($body === '' && ! $rules && $current !== 'career')
                 <div style="max-width:640px;margin:0 auto;text-align:center;">
                     <p class="section-subtitle" style="margin:0 auto;">
                         This page is being updated. Please check back shortly, or
                         @if (!empty($c['phone'])) call us on {{ $c['phone'] }}. @else get in touch with the school office. @endif
                     </p>
                 </div>
-            @else
+            @elseif ($body !== '')
                 <div class="content-page" @if($img) style="display:grid;grid-template-columns:1.35fr 0.65fr;gap:48px;align-items:start;" @endif>
                     <div class="prose-body">
                         @foreach (preg_split('/\r\n\r\n|\n\n/', $body) as $para)
@@ -46,8 +48,37 @@
                     @endif
                 </div>
             @endif
+
+            @if ($rules)
+                <div class="form-card" style="max-width:860px;margin:{{ $body !== '' ? '40px' : '0' }} auto 0;">
+                    @include('school-site.shared.lms-rules', ['rules' => $rules])
+                </div>
+            @endif
         </div>
     </section>
+
+    {{-- Career: the job application form; applications arrive in the admin's Website Enquiries. --}}
+    @if ($current === 'career')
+        <section class="section section-alt">
+            <div class="section-inner" style="max-width:760px;">
+                <div class="section-head reveal">
+                    <span class="section-tag">Join Our Team</span>
+                    <h2 class="section-title">Apply for a Job</h2>
+                </div>
+                <div class="reveal">
+                    @include('school-site.kider.partials.enquiry-form', ['site' => $site, 'type' => 'career', 'button' => 'Send Application', 'fields' => [
+                        ['name' => 'name', 'label' => 'Your Name', 'required' => true],
+                        ['name' => 'phone', 'label' => 'Mobile No.', 'type' => 'tel', 'required' => true, 'placeholder' => '10-digit mobile'],
+                        ['name' => 'email', 'label' => 'Email', 'type' => 'email', 'placeholder' => 'you@example.com'],
+                        ['name' => 'qualification', 'label' => 'Qualification', 'required' => true],
+                        ['name' => 'applied_for', 'label' => 'Designation', 'required' => true, 'subject' => true, 'placeholder' => 'e.g. PGT Physics'],
+                        ['name' => 'experience', 'label' => 'Experience', 'placeholder' => 'e.g. 4 years'],
+                        ['name' => 'message', 'label' => 'Why You?', 'type' => 'textarea'],
+                    ]])
+                </div>
+            </div>
+        </section>
+    @endif
 
     <style>
         .prose-body p { font-size: 16px; line-height: 1.95; color: var(--text2); margin-bottom: 18px; }

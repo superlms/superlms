@@ -1,4 +1,8 @@
 <div class="min-h-screen bg-gray-50">
+    @php
+        // Each website form's colour (safelisted bg-*-100 / text-*-600 in app.css).
+        $typeColors = ['contact' => 'blue', 'query' => 'purple', 'appointment' => 'sky', 'career' => 'orange', 'admission' => 'green'];
+    @endphp
 
     {{-- ══════════════════════════════════════════════════
          HEADER (full-width, sticky, analytics + tabs)
@@ -96,7 +100,29 @@
                     </div>
                 </div>
 
-                @if ($activeTab !== 'website')
+                @if ($activeTab === 'website')
+                    <div class="h-5 w-px bg-gray-300 hidden sm:block"></div>
+
+                    {{-- Form: the website page the enquiry was sent from (All / Contact Us / Query /
+                         Appointment / Career / Online Admission), each with how many came from it. --}}
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-xs text-gray-500 hidden sm:inline">Form:</span>
+                        <div class="flex gap-1 overflow-x-auto">
+                            <button wire:click="applyTypeFilter('')"
+                                class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
+                                       {{ $typeFilter === '' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+                                All <span class="opacity-70">{{ $totalWebsite }}</span>
+                            </button>
+                            @foreach (\App\Models\SchoolWebsiteEnquiry::TYPES as $type => $typeName)
+                                <button wire:click="applyTypeFilter('{{ $type }}')" wire:key="type-{{ $type }}"
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
+                                           {{ $typeFilter === $type ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+                                    {{ $typeName }} <span class="opacity-70">{{ $websiteTypeCounts[$type] ?? 0 }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                @else
                     <div class="h-5 w-px bg-gray-300 hidden sm:block"></div>
 
                     {{-- Status (All / Pending / Replied), as the Announcements' Audience --}}
@@ -116,7 +142,7 @@
                     </div>
                 @endif
 
-                @if ($search || $filterDays || $statusFilter)
+                @if ($search || $filterDays || $statusFilter || $typeFilter)
                     <button wire:click="clearFilters"
                         class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -158,16 +184,21 @@
                                     </td>
 
                                     @if ($activeTab === 'website')
-                                        {{-- Website enquiry (public school-site submission: name/email/phone/subject/message) --}}
+                                        {{-- Website enquiry (public school-site submission): the form it came
+                                             from as a tag, the subject, the message, then who and when. --}}
+                                        @php $typeColor = $typeColors[$enquiry->type] ?? 'gray'; @endphp
                                         <td class="px-4 py-3">
                                             <div class="flex items-center gap-3 min-w-0">
-                                                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <div class="w-9 h-9 rounded-full bg-{{ $typeColor }}-100 flex items-center justify-center flex-shrink-0">
+                                                    <svg class="w-4 h-4 text-{{ $typeColor }}-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3M3.6 9h16.8M3.6 15h16.8" />
                                                     </svg>
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $enquiry->subject ?: 'No subject' }}</p>
+                                                    <p class="flex items-center gap-2 min-w-0">
+                                                        <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-{{ $typeColor }}-100 text-{{ $typeColor }}-600">{{ $enquiry->typeLabel() }}</span>
+                                                        <span class="text-sm font-semibold text-gray-900 truncate">{{ $enquiry->subject ?: 'No subject' }}</span>
+                                                    </p>
                                                     <p class="text-xs text-gray-400 truncate">{{ $enquiry->message ?: '—' }}</p>
                                                     <p class="text-[11px] text-gray-400 truncate mt-0.5">
                                                         {{ $enquiry->name ?? 'Unknown' }}
@@ -320,9 +351,9 @@
 
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-gray-900 truncate">Website Enquiry</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $selectedEnquiry->typeLabel() }} Enquiry</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            From public website · {{ $selectedEnquiry->created_at->format('d M Y, g:i A') }}
+                            From your website · {{ $selectedEnquiry->created_at->format('d M Y, g:i A') }}
                         </p>
                     </div>
                     <button wire:click="closeDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -332,22 +363,36 @@
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     @php
-                        $rows = [
-                            'Subject'  => $selectedEnquiry->subject ?: '—',
-                            'Message'  => $selectedEnquiry->message ?: '—',
-                            'Name'     => $selectedEnquiry->name ?: '—',
-                            'Phone'    => $selectedEnquiry->phone ?: '—',
-                            'Email'    => $selectedEnquiry->email ?: '—',
-                            'Received' => $selectedEnquiry->created_at->format('d M Y · g:i A'),
-                        ];
+                        // The form it came from, then every field the visitor filled in, in the form's order.
+                        $typeColor = $typeColors[$selectedEnquiry->type] ?? 'gray';
+                        $fields    = $selectedEnquiry->fields();
                     @endphp
                     <div class="rounded-xl border border-gray-200 divide-y divide-gray-100">
-                        @foreach ($rows as $label => $value)
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Type</p>
+                            <p class="mt-1">
+                                <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-{{ $typeColor }}-100 text-{{ $typeColor }}-600">{{ $selectedEnquiry->typeLabel() }}</span>
+                            </p>
+                        </div>
+                        @foreach ($fields as $label => $value)
+                            @php $long = mb_strlen($value) > 80 || str_contains($value, "\n"); @endphp
                             <div class="px-4 py-3">
                                 <p class="text-[11px] text-gray-400 uppercase tracking-wider">{{ $label }}</p>
-                                <p class="mt-1 text-sm break-words {{ $label === 'Subject' ? 'font-semibold text-gray-900' : 'text-gray-800' }} {{ $label === 'Message' ? 'whitespace-pre-line leading-relaxed' : '' }}">{{ $value }}</p>
+                                <p class="mt-1 text-sm break-words text-gray-800 {{ $long ? 'whitespace-pre-line leading-relaxed' : '' }}">
+                                    @if ($selectedEnquiry->phone && $value === $selectedEnquiry->phone)
+                                        <a href="tel:{{ preg_replace('/[^0-9+]/', '', $value) }}" class="text-blue-600 hover:underline">{{ $value }}</a>
+                                    @elseif ($selectedEnquiry->email && $value === $selectedEnquiry->email)
+                                        <a href="mailto:{{ $value }}" class="text-blue-600 hover:underline">{{ $value }}</a>
+                                    @else
+                                        {{ $value }}
+                                    @endif
+                                </p>
                             </div>
                         @endforeach
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Received</p>
+                            <p class="mt-1 text-sm text-gray-800">{{ $selectedEnquiry->created_at->format('d M Y · g:i A') }}</p>
+                        </div>
                     </div>
                 </div>
 

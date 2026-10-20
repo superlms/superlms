@@ -26,13 +26,15 @@ use App\Models\SchoolWebsite;
  *   keep      a list's column a row is kept by (else: any column filled in)
  *   percent   [part, whole] columns of a list, shown as a percentage
  *   to        a link's page
+ *   source    a live block's records: classes, fees or rules (LIVE)
  *   counts    false: not counted when telling a page is filled
  *   templates only on sites of these templates
  *
  * Types: text, textarea, image, images (photos, kept one link a line), file
  * (a PDF or photo, or a pasted link), list, location (the map: address, pin
- * or Google Maps embed), link (a section filled on another page), note and
- * heading (words only).
+ * or Google Maps embed), link (a section filled on another page), live (what
+ * the site reads from the school's own records — nothing to fill in here),
+ * note and heading (words only).
  */
 class WebsitePages
 {
@@ -42,13 +44,27 @@ class WebsitePages
     /** Content pages that are a message from one person, their photo beside it. */
     public const DESKS = ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'manager-desk', 'principal-desk'];
 
+    /**
+     * What the Online Admission pages read live from the school's records
+     * (App\Support\SchoolSiteData): source => [label, where it is kept, the
+     * admin route it is set up on].
+     */
+    public const LIVE = [
+        'classes' => ['Classes, sections & subjects', 'Standard', 'admin.standard'],
+        'fees'    => ['Fee structure', 'Fee Structure', 'admin.fee-structure'],
+        'rules'   => ['Rules & Regulations', 'Rules & Regulations', 'admin.rules-and-regulation'],
+    ];
+
+    /** The group School Details sits in, above the site's menus. */
+    public const DETAILS_GROUP = 'School';
+
     /** A page's label, a line on what it is, and its blocks; null for no such page. */
     public static function page(string $slug, string $template): ?array
     {
         if ($slug === self::DETAILS) {
             return [
                 'label'  => 'School Details',
-                'group'  => null,
+                'group'  => self::DETAILS_GROUP,
                 'intro'  => 'Shown on every page of your website — at the top, in the footer and on Contact Us.',
                 'blocks' => self::forTemplate(self::details(), $template),
             ];
@@ -80,24 +96,29 @@ class WebsitePages
     /**
      * The list Website Data opens on: the pages switched on for the site,
      * under the menus the site shows them in, each with what goes in it and
-     * whether anything is filled in; and how many are switched off.
+     * whether anything is filled in (or read from the school's records); and
+     * how many are switched off.
      */
-    public static function listing(SchoolWebsite $site): array
+    public static function listing(SchoolWebsite $site, ?SchoolSiteData $lms = null): array
     {
         $template = $site->templateKey();
         $content  = $site->resolvedContent();
         $enabled  = $site->enabledPages();
+        $lms    ??= new SchoolSiteData($site->organization_id);
 
-        $row = function (string $slug) use ($template, $content) {
+        $row = function (string $slug) use ($template, $content, $lms) {
             $page    = self::page($slug, $template);
             $counted = array_filter($page['blocks'], fn ($b) => self::counts($b));
+            $live    = array_filter($page['blocks'], fn ($b) => $b['type'] === 'live');
+            $shown   = array_merge($live, $counted);
 
             return [
                 'label'   => $page['label'],
-                'summary' => implode(' · ', array_map(fn ($b) => $b['label'], array_slice(array_values($counted), 0, 4)))
-                    . (count($counted) > 4 ? ' …' : ''),
-                'status'  => ! $counted ? 'form'
-                    : (array_filter($counted, fn ($b) => self::isFilled($b, $content)) ? 'filled' : 'empty'),
+                'summary' => implode(' · ', array_map(fn ($b) => $b['label'], array_slice(array_values($shown), 0, 4)))
+                    . (count($shown) > 4 ? ' …' : ''),
+                'status'  => ! $shown ? 'form'
+                    : (array_filter($counted, fn ($b) => self::isFilled($b, $content))
+                        || array_filter($live, fn ($b) => self::hasLive($lms, $b['source'])) ? 'filled' : 'empty'),
             ];
         };
 
@@ -280,7 +301,24 @@ class WebsitePages
     /** Whether a block is counted when telling a page is filled. */
     public static function counts(array $b): bool
     {
-        return ! in_array($b['type'], ['link', 'note', 'heading'], true) && ($b['counts'] ?? true);
+        return ! in_array($b['type'], ['link', 'live', 'note', 'heading'], true) && ($b['counts'] ?? true);
+    }
+
+    /** Whether the school's records hold anything for a live block's source. */
+    public static function hasLive(SchoolSiteData $lms, string $source): bool
+    {
+        return match ($source) {
+            'classes' => (bool) $lms->classes(),
+            'fees'    => (bool) $lms->fees(),
+            'rules'   => $lms->hasRules(),
+            default   => false,
+        };
+    }
+
+    /** A block showing what the site reads live from the school's records (LIVE). */
+    private static function live(string $source): array
+    {
+        return ['id' => "live_{$source}", 'type' => 'live', 'source' => $source, 'label' => self::LIVE[$source][0]];
     }
 
     /** One block of a page by its id. */
@@ -375,7 +413,10 @@ class WebsitePages
                 'help' => 'Shown as a gallery under the text; a click opens each one large.'],
         ];
         if ($slug === 'career') {
-            $blocks[] = ['id' => 'form', 'type' => 'note', 'label' => 'The job application form is on the page already — applications arrive in Enquiries.'];
+            $blocks[] = ['id' => 'form', 'type' => 'note', 'label' => 'The job application form is on the page already — applications arrive in Enquiries → Website Enquiries as Career.'];
+        }
+        if ($slug === 'rules') {
+            $blocks[] = self::live('rules');
         }
 
         return [$desk ? 'A message from the desk, with their photo beside it.' : 'Text, with a photo beside it and more photos under it.', $blocks];
@@ -398,6 +439,12 @@ class WebsitePages
             $list['help'] = "CBSE's list is already here — upload each one's PDF. A row without a file shows \"Not uploaded\"; "
                 . 'every uploaded one also gets its own page in the Documents menu.';
         }
+        if ($slug === 'fee-structure') {
+            $list['label'] = 'More documents';
+            $list['help']  = 'Optional — a fee PDF or circular, shown under the fee structure.';
+
+            return ['The fees from your Fee Structure, with any documents under them.', [self::live('fees'), $list]];
+        }
 
         return ['A table of documents to open or download.', [$list]];
     }
@@ -418,7 +465,7 @@ class WebsitePages
     /** The pages with a layout of their own. */
     private static function viewPage(string $slug): array
     {
-        $form = fn (string $what) => ['id' => 'form', 'type' => 'note', 'label' => "{$what} — filled forms arrive in Enquiries."];
+        $form = fn (string $what) => ['id' => 'form', 'type' => 'note', 'label' => "{$what} — filled forms arrive in Enquiries → Website Enquiries."];
 
         return match ($slug) {
             'home' => ['The first page visitors see, from top to bottom.', [
@@ -491,7 +538,7 @@ class WebsitePages
                     'fields' => ['image' => ['image', 'Photo'], 'caption' => ['text', 'Caption', 'e.g. Annual Day 2026']],
                     'add' => 'Add photo', 'bulk' => 'image'],
             ]],
-            'admission' => ['How to apply, with the online admission form under it.', [
+            'admission' => ['How to apply, with the online admission form under it. Classes, fees and rules come from your own records.', [
                 ['id' => 'admission_intro', 'type' => 'textarea', 'rows' => 3, 'path' => 'admission_intro', 'label' => 'Introduction'],
                 ['id' => 'admission_session', 'type' => 'text', 'path' => 'admission_session', 'label' => 'Admission schedule', 'placeholder' => 'e.g. 1 April – 31 July 2026'],
                 ['id' => 'fee_note', 'type' => 'text', 'path' => 'fee_note', 'label' => 'Fee note', 'placeholder' => 'e.g. See the Fee Structure page'],
@@ -501,13 +548,19 @@ class WebsitePages
                 ['id' => 'documents_required', 'type' => 'list', 'path' => 'documents_required', 'label' => 'Documents required',
                     'fields' => ['text' => ['text', 'Document', 'e.g. Birth Certificate']],
                     'add' => 'Add document'],
-                ['id' => 'admission_rules', 'type' => 'list', 'path' => 'admission_rules', 'label' => 'Rules',
+                ['id' => 'h-live', 'type' => 'heading', 'label' => 'From your records'],
+                self::live('classes'),
+                self::live('fees'),
+                self::live('rules'),
+                ['id' => 'admission_rules', 'type' => 'list', 'path' => 'admission_rules', 'label' => 'Admission rules',
+                    'help' => 'Optional — rules for admission only, shown beside your Rules & Regulations.',
                     'fields' => ['text' => ['text', 'Rule', 'e.g. The session begins on 1 April']],
                     'add' => 'Add rule'],
-                $form('The online admission form is on the page already'),
+                $form('The online admission form is on the page already — its Class list is your classes'),
             ]],
-            'classes' => ['A card for each class.', [
-                ['id' => 'classes', 'type' => 'list', 'path' => 'classes', 'label' => 'Classes', 'help' => 'Empty: sample classes are shown.',
+            'classes' => ['Your classes with their sections and subjects, and a card for each class.', [
+                self::live('classes'),
+                ['id' => 'classes', 'type' => 'list', 'path' => 'classes', 'label' => 'Class cards', 'help' => 'Optional — a photo, age, timing and seats for a class.',
                     'fields' => [
                         'image'    => ['image', 'Photo'],
                         'title'    => ['text', 'Class', 'e.g. Nursery'],

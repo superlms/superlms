@@ -1,14 +1,17 @@
 @extends('school-site.kider.layout')
 @php
     use App\Models\SchoolWebsite;
-    $classes = !empty($c['classes']) ? $c['classes'] : [
+    // The classes, sections and subjects set up on the Standard page, always as they are now.
+    $lmsClasses = $lms->classes();
+    // The cards from Website Data; the samples only while the school has neither.
+    $classes = !empty($c['classes']) ? $c['classes'] : ($lmsClasses ? [] : [
         ['title' => 'Art & Drawing', 'age' => '3-5 Years', 'time' => '9-10 AM',  'capacity' => '30 Kids'],
         ['title' => 'Music & Dance', 'age' => '4-6 Years', 'time' => '10-11 AM', 'capacity' => '30 Kids'],
         ['title' => 'Sport & Games', 'age' => '5-7 Years', 'time' => '11-12 AM', 'capacity' => '30 Kids'],
         ['title' => 'Story Telling', 'age' => '3-5 Years', 'time' => '12-1 PM',  'capacity' => '30 Kids'],
         ['title' => 'Numbers & Maths','age'=> '5-7 Years', 'time' => '1-2 PM',   'capacity' => '30 Kids'],
         ['title' => 'Reading & Writing','age'=>'5-7 Years','time' => '2-3 PM',    'capacity' => '30 Kids'],
-    ];
+    ]);
     $clsImgs = ['classes-1.jpg','classes-2.jpg','classes-3.jpg','classes-4.jpg','classes-5.jpg','classes-6.jpg'];
 @endphp
 
@@ -19,23 +22,39 @@
         'sub' => 'Engaging, age-appropriate programmes designed to help every child learn, play and grow.',
     ])
 
-    <section class="section">
-        <div class="section-inner">
-            <div class="cards-grid">
-                @foreach ($classes as $i => $cls)
-                    <div class="class-card reveal">
-                        <div class="class-thumb"><img src="{{ SchoolWebsite::media($cls['image'] ?? null, $clsImgs[$i % count($clsImgs)]) }}" alt=""></div>
-                        <div class="class-body">
-                            <p class="class-name">{{ $cls['title'] ?? '' }}</p>
-                            <div class="class-meta">
-                                <div><p class="k">Age</p><p class="v">{{ $cls['age'] ?? '-' }}</p></div>
-                                <div><p class="k">Time</p><p class="v">{{ $cls['time'] ?? '-' }}</p></div>
-                                <div><p class="k">Capacity</p><p class="v">{{ $cls['capacity'] ?? '-' }}</p></div>
+    @if ($lmsClasses)
+        <section class="section">
+            <div class="section-inner reveal">
+                <div class="section-head">
+                    <span class="section-tag">Classes</span>
+                    <h2 class="section-title">Classes, Sections &amp; Subjects</h2>
+                </div>
+                <div class="form-card" style="padding:0;overflow:hidden;">
+                    @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
+                </div>
+            </div>
+        </section>
+    @endif
+
+    @if ($classes)
+        <section class="section {{ $lmsClasses ? 'section-alt' : '' }}">
+            <div class="section-inner">
+                <div class="cards-grid">
+                    @foreach ($classes as $i => $cls)
+                        <div class="class-card reveal">
+                            <div class="class-thumb"><img src="{{ SchoolWebsite::media($cls['image'] ?? null, $clsImgs[$i % count($clsImgs)]) }}" alt=""></div>
+                            <div class="class-body">
+                                <p class="class-name">{{ $cls['title'] ?? '' }}</p>
+                                <div class="class-meta">
+                                    <div><p class="k">Age</p><p class="v">{{ $cls['age'] ?? '-' }}</p></div>
+                                    <div><p class="k">Time</p><p class="v">{{ $cls['time'] ?? '-' }}</p></div>
+                                    <div><p class="k">Capacity</p><p class="v">{{ $cls['capacity'] ?? '-' }}</p></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
+    @endif
 @endsection

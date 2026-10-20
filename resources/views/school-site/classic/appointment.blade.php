@@ -11,6 +11,7 @@
                 </p>
                 @include('school-site.classic.partials.form', [
                     'kind'   => 'Appointment',
+                    'type'   => 'appointment',
                     'button' => 'Request Appointment',
                     'fields' => [
                         ['name' => 'name', 'label' => 'Name', 'required' => true],

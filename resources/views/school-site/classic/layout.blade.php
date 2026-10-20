@@ -435,9 +435,10 @@
         });
 
         // Enquiry-style forms (Admission, Query, Career, Contact, Appointment)
-        // all post to the school's enquiry inbox: name, email and phone as
+        // all post to the school's enquiry inbox: the form's type, every
+        // field filled in as its label and answer, name, email and phone as
         // they are, the form's kind (and class, if asked) as the subject, and
-        // every other field written into the message.
+        // every other field written into the message too.
         document.querySelectorAll('form.sform').forEach(function (form) {
             form.addEventListener('submit', async function (e) {
                 e.preventDefault();
@@ -446,9 +447,12 @@
                 var missing = Array.prototype.find.call(form.querySelectorAll('[required]'), function (f) { return !f.value.trim(); });
                 if (missing) { say('Please fill in ' + missing.dataset.label + '.'); missing.focus(); return; }
 
-                var data = { organization_id: Number(form.dataset.org), company: form.company.value, subject: form.dataset.kind }, extra = [];
+                var data = { organization_id: Number(form.dataset.org), company: form.company.value, subject: form.dataset.kind,
+                             type: form.dataset.type || null, fields: [] }, extra = [];
                 form.querySelectorAll('[data-label]').forEach(function (f) {
                     var v = f.value.trim(), n = f.name;
+                    if (v && f.type === 'date') { v = new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
+                    if (v) { data.fields.push({ label: f.dataset.label, value: v }); }
                     if (n === 'name' || n === 'email' || n === 'phone') { data[n] = v; }
                     else if (n === 'message') { data.message_body = v; }
                     else if (v) { extra.push(f.dataset.label + ': ' + v); if (f.dataset.subject) data.subject += ' — ' + v; }

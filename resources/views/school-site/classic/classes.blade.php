@@ -15,8 +15,18 @@
 @section('content')
     @include('school-site.classic.partials.banner', ['heading' => 'Classes'])
 
+    @php $lmsClasses = $lms->classes(); @endphp
     <section class="page">
         <div class="wrap">
+            {{-- The classes, sections and subjects set up on the Standard page, always as they are now. --}}
+            @if ($lmsClasses)
+                <div class="card">
+                    <h2 class="title" style="margin-bottom:14px;">Classes, Sections &amp; Subjects</h2>
+                    @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
+                </div>
+            @endif
+
+            @if (! $lmsClasses || ! empty($c['classes']))
             <div class="card">
                 @if (empty($c['classes']))
                     <p class="muted-note">Details of our classes will be published here shortly.</p>
@@ -36,6 +46,7 @@
                     </div>
                 @endif
             </div>
+            @endif
         </div>
     </section>
 @endsection

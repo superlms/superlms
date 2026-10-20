@@ -86,7 +86,11 @@ class WebsiteDataPagesTest extends TestCase
         return html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($component->html())));
     }
 
-    public function test_it_opens_on_the_sites_pages_under_its_menus(): void
+    /**
+     * The site's menus as chips first (user's ask of 2026-10-20); a menu's
+     * chip shows its pages as chips, and a page's chip opens its data below.
+     */
+    public function test_it_opens_on_the_sites_menus_as_chips_and_a_menu_on_its_pages(): void
     {
         $this->website([
             'pages'   => ['home', 'about', 'history', 'vision', 'gallery', 'disclosures', 'contact', 'query'],
@@ -94,29 +98,43 @@ class WebsiteDataPagesTest extends TestCase
         ]);
         $off = count(SchoolWebsite::allPages()) - 8;
 
-        $list = Livewire::test(WebsiteData::class)->assertSet('open', '');
-        $text = $this->text($list);
+        $wd   = Livewire::test(WebsiteData::class)->assertSet('open', '')->assertSet('group', '');
+        $text = $this->text($wd);
 
-        // Quick Links' tiles: School Details first, then the site's menus in
-        // order, each page with whether it is filled; what goes in it is the
-        // tile's tooltip.
-        $this->assertStringContainsString('School School Details Filled', $text);
-        $this->assertStringContainsString('About Us About School Filled History Filled Vision Empty', $text);
-        $this->assertStringContainsString('Photogallery Photo Gallery Empty', $text);
-        $this->assertStringContainsString('Mandatory Disclosure Mandatory Disclosures Empty', $text);
-        $this->assertStringContainsString('The Documents menu fills itself', $text);
-        $this->assertStringContainsString('Contact Contact Us Filled', $text);   // the profile's
-        $this->assertStringContainsString('Query Form', $text);
-        $this->assertStringContainsString('title="Name, logo, phone, address and social links — on every page"', $list->html());
-        $this->assertStringContainsString('title="Text · Photo beside the text · More photos"', $list->html());
-        $this->assertStringContainsString('title="A form — nothing to fill in"', $list->html());
+        // School first, then the site's menus in order, each with how many of
+        // its pages are filled in; no page yet.
+        $this->assertStringContainsString('School 1/1 Home 1/1 About Us 2/3 Photogallery 0/1 Mandatory Disclosure 0/1 Contact 1/1', $text);
+        $this->assertStringContainsString('Pick a menu above', $text);
         $this->assertStringContainsString("{$off} more pages switched off", $text);
+        $this->assertStringNotContainsString('History', $text);
+
+        // A menu: its pages as chips, each with whether it is filled in; what
+        // goes in it is the chip's tooltip.
+        $wd->call('openGroup', 'About Us')->assertSet('group', 'About Us')->assertSet('open', '');
+        $text = $this->text($wd);
+        $this->assertStringContainsString('About School Filled History Filled Vision Empty', $text);
+        $this->assertStringContainsString('Pick a page of About Us', $text);
+        $this->assertStringContainsString('title="Text · Photo beside the text · More photos"', $wd->html());
         $this->assertStringNotContainsString("Chairman's Desk", $text);
 
-        $list->call('openPage', 'history')->assertSet('open', 'history')
-            ->assertSee('Website Data › About Us')
-            ->call('closePage')->assertSet('open', '')->assertSee('School Details');
-        $list->call('openPage', 'no-such-page')->assertSet('open', '');
+        // A page's chip opens it below, the menu's chips still there.
+        $wd->call('openPage', 'history')->assertSet('open', 'history')->assertSet('data.body', 'Founded in 1990.')
+            ->assertSee(['Website Data › About Us', 'Vision']);
+
+        // Another menu closes it; a menu of one page opens that page at once.
+        $wd->call('openGroup', 'Photogallery')->assertSet('group', 'Photogallery')->assertSet('open', 'gallery');
+        $wd->call('openGroup', 'Contact')->assertSet('open', '');
+        $this->assertStringContainsString('Contact Us Filled Query Form', $this->text($wd));   // Contact Us: the profile's
+        $this->assertStringContainsString('title="A form — nothing to fill in"', $wd->html());
+        $wd->call('openGroup', 'School')->assertSet('open', 'details')->assertSee('School name');
+        $this->assertStringContainsString('title="Name, logo, phone, address and social links — on every page"', $wd->html());
+
+        $wd->call('openGroup', 'No such menu')->assertSet('group', 'School');
+        $wd->call('openPage', 'no-such-page')->assertSet('open', '');
+
+        // Opened from a link to a page, its menu is picked with it.
+        Livewire::withQueryParams(['edit' => 'vision'])->test(WebsiteData::class)
+            ->assertSet('group', 'About Us')->assertSet('open', 'vision');
     }
 
     public function test_a_page_shows_its_blocks_and_saves_only_them(): void

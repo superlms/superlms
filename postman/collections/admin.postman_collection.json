@@ -652,7 +652,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/enquiries?tab=teacher&search=&days=&status=",
+              "raw": "{{baseUrl}}/api/v1/admin/enquiries?tab=teacher&search=&days=&status=&type=",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -682,10 +682,15 @@
                   "key": "status",
                   "value": "",
                   "description": "pending | replied (optional)"
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "website tab only: contact | query | appointment | career | admission (optional)"
                 }
               ]
             },
-            "description": "Returns { tab, enquiries: [...], stats: { total, pending, replied }, tab_totals: { teacher, student } }."
+            "description": "Returns { tab, enquiries: [...], stats: { total, pending, replied }, tab_totals: { teacher, student, website } }. On the website tab each enquiry also has type, type_label and fields [{label, value}], and stats.types is [{type, label, count}]."
           },
           "response": []
         },

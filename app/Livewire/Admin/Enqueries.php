@@ -31,6 +31,8 @@ class Enqueries extends Component
     public string $filterDays    = '';
     public string $search        = '';
     public string $statusFilter  = '';
+    /** Website enquiries: the form they came from (SchoolWebsiteEnquiry::TYPES), '' for all. */
+    public string $typeFilter    = '';
 
     // ─── Custom delete overlay ──────────────────────────────────────────────
     public bool $showDeleteConfirm = false;
@@ -42,12 +44,15 @@ class Enqueries extends Component
     public int $totalWebsite  = 0;
     public int $pendingCount  = 0;
     public int $repliedCount  = 0;
+    /** Website enquiries a type: type => count. */
+    public array $websiteTypeCounts = [];
 
     protected $queryString = [
         'activeTab'    => ['except' => 'student'],
         'filterDays'   => ['except' => '', 'history' => false],
         'search'       => ['except' => '', 'history' => false],
         'statusFilter' => ['except' => '', 'history' => false],
+        'typeFilter'   => ['except' => '', 'as' => 'type', 'history' => false],
     ];
 
     public function mount(): void
@@ -84,7 +89,10 @@ class Enqueries extends Component
 
         $this->totalTeacher = (int) ($teacher->total ?? 0);
         $this->totalStudent = (int) ($student->total ?? 0);
-        $this->totalWebsite = SchoolWebsiteEnquiry::where('organization_id', $orgId)->count();
+        $this->websiteTypeCounts = SchoolWebsiteEnquiry::where('organization_id', $orgId)
+            ->selectRaw('type, COUNT(*) as n')->groupBy('type')
+            ->get()->mapWithKeys(fn ($r) => [(string) $r->type => (int) $r->n])->all();
+        $this->totalWebsite = array_sum($this->websiteTypeCounts);
 
         // Pending/Replied only apply to teacher & student enquiries.
         // Website enquiries come from the public site and have no reply flow.
@@ -108,9 +116,17 @@ class Enqueries extends Component
 
     public function showTab($tab): void
     {
-        $this->activeTab = $tab;
+        $this->activeTab  = $tab;
+        $this->typeFilter = '';
         $this->resetPage();
         $this->loadStats();
+    }
+
+    /** Website enquiries of one form only; the same type again shows them all. */
+    public function applyTypeFilter(string $type): void
+    {
+        $this->typeFilter = $this->typeFilter === $type || ! isset(SchoolWebsiteEnquiry::TYPES[$type]) ? '' : $type;
+        $this->resetPage();
     }
 
     public function updatedSearch(): void       { $this->resetPage(); }
@@ -131,6 +147,7 @@ class Enqueries extends Component
     private function getWebsiteEnquiries()
     {
         return SchoolWebsiteEnquiry::where('organization_id', Auth::user()->organization_id)
+            ->when(isset(SchoolWebsiteEnquiry::TYPES[$this->typeFilter]), fn($q) => $q->where('type', $this->typeFilter))
             ->when($this->filterDays, fn($q) => $q->where('created_at', '>=', Carbon::now()->subDays((int) $this->filterDays)))
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -279,7 +296,7 @@ class Enqueries extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['filterDays', 'search', 'statusFilter']);
+        $this->reset(['filterDays', 'search', 'statusFilter', 'typeFilter']);
         $this->resetPage();
     }
 
@@ -304,7 +321,7 @@ class Enqueries extends Component
             'teacher' => ContactAdminTeacher::class,
             default   => ContactAdminStudent::class,
         };
-        $enquiry    = $modelClass::find($this->deleteTargetId);
+        $enquiry    = $modelClass::where('organization_id', Auth::user()->organization_id)->find($this->deleteTargetId);
 
         if ($enquiry) {
             if (!empty($enquiry->image)) {

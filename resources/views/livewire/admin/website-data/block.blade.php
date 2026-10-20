@@ -1,8 +1,9 @@
 {{--
     One block of a Website Data page (App\Support\WebsitePages): a heading, a
-    note, a link to the page that fills a section, or a card with the label,
-    its help and the block's input. Params: $b, $bare (no card: it sits in
-    a card shared with the text blocks around it).
+    note, a link to the page that fills a section, what the site reads live
+    from the school's records, or a card with the label, its help and the
+    block's input. Params: $b, $bare (no card: it sits in a card shared with
+    the text blocks around it).
 --}}
 @php
     $id    = $b['id'];
@@ -28,6 +29,8 @@
         </span>
         <span class="text-xs font-medium text-blue-600 whitespace-nowrap">Open {{ $to }} &rarr;</span>
     </button>
+@elseif ($type === 'live')
+    @include('livewire.admin.website-data.live')
 @else
     <div class="{{ $bare ? '' : 'bg-white border border-gray-200 rounded-xl p-4' }}" wire:key="blk-{{ $id }}">
         <div class="{{ $bare ? 'mb-1.5' : 'mb-2.5' }}">

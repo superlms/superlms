@@ -16,7 +16,15 @@
                 </div>
             </div>
             <div class="reveal">
-                @include('school-site.kider.partials.enquiry-form', ['site' => $site])
+                @include('school-site.kider.partials.enquiry-form', ['site' => $site, 'type' => 'appointment', 'button' => 'Request Appointment', 'fields' => [
+                    ['name' => 'name', 'label' => 'Your Name', 'required' => true, 'placeholder' => 'e.g. Priya Sharma'],
+                    ['name' => 'phone', 'label' => 'Mobile No.', 'type' => 'tel', 'required' => true, 'placeholder' => '10-digit mobile'],
+                    ['name' => 'email', 'label' => 'Email', 'type' => 'email', 'placeholder' => 'you@example.com'],
+                    ['name' => 'date', 'label' => 'Preferred Date', 'type' => 'date', 'subject' => true],
+                    ['name' => 'purpose', 'label' => 'Purpose', 'type' => 'select', 'full' => true,
+                        'options' => ['Admission enquiry', 'Meet the Principal', 'Campus visit', 'Other']],
+                    ['name' => 'message', 'label' => 'Message', 'type' => 'textarea', 'placeholder' => 'Anything we should know?'],
+                ]])
             </div>
         </div>
     </section>

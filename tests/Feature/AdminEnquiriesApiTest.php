@@ -39,8 +39,8 @@ class AdminEnquiriesApiTest extends TestCase
             });
         }
         Schema::create('school_website_enquiries', function (Blueprint $t) {
-            $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('name')->nullable(); $t->string('email')->nullable();
-            $t->string('phone')->nullable(); $t->string('subject')->nullable(); $t->text('message')->nullable(); $t->timestamps();
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('type', 20)->nullable(); $t->string('name')->nullable(); $t->string('email')->nullable();
+            $t->string('phone')->nullable(); $t->string('subject')->nullable(); $t->text('message')->nullable(); $t->json('data')->nullable(); $t->timestamps();
         });
 
         DB::table('organizations')->insert(['id' => $this->org, 'name' => 'DPS']);
@@ -52,8 +52,10 @@ class AdminEnquiriesApiTest extends TestCase
             ]);
         }
         DB::table('school_website_enquiries')->insert([
-            ['organization_id' => $this->org, 'name' => 'Ravi', 'email' => 'ravi@x.in', 'phone' => '9876543210', 'subject' => 'Admission', 'message' => 'Class 5 seats?', 'created_at' => now(), 'updated_at' => now()],
-            ['organization_id' => $this->org, 'name' => 'Meena', 'email' => null, 'phone' => '9123456780', 'subject' => 'Fees', 'message' => 'Fee for class 1', 'created_at' => now(), 'updated_at' => now()],
+            ['organization_id' => $this->org, 'type' => 'admission', 'name' => 'Ravi', 'email' => 'ravi@x.in', 'phone' => '9876543210', 'subject' => 'Admission', 'message' => 'Class 5 seats?',
+                'data' => json_encode([['label' => 'Student Name', 'value' => 'Ravi'], ['label' => 'Class', 'value' => 'Class 5']]), 'created_at' => now(), 'updated_at' => now()],
+            ['organization_id' => $this->org, 'type' => null, 'name' => 'Meena', 'email' => null, 'phone' => '9123456780', 'subject' => 'Fees', 'message' => 'Fee for class 1',
+                'data' => null, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         $admin = new User(['name' => 'Head', 'email' => 'head@x.in']);
@@ -86,6 +88,27 @@ class AdminEnquiriesApiTest extends TestCase
         $this->assertSame(['Fees'], array_column($web['enquiries'], 'topic'));
         $this->assertSame('Meena', $web['enquiries'][0]['user_name']);
         $this->assertSame(0, $web['stats']['pending']);
+
+        // One sent before forms had types: "Website", its fields its name, contact, subject and message.
+        $this->assertSame('Website', $web['enquiries'][0]['type_label']);
+        $this->assertSame(['Name', 'Phone', 'Subject', 'Message'], array_column($web['enquiries'][0]['fields'], 'label'));
+    }
+
+    public function test_website_enquiries_come_with_their_form_and_fields(): void
+    {
+        $web = $this->api()->enquiries(new Request(['tab' => 'website', 'type' => 'admission']))->getData(true)['data'];
+
+        $this->assertSame(['Admission'], array_column($web['enquiries'], 'topic'));
+        $this->assertSame('admission', $web['enquiries'][0]['type']);
+        $this->assertSame('Online Admission', $web['enquiries'][0]['type_label']);
+        $this->assertSame([['label' => 'Student Name', 'value' => 'Ravi'], ['label' => 'Class', 'value' => 'Class 5']], $web['enquiries'][0]['fields']);
+
+        $types = array_column($web['stats']['types'], 'count', 'type');
+        $this->assertSame(['contact' => 0, 'query' => 0, 'appointment' => 0, 'career' => 0, 'admission' => 1], $types);
+
+        // A type that isn't one of the forms lists them all.
+        $all = $this->api()->enquiries(new Request(['tab' => 'website', 'type' => 'nope']))->getData(true)['data'];
+        $this->assertCount(2, $all['enquiries']);
     }
 
     public function test_a_reply_is_five_characters_or_more_and_a_website_enquiry_has_none(): void

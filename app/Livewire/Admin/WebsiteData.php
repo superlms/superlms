@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\SchoolWebsite;
 use App\Support\MapLink;
+use App\Support\SchoolSiteData;
 use App\Support\WebsitePages;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -16,10 +17,12 @@ use WireUi\Traits\WireUiActions;
 /**
  * More → Website Data: the school fills in its website page by page.
  *
- * It opens on the list of the site's pages, under the menus the site shows
- * them in (with School Details — name, logo, contact — above them). A page
- * opens on the blocks that page shows (WebsitePages): text, photos, files,
- * lists, the map. Photos and files upload as soon as they are picked; Save
+ * It opens on the site's menus as chips (School — name, logo, contact —
+ * first, then the menus the site shows its pages under). A menu picked shows
+ * its pages as chips under it, and a page picked opens below them on the
+ * blocks that page shows (WebsitePages): text, photos, files, lists, the
+ * map, and what the site reads live from the school's own records (classes,
+ * fees, rules). Photos and files upload as soon as they are picked; Save
  * writes the page's blocks into the site's content and they are live.
  *
  * Only content is written here — the super admin's template, pages, theme,
@@ -32,7 +35,11 @@ class WebsiteData extends Component
 
     public $organization;
 
-    /** The page open ('' for the list, 'details' for School Details); a step for Back. */
+    /** The menu whose pages show as chips ('' for none yet); a step for Back. */
+    #[Url(as: 'menu', history: true, except: '')]
+    public string $group = '';
+
+    /** The page open ('' for none, 'details' for School Details); a step for Back. */
     #[Url(as: 'edit', history: true, except: '')]
     public string $open = '';
 
@@ -52,6 +59,8 @@ class WebsiteData extends Component
 
         if ($this->open !== '') {
             $this->openPage($this->open);
+        } elseif ($this->group !== '' && ! isset($this->menus()[$this->group])) {
+            $this->group = '';
         }
     }
 
@@ -68,12 +77,60 @@ class WebsiteData extends Component
         return $this->site;
     }
 
+    /** The school's own records the site reads (classes, fees, rules), read once a request. */
+    private ?SchoolSiteData $lms = null;
+
+    private function lms(): SchoolSiteData
+    {
+        return $this->lms ??= new SchoolSiteData($this->organization?->id);
+    }
+
+    /** The site's pages with whether each is filled in, worked out once a request. */
+    private ?array $listing = null;
+
+    private function listing(): array
+    {
+        return $this->listing ??= WebsitePages::listing($this->site(), $this->lms());
+    }
+
+    /**
+     * The menus as the chips show them: School (School Details) first, then
+     * the site's own menus with their pages switched on — menu => [slug => row].
+     */
+    private function menus(): array
+    {
+        $listing = $this->listing();
+
+        return [WebsitePages::DETAILS_GROUP => [WebsitePages::DETAILS => array_merge($listing['details'], [
+            'summary' => 'Name, logo, phone, address and social links — on every page',
+        ])]] + $listing['groups'];
+    }
+
     private function page(): ?array
     {
         return $this->open === '' ? null : WebsitePages::page($this->open, $this->site()->templateKey());
     }
 
-    // ─── List ↔ page ─────────────────────────────────────────────────────
+    // ─── Menus ↔ pages ───────────────────────────────────────────────────
+
+    /**
+     * A menu's chip: its pages show as chips under the menus. A menu of one
+     * page opens that page straight away; another menu's page closes.
+     */
+    public function openGroup(string $name): void
+    {
+        $menus = $this->menus();
+        if (! isset($menus[$name])) {
+            return;
+        }
+
+        $this->group = $name;
+        if (count($menus[$name]) === 1) {
+            $this->openPage((string) array_key_first($menus[$name]));
+        } elseif ($this->open !== '' && ! isset($menus[$name][$this->open])) {
+            $this->closePage();
+        }
+    }
 
     public function openPage(string $slug): void
     {
@@ -85,6 +142,7 @@ class WebsiteData extends Component
         }
 
         $this->open    = $slug;
+        $this->group   = (string) $page['group'];
         $this->data    = WebsitePages::values($page['blocks'], $this->site());
         $this->uploads = [];
         $this->dirty   = false;
@@ -100,10 +158,22 @@ class WebsiteData extends Component
         $this->resetErrorBag();
     }
 
-    /** The browser's Back / Forward between the list and a page. */
+    /** The browser's Back / Forward between the menus and a page. */
     public function updatedOpen(): void
     {
         $this->open === '' ? $this->closePage() : $this->openPage($this->open);
+    }
+
+    /** The browser's Back / Forward between the menus. */
+    public function updatedGroup(): void
+    {
+        $menus = $this->menus();
+        if (! isset($menus[$this->group])) {
+            $this->group = '';
+        }
+        if ($this->open !== '' && ! isset($menus[$this->group][$this->open])) {
+            $this->closePage();
+        }
     }
 
     public function updated(string $name): void
@@ -318,7 +388,9 @@ class WebsiteData extends Component
         return view('livewire.admin.website-data', [
             'site'    => $site,
             'page'    => $page,
-            'listing' => $page ? null : WebsitePages::listing($site),
+            'menus'   => $this->menus(),
+            'off'     => $this->listing()['off'],
+            'lms'     => $this->lms(),
             'pageUrl' => $live && $page
                 ? 'https://' . $site->domain . '/' . (in_array($this->open, ['home', WebsitePages::DETAILS], true) ? '' : $this->open)
                 : null,

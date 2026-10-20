@@ -14,6 +14,7 @@ use App\Models\WebsiteDemo;
 use App\Models\WebsitePage;
 use App\Models\SchoolWebsiteEnquiry;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class WebsiteController extends Controller
 {
@@ -197,16 +198,24 @@ class WebsiteController extends Controller
         return $domain !== '' && in_array($domain, $blockedDomains, true);
     }
 
-    /** POST /api/website/school-contact — enquiry from a school's own website */
+    /**
+     * POST /api/website/school-contact — enquiry from a school's own website:
+     * the form's type (SchoolWebsiteEnquiry::TYPES), name and contact, a
+     * subject and message, and every field filled in as fields[{label, value}].
+     */
     public function schoolContact(Request $request)
     {
         $validated = $request->validate([
             'organization_id' => 'required|integer|exists:organizations,id',
+            'type'            => ['nullable', 'string', Rule::in(array_keys(SchoolWebsiteEnquiry::TYPES))],
             'name'            => 'required|string|max:255',
             'email'           => 'nullable|email|max:255',
             'phone'           => 'nullable|string|max:30',
             'subject'         => 'nullable|string|max:255',
             'message'         => 'nullable|string|max:5000',
+            'fields'          => 'nullable|array|max:30',
+            'fields.*.label'  => 'required|string|max:100',
+            'fields.*.value'  => 'nullable|string|max:3000',
         ]);
 
         if ($this->isSpamSubmission($request)) {
@@ -216,7 +225,15 @@ class WebsiteController extends Controller
             ]);
         }
 
-        SchoolWebsiteEnquiry::create($validated);
+        $fields = array_values(array_filter(array_map(fn ($f) => [
+            'label' => trim((string) $f['label']),
+            'value' => trim((string) ($f['value'] ?? '')),
+        ], $validated['fields'] ?? []), fn ($f) => $f['value'] !== ''));
+
+        SchoolWebsiteEnquiry::create(array_merge(array_diff_key($validated, ['fields' => 1]), [
+            'subject' => ($validated['subject'] ?? null) ?: (SchoolWebsiteEnquiry::TYPES[$validated['type'] ?? ''] ?? null),
+            'data'    => $fields ?: null,
+        ]));
 
         return response()->json([
             'success' => true,

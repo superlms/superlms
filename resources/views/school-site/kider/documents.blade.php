@@ -19,8 +19,17 @@
             : null,
     ])
 
+    @php $lmsFees = $current === 'fee-structure' ? $lms->fees() : []; @endphp
     <section class="section">
         <div class="section-inner">
+            {{-- Fee Structure: the fees set on Fee → Fee Structure, always as they are now. --}}
+            @if ($lmsFees)
+                <div style="max-width:860px;margin:0 auto {{ $documents ? '32px' : '0' }};">
+                    @include('school-site.shared.lms-fees', ['fees' => $lmsFees])
+                </div>
+            @endif
+
+            @if (! $lmsFees || $documents)
             <div class="doc-card">
                 <table class="doc-table">
                     <thead>
@@ -60,8 +69,9 @@
                     </tbody>
                 </table>
             </div>
+            @endif
 
-            @if (!empty($c['phone']) || !empty($c['email']))
+            @if ((! $lmsFees || $documents) && (!empty($c['phone']) || !empty($c['email'])))
                 <p style="text-align:center;font-size:13.5px;color:var(--text4);margin-top:22px;">
                     For a certified copy of any document, contact the school office
                     @if(!empty($c['phone'])) on {{ $c['phone'] }}@endif@if(!empty($c['email'])) or write to {{ $c['email'] }}@endif.

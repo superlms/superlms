@@ -30,7 +30,7 @@
                 @endif
             </div>
             <div class="reveal">
-                @include('school-site.kider.partials.enquiry-form', ['site' => $site])
+                @include('school-site.kider.partials.enquiry-form', ['site' => $site, 'type' => 'contact'])
             </div>
         </div>
     </section>

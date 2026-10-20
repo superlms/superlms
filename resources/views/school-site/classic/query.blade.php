@@ -9,6 +9,7 @@
                 <p style="color:var(--muted);margin-bottom:18px;">Have a question about the school? Write to us and we will get back to you.</p>
                 @include('school-site.classic.partials.form', [
                     'kind'   => 'Query',
+                    'type'   => 'query',
                     'fields' => [
                         ['name' => 'name', 'label' => 'Name', 'required' => true],
                         ['name' => 'phone', 'label' => 'Mobile No.', 'type' => 'tel', 'required' => true],

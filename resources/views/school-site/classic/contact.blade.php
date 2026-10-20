@@ -31,6 +31,7 @@
                 <h2 class="title" style="margin-bottom:16px;">Send Us a Message</h2>
                 @include('school-site.classic.partials.form', [
                     'kind'   => 'Contact',
+                    'type'   => 'contact',
                     'fields' => [
                         ['name' => 'name', 'label' => 'Name', 'required' => true],
                         ['name' => 'phone', 'label' => 'Mobile No.', 'type' => 'tel', 'required' => true],
