@@ -15,12 +15,12 @@
                     <span class="px-4">Topics: <strong class="text-emerald-600">{{ $totalTopics }}</strong></span>
                     <span class="pl-4">With Content: <strong class="text-purple-600">{{ $withContent }}</strong></span>
                 </div>
-                {{-- A new chapter, with its content, for the class (and section) and subject picked --}}
-                <button wire:click="openNewChapter" @disabled(!$showList)
-                    title="{{ $showList ? 'Add a chapter to this subject' : 'Pick a class and subject first' }}"
+                {{-- Content for a chapter of the class (and section) and subject picked — or a new chapter --}}
+                <button wire:click="openNewContent" @disabled(!$showList)
+                    title="{{ $showList ? 'Add content to a chapter of this subject' : 'Pick a class and subject first' }}"
                     class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    <span class="hidden sm:inline">Add Chapter</span>
+                    <span class="hidden sm:inline">Add Content</span>
                     <span class="sm:hidden">Add</span>
                 </button>
             </div>
@@ -97,8 +97,9 @@
                             <span class="text-xs text-gray-400 flex-shrink-0">{{ $chapter->topics->count() }} topics</span>
                         </div>
 
-                        {{-- Chapter actions: View (once it has content), Add / Edit content
-                             (and the name), Add Topic, Delete (the chapter, or only its content) --}}
+                        {{-- Chapter actions: View and Edit (once it has content), Add Content
+                             (a type and the content, this chapter picked), Delete (the chapter,
+                             or only its content) --}}
                         <div class="flex items-center gap-1 ml-2 flex-shrink-0" @click.stop>
                             @if ($chHasContent)
                                 <button wire:click="onViewContent('chapter', {{ $chapter->id }})"
@@ -109,14 +110,9 @@
                                     class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors" title="Edit Chapter & Content">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
-                            @else
-                                <button wire:click="onAddContent('chapter', {{ $chapter->id }})"
-                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors" title="Add Content">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                </button>
                             @endif
-                            <button wire:click="openNewTopic({{ $chapter->id }})"
-                                class="p-1.5 text-violet-600 hover:bg-violet-50 rounded-lg border border-violet-200 transition-colors" title="Add Topic">
+                            <button wire:click="openNewContent({{ $chapter->id }})"
+                                class="p-1.5 text-violet-600 hover:bg-violet-50 rounded-lg border border-violet-200 transition-colors" title="Add Content">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                             </button>
                             <button wire:click="deleteRecord('chapter', {{ $chapter->id }})"
@@ -161,10 +157,10 @@
                             <div class="px-12 py-4 text-center text-xs text-gray-400">No topics in this chapter</div>
                         @endforelse
                         <div class="px-8 sm:px-12 py-2 border-t border-gray-100">
-                            <button wire:click="openNewTopic({{ $chapter->id }})"
+                            <button wire:click="openNewContent({{ $chapter->id }})"
                                 class="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-800">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                                Add topic
+                                Add content
                             </button>
                         </div>
                     </div>
@@ -175,10 +171,10 @@
                         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
                     </div>
                     <p class="text-gray-500 text-sm">No chapters found for this selection</p>
-                    <button wire:click="openNewChapter"
+                    <button wire:click="openNewContent"
                         class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Add the first chapter
+                        Add Content
                     </button>
                 </div>
             @endforelse
@@ -197,13 +193,20 @@
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900">
-                    @if (!$contentTargetId)
-                        {{ $contentTargetType === 'chapter' ? 'Add Chapter' : 'Add Topic' }}
-                    @else
-                        {{ $contentEditMode ? 'Edit ' . ucfirst($contentTargetType) : 'Add Content' }}
-                    @endif
+                    {{ $contentEditMode ? 'Edit ' . ucfirst($contentTargetType) : 'Add Content' }}
                 </h2>
-                <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $contentTargetName }}</p>
+                <p class="text-xs text-gray-500 mt-0.5 truncate">
+                    @if ($contentAdding)
+                        {{-- Where it goes: the class (and section) and subject picked --}}
+                        {{ collect([
+                            collect($standards)->firstWhere('id', (int) $filterStandard)?->name,
+                            $filterSection ? collect($filterSections)->firstWhere('id', (int) $filterSection)?->name : null,
+                            collect($filterSubjects)->firstWhere('id', (int) $filterSubject)?->name,
+                        ])->filter()->implode(' · ') }}
+                    @else
+                        {{ $contentTargetName }}
+                    @endif
+                </p>
             </div>
             <button wire:click="closeContentModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -212,8 +215,35 @@
 
         <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
-            {{-- The chapter's number and name, or the topic's name --}}
-            @if ($contentTargetType === 'chapter')
+            {{-- Add Content: the chapter it goes in — one of the subject's, or a new one --}}
+            @if ($contentAdding)
+                @php
+                    $pick = $contentChapterId !== 'new' ? $chapters->firstWhere('id', (int) $contentChapterId) : null;
+                    $held = $pick ? array_keys(array_filter([
+                        'Text'  => !empty($pick->description),
+                        'URL'   => !empty($pick->file_path),
+                        'Image' => !empty($pick->image_path),
+                        'PDF'   => !empty($pick->pdf_path),
+                    ])) : [];
+                @endphp
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Chapter <span class="text-red-500">*</span></label>
+                    <select wire:model.live="contentChapterId"
+                        class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                        @foreach ($chapters as $ch)
+                            <option value="{{ $ch->id }}">Ch {{ $ch->order }} · {{ $ch->name }}</option>
+                        @endforeach
+                        <option value="new">+ New chapter</option>
+                    </select>
+                    @error('contentChapterId')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
+                    @if ($held)
+                        <p class="text-xs text-gray-400 mt-1">Already in this chapter: {{ implode(', ', $held) }}. Adding the same type replaces it.</p>
+                    @endif
+                </div>
+            @endif
+
+            {{-- A new chapter's number and name; Edit's name (and a chapter's number) --}}
+            @if ($contentTargetType === 'chapter' && ($contentEditMode || $contentChapterId === 'new'))
                 <div class="grid grid-cols-[6rem_1fr] gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Ch. No. <span class="text-red-500">*</span></label>
@@ -228,7 +258,7 @@
                         @error('contentName')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
                     </div>
                 </div>
-            @else
+            @elseif ($contentTargetType === 'topic' && $contentEditMode)
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Topic Name <span class="text-red-500">*</span></label>
                     <input type="text" wire:model="contentName" maxlength="255" placeholder="e.g. Euclid's Division Lemma"
@@ -239,10 +269,7 @@
 
             {{-- Content Type Selection --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Content Type
-                    @if (!$contentTargetId)<span class="font-normal text-xs text-gray-400">· optional, can be added later</span>@endif
-                </label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
                 <div class="flex flex-wrap gap-2">
                     @foreach (['all' => 'All', 'text' => 'Text', 'url' => 'URL', 'image' => 'Image', 'pdf' => 'PDF'] as $val => $label)
                         <button type="button" wire:click="$set('contentType', '{{ $val }}')"
@@ -252,6 +279,7 @@
                         </button>
                     @endforeach
                 </div>
+                @error('contentType')<p class="text-red-500 text-xs mt-1.5">{{ $message }}</p>@enderror
             </div>
 
             {{-- Text --}}
@@ -323,7 +351,7 @@
             <button wire:click="closeContentModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
             <button wire:click="onSaveContent" wire:loading.attr="disabled"
                 class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                <span wire:loading.remove wire:target="onSaveContent">{{ !$contentTargetId ? 'Save ' . ucfirst($contentTargetType) : ($contentEditMode ? 'Update' : 'Save Content') }}</span>
+                <span wire:loading.remove wire:target="onSaveContent">{{ $contentEditMode ? 'Update' : 'Save Content' }}</span>
                 <span wire:loading wire:target="onSaveContent">Saving…</span>
             </button>
         </div>

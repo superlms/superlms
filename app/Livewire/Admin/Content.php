@@ -30,17 +30,19 @@ class Content extends Component
     public array $expandedChapters = [];
 
     // ─── Content Modal ───────────────────────────────────────────────────
-    // One panel for all of it: a new chapter (with its content) for the class
-    // and subject picked, a new topic in a chapter, or an existing chapter's
-    // or topic's name and content. contentTargetId is null for a new one.
+    // One panel for all of it. Add Content: a chapter of the class and subject
+    // picked (or a new one, with its number and name), a type, the content —
+    // no name to type. Edit: an existing chapter's or topic's name and content.
+    // A topic with nothing in it yet gets its content without its name asked.
     public $openContentModal = false;
     public $contentTargetType = ''; // 'chapter' or 'topic'
     public $contentTargetId   = null;
     public $contentTargetName = '';
     public $contentEditMode   = false;
+    public $contentAdding     = false; // Add Content: the chapter is picked in the panel
+    public $contentChapterId  = '';    // Add Content's chapter: its id, or 'new'
     public $contentName       = ''; // the chapter's or topic's name, editable
     public $contentOrder      = ''; // a chapter's number
-    public $contentParentId   = null; // a new topic's chapter
 
     // Content form fields
     public $contentType    = 'text'; // text, url, image, pdf
@@ -196,8 +198,21 @@ class Content extends Component
             : null;
     }
 
-    /** The header's Add Chapter: a new chapter, with its content, for the class and subject picked. */
-    public function openNewChapter(): void
+    /** The class and subject picked: their chapters (a section's include the whole class's). */
+    private function filteredChapters()
+    {
+        return Chapter::where('organization_id', $this->orgId())
+            ->where('standard_id', $this->filterStandard)
+            ->when($this->filterSection, fn ($q) => $this->inSection($q))
+            ->where('subject_id', $this->filterSubject);
+    }
+
+    /**
+     * Add Content — the header's, or a chapter's (that chapter picked): the
+     * panel asks for a chapter, a type and the content, and no name. With no
+     * chapter yet, it starts on a new one, numbered next.
+     */
+    public function openNewContent(?int $chapterId = null): void
     {
         if (!$this->filterStandard || !$this->filterSubject) {
             $this->notification()->error('Pick a class and a subject first.');
@@ -206,34 +221,22 @@ class Content extends Component
 
         $this->resetContentForm();
         $this->contentTargetType = 'chapter';
-        $this->contentTargetId   = null;
-        $this->contentTargetName = 'New chapter';
-        $this->contentOrder      = (string) ((int) Chapter::where('organization_id', $this->orgId())
-            ->where('standard_id', $this->filterStandard)
-            ->when($this->filterSection, fn ($q) => $this->inSection($q))
-            ->where('subject_id', $this->filterSubject)
-            ->max('order') + 1);
-        $this->openContentModal = true;
-    }
-
-    /** A chapter's Add Topic: a new topic in it, with its content. */
-    public function openNewTopic(int $chapterId): void
-    {
-        $chapter = $this->findChapter($chapterId);
-        if (!$chapter) {
-            return;
-        }
-
-        $this->resetContentForm();
-        $this->contentTargetType = 'topic';
-        $this->contentTargetId   = null;
-        $this->contentParentId   = $chapter->id;
-        $this->contentTargetName = 'New topic in ' . $chapter->name;
+        $this->contentAdding     = true;
+        $this->contentChapterId  = (string) ($this->findChapter($chapterId)?->id
+            ?? $this->filteredChapters()->orderBy('order')->value('id')
+            ?? 'new');
+        $this->contentOrder      = (string) ((int) $this->filteredChapters()->max('order') + 1);
         $this->openContentModal  = true;
     }
 
+    /** A row's Add Content: a chapter's is Add Content with it picked; a topic's asks only the content. */
     public function onAddContent(string $type, int $id): void
     {
+        if ($type === 'chapter') {
+            $this->openNewContent($id);
+            return;
+        }
+
         $this->resetContentForm();
         $this->contentTargetType = $type;
         $this->contentTargetId   = $id;
@@ -334,9 +337,10 @@ class Content extends Component
             'contentTargetId',
             'contentTargetName',
             'contentEditMode',
+            'contentAdding',
+            'contentChapterId',
             'contentName',
             'contentOrder',
-            'contentParentId',
             'contentType',
             'contentText',
             'contentUrl',
@@ -354,16 +358,23 @@ class Content extends Component
             return;
         }
 
+        // Add Content asks for no name: only a new chapter needs its number and
+        // name, and Edit renames.
+        $newChapter = $this->contentAdding && $this->contentChapterId === 'new';
+        $withName   = $this->contentEditMode || $newChapter;
+
         // Limits: text max 10,000 chars, image max 500 KB. Rules run regardless
         // of the selected content type so an oversized upload can never slip in.
         $this->validate([
-            'contentName'  => 'required|string|max:255',
-            'contentOrder' => $this->contentTargetType === 'chapter' ? 'required|integer|min:1|max:999' : 'nullable',
+            'contentChapterId' => $this->contentAdding ? 'required' : 'nullable',
+            'contentName'  => $withName ? 'required|string|max:255' : 'nullable|string|max:255',
+            'contentOrder' => $this->contentTargetType === 'chapter' && $withName ? 'required|integer|min:1|max:999' : 'nullable',
             'contentText'  => 'nullable|string|max:10000',
             'contentUrl'   => 'nullable|url|max:2000',
             'contentImage' => 'nullable|image|max:500', // max is in KB → 500 KB
             'contentPdf'   => 'nullable|file|mimes:pdf|max:5120',
         ], [
+            'contentChapterId.required' => 'Pick a chapter.',
             'contentName.required' => $this->contentTargetType === 'chapter' ? 'Enter the chapter name.' : 'Enter the topic name.',
             'contentOrder.required' => 'Enter the chapter number.',
             'contentText.max'    => 'Text cannot exceed 10,000 characters.',
@@ -374,15 +385,30 @@ class Content extends Component
             'contentPdf.max'     => 'PDF must be 5 MB or smaller.',
         ]);
 
+        // Adding, there has to be something to add (Edit may only rename).
+        if (!$this->contentEditMode && !$this->hasNewContent()) {
+            $this->addError('contentType', match ($this->contentType) {
+                'text'  => 'Write the content text.',
+                'url'   => 'Enter the URL.',
+                'image' => 'Choose the image.',
+                'pdf'   => 'Choose the PDF.',
+                default => 'Add some content first.',
+            });
+            return;
+        }
+
         $org  = $this->orgId();
-        $name = trim($this->contentName);
+        $name = trim((string) $this->contentName);
         // The subject's teachers hear what changed in its outline, as Syllabus tells them.
         $push = app(\App\Services\TeacherPushNotifier::class);
 
         try {
             if ($this->contentTargetType === 'chapter') {
-                $record = $this->contentTargetId ? $this->findChapter((int) $this->contentTargetId) : null;
-                if ($this->contentTargetId && !$record) {
+                $chapterId = $this->contentAdding
+                    ? ($newChapter ? null : (int) $this->contentChapterId)
+                    : $this->contentTargetId;
+                $record = $chapterId ? $this->findChapter((int) $chapterId) : null;
+                if ($chapterId && !$record) {
                     throw new \RuntimeException('This chapter is no longer there.');
                 }
                 $subjectId = $record ? (int) $record->subject_id : (int) $this->filterSubject;
@@ -405,39 +431,22 @@ class Content extends Component
                     ]);
                 }
 
-                $data = ['name' => $name, 'order' => (int) $this->contentOrder] + $this->buildChapterContentData($record);
+                // Adding keeps what the chapter already holds; only the type picked is set.
+                $data = ($withName ? ['name' => $name, 'order' => (int) $this->contentOrder] : [])
+                    + $this->buildChapterContentData($record, $this->contentAdding);
                 $record->update($data);
                 $push->outlineSaved($before);
             } else {
-                $record = $this->contentTargetId ? $this->findTopic((int) $this->contentTargetId) : null;
-                if ($this->contentTargetId && !$record) {
-                    throw new \RuntimeException('This topic is no longer there.');
-                }
-                $chapter = $record ? $record->chapter : $this->findChapter((int) $this->contentParentId);
-                if (!$chapter) {
-                    throw new \RuntimeException('This chapter is no longer there.');
-                }
-                $before = $push->outlineSnapshotOfChapter((int) $chapter->id);
+                $record = $this->findTopic((int) $this->contentTargetId)
+                    ?? throw new \RuntimeException('This topic is no longer there.');
+                $before = $push->outlineSnapshotOfChapter((int) $record->chapter_id);
 
-                if (!$record) {
-                    $record = Topic::create([
-                        'organization_id' => $org,
-                        'chapter_id'      => $chapter->id,
-                        'topic_name'      => $name,
-                        'order'           => (int) Topic::where('chapter_id', $chapter->id)->max('order') + 1,
-                    ]);
-                    // A chapter given a new topic opens to show it.
-                    if (!in_array($chapter->id, $this->expandedChapters, true)) {
-                        $this->expandedChapters[] = $chapter->id;
-                    }
-                }
-
-                $data = ['topic_name' => $name] + $this->buildTopicContentData($record);
+                $data = ($withName ? ['topic_name' => $name] : []) + $this->buildTopicContentData($record);
                 $record->update($data);
                 $push->outlineSaved($before);
             }
 
-            $this->notification()->success($this->contentTargetId ? 'Saved successfully!' : ucfirst($this->contentTargetType) . ' added!');
+            $this->notification()->success($this->contentEditMode ? 'Saved successfully!' : 'Content added!');
             $this->closeContentModal();
             $this->loadStats();
         } catch (\Exception $e) {
@@ -446,23 +455,43 @@ class Content extends Component
         }
     }
 
-    private function buildChapterContentData($chapter): array
+    /** The panel's type: All takes every kind, any other only its own. */
+    private function wants(string $kind): bool
+    {
+        return $this->contentType === 'all' || $this->contentType === $kind;
+    }
+
+    /** Something to add, of the type picked: text written, a URL, an image or a PDF chosen. */
+    private function hasNewContent(): bool
+    {
+        return ($this->wants('text') && trim((string) $this->contentText) !== '')
+            || ($this->wants('url') && trim((string) $this->contentUrl) !== '')
+            || ($this->wants('image') && $this->contentImage)
+            || ($this->wants('pdf') && $this->contentPdf);
+    }
+
+    /**
+     * What to write into a chapter. All — or Add Content ($add) — sets only the
+     * fields given (of the type picked) and leaves the rest as they are; Edit
+     * with one type makes the chapter hold that type only.
+     */
+    private function buildChapterContentData($chapter, bool $add = false): array
     {
         $data = [];
 
-        if ($this->contentType === 'all') {
+        if ($this->contentType === 'all' || $add) {
             // Save all fields that have data
-            if ($this->contentText) $data['description'] = $this->contentText;
-            if ($this->contentUrl)  $data['file_path']   = $this->contentUrl;
+            if ($this->wants('text') && $this->contentText) $data['description'] = $this->contentText;
+            if ($this->wants('url') && $this->contentUrl)   $data['file_path']   = $this->contentUrl;
 
-            if ($this->contentImage) {
+            if ($this->wants('image') && $this->contentImage) {
                 if ($chapter->image_path) $this->deleteS3File($chapter->image_path);
                 $path = $this->contentImage->store('admin/content/chapter-images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $data['image_path'] = Storage::disk('s3')->url($path);
             }
 
-            if ($this->contentPdf) {
+            if ($this->wants('pdf') && $this->contentPdf) {
                 if ($chapter->pdf_path) $this->deleteS3File($chapter->pdf_path);
                 $path = $this->contentPdf->store('admin/content/chapter-pdfs', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
