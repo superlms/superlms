@@ -14,8 +14,6 @@
     $body   = trim((string) $page['body']);
     $image  = trim((string) $page['image']);
     $form   = $current === 'career';
-    // Rules & Regulations: the rules saved on More → Rules & Regulations, under the page's own text.
-    $rules  = $current === 'rules' && $lms->hasRules() ? $lms->rules() : null;
 @endphp
 
 @push('styles')
@@ -38,7 +36,7 @@
     <section class="page">
         <div class="wrap">
             <div class="card">
-                @if ($body === '' && $image === '' && ! $page['photos'] && ! $form && ! $rules)
+                @if ($body === '' && $image === '' && ! $page['photos'] && ! $form)
                     <p class="muted-note">
                         This page is being updated. Please check back shortly, or
                         @if (!empty($c['phone'])) call us on {{ $c['phone'] }}. @else get in touch with the school office. @endif
@@ -64,11 +62,6 @@
                             <figure>@include('school-site.classic.partials.ph', ['src' => $p, 'alt' => $page['heading'], 'lb' => true])</figure>
                         @endforeach
                     </div>
-                @endif
-
-                @if ($rules)
-                    @if ($body !== '' || $image !== '' || $page['photos'])<h3 class="photos-head">Rules &amp; Regulations</h3>@endif
-                    @include('school-site.shared.lms-rules', ['rules' => $rules])
                 @endif
             </div>
 

@@ -13,8 +13,6 @@
     use App\Models\SchoolWebsite;
     $img  = SchoolWebsite::media($page['image'] ?? null);
     $body = trim((string) ($page['body'] ?? ''));
-    // Rules & Regulations: the rules saved on More → Rules & Regulations, under the page's own text.
-    $rules = $current === 'rules' && $lms->hasRules() ? $lms->rules() : null;
 @endphp
 
 @section('content')
@@ -25,7 +23,7 @@
 
     <section class="section">
         <div class="section-inner">
-            @if ($body === '' && ! $rules && $current !== 'career')
+            @if ($body === '' && $current !== 'career')
                 <div style="max-width:640px;margin:0 auto;text-align:center;">
                     <p class="section-subtitle" style="margin:0 auto;">
                         This page is being updated. Please check back shortly, or
@@ -46,12 +44,6 @@
                             <img src="{{ $img }}" alt="{{ $page['heading'] }}" style="width:100%;height:100%;object-fit:cover;">
                         </figure>
                     @endif
-                </div>
-            @endif
-
-            @if ($rules)
-                <div class="form-card" style="max-width:860px;margin:{{ $body !== '' ? '40px' : '0' }} auto 0;">
-                    @include('school-site.shared.lms-rules', ['rules' => $rules])
                 </div>
             @endif
         </div>

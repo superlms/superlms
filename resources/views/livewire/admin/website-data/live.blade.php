@@ -12,7 +12,9 @@
     [, $where, $routeName] = WebsitePages::LIVE[$b['source']];
     $editUrl = \Illuminate\Support\Facades\Route::has($routeName) && $organization
         ? route($routeName, ['organization' => $organization->id]) : null;
-    $chip    = 'inline-block px-2 py-0.5 rounded-full text-[11px] leading-4';
+    // A header cell as Mark Attendance's list has them; w-px keeps a column
+    // as narrow as what is in it.
+    $th      = 'px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap';
 @endphp
 <div class="bg-white border border-gray-200 rounded-xl overflow-hidden" wire:key="blk-{{ $b['id'] }}">
     <div class="flex items-start gap-3 px-4 py-3 border-b border-gray-100">
@@ -30,40 +32,78 @@
         @endif
     </div>
 
-    <div class="px-4 py-3">
+    <div>
         @switch($b['source'])
             @case('classes')
                 @php $classes = $lms->classes(); @endphp
-                @forelse ($classes as $k)
-                    <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-1.5 {{ ! $loop->last ? 'border-b border-gray-50' : '' }}">
-                        <span class="text-sm font-semibold text-gray-900 min-w-[5rem]">{{ $k['name'] }}</span>
-                        @foreach ($k['sections'] as $s)
-                            <span class="{{ $chip }} border border-gray-200 text-gray-600">{{ $s }}</span>
-                        @endforeach
-                        <span class="text-xs text-gray-400" title="{{ implode(', ', $k['subjects']) }}">
-                            · {{ count($k['subjects']) }} {{ \Illuminate\Support\Str::plural('subject', count($k['subjects'])) }}
-                        </span>
+                @if ($classes)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $th }} w-px">S.No</th>
+                                    <th class="{{ $th }} w-px">Class</th>
+                                    <th class="{{ $th }} w-px">Sections</th>
+                                    <th class="{{ $th }}">Subjects</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($classes as $i => $k)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2 font-semibold text-gray-900 whitespace-nowrap">{{ $k['name'] }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ implode(', ', $k['sections']) ?: '—' }}</td>
+                                        <td class="px-4 py-2 text-gray-600">{{ implode(', ', $k['subjects']) ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-500">No classes set up yet — add them on {{ $where }} and they show on your website by themselves.</p>
-                @endforelse
+                @else
+                    <p class="px-4 py-3 text-sm text-gray-500">No classes set up yet — add them on {{ $where }} and they show on your website by themselves.</p>
+                @endif
                 @break
 
             @case('fees')
-                @php $fees = $lms->fees(); @endphp
-                @forelse ($fees as $g)
-                    <div class="flex items-center gap-2 py-1.5 {{ ! $loop->last ? 'border-b border-gray-50' : '' }}">
-                        <span class="text-sm font-semibold text-gray-900">{{ $g['class'] }}</span>
-                        <span class="text-xs text-gray-400">{{ $g['section'] ?: 'All Sections' }}@if ($g['year'] !== '') · {{ $g['year'] }}@endif · {{ count($g['rows']) }} {{ \Illuminate\Support\Str::plural('particular', count($g['rows'])) }}</span>
-                        <span class="ml-auto text-sm font-semibold text-gray-800 tabular-nums">{{ SchoolSiteData::money($g['total']) }}</span>
+                @php
+                    $fees     = $lms->fees();
+                    $withYear = (bool) array_filter(array_column($fees, 'year'));
+                @endphp
+                @if ($fees)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $th }} w-px">S.No</th>
+                                    <th class="{{ $th }} w-px">Class</th>
+                                    <th class="{{ $th }} w-px">Section</th>
+                                    @if ($withYear)<th class="{{ $th }} w-px">Session</th>@endif
+                                    <th class="{{ $th }}">Particulars</th>
+                                    <th class="{{ $th }} w-px !text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($fees as $i => $g)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2 font-semibold text-gray-900 whitespace-nowrap">{{ $g['class'] }}</td>
+                                        <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $g['section'] ?: 'All Sections' }}</td>
+                                        @if ($withYear)<td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $g['year'] ?: '—' }}</td>@endif
+                                        <td class="px-4 py-2 text-gray-600">{{ implode(' · ', array_map(fn ($r) => $r['name'] . ' ' . SchoolSiteData::money($r['amount']), $g['rows'])) }}</td>
+                                        <td class="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ SchoolSiteData::money($g['total']) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-500">No fee structure yet — set it on {{ $where }} and it shows on your website by itself.</p>
-                @endforelse
+                @else
+                    <p class="px-4 py-3 text-sm text-gray-500">No fee structure yet — set it on {{ $where }} and it shows on your website by itself.</p>
+                @endif
                 @break
 
             @case('rules')
                 @php $rules = $lms->rules(); @endphp
+                <div class="px-4 py-3">
                 @if ($lms->hasRules())
                     <ol class="list-decimal pl-5 space-y-0.5 text-sm text-gray-800">
                         @foreach (array_slice($rules['sections'], 0, 6) as $s)
@@ -79,6 +119,7 @@
                 @else
                     <p class="text-sm text-gray-500">No rules saved yet — write them on {{ $where }} and they show on your website by themselves.</p>
                 @endif
+                </div>
                 @break
         @endswitch
     </div>

@@ -199,61 +199,104 @@ class SchoolSiteLiveDataTest extends TestCase
         $this->records();
         $site = $this->site();
 
+        // Admission: the online admission form alone (user's ask of 2026-10-20). Its
+        // Class list is the school's classes; it arrives as an Online Admission.
         $admission = $this->render($site, 'admission');
         $text = $this->text($admission);
-        $this->assertStringContainsString('Classes, Sections & Subjects', $text);
-        $this->assertStringContainsString('Nursery Rose English', $text);
-        $this->assertStringContainsString('Class I A B English Hindi Maths', $text);
-        $this->assertStringContainsString('Fee Structure Nursery · Rose · 2026-27 ₹900.50', $text);
-        $this->assertStringContainsString('Class I · All Sections · 2026-27 ₹6,200 Tuition Fee ₹1,200 Admission Fee ₹5,000 Total ₹6,200', $text);
-        $this->assertStringContainsString('Rules & Regulations Attendance 75% attendance is a must.', $text);
-        $this->assertStringContainsString('School timing 8 AM – 2 PM', $text);
-        $this->assertStringContainsString('href="https://cdn.example.com/handbook.pdf"', $admission);
-        foreach (['Old Class', 'Their Class', 'Latin', 'Closed', 'Old Tuition', 'Bus', 'Switched off'] as $not) {
+        $this->assertStringContainsString('Online Admission Form', $text);
+        foreach (['₹', 'Attendance', 'English', 'Subjects'] as $not) {
             $this->assertStringNotContainsString($not, $text, $not);
         }
-        // The form's Class list is the school's classes; it arrives as an Online Admission.
         $this->assertStringContainsString('<option value="Nursery">Nursery</option>', $admission);
         $this->assertStringContainsString('<option value="Class I">Class I</option>', $admission);
         $this->assertStringNotContainsString('<option value="Play Group">', $admission);
         $this->assertStringContainsString('data-type="admission"', $admission);
 
-        $this->assertStringContainsString('Class I A B English Hindi Maths', $this->text($this->render($site, 'classes')));
-        $this->assertStringNotContainsString('will be published here shortly', $this->text($this->render($site, 'classes')));
-        $fees = $this->text($this->render($site, 'fee-structure'));
-        $this->assertStringContainsString('Class I · All Sections · 2026-27 ₹6,200', $fees);
-        $this->assertStringNotContainsString('Documents will appear here', $fees);
-        $rules = $this->text($this->render($site, 'rules'));
-        $this->assertStringContainsString('Attendance 75% attendance is a must.', $rules);
-        $this->assertStringNotContainsString('This page is being updated', $rules);
+        // Classes: a table as Mark Attendance's — sections and subjects as plain text.
+        $classes = $this->render($site, 'classes');
+        $text = $this->text($classes);
+        $this->assertStringContainsString('Classes, Sections & Subjects 2 classes · 3 sections S.No Class Sections Subjects', $text);
+        $this->assertStringContainsString('1 Nursery Rose English 2 Class I A, B English, Hindi, Maths', $text);
+        $this->assertStringNotContainsString('lms-chip', $classes);
+        $this->assertStringNotContainsString('will be published here shortly', $text);
+        foreach (['Old Class', 'Their Class', 'Latin', 'Closed'] as $not) {
+            $this->assertStringNotContainsString($not, $text, $not);
+        }
 
-        // Playful shows them as well.
+        // Fee Structure: a row a class, a column a fee, the total; a section column as one class's fees are a section's.
+        $fees = $this->text($this->render($site, 'fee-structure'));
+        $this->assertStringContainsString('Fee Structure Session 2026-27 S.No Class Section Tuition Fee Admission Fee Total', $fees);
+        $this->assertStringContainsString('1 Nursery Rose ₹900.50 — ₹900.50 2 Class I All ₹1,200 ₹5,000 ₹6,200', $fees);
+        foreach (['Old Tuition', 'Bus', 'Switched off', 'published here shortly'] as $not) {
+            $this->assertStringNotContainsString($not, $fees, $not);
+        }
+
+        // Rules & Regulations: the rules, the additional information and the PDFs, a table each.
+        $rules = $this->render($site, 'rules');
+        $text = $this->text($rules);
+        $this->assertStringContainsString('Rules & Regulations 1 rule S.No Rule Details 1 Attendance 75% attendance is a must. Leave needs a note.', $text);
+        $this->assertStringContainsString('Additional Information School timing 8 AM – 2 PM', $text);
+        $this->assertStringContainsString('Documents 1 document S.No Document 1 Handbook Download', $text);
+        $this->assertStringContainsString('href="https://cdn.example.com/handbook.pdf"', $rules);
+        $this->assertStringNotContainsString('This page is being updated', $text);
+
+        // Playful shows them the same way.
         SchoolWebsite::query()->delete();
         $kider = $this->site('kider');
         $admission = $this->render($kider, 'admission');
-        $text = $this->text($admission);
-        $this->assertStringContainsString('Class I A B English Hindi Maths', $text);
-        $this->assertStringContainsString('Class I · All Sections · 2026-27 ₹6,200', $text);
-        $this->assertStringContainsString('Attendance 75% attendance is a must.', $text);
+        $this->assertStringNotContainsString('₹', $this->text($admission));
         $this->assertStringContainsString('<option value="Class I">Class I</option>', $admission);
         $this->assertStringContainsString('data-type="admission"', $admission);
         $classes = $this->text($this->render($kider, 'classes'));
-        $this->assertStringContainsString('Class I A B', $classes);
+        $this->assertStringContainsString('2 Class I A, B English, Hindi, Maths', $classes);
         $this->assertStringNotContainsString('Art & Drawing', $classes);   // no samples beside the school's own
-        $this->assertStringContainsString('Class I · All Sections', $this->text($this->render($kider, 'fee-structure')));
-        $this->assertStringContainsString('Attendance', $this->text($this->render($kider, 'rules')));
+        $this->assertStringContainsString('2 Class I All ₹1,200 ₹5,000 ₹6,200', $this->text($this->render($kider, 'fee-structure')));
+        $this->assertStringContainsString('1 Attendance 75% attendance is a must.', $this->text($this->render($kider, 'rules')));
+    }
+
+    public function test_many_fees_read_as_a_line_and_the_columns_follow_the_data(): void
+    {
+        $this->records();
+        foreach (['Lab', 'Library', 'Sports', 'Exam'] as $fee) {
+            DB::table('fee_structures')->insert(['organization_id' => 1, 'standard_id' => 10, 'fee_name' => "{$fee} Fee", 'amount' => 100, 'academic_year' => '2026-27']);
+        }
+        DB::table('fee_structures')->where('section_id', 22)->update(['academic_year' => '2025-26']);
+        $site = $this->site();
+
+        // Six fees: the particulars as a line; two sessions: a session column.
+        $fees = $this->text($this->render($site, 'fee-structure'));
+        $this->assertStringContainsString('S.No Class Section Session Particulars Total', $fees);
+        $this->assertStringContainsString('Class I All 2026-27 Tuition Fee ₹1,200 · Admission Fee ₹5,000 · Lab Fee ₹100', $fees);
+        $this->assertStringNotContainsString('Session 2026-27 S.No', $fees);
+
+        // A long section list wraps instead of stretching its column.
+        DB::table('sections')->insert(['organization_id' => 1, 'standard_id' => 10, 'name' => 'Section Sunflower Morning']);
+        $classes = $this->render($site, 'classes');
+        $this->assertMatchesRegularExpression('#<th class="fit">Class</th>\s*<th class="">Sections</th>#', $classes);
     }
 
     public function test_a_school_with_nothing_set_up_keeps_what_website_data_holds(): void
     {
-        $site = $this->site('classic', ['content' => ['classes' => [['title' => 'Pre-Primary']], 'admission_rules' => [['text' => 'Bring two photos']]]]);
+        $site = $this->site('classic', ['content' => [
+            'classes' => [['title' => 'Pre-Primary']], 'admission_rules' => [['text' => 'Bring two photos']], 'fee_note' => 'Fees are payable quarterly.',
+        ]]);
 
         $admission = $this->render($site, 'admission');
-        $text = $this->text($admission);
-        $this->assertStringNotContainsString('Classes, Sections & Subjects', $text);
-        $this->assertStringContainsString('Rules & Regulations Bring two photos', $text);
         $this->assertStringContainsString('<option value="Pre-Primary">', $admission);
-        $this->assertStringContainsString('Pre-Primary', $this->text($this->render($site, 'classes')));
+        $classes = $this->text($this->render($site, 'classes'));
+        $this->assertStringNotContainsString('Classes, Sections & Subjects', $classes);
+        $this->assertStringContainsString('Pre-Primary', $classes);
+        $this->assertStringContainsString('Rules & Regulations 1 rule 1 Bring two photos', $this->text($this->render($site, 'rules')));
+        $fees = $this->text($this->render($site, 'fee-structure'));
+        $this->assertStringContainsString('Fees are payable quarterly.', $fees);
+        $this->assertStringNotContainsString('S.No', $fees);
+
+        // Nothing at all: each page says so.
+        SchoolWebsite::query()->delete();
+        $empty = $this->site();
+        $this->assertStringContainsString('Details of our classes will be published here shortly.', $this->text($this->render($empty, 'classes')));
+        $this->assertStringContainsString('The fee structure will be published here shortly.', $this->text($this->render($empty, 'fee-structure')));
+        $this->assertStringContainsString('Our rules & regulations will be published here shortly.', $this->text($this->render($empty, 'rules')));
     }
 
     public function test_website_data_shows_what_the_site_reads_live(): void
@@ -261,21 +304,34 @@ class SchoolSiteLiveDataTest extends TestCase
         $this->records();
         $this->site();
 
-        $page = Livewire::test(WebsiteData::class)->call('openPage', 'admission')
-            ->assertSee(['From your records', 'Classes, sections & subjects', 'Fee structure', 'Rules & Regulations', 'Live',
-                'Nursery', 'Rose', '₹6,200', 'Attendance', 'Open Standard', 'Open Fee Structure', 'Admission rules']);
-        $this->assertStringContainsString('/1/fee-structure', $page->html());
+        // Admission is the form; what is written there shows on Classic's home page.
+        $admission = Livewire::test(WebsiteData::class)->call('openPage', 'admission')
+            ->assertSee(['This page is the online admission form', 'On your home page, under the admission band', 'Introduction']);
+        foreach (['Fee note', 'Admission rules', 'Open Standard'] as $not) {
+            $this->assertStringNotContainsString($not, $this->text($admission->html()), $not);   // the page, not the chips' tooltips
+        }
+
+        // Each of the other pages shows what it reads from the school's records.
+        Livewire::test(WebsiteData::class)->call('openPage', 'classes')
+            ->assertSee(['Classes, sections & subjects', 'Live', 'Nursery', 'Rose', 'Open Standard', 'Class cards']);
+        $fee = Livewire::test(WebsiteData::class)->call('openPage', 'fee-structure')
+            ->assertSee(['Fee structure', 'Live', '₹6,200', 'Open Fee Structure', 'Fee note', 'Fee documents']);
+        $this->assertStringContainsString('/1/fee-structure', $fee->html());
+        Livewire::test(WebsiteData::class)->call('openPage', 'rules')
+            ->assertSee(['Rules & Regulations', 'Attendance', 'Open Rules & Regulations', 'Admission rules']);
 
         // The Online Admission menu's pages count as filled from the school's records.
         $wd = Livewire::test(WebsiteData::class)->call('openGroup', 'Online Admission');
         $text = html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($wd->html())));
         $this->assertStringContainsString('Fee Structure Filled Rules & Regulations Filled Classes Filled', $text);
 
-        // Saving the page leaves the records alone.
-        $page->set('data.admission_intro', 'Admissions open for 2026-27.')->call('save');
+        // Saving a page leaves the records alone; the fee note shows on the site.
+        $fee->set('data.fee_note', 'Fees are payable quarterly.')->call('save');
         $content = SchoolWebsite::first()->content;
-        $this->assertSame('Admissions open for 2026-27.', $content['admission_intro']);
-        $this->assertArrayNotHasKey('live_classes', $content);
+        $this->assertSame('Fees are payable quarterly.', $content['fee_note']);
+        $this->assertArrayNotHasKey('live_fees', $content);
+        $site = SchoolWebsite::first()->setRelation('organization', Organization::find(1)->setRelation('schoolInfo', null));
+        $this->assertStringContainsString('Fee Structure Session 2026-27 Fees are payable quarterly.', $this->text($this->render($site, 'fee-structure')));
     }
 
     public function test_the_websites_forms_arrive_with_their_type_and_fields(): void

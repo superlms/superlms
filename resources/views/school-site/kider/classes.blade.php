@@ -1,9 +1,12 @@
+{{--
+    Online Admission → Classes: the classes with their sections and subjects
+    from the Standard page, in the Mark Attendance list's look; under them
+    Website Data's class cards — or, while the school has neither, samples.
+--}}
 @extends('school-site.kider.layout')
 @php
     use App\Models\SchoolWebsite;
-    // The classes, sections and subjects set up on the Standard page, always as they are now.
     $lmsClasses = $lms->classes();
-    // The cards from Website Data; the samples only while the school has neither.
     $classes = !empty($c['classes']) ? $c['classes'] : ($lmsClasses ? [] : [
         ['title' => 'Art & Drawing', 'age' => '3-5 Years', 'time' => '9-10 AM',  'capacity' => '30 Kids'],
         ['title' => 'Music & Dance', 'age' => '4-6 Years', 'time' => '10-11 AM', 'capacity' => '30 Kids'],
@@ -24,14 +27,8 @@
 
     @if ($lmsClasses)
         <section class="section">
-            <div class="section-inner reveal">
-                <div class="section-head">
-                    <span class="section-tag">Classes</span>
-                    <h2 class="section-title">Classes, Sections &amp; Subjects</h2>
-                </div>
-                <div class="form-card" style="padding:0;overflow:hidden;">
-                    @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
-                </div>
+            <div class="section-inner" style="max-width:1040px;">
+                @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
             </div>
         </section>
     @endif

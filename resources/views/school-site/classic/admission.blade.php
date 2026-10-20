@@ -1,9 +1,11 @@
+{{--
+    Online Admission → Admission: the online admission form alone (user's ask
+    of 2026-10-20) — the classes, fees and rules have pages of their own. Its
+    Class list is the school's classes (the Standard page), else Website
+    Data's class cards; it arrives in Enquiries → Website Enquiries.
+--}}
 @extends('school-site.classic.layout', ['title' => 'Online Admission'])
 @php
-    // The school's own records first (Standard, Fee Structure, Rules & Regulations), then Website Data's.
-    $lmsClasses = $lms->classes();
-    $lmsFees    = $lms->fees();
-    $lmsRules   = $lms->rules();
     $classOptions = $lms->classNames()
         ?: array_values(array_filter(array_map(fn ($k) => trim((string) ($k['title'] ?? '')), $c['classes'] ?? [])))
         ?: ['Play Group', 'Nursery', 'LKG', 'UKG', 'Class I', 'Class II', 'Class III', 'Class IV', 'Class V', 'Class VI',
@@ -11,74 +13,18 @@
 @endphp
 
 @section('content')
-    @include('school-site.classic.partials.banner', ['heading' => 'Admission'])
+    @include('school-site.classic.partials.banner', ['heading' => 'Online Admission'])
 
     <section class="page">
-        <div class="wrap">
-            <div class="card prose">
-                <p>{{ $c['admission_intro'] }}</p>
-                @if (!empty($c['admission_session']))
-                    <p><b>Admission Schedule:</b> {{ $c['admission_session'] }}</p>
-                @endif
-
-                @if (!empty($c['admission_steps']))
-                    <h3>Admission Process</h3>
-                    <ol>
-                        @foreach ($c['admission_steps'] as $step)
-                            <li><b>{{ $step['title'] ?? '' }}</b>@if (!empty($step['desc'])) — {{ $step['desc'] }}@endif</li>
-                        @endforeach
-                    </ol>
-                @endif
-
-                @if (!empty($c['documents_required']))
-                    <h3>Documents Required</h3>
-                    <ul>
-                        @foreach ($c['documents_required'] as $d)
-                            <li>{{ $d['text'] ?? '' }}</li>
-                        @endforeach
-                    </ul>
-                @endif
-
-                @if (!empty($c['admission_rules']))
-                    <h3>{{ $lms->hasRules() ? 'Admission Rules' : 'Rules & Regulations' }}</h3>
-                    <ol>
-                        @foreach ($c['admission_rules'] as $r)
-                            <li>{{ $r['text'] ?? '' }}</li>
-                        @endforeach
-                    </ol>
-                @endif
-
-                @if (!empty($c['fee_note']))
-                    <p><b>Fee:</b> {{ $c['fee_note'] }}
-                        @if ($site->isPageEnabled('fee-structure')) <a href="{{ url('fee-structure') }}" style="color:var(--primary);font-weight:600;">See the fee structure →</a>@endif
-                    </p>
-                @endif
-            </div>
-
-            @if ($lmsClasses)
-                <div class="card">
-                    <h2 class="title" style="margin-bottom:14px;">Classes, Sections &amp; Subjects</h2>
-                    @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
+        <div class="wrap" style="max-width:880px;">
+            @include('school-site.shared.lms-style')
+            <div class="lms-card">
+                <div class="lms-head">
+                    <h2>Online Admission Form</h2>
+                    <span class="meta">* Required</span>
+                    <p class="note">Fill in the form below and the school office will get in touch with you.</p>
                 </div>
-            @endif
-
-            @if ($lmsFees)
-                <div class="card">
-                    <h2 class="title" style="margin-bottom:14px;">Fee Structure</h2>
-                    @include('school-site.shared.lms-fees', ['fees' => $lmsFees])
-                </div>
-            @endif
-
-            @if ($lms->hasRules())
-                <div class="card">
-                    <h2 class="title" style="margin-bottom:14px;">Rules &amp; Regulations</h2>
-                    @include('school-site.shared.lms-rules', ['rules' => $lmsRules])
-                </div>
-            @endif
-
-            <div class="card">
-                <h2 class="title">Online Admission Form</h2>
-                <p style="color:var(--muted);margin:4px 0 18px;">Please fill in the form below to get in touch with us about admission.</p>
+                <div class="lms-form">
                 @include('school-site.classic.partials.form', [
                     'kind'   => 'Online Admission',
                     'type'   => 'admission',
@@ -96,6 +42,7 @@
                         ['name' => 'message', 'label' => 'Message', 'type' => 'textarea'],
                     ],
                 ])
+                </div>
             </div>
         </div>
     </section>

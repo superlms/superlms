@@ -417,6 +417,12 @@ class WebsitePages
         }
         if ($slug === 'rules') {
             $blocks[] = self::live('rules');
+            $blocks[] = ['id' => 'admission_rules', 'type' => 'list', 'path' => 'admission_rules', 'label' => 'Admission rules',
+                'help' => 'Optional — rules for admission only, shown under your Rules & Regulations.',
+                'fields' => ['text' => ['text', 'Rule', 'e.g. The session begins on 1 April']],
+                'add' => 'Add rule'];
+
+            return ['Your Rules & Regulations, with any text and photos of your own above them.', $blocks];
         }
 
         return [$desk ? 'A message from the desk, with their photo beside it.' : 'Text, with a photo beside it and more photos under it.', $blocks];
@@ -440,10 +446,15 @@ class WebsitePages
                 . 'every uploaded one also gets its own page in the Documents menu.';
         }
         if ($slug === 'fee-structure') {
-            $list['label'] = 'More documents';
+            $list['label'] = 'Fee documents';
             $list['help']  = 'Optional — a fee PDF or circular, shown under the fee structure.';
 
-            return ['The fees from your Fee Structure, with any documents under them.', [self::live('fees'), $list]];
+            return ['The fees from your Fee Structure, with a note and any documents under them.', [
+                self::live('fees'),
+                ['id' => 'fee_note', 'type' => 'text', 'path' => 'fee_note', 'label' => 'Fee note',
+                    'placeholder' => 'e.g. Fees are payable quarterly by the 10th', 'help' => 'Optional — a line under the fee structure heading.'],
+                $list,
+            ]];
         }
 
         return ['A table of documents to open or download.', [$list]];
@@ -538,25 +549,20 @@ class WebsitePages
                     'fields' => ['image' => ['image', 'Photo'], 'caption' => ['text', 'Caption', 'e.g. Annual Day 2026']],
                     'add' => 'Add photo', 'bulk' => 'image'],
             ]],
-            'admission' => ['How to apply, with the online admission form under it. Classes, fees and rules come from your own records.', [
-                ['id' => 'admission_intro', 'type' => 'textarea', 'rows' => 3, 'path' => 'admission_intro', 'label' => 'Introduction'],
-                ['id' => 'admission_session', 'type' => 'text', 'path' => 'admission_session', 'label' => 'Admission schedule', 'placeholder' => 'e.g. 1 April – 31 July 2026'],
-                ['id' => 'fee_note', 'type' => 'text', 'path' => 'fee_note', 'label' => 'Fee note', 'placeholder' => 'e.g. See the Fee Structure page'],
-                ['id' => 'admission_steps', 'type' => 'list', 'path' => 'admission_steps', 'label' => 'Steps to apply',
+            // The page is the online admission form alone; the classes, fees and
+            // rules have pages of their own. What is written here shows on
+            // Classic's home page, under its admission band.
+            'admission' => ['The online admission form — classes, fees and rules have pages of their own.', [
+                $form('This page is the online admission form; its Class list is your classes'),
+                ['id' => 'h-home', 'type' => 'heading', 'label' => 'On your home page, under the admission band', 'templates' => ['classic']],
+                ['id' => 'admission_intro', 'type' => 'textarea', 'rows' => 3, 'path' => 'admission_intro', 'label' => 'Introduction', 'templates' => ['classic']],
+                ['id' => 'admission_session', 'type' => 'text', 'path' => 'admission_session', 'label' => 'Admission schedule', 'placeholder' => 'e.g. 1 April – 31 July 2026', 'templates' => ['classic']],
+                ['id' => 'admission_steps', 'type' => 'list', 'path' => 'admission_steps', 'label' => 'Steps to apply', 'templates' => ['classic'],
                     'fields' => ['title' => ['text', 'Step', 'e.g. Fill the form'], 'desc' => ['text', 'Details']],
                     'add' => 'Add step'],
-                ['id' => 'documents_required', 'type' => 'list', 'path' => 'documents_required', 'label' => 'Documents required',
+                ['id' => 'documents_required', 'type' => 'list', 'path' => 'documents_required', 'label' => 'Documents required', 'templates' => ['classic'],
                     'fields' => ['text' => ['text', 'Document', 'e.g. Birth Certificate']],
                     'add' => 'Add document'],
-                ['id' => 'h-live', 'type' => 'heading', 'label' => 'From your records'],
-                self::live('classes'),
-                self::live('fees'),
-                self::live('rules'),
-                ['id' => 'admission_rules', 'type' => 'list', 'path' => 'admission_rules', 'label' => 'Admission rules',
-                    'help' => 'Optional — rules for admission only, shown beside your Rules & Regulations.',
-                    'fields' => ['text' => ['text', 'Rule', 'e.g. The session begins on 1 April']],
-                    'add' => 'Add rule'],
-                $form('The online admission form is on the page already — its Class list is your classes'),
             ]],
             'classes' => ['Your classes with their sections and subjects, and a card for each class.', [
                 self::live('classes'),

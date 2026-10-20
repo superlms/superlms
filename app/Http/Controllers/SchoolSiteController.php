@@ -47,12 +47,15 @@ class SchoolSiteController extends Controller
         }
 
         $data = $this->data($site, $slug);
+        // A page the template lays out itself (Fee Structure, Rules & Regulations)
+        // has a blade named after it; the rest of its kind share one.
+        $own = fn (string $shared) => view()->exists($view($slug)) ? $view($slug) : $view($shared);
 
         return match ($type) {
-            'content' => response()->view($view('content-page'), $data + [
+            'content' => response()->view($own('content-page'), $data + [
                 'page' => $site->pageContent($slug),
             ]),
-            'documents' => response()->view($view('documents'), $data + [
+            'documents' => response()->view($own('documents'), $data + [
                 'heading'   => SchoolWebsite::allPages()[$slug],
                 'documents' => $site->pageDocuments($slug),
             ]),

@@ -1,3 +1,8 @@
+{{--
+    Online Admission → Classes: the classes with their sections and subjects
+    from the Standard page, in the Mark Attendance list's look; under them
+    Website Data's class cards, when the school has added any.
+--}}
 @extends('school-site.classic.layout', ['title' => 'Classes'])
 
 @push('styles')
@@ -18,19 +23,12 @@
     @php $lmsClasses = $lms->classes(); @endphp
     <section class="page">
         <div class="wrap">
-            {{-- The classes, sections and subjects set up on the Standard page, always as they are now. --}}
             @if ($lmsClasses)
-                <div class="card">
-                    <h2 class="title" style="margin-bottom:14px;">Classes, Sections &amp; Subjects</h2>
-                    @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
-                </div>
+                @include('school-site.shared.lms-classes', ['classes' => $lmsClasses])
             @endif
 
-            @if (! $lmsClasses || ! empty($c['classes']))
-            <div class="card">
-                @if (empty($c['classes']))
-                    <p class="muted-note">Details of our classes will be published here shortly.</p>
-                @else
+            @if (!empty($c['classes']))
+                <div class="card">
                     <div class="cls">
                         @foreach ($c['classes'] as $k)
                             <article>
@@ -44,8 +42,10 @@
                             </article>
                         @endforeach
                     </div>
-                @endif
-            </div>
+                </div>
+            @elseif (! $lmsClasses)
+                @include('school-site.shared.lms-style')
+                <div class="lms-card"><p class="lms-empty">Details of our classes will be published here shortly.</p></div>
             @endif
         </div>
     </section>
