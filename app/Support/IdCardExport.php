@@ -124,13 +124,17 @@ class IdCardExport
         };
     }
 
-    /** The columns an export starts on before the school has picked its own. */
+    /**
+     * The columns an export starts on (and Reset goes back to): what a card
+     * prints — for a student Sr No, Name, Class "V (A)", Father's and Mother's
+     * Name, Date of Birth, Address, Mobile and the Photo, in that order.
+     */
     public static function defaults(string $type): array
     {
         return match ($type) {
-            'student' => ['sr_no', 'photo', 'name', 'admission_no', 'class', 'section', 'roll_no', 'father_name', 'dob', 'phone', 'address'],
-            'teacher' => ['sr_no', 'photo', 'name', 'employee_id', 'designation', 'phone', 'email', 'dob', 'address'],
-            default   => ['sr_no', 'photo', 'name', 'employee_id', 'designation', 'phone', 'address'],
+            'student' => ['sr_no', 'name', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo'],
+            'teacher' => ['sr_no', 'name', 'designation', 'dob', 'address', 'phone', 'photo'],
+            default   => ['sr_no', 'name', 'designation', 'address', 'phone', 'photo'],
         };
     }
 
@@ -156,7 +160,8 @@ class IdCardExport
 
     private static function prefKey(int $orgId, string $type): string
     {
-        return "id-card-export:{$orgId}:{$type}";
+        // v2: every school starts again on the card's own columns (defaults()).
+        return "id-card-export:v2:{$orgId}:{$type}";
     }
 
     public static function savedColumns(int $orgId, string $type): array
@@ -521,6 +526,9 @@ class IdCardExport
         if (!$src) {
             return null;
         }
+        // A phone photo is stored as the camera held it and only says how to
+        // turn it; a browser turns it, GD does not — the sheet showed it on its side.
+        $src = PhotoOrientation::upright($src, PhotoOrientation::of($data));
 
         $w = imagesx($src);
         $h = imagesy($src);

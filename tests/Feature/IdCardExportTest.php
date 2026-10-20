@@ -104,34 +104,68 @@ class IdCardExportTest extends TestCase
         return 'data:image/png;base64,' . base64_encode(ob_get_clean());
     }
 
-    public function test_the_panel_keeps_the_order_the_school_puts_the_columns_in(): void
+    public function test_whose_data_comes_first_then_its_filters_and_the_cards_columns(): void
     {
+        // Nothing picked yet: no filters, no columns, no download.
         $page = Livewire::test(IdCard::class)->call('openExport');
-        $this->assertSame(IdCardExport::defaults('student'), $page->get('exportColumns'));
-
-        $page->call('removeExportColumn', 'sr_no')
-            ->call('addExportColumn', 'aadhar_no')
-            ->call('dropExportColumn', 'aadhar_no', 0)     // dragged to the front
-            ->call('moveExportColumn', 'name', -1);        // one place earlier
-
-        $cols = $page->get('exportColumns');
-        $this->assertSame(['aadhar_no', 'name', 'photo', 'admission_no'], array_slice($cols, 0, 4));
-        $this->assertNotContains('sr_no', $cols);
-        // Kept for the next export, and unknown columns never get in.
-        $this->assertSame($cols, IdCardExport::savedColumns($this->org, 'student'));
-        $page->call('addExportColumn', 'password');
-        $this->assertSame($cols, $page->get('exportColumns'));
-
-        // No preview of the rows: the panel says only how many the file will have.
+        $this->assertSame('', $page->get('exportType'));
+        $this->assertSame([], $page->get('exportColumns'));
         $html = $page->html();
-        $this->assertStringContainsString('Export Data', $html);
-        $this->assertStringNotContainsString('Zoya Khan', $html);
+        $this->assertStringContainsString('1 · Whose data', $html);
+        $this->assertStringNotContainsString('wire:model.live="exportStandard"', $html);
+        $this->assertStringNotContainsString('id-card/export', $html);
+
+        // Students: the class and section filters, and the card's own columns.
+        $page->set('exportType', 'student');
+        $this->assertSame(['sr_no', 'name', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo'],
+            $page->get('exportColumns'));
+        $html = $page->html();
+        $this->assertStringContainsString('wire:model.live="exportStandard"', $html);
+        $this->assertStringNotContainsString('Add a column', $html);
         $this->assertStringNotContainsString('Preview', $html);
+        $this->assertStringNotContainsString('Zoya Khan', $html);
         $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
 
-        // Teachers and management & staff have columns of their own.
-        $page->set('exportType', 'employee');
-        $this->assertSame(IdCardExport::defaults('employee'), $page->get('exportColumns'));
+        // Teachers have no class filter.
+        $page->set('exportType', 'teacher');
+        $this->assertStringNotContainsString('wire:model.live="exportStandard"', $page->html());
+        $this->assertSame(IdCardExport::defaults('teacher'), $page->get('exportColumns'));
+    }
+
+    public function test_the_panel_keeps_the_order_the_school_puts_the_columns_in(): void
+    {
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student');
+
+        $page->call('removeExportColumn', 'sr_no')
+            ->call('dropExportColumn', 'dob', 0)        // dragged to the front
+            ->call('moveExportColumn', 'class', -1);    // one place earlier
+
+        $cols = $page->get('exportColumns');
+        $this->assertSame(['dob', 'class', 'name', 'father_name'], array_slice($cols, 0, 4));
+        $this->assertNotContains('sr_no', $cols);
+        // Kept for the next export; Reset brings the card's columns back.
+        $this->assertSame($cols, IdCardExport::savedColumns($this->org, 'student'));
+        $page->call('resetExportColumns');
+        $this->assertSame(IdCardExport::defaults('student'), $page->get('exportColumns'));
+    }
+
+    public function test_a_phone_photo_turned_on_its_side_comes_out_upright(): void
+    {
+        // A 40 × 30 picture whose EXIF says "turn 90° clockwise" (6): seen 30 × 40.
+        $im = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($im);
+        $jpeg = ob_get_clean();
+        $tiff = 'MM' . pack('n', 42) . pack('N', 8) . pack('n', 1)
+            . pack('n', 0x0112) . pack('n', 3) . pack('N', 1) . pack('n', 6) . pack('n', 0) . pack('N', 0);
+        $app1 = "\xFF\xE1" . pack('n', strlen($tiff) + 8) . "Exif\0\0" . $tiff;
+        $rotated = substr($jpeg, 0, 2) . $app1 . substr($jpeg, 2);
+
+        $this->assertSame(6, \App\Support\PhotoOrientation::of($rotated));
+        $this->assertSame(1, \App\Support\PhotoOrientation::of($jpeg));
+
+        $up = \App\Support\PhotoOrientation::upright(imagecreatefromstring($rotated), 6);
+        $this->assertSame([30, 40], [imagesx($up), imagesy($up)]);
     }
 
     public function test_the_sheet_has_the_columns_in_order_with_each_photo_in_its_cell(): void

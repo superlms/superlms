@@ -180,27 +180,35 @@
             return /\/(download|export|statement)\/?$|[\/-]pdf\/?$/i.test(u.pathname);
         }
 
-        // After the page's own click handlers: a link they took over is left alone.
+        // Caught on the way down (capture): a slide-in that stops clicks from
+        // going up (wire:click.stop — the ID Card export panel and many more)
+        // would otherwise keep them from ever reaching here. The token goes on
+        // the address now, before the browser follows the link; whether a
+        // handler further down took the click over (preventDefault) is only
+        // known once it has run, so the card waits for that.
         document.addEventListener('click', function (e) {
-            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
             if (!a || !isDownloadLink(a)) return;
 
             // A second click while its file is still coming does nothing.
             if (a.__lmsDl && jobs[a.__lmsDl]) { e.preventDefault(); return; }
 
-            var tok = token();
-            var id = start(nameOf(a), LINK_WAIT);
-            a.__lmsDl = id;
-            watch(id, tok);
-
             // The browser follows the link the way it always does (its target,
             // its download name) — only with the token; the address goes back
             // straight after, so the page's own markup is untouched.
+            var tok = token();
             var original = a.getAttribute('href');
             a.setAttribute('href', withToken(a.href, tok));
-            setTimeout(function () { a.setAttribute('href', original); }, 0);
-        });
+
+            setTimeout(function () {
+                a.setAttribute('href', original);
+                if (e.defaultPrevented) return;   // the page's own code took the click over
+                var id = start(nameOf(a), LINK_WAIT);
+                a.__lmsDl = id;
+                watch(id, tok);
+            }, 0);
+        }, true);
 
         // ── Livewire: download… / export… actions ─────────────────────────
         var hooked = false;
