@@ -91,15 +91,19 @@
                 },
 
                 async saveUrl(url, name) {
+                    // The panel's download loader shows while the file comes.
+                    const job = window.lmsDownload ? window.lmsDownload.start(name) : null;
                     try {
                         const blob = await (await fetch(url, { mode: 'cors' })).blob();
                         const ext = (blob.type.split('/')[1] || '').split('+')[0].replace('jpeg', 'jpg');
                         const named = /\.[a-z0-9]{2,5}$/i.test(name) || ! ext ? name : name + '.' + ext;
                         this.saveBlob(blob, named);
+                        if (job) window.lmsDownload.done(job, named);
                         return true;
                     } catch (e) {
                         // A cross-origin file without CORS headers cannot be
                         // read here — hand it to the browser instead of failing.
+                        if (job) window.lmsDownload.stop(job);
                         window.open(url, '_blank', 'noopener');
                         return false;
                     }
@@ -142,6 +146,7 @@
                     if (! tables.length) return;
 
                     this.flash('Making PDF…');
+                    const job = window.lmsDownload ? window.lmsDownload.start('super-assist-table.pdf') : null;
 
                     try {
                         const response = await fetch('{{ route('assistant.table-pdf') }}', {
@@ -157,8 +162,10 @@
                         if (! response.ok) throw new Error(response.status);
 
                         this.saveBlob(await response.blob(), 'super-assist-table.pdf');
+                        if (job) window.lmsDownload.done(job);
                         this.flash('PDF downloaded');
                     } catch (e) {
+                        if (job) window.lmsDownload.fail(job);
                         this.flash('PDF failed');
                     }
                 },

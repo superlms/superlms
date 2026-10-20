@@ -293,6 +293,9 @@
     {{-- ─── Filter bars: a class with one section picks it by itself ─── --}}
     @include('partials.sole-section')
 
+    {{-- ─── One loader for every download: exports, PDFs, documents ─── --}}
+    @include('partials.download-loader')
+
     {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}
     @include('partials.panel-app-open')
 

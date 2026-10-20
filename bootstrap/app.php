@@ -52,6 +52,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SecurityHeaders::class]);
         $middleware->api(append: [SecurityHeaders::class]);
 
+        // A download link followed by the panels' download loader tells the page
+        // when its file has come (App\Http\Middleware\DownloadReady); the page's
+        // script reads that cookie, so it is sent as it is, not encrypted.
+        $middleware->web(append: [\App\Http\Middleware\DownloadReady::class]);
+        $middleware->encryptCookies(except: [\App\Http\Middleware\DownloadReady::COOKIE]);
+
         // Guests: web panels go to their own login screen; API keeps its JSON 403.
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->routeIs('super-admin.*')) {

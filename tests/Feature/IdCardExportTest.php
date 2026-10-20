@@ -147,6 +147,9 @@ class IdCardExportTest extends TestCase
         $this->assertSame('012345678901', $sheet->getCell('A2')->getValue());
         $this->assertSame('Zoya Khan', $sheet->getCell('B2')->getValue());
         $this->assertSame('Aarav Jain', $sheet->getCell('B3')->getValue());
+        // The class carries its section's last letter; no section, the bare class.
+        $this->assertSame('V (A)', $sheet->getCell('D2')->getValue());
+        $this->assertSame('VI', $sheet->getCell('D3')->getValue());
         $this->assertSame(3, $sheet->getHighestRow());
         // One photo (Aarav has none), over the Photo cell of Zoya's row.
         $drawings = $sheet->getDrawingCollection();
@@ -156,6 +159,14 @@ class IdCardExportTest extends TestCase
 
         IdCardExport::cleanup($work);
         $this->assertDirectoryDoesNotExist($work);
+    }
+
+    public function test_the_class_carries_the_last_letter_of_its_section(): void
+    {
+        $this->assertSame('V (A)', IdCardExport::classWithSection('V', 'A'));
+        $this->assertSame('Class 10 (B)', IdCardExport::classWithSection('Class 10', 'Section B'));
+        $this->assertSame('IX (C)', IdCardExport::classWithSection('IX', 'sec-c.'));
+        $this->assertSame('VI', IdCardExport::classWithSection('VI', ''));
     }
 
     public function test_the_zip_has_the_sheet_and_the_photos_named_as_the_sheet_says(): void

@@ -270,6 +270,20 @@ class IdCardExport
         return $url ?: null;
     }
 
+    /**
+     * The class, then the section's last letter or digit in brackets — "V" and
+     * "Section A" make "V (A)"; a student with no section keeps the bare class.
+     */
+    public static function classWithSection(string $class, string $section): string
+    {
+        $class = trim($class);
+        if (!preg_match('/([\p{L}\p{N}])[^\p{L}\p{N}]*$/u', trim($section), $m)) {
+            return $class;
+        }
+
+        return trim($class . ' (' . mb_strtoupper($m[1]) . ')');
+    }
+
     /** The name a person's photo goes by in the zip — their admission number or employee ID. */
     private static function photoBase($person, string $type): string
     {
@@ -322,7 +336,8 @@ class IdCardExport
                     'name'                => (string) ($p->full_name ?: ($p->user->name ?? '')),
                     'admission_no'        => (string) $p->admission_no,
                     'roll_no'             => (string) $p->roll_no,
-                    'class'               => $class,
+                    // "V (A)": the class with its section's last letter, as a card prints it.
+                    'class'               => self::classWithSection($class, $sec),
                     'section'             => $sec,
                     'class_section'       => trim($class . ($sec !== '' ? ' - ' . $sec : '')),
                     'father_name'         => (string) $p->father_name,
@@ -408,7 +423,10 @@ class IdCardExport
         self::writeSheet($sheetPath, $type, $columns, $rows, $photos);
 
         $scope = $type === 'student' && $standardId
-            ? (Str::slug((string) Standard::whereKey($standardId)->value('name')) ?: 'class')
+            ? (Str::slug(self::classWithSection(
+                (string) Standard::whereKey($standardId)->value('name'),
+                $sectionId ? (string) \App\Models\Student\Section::whereKey($sectionId)->value('name') : '',
+            )) ?: 'class')
             : 'all';
         $stem = Str::slug($schoolName ?: 'school') . '_' . Str::slug(self::label($type)) . '_' . $scope . '_' . now()->format('Y-m-d');
 

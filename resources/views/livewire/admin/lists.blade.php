@@ -1,6 +1,6 @@
 <div class="min-h-screen bg-gray-50"
     x-data
-    x-on:open-list-pdf.window="window.open($event.detail.url, '_blank')">
+    x-on:open-list-pdf.window="window.lmsDownload ? lmsDownload.open($event.detail.url, '_blank') : window.open($event.detail.url, '_blank')">
     @php
         // Static color classes so Tailwind keeps them (no dynamic string building).
         $colorMap = [
