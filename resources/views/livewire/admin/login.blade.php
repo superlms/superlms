@@ -26,6 +26,15 @@
                     <p class="text-gray-500 mt-2 text-sm">Login to continue to your dashboard</p>
                 </div>
 
+                {{-- A school already open on this browser: carry on there, or sign in to another below. --}}
+                @if ($signedIn)
+                    <div class="w-full max-w-sm mb-5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        Signed in to <strong class="text-gray-800">{{ $signedIn['name'] }}</strong>.
+                        <a href="{{ $signedIn['url'] }}" class="font-semibold text-indigo-600 hover:text-indigo-800">Continue →</a>
+                        <span class="block text-xs text-gray-400 mt-0.5">Or sign in to another school below.</span>
+                    </div>
+                @endif
+
                 <div class="w-full max-w-sm">
                     <div class="mb-4">
                         <label class="block text-gray-600 text-sm font-medium mb-1.5">Email</label>

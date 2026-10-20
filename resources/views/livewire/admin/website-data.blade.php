@@ -13,39 +13,56 @@
     <style>[x-cloak]{display:none !important;}</style>
 
     @if (! $page)
-        {{-- ══════════ THE PAGES ══════════ --}}
-        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-            <div class="px-1">
-                <h1 class="text-lg font-semibold text-gray-900">Website Data</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Open a page to fill in what it shows. It is live on your website as soon as you save.</p>
+        {{-- ══════════ THE PAGES — Quick Links' tiles: a round coloured icon,
+             the page's name and whether it is filled in, a grid under each of
+             the site's menus (App\Support\WebsitePages::tile). ══════════ --}}
+        @php
+            $allRows = collect($listing['groups'])->flatMap(fn ($rows) => $rows);
+            $filled  = $allRows->where('status', 'filled')->count() + ($listing['details']['status'] === 'filled' ? 1 : 0);
+            $fillable = $allRows->where('status', '!=', 'form')->count() + 1;
+        @endphp
+        <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900 mr-1">Website Data</h1>
+                <span class="hidden sm:block h-5 w-px bg-gray-200"></span>
+                <p class="text-xs sm:text-sm text-gray-500">Open a page to fill in what it shows — it is live on your website as soon as you save.</p>
+                <span class="ml-auto text-sm text-gray-500">Filled: <strong class="text-gray-800">{{ $filled }}</strong> of {{ $fillable }}</span>
             </div>
+        </div>
 
-            <button type="button" wire:click="openPage('details')"
-                class="w-full flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-left hover:bg-gray-50 transition-colors">
-                <span class="w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M9 11h.01M15 11h.01"/></svg>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-medium text-gray-900">School Details</span>
-                    <span class="block text-xs text-gray-500 truncate">Name, logo, phone, address and social links — on every page</span>
-                </span>
-                @include('livewire.admin.website-data.status', ['status' => $listing['details']['status']])
-                <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </button>
-
-            @foreach ($listing['groups'] as $group => $rows)
+        <div class="p-3 sm:p-4 md:p-5 space-y-5">
+            @php
+                $tiles = ['School' => [\App\Support\WebsitePages::DETAILS => [
+                    'label'   => 'School Details',
+                    'summary' => 'Name, logo, phone, address and social links — on every page',
+                    'status'  => $listing['details']['status'],
+                ]]] + $listing['groups'];
+            @endphp
+            @foreach ($tiles as $group => $rows)
                 <section wire:key="grp-{{ \Illuminate\Support\Str::slug($group) }}">
-                    <h2 class="px-1 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $group }}</h2>
-                    <div class="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+                    <h2 class="px-1 mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $group }}</h2>
+                    <div class="wd-grid grid gap-2.5 sm:gap-3 md:gap-3.5">
                         @foreach ($rows as $slug => $row)
+                            @php [$icon, $color] = \App\Support\WebsitePages::tile($slug); @endphp
                             <button type="button" wire:click="openPage('{{ $slug }}')" wire:key="pg-{{ $slug }}"
-                                class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
-                                <span class="min-w-0 flex-1">
-                                    <span class="block text-sm text-gray-800">{{ $row['label'] }}</span>
-                                    <span class="block text-xs text-gray-400 truncate">{{ $row['summary'] ?: 'A form — nothing to fill in' }}</span>
+                                title="{{ $row['summary'] ?: 'A form — nothing to fill in' }}"
+                                class="group flex flex-col items-center justify-start rounded-2xl sm:rounded-xl border border-gray-200 bg-white
+                                       hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition p-2.5 sm:p-2 md:p-2.5 overflow-hidden min-w-0">
+                                <span class="w-11 h-11 sm:w-9 sm:h-9 md:w-10 md:h-10 mb-1.5 sm:mb-1 bg-{{ $color }}-100 rounded-full flex items-center justify-center shrink-0">
+                                    <x-icon name="{{ $icon }}" class="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-{{ $color }}-600" />
                                 </span>
-                                @include('livewire.admin.website-data.status', ['status' => $row['status']])
-                                <svg class="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                <span class="block w-full text-[11px] md:text-xs leading-tight font-medium text-center text-gray-800 break-words"
+                                      style="overflow-wrap: anywhere; word-break: break-word;">{{ $row['label'] }}</span>
+                                <span class="mt-1 inline-flex items-center gap-1 text-[10px] leading-none
+                                             {{ $row['status'] === 'filled' ? 'text-emerald-600' : 'text-gray-400' }}">
+                                    @if ($row['status'] === 'filled')
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Filled
+                                    @elseif ($row['status'] === 'empty')
+                                        <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>Empty
+                                    @else
+                                        Form
+                                    @endif
+                                </span>
                             </button>
                         @endforeach
                     </div>
@@ -61,6 +78,13 @@
                 </p>
             @endif
         </div>
+
+        {{-- Quick Links' grid: 3 across on a phone, 4 on a tablet, 6 on a desktop. --}}
+        <style>
+            .wd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            @media (min-width: 640px) { .wd-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+            @media (min-width: 768px) { .wd-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        </style>
     @else
         {{-- ══════════ ONE PAGE ══════════ --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-30">

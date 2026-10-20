@@ -59,8 +59,13 @@ use App\Livewire\Components\Profile;
 use App\Livewire\ResetPassword;
 use Illuminate\Support\Facades\Route;
 
+// The login page shows its form even with a school already signed in on this
+// browser (say, one the super-admin opened from Schools → Login): another
+// school's admin signs in here and the browser moves to their school. It used
+// to be guest-only, so it sent them straight back to the school already open.
+Route::get('login', Login::class)->name('admin.login');
+
 Route::middleware(['guest:admin'])->group(function () {
-    Route::get('login', Login::class)->name('admin.login');
     Route::get('reset-password', ResetPassword::class)->name('reset.password');
 });
 
@@ -173,6 +178,9 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         //Navbar Route
         Route::get('/profile', Profile::class)->name('admin.profile');
         Route::get('/notification', Notification::class)->name('admin.notification');
+        // What came in while the admin is working — a toast with a voice (partials.live-notify)
+        Route::get('/notification/live', \App\Http\Controllers\LiveNotificationController::class)
+            ->name('admin.notification.live');
 
         //Certificate PDF Download Routes
         Route::get('/certificates/{id}/download', [CertificatePdfController::class, 'downloadCert'])

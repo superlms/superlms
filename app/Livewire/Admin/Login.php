@@ -45,6 +45,59 @@ class Login extends Component
         'password.required' => 'The password field is required.',
     ];
 
+    /** The school already signed in on this browser, if any: [name, url] for the "Continue" line. */
+    #[Locked]
+    public array $signedIn = [];
+
+    public function mount(): void
+    {
+        $current = Auth::guard('admin')->user();
+        if ($current && $current->organization_id && in_array($current->role, ['admin', 'sub-admin'], true)) {
+            $this->signedIn = [
+                'name' => (string) ($current->organization->name ?? $current->name),
+                'url'  => route('admin.quick-links', ['organization' => $current->organization_id]),
+            ];
+        }
+    }
+
+    /**
+     * Sign the admin guard in to this user and send them to their landing page.
+     *
+     * A browser that already has someone signed in (a school, or the super-admin
+     * who opened a school from Schools) keeps its session id, as Schools → Login
+     * does: a new id let a request still in flight from a tab of the old school
+     * come back with the old cookie and put the browser back on that school.
+     * The page landed on tells the browser's other admin tabs, which follow to
+     * the new school (partials.school-login-sync). A fresh browser gets a new
+     * session id as any sign-in does.
+     */
+    private function signIn(User $user)
+    {
+        $guard = Auth::guard('admin');
+
+        if ($guard->check() || Auth::guard('superadmin')->check() || Auth::guard('accounts')->check()) {
+            session()->put($guard->getName(), $user->getAuthIdentifier());
+            $guard->setUser($user);
+            event(new \Illuminate\Auth\Events\Login('admin', $user, false));
+        } else {
+            $guard->login($user);
+        }
+        // A login made in the installed app: from now on it opens for this account.
+        PanelApp::rememberAppLogin('admin', $user);
+
+        $landingRoute = 'admin.quick-links';
+        if ($user->role === 'sub-admin') {
+            $permissions  = (array) $user->permissions;
+            $landingRoute = $permissions[0] ?? 'admin.profile';
+        }
+
+        $url = route($landingRoute, ['organization' => $user->organization_id]);
+
+        return redirect($url)
+            ->with('success', 'Login successful.')
+            ->with('school-login', ['org' => (string) $user->organization_id, 'url' => $url]);
+    }
+
     public function toggleShowPassword(): void
     {
         $this->showPassword = !$this->showPassword;
@@ -91,18 +144,7 @@ class Login extends Component
         // The OTP step below is left intact; flip services.otp.login_enabled back
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
-            Auth::guard('admin')->login($user);
-            // A login made in the installed app: from now on it opens for this account.
-            PanelApp::rememberAppLogin('admin', $user);
-
-            $landingRoute = 'admin.quick-links';
-            if ($user->role === 'sub-admin') {
-                $permissions  = (array) $user->permissions;
-                $landingRoute = $permissions[0] ?? 'admin.profile';
-            }
-
-            return redirect()->route($landingRoute, ['organization' => $user->organization_id])
-                ->with('success', 'Login successful.');
+            return $this->signIn($user);
         }
 
         try {
@@ -170,18 +212,7 @@ class Login extends Component
 
         // Panel-specific guard: signing in here never touches the super-admin
         // or accounts sessions in the same browser.
-        Auth::guard('admin')->login($user);
-        // A login made in the installed app: from now on it opens for this account.
-        PanelApp::rememberAppLogin('admin', $user);
-
-        $landingRoute = 'admin.quick-links';
-        if ($user->role === 'sub-admin') {
-            $permissions  = (array) $user->permissions;
-            $landingRoute = $permissions[0] ?? 'admin.profile';
-        }
-
-        return redirect()->route($landingRoute, ['organization' => $user->organization_id])
-            ->with('success', 'Login successful.');
+        return $this->signIn($user);
     }
 
     public function resendOtp(): void

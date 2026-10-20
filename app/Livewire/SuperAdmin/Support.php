@@ -55,7 +55,7 @@ class Support extends Component
 
     public function getOrganizationsProperty()
     {
-        return Organization::all();
+        return Organization::orderBy('name')->get();
     }
 
     public function getSupportsProperty()

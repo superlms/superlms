@@ -97,16 +97,19 @@ class WebsiteDataPagesTest extends TestCase
         $list = Livewire::test(WebsiteData::class)->assertSet('open', '');
         $text = $this->text($list);
 
-        $this->assertStringContainsString('School Details Name, logo, phone, address and social links', $text);
-        // In the site's menu order, each with what goes in it and whether it is filled.
-        $this->assertStringContainsString('About Us About School Heading · About the school · More about the school · Our History …', $text);
-        $this->assertStringContainsString('History Text · Photo beside the text · More photos Filled', $text);
-        $this->assertStringContainsString('Vision Text · Photo beside the text · More photos Empty', $text);
-        $this->assertStringContainsString('Photogallery Photo Gallery Photos Empty', $text);
-        $this->assertStringContainsString('Mandatory Disclosure Mandatory Disclosures Documents Empty', $text);
+        // Quick Links' tiles: School Details first, then the site's menus in
+        // order, each page with whether it is filled; what goes in it is the
+        // tile's tooltip.
+        $this->assertStringContainsString('School School Details Filled', $text);
+        $this->assertStringContainsString('About Us About School Filled History Filled Vision Empty', $text);
+        $this->assertStringContainsString('Photogallery Photo Gallery Empty', $text);
+        $this->assertStringContainsString('Mandatory Disclosure Mandatory Disclosures Empty', $text);
         $this->assertStringContainsString('The Documents menu fills itself', $text);
-        $this->assertStringContainsString('Contact Contact Us Phone · Email · Address & map Filled', $text);   // the profile's
-        $this->assertStringContainsString('Query A form — nothing to fill in Form', $text);
+        $this->assertStringContainsString('Contact Contact Us Filled', $text);   // the profile's
+        $this->assertStringContainsString('Query Form', $text);
+        $this->assertStringContainsString('title="Name, logo, phone, address and social links — on every page"', $list->html());
+        $this->assertStringContainsString('title="Text · Photo beside the text · More photos"', $list->html());
+        $this->assertStringContainsString('title="A form — nothing to fill in"', $list->html());
         $this->assertStringContainsString("{$off} more pages switched off", $text);
         $this->assertStringNotContainsString("Chairman's Desk", $text);
 

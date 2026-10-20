@@ -85,6 +85,10 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
         ->whereNumber('organization')
         ->name('super-admin.school-website.edit');
 
+    // What came in while the super-admin is working — a toast with a voice (partials.live-notify)
+    Route::get('notification/live', \App\Http\Controllers\LiveNotificationController::class)
+        ->name('super-admin.notification.live');
+
     // Register the logged-in super-admin's browser for web push (FCM).
     Route::post('fcm/token', function (\Illuminate\Http\Request $request) {
         $data = $request->validate(['token' => 'required|string']);

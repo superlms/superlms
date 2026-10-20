@@ -52,8 +52,8 @@ class Schools extends Component
     public string $boardFilter  = ''; // '' | any education_board value
 
     // ── Sorting ────────────────────────────────────────────────────────────────
-    public string $sortBy  = 'created_at'; // name | created_at | students
-    public string $sortDir = 'desc';       // asc | desc
+    public string $sortBy  = 'name';       // name | created_at | students — A to Z by default
+    public string $sortDir = 'asc';        // asc | desc
 
     // ── Add-school flow ────────────────────────────────────────────────────────
     public int   $modalStep       = 1; // 1 = details, 2 = module selection (create only)

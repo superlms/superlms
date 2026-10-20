@@ -117,6 +117,47 @@ class WebsitePages
         ];
     }
 
+    /**
+     * A page's tile on Website Data's list — Quick Links' look: [heroicon,
+     * colour] (the colours are among app.css's safelisted tile colours).
+     */
+    public static function tile(string $slug): array
+    {
+        return match (true) {
+            $slug === self::DETAILS              => ['building-library', 'indigo'],
+            $slug === 'home'                     => ['home', 'blue'],
+            $slug === 'about'                    => ['information-circle', 'indigo'],
+            $slug === 'history'                  => ['clock', 'amber'],
+            $slug === 'vision'                   => ['eye', 'sky'],
+            $slug === 'mission'                  => ['flag', 'rose'],
+            $slug === 'campus-life'              => ['sparkles', 'pink'],
+            $slug === 'leadership'               => ['star', 'amber'],
+            in_array($slug, ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'manager-desk', 'principal-desk'], true)
+                                                 => ['user', 'violet'],
+            $slug === 'team'                     => ['user-group', 'teal'],
+            in_array($slug, ['facilities', 'infrastructure', 'building', 'classrooms'], true)
+                                                 => ['building-office-2', 'cyan'],
+            $slug === 'labs'                     => ['beaker', 'lime'],
+            in_array($slug, ['playground', 'sports'], true) => ['trophy', 'orange'],
+            $slug === 'activities'               => ['puzzle-piece', 'fuchsia'],
+            $slug === 'transport'                => ['truck', 'yellow'],
+            $slug === 'gallery'                  => ['photo', 'pink'],
+            $slug === 'admission'                => ['clipboard-document-list', 'green'],
+            $slug === 'classes'                  => ['squares-2x2', 'blue'],
+            $slug === 'fee-structure'            => ['currency-rupee', 'green'],
+            $slug === 'rules'                    => ['book-open', 'gray'],
+            in_array($slug, ['programs', 'curriculum'], true) => ['academic-cap', 'indigo'],
+            $slug === 'academic-calendar'        => ['calendar-days', 'red'],
+            $slug === 'result'                   => ['chart-bar', 'teal'],
+            $slug === 'disclosures'              => ['document-text', 'gray'],
+            $slug === 'contact'                  => ['map-pin', 'red'],
+            $slug === 'appointment'              => ['calendar-days', 'sky'],
+            $slug === 'career'                   => ['briefcase', 'orange'],
+            $slug === 'query'                    => ['chat-bubble-left-right', 'purple'],
+            default                              => ['globe-alt', 'gray'],
+        };
+    }
+
     /** The values the editor starts with: block id => value, read from the site. */
     public static function values(array $blocks, SchoolWebsite $site): array
     {

@@ -301,6 +301,13 @@
         @include('partials.school-login-sync')
     @endif
 
+    {{-- ─── A notification coming in while the admin / super-admin works: a toast and a voice ─── --}}
+    @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin'], true) && Auth::user()->organization_id && Route::has('admin.notification.live'))
+        @include('partials.live-notify', ['liveUrl' => route('admin.notification.live', ['organization' => Auth::user()->organization_id])])
+    @elseif (Auth::user() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true) && Route::has('super-admin.notification.live'))
+        @include('partials.live-notify', ['liveUrl' => route('super-admin.notification.live')])
+    @endif
+
     {{-- ─── Global toast for Livewire `notify` events ───
          Many components dispatch `$this->dispatch('notify', ['type'=>.., 'message'=>..])`.
          Render them as a lightweight top-end toast so success/error feedback is

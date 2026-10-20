@@ -713,7 +713,7 @@ class Assignments extends Component
 
         $this->resAssignments = Assignment::where('organization_id', $this->orgId())
             ->where('standard_id', $this->resStandard)
-            ->when($this->resSection, fn($q) => $q->where('section_id', $this->resSection))
+            ->when($this->resSection, fn($q) => $q->where(fn($w) => $w->where('section_id', $this->resSection)->orWhereNull('section_id')->orWhere('section_id', 0)))
             ->when($this->resSubject, fn($q) => $q->where('subject_id', $this->resSubject))
             ->orderByDesc('id')
             ->get(['id', 'title', 'type', 'start_date', 'end_date']);
@@ -915,7 +915,8 @@ class Assignments extends Component
                         ->orWhere('description', 'like', '%' . $this->search . '%');
                 }))
                 ->when($this->filterStandard, fn($q) => $q->where('standard_id', $this->filterStandard))
-                ->when($this->filterSection, fn($q) => $q->where('section_id', $this->filterSection))
+                // A section's own assignments and the whole class's (no section) — they are its too.
+                ->when($this->filterSection, fn($q) => $q->where(fn($w) => $w->where('section_id', $this->filterSection)->orWhereNull('section_id')->orWhere('section_id', 0)))
                 ->when($this->filterSubject, fn($q) => $q->where('subject_id', $this->filterSubject))
                 ->when($this->filterType, fn($q) => $q->where('type', $this->filterType))
                 ->when($this->filterWindow === 'open', fn($q) => $q

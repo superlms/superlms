@@ -174,7 +174,7 @@ class User extends Authenticatable
 
         // Always-allowed routes for any signed-in sub-super-admin
         // (quick-links is the landing page and only shows granted tiles)
-        $always = ['super-admin.profile', 'super-admin.notification', 'super-admin.quick-links'];
+        $always = ['super-admin.profile', 'super-admin.notification', 'super-admin.notification.live', 'super-admin.quick-links'];
         if (in_array($routeName, $always, true)) {
             return true;
         }
@@ -226,7 +226,7 @@ class User extends Authenticatable
         // Always-allowed routes for any signed-in sub-admin. `admin.more` is on
         // the list because Profile is a tile on that screen now — its other
         // tiles are filtered down to what this sub-admin may actually open.
-        $always = ['admin.profile', 'admin.notification', 'admin.messages', 'admin.more'];
+        $always = ['admin.profile', 'admin.notification', 'admin.notification.live', 'admin.messages', 'admin.more'];
         if (in_array($routeName, $always, true)) {
             return true;
         }

@@ -15,11 +15,6 @@
         'approved'  => 'Approved',
         'rejected'  => 'Rejected',
     ];
-    $windowChip = [
-        'open'     => 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        'upcoming' => 'bg-blue-50 text-blue-700 border-blue-200',
-        'closed'   => 'bg-gray-100 text-gray-500 border-gray-200',
-    ];
 @endphp
 
     {{-- ══════════════════════════════════════════════════
@@ -166,86 +161,85 @@
 
     {{-- ───────────────────────── ASSIGNMENTS TAB ───────────────────────── --}}
     @if ($activeTab === 'assignments')
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {{-- The Students list's look: S.No, the name over a small line, the
+             rest as plain text — no coloured chips — and the actions' icons. --}}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assignment</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Window</th>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Responses</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Responses</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
+                        @php $firstNo = $assignments instanceof \Illuminate\Contracts\Pagination\Paginator ? (int) ($assignments->firstItem() ?? 1) : 1; @endphp
                         @forelse ($assignments as $assignment)
                             @php $win = $assignment->windowStatus(); @endphp
-                            <tr class="hover:bg-gray-50 transition-colors">
+                            <tr wire:key="asg-{{ $assignment->id }}" class="hover:bg-gray-50/70 transition-colors">
                                 <td class="px-4 py-3">
-                                    <div class="flex items-start gap-2">
-                                        <p class="text-sm font-semibold text-gray-900">{{ $assignment->title }}</p>
-                                        @if ($assignment->file)
-                                            <svg class="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                        @endif
-                                        @unless ($assignment->is_active)
-                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">Draft</span>
-                                        @endunless
-                                    </div>
-                                    @if ($assignment->description)
-                                        <p class="text-xs text-gray-400 line-clamp-1 mt-0.5">{{ Str::limit($assignment->description, 80) }}</p>
-                                    @endif
-                                    <p class="text-[11px] text-gray-400 mt-0.5">By {{ $assignment->user->name ?? 'Unknown' }}</p>
+                                    <span class="text-sm text-gray-500 font-medium">{{ $firstNo + $loop->index }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    @if ($assignment->type === 'mcq')
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">MCQ · {{ $assignment->questions_count }} Q</span>
-                                    @else
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                                            {{ ['text' => 'Text', 'file' => 'File', 'both' => 'Text + File'][$assignment->submission_mode] ?? 'Text + File' }}
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-700">
-                                    {{ $assignment->standard->name ?? '—' }}@if ($assignment->section)<span class="text-gray-400"> · {{ $assignment->section->name }}</span>@endif
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-700">{{ $assignment->subject->name ?? '—' }}</td>
-                                <td class="px-4 py-3">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border {{ $windowChip[$win] }}">{{ ucfirst($win) }}</span>
-                                    <p class="text-[11px] text-gray-400 mt-1">
-                                        {{ $assignment->start_date?->format('d M Y, h:i A') ?? '—' }}<br>
-                                        <span class="text-gray-300">to</span> {{ $assignment->end_date?->format('d M Y, h:i A') ?? '—' }}
+                                    <p class="text-sm font-semibold text-gray-900">
+                                        {{ $assignment->title }}
+                                        @unless ($assignment->is_active)<span class="text-xs font-normal text-gray-400">· Draft</span>@endunless
+                                    </p>
+                                    <p class="text-xs text-gray-400">
+                                        By {{ $assignment->user->name ?? 'Unknown' }}@if ($assignment->file) · with attachment @endif
                                     </p>
                                 </td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">{{ $assignment->submissions_count }}</span>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700 whitespace-nowrap">
+                                        @if ($assignment->type === 'mcq')
+                                            MCQ · {{ $assignment->questions_count }} Q
+                                        @else
+                                            {{ ['text' => 'Text', 'file' => 'File', 'both' => 'Text + File'][$assignment->submission_mode] ?? 'Text + File' }}
+                                        @endif
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700 whitespace-nowrap">{{ $assignment->standard->name ?? '—' }}{{ $assignment->section ? ' · ' . $assignment->section->name : '' }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700">{{ $assignment->subject->name ?? '—' }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="text-sm text-gray-700">{{ ucfirst($win) }}</p>
+                                    <p class="text-xs text-gray-400 whitespace-nowrap">
+                                        {{ $assignment->start_date?->format('d M Y, h:i A') ?? '—' }} – {{ $assignment->end_date?->format('d M Y, h:i A') ?? '—' }}
+                                    </p>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700">{{ $assignment->submissions_count }}</span>
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
                                         <button wire:click="onView({{ $assignment->id }})" title="View"
-                                            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
                                         <button wire:click="onEdit({{ $assignment->id }})" title="Edit"
-                                            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                         </button>
                                         <button wire:click="confirmDelete({{ $assignment->id }})" title="Delete"
-                                            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-12 text-center">
-                                    <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                    </div>
-                                    <p class="text-sm font-semibold text-gray-800">No assignments yet</p>
+                                <td colspan="8" class="px-6 py-16 text-center">
+                                    <p class="text-gray-500 text-sm">No assignments yet</p>
                                     <p class="text-xs text-gray-400 mt-1">Click “Add Assignment” to hand one out to a class.</p>
                                 </td>
                             </tr>
@@ -264,41 +258,34 @@
     @if ($activeTab === 'responses')
         @if (!$selectedAssignment)
             <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                </div>
                 <p class="text-sm font-semibold text-gray-800">Pick an assignment to see its responses</p>
                 <p class="text-xs text-gray-400 mt-1">Choose a class (and optionally section / subject) above, then the assignment.</p>
             </div>
         @else
-            {{-- Selected assignment summary --}}
+            {{-- The picked assignment, as plain text --}}
             <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <div class="flex items-center gap-2">
-                            <h2 class="text-base font-bold text-gray-900">{{ $selectedAssignment->title }}</h2>
-                            @if ($selectedAssignment->isMcq())
-                                <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">MCQ</span>
-                            @else
-                                <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">Text / File</span>
-                            @endif
-                        </div>
+                        <h2 class="text-base font-bold text-gray-900">
+                            {{ $selectedAssignment->title }}
+                            <span class="text-sm font-normal text-gray-500">· {{ $selectedAssignment->isMcq() ? 'MCQ' : 'Text / File' }}</span>
+                        </h2>
                         <p class="text-xs text-gray-500 mt-1">
                             {{ $selectedAssignment->standard->name ?? '—' }}
                             @if ($selectedAssignment->section) · {{ $selectedAssignment->section->name }} @endif
                             · {{ $selectedAssignment->subject->name ?? '—' }}
-                            · {{ $selectedAssignment->start_date?->format('d M Y, h:i A') }} → {{ $selectedAssignment->end_date?->format('d M Y, h:i A') }}
-                            @if ($selectedAssignment->maxMarks() > 0) · Out of <strong>{{ $selectedAssignment->maxMarks() }}</strong> @endif
+                            · {{ $selectedAssignment->start_date?->format('d M Y, h:i A') }} – {{ $selectedAssignment->end_date?->format('d M Y, h:i A') }}
+                            @if ($selectedAssignment->maxMarks() > 0) · Out of {{ $selectedAssignment->maxMarks() }} @endif
                         </p>
                     </div>
-                    <div class="flex items-center gap-4 text-xs text-gray-500">
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500">
                         <span>Students: <strong class="text-gray-800">{{ $responseSummary['total'] }}</strong></span>
-                        <span>Attempted: <strong class="text-blue-600">{{ $responseSummary['attempted'] }}</strong></span>
-                        <span>Pending: <strong class="text-amber-600">{{ $responseSummary['pending'] }}</strong></span>
-                        <span>Marked: <strong class="text-emerald-600">{{ $responseSummary['reviewed'] }}</strong></span>
+                        <span>Attempted: <strong class="text-gray-800">{{ $responseSummary['attempted'] }}</strong></span>
+                        <span>Pending: <strong class="text-gray-800">{{ $responseSummary['pending'] }}</strong></span>
+                        <span>Marked: <strong class="text-gray-800">{{ $responseSummary['reviewed'] }}</strong></span>
                         @if ($selectedAssignment->isMcq())
                             <button wire:click="applyMcqScores"
-                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100">
+                                class="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                                 Auto-fill MCQ marks
                             </button>
                         @endif
@@ -306,11 +293,12 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Answer</th>
@@ -327,42 +315,38 @@
                                     $sub     = $row['submission'];
                                     $sid     = $sub?->id;
                                 @endphp
-                                <tr class="hover:bg-gray-50 transition-colors align-top">
+                                <tr wire:key="res-{{ $student->id }}" class="hover:bg-gray-50/70 transition-colors align-top">
                                     <td class="px-4 py-3">
-                                        <p class="text-sm font-semibold text-gray-900">{{ $student->full_name }}</p>
-                                        @if ($student->roll_no)
-                                            <p class="text-[11px] text-gray-400">Roll {{ $student->roll_no }}</p>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-xs text-gray-600">
-                                        {{ $sub?->submitted_at?->format('d M Y, h:i A') ?? '—' }}
+                                        <span class="text-sm text-gray-500 font-medium">{{ $loop->iteration }}</span>
                                     </td>
                                     <td class="px-4 py-3">
+                                        <p class="text-sm font-semibold text-gray-900 whitespace-nowrap">{{ $student->full_name }}</p>
+                                        <p class="text-xs text-gray-400">{{ $student->roll_no ? 'Roll ' . $student->roll_no : '' }}</p>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700 whitespace-nowrap">{{ $sub?->submitted_at?->format('d M Y, h:i A') ?? '—' }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 max-w-xs">
                                         @if (!$sub)
-                                            <span class="text-xs text-gray-400">Nothing submitted</span>
+                                            <span class="text-sm text-gray-400">Nothing submitted</span>
                                         @else
-                                            <div class="flex flex-wrap items-center gap-2">
+                                            <p class="text-sm text-gray-700">
                                                 @if ($sub->file)
-                                                    <a href="{{ $sub->file }}" target="_blank" rel="noopener"
-                                                        class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100">
-                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                                        {{ Str::limit($sub->file_name ?: 'File', 22) }}
-                                                    </a>
+                                                    <a href="{{ $sub->file }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">{{ Str::limit($sub->file_name ?: 'File', 22) }}</a> ·
                                                 @endif
                                                 @if ($sub->mcq_score !== null)
-                                                    <span class="px-2 py-1 text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-md">MCQ score {{ $sub->mcq_score }}</span>
+                                                    MCQ score {{ $sub->mcq_score }} ·
                                                 @endif
-                                                <button wire:click="onViewResponse({{ $sid }})"
-                                                    class="px-2 py-1 text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100">Open</button>
-                                            </div>
+                                                <button type="button" wire:click="onViewResponse({{ $sid }})" class="text-blue-600 hover:underline">Open</button>
+                                            </p>
                                             @if ($sub->answer_text)
-                                                <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ Str::limit($sub->answer_text, 120) }}</p>
+                                                <p class="text-xs text-gray-400 mt-0.5 line-clamp-2">{{ Str::limit($sub->answer_text, 120) }}</p>
                                             @endif
                                         @endif
                                     </td>
                                     <td class="px-4 py-3">
                                         @if (!$sub)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border {{ $statusChip['pending'] }}">{{ $statusLabel['pending'] }}</span>
+                                            <span class="text-sm text-gray-500 whitespace-nowrap">{{ $statusLabel['pending'] }}</span>
                                         @else
                                             <select wire:model="marking.{{ $sid }}.status"
                                                 class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700">
@@ -379,11 +363,11 @@
                                                 <input type="number" step="0.5" min="0" wire:model="marking.{{ $sid }}.marks"
                                                     class="w-20 text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700" placeholder="—" />
                                                 @if ($selectedAssignment->maxMarks() > 0)
-                                                    <span class="text-[11px] text-gray-400">/ {{ $selectedAssignment->maxMarks() }}</span>
+                                                    <span class="text-xs text-gray-400">/ {{ $selectedAssignment->maxMarks() }}</span>
                                                 @endif
                                             </div>
                                         @else
-                                            <span class="text-xs text-gray-300">—</span>
+                                            <span class="text-sm text-gray-300">—</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3">
@@ -391,22 +375,22 @@
                                             <input type="text" wire:model="marking.{{ $sid }}.remarks" placeholder="Optional feedback"
                                                 class="w-44 text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700" />
                                         @else
-                                            <span class="text-xs text-gray-300">—</span>
+                                            <span class="text-sm text-gray-300">—</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         @if ($sub)
                                             <button wire:click="saveMarking({{ $sid }})" wire:loading.attr="disabled"
-                                                class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">Save</button>
+                                                class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Save</button>
                                         @else
-                                            <span class="text-xs text-gray-300">—</span>
+                                            <span class="text-sm text-gray-300">—</span>
                                         @endif
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-4 py-12 text-center">
-                                        <p class="text-sm font-semibold text-gray-800">No students match this filter</p>
+                                    <td colspan="8" class="px-6 py-16 text-center">
+                                        <p class="text-gray-500 text-sm">No students match this filter</p>
                                         <p class="text-xs text-gray-400 mt-1">Try “All statuses”, or check that students are assigned to this class and section.</p>
                                     </td>
                                 </tr>
