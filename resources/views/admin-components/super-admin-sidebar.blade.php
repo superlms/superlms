@@ -99,7 +99,7 @@
                                 $is_active = Route::is($menu_item['prefix']);
                             @endphp
                             <a href="{{ route($menu_item['link']) }}"
-                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-1.5 text-sm font-medium rounded-lg transition-colors duration-150">
+                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                 <x-icon
                                     class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} mr-2 flex-shrink-0 h-4 w-4"
                                     name="{{ $menu_item['icon'] }}" />
@@ -151,7 +151,7 @@
                             @endphp
                             <a href="{{ route($menu_item['link']) }}"
                                 title="{{ $menu_item['title'] }}"
-                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-1.5 text-sm font-medium rounded-lg transition-colors duration-150">
+                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                 <x-icon
                                     class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
                                     name="{{ $menu_item['icon'] }}" />
