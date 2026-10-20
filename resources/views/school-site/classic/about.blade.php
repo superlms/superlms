@@ -1,3 +1,8 @@
+{{--
+    About Us → About School: the about text, vision, mission, values and goals
+    are the School Profile's (SchoolWebsite::profileTexts); the heading, the
+    second paragraph, history and philosophy are Website Data's.
+--}}
 @extends('school-site.classic.layout', ['title' => 'About School'])
 
 @push('styles')
@@ -32,14 +37,13 @@
                     @endif
                 </div>
 
-                @if (!empty($c['vision']) || !empty($c['mission']))
+                {{-- Vision, Mission, Values and Goals: the School Profile's. --}}
+                @php $vm = array_filter(['Our Vision' => $c['vision'] ?? '', 'Our Mission' => $c['mission'] ?? '', 'Our Values' => $c['values'] ?? '', 'Our Goals' => $c['goals'] ?? ''], fn ($t) => trim((string) $t) !== ''); @endphp
+                @if ($vm)
                     <div class="vm">
-                        @if (!empty($c['vision']))
-                            <div><h3>Our Vision</h3><p>{!! nl2br(e($c['vision'])) !!}</p></div>
-                        @endif
-                        @if (!empty($c['mission']))
-                            <div><h3>Our Mission</h3><p>{!! nl2br(e($c['mission'])) !!}</p></div>
-                        @endif
+                        @foreach ($vm as $title => $text)
+                            <div><h3>{{ $title }}</h3> <p>{!! nl2br(e($text)) !!}</p></div>
+                        @endforeach
                     </div>
                 @endif
             </div>

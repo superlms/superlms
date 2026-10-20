@@ -1,8 +1,10 @@
 {{--
     A live block of a Website Data page: what the site reads from the
     school's own records (App\Support\SchoolSiteData) — its classes with
-    sections and subjects, its fee structure, its rules — shown as the site
-    shows it now, with a link to where it is set up. Nothing to fill in here.
+    sections and subjects, its fee structure, its rules, its routes, the
+    session's events and the School Profile's about, vision, mission, values
+    and goals — shown as the site shows it now, with a link to where it is
+    set up. Nothing to fill in here; a card in the About App editor's look.
     Params: $b (with its source), $lms.
 --}}
 @php
@@ -16,10 +18,10 @@
     // as narrow as what is in it.
     $th      = 'px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap';
 @endphp
-<div class="bg-white border border-gray-200 rounded-xl overflow-hidden" wire:key="blk-{{ $b['id'] }}">
-    <div class="flex items-start gap-3 px-4 py-3 border-b border-gray-100">
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" wire:key="blk-{{ $b['id'] }}">
+    <div class="flex items-start gap-3 px-5 py-3.5 border-b border-gray-100">
         <div class="min-w-0 flex-1">
-            <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-gray-800">
+            <p class="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-800">
                 {{ $b['label'] }}
                 <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wide">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Live
@@ -189,6 +191,35 @@
                     </div>
                 @else
                     <p class="px-4 py-3 text-sm text-gray-500">No events this session yet — add them on {{ $where }} and they show on your website by themselves.</p>
+                @endif
+                @break
+
+            @case('about')
+            @case('vision')
+            @case('mission')
+            @case('values_goals')
+                @php
+                    $profile = $lms->profile();
+                    $texts   = $b['source'] === 'values_goals'
+                        ? ['Values' => $profile['values'], 'Goals' => $profile['goals']]
+                        : [$b['label'] => $profile[$b['source']]];
+                    $any     = implode('', $texts) !== '';
+                @endphp
+                @if ($any)
+                    <div class="grid grid-cols-1 {{ count($texts) > 1 ? 'md:grid-cols-2 md:divide-x' : '' }} divide-gray-100">
+                        @foreach ($texts as $title => $text)
+                            <div class="px-5 py-4">
+                                @if (count($texts) > 1)<p class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">{{ $title }}</p>@endif
+                                @if ($text !== '')
+                                    <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ $text }}</p>
+                                @else
+                                    <p class="text-sm text-gray-400">Not written on your School Profile yet.</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="px-5 py-4 text-sm text-gray-500">Not written yet — write it on your {{ $where }} (School Info) and it shows on your website by itself.</p>
                 @endif
                 @break
         @endswitch

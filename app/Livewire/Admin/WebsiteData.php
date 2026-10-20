@@ -17,13 +17,15 @@ use WireUi\Traits\WireUiActions;
 /**
  * More → Website Data: the school fills in its website page by page.
  *
- * It opens on the site's menus as chips (School — name, logo, contact —
- * first, then the menus the site shows its pages under). A menu picked shows
- * its pages as chips under it, and a page picked opens below them on the
- * blocks that page shows (WebsitePages): text, photos, files, lists, the
- * map, and what the site reads live from the school's own records (classes,
- * fees, rules). Photos and files upload as soon as they are picked; Save
- * writes the page's blocks into the site's content and they are live.
+ * It opens on the site's menus as tiles in Quick Links' look (School —
+ * name, logo, contact — first, then the menus the site shows its pages
+ * under). A menu picked shows its pages as tiles, and a page picked opens
+ * full width, in the About App editor's look, on the blocks that page shows
+ * (WebsitePages): text, photos, files, lists, the map, and what the site
+ * reads live from the school's own records (classes, fees, rules, routes,
+ * events, the School Profile's texts). Back steps out one level at a time.
+ * Photos and files upload as soon as they are picked; Save writes the
+ * page's blocks into the site's content and they are live.
  *
  * Only content is written here — the super admin's template, pages, theme,
  * domain and publish switch are left alone — and only what differs from the
@@ -35,7 +37,7 @@ class WebsiteData extends Component
 
     public $organization;
 
-    /** The menu whose pages show as chips ('' for none yet); a step for Back. */
+    /** The menu whose pages show as tiles ('' for the menus); a step for Back. */
     #[Url(as: 'menu', history: true, except: '')]
     public string $group = '';
 
@@ -147,6 +149,22 @@ class WebsiteData extends Component
         $this->uploads = [];
         $this->dirty   = false;
         $this->resetErrorBag();
+    }
+
+    /**
+     * Back, a step at a time: from a page to its menu's pages (or to the
+     * menus, for a menu of one page), from a menu's pages to the menus.
+     */
+    public function back(): void
+    {
+        if ($this->open !== '') {
+            if (count($this->menus()[$this->group] ?? []) <= 1) {
+                $this->group = '';
+            }
+            $this->closePage();
+        } else {
+            $this->group = '';
+        }
     }
 
     public function closePage(): void

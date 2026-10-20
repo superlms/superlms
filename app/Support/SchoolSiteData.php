@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\RulesAndRegulation;
+use App\Models\Admin\SchoolInfo;
 use App\Models\Admin\Transportation;
 use App\Models\Calendar\TimeTable;
 use App\Models\Student\Section;
@@ -221,6 +222,28 @@ class SchoolSiteData
                 ->values()
                 ->all();
         });
+    }
+
+    /**
+     * The School Profile's own texts the About Us pages show: [about, vision,
+     * mission, values, goals], '' where it has none.
+     */
+    public function profile(): array
+    {
+        $empty = ['about' => '', 'vision' => '', 'mission' => '', 'values' => '', 'goals' => ''];
+
+        return $this->memo['profile'] ??= $this->read(function () use ($empty) {
+            $info = SchoolInfo::where('organization_id', $this->orgId)
+                ->first(['about_school', 'usm_vision', 'usm_mission', 'usm_values', 'usm_goals']);
+
+            return $info ? array_map(fn ($v) => trim((string) $v), [
+                'about'   => $info->about_school,
+                'vision'  => $info->usm_vision,
+                'mission' => $info->usm_mission,
+                'values'  => $info->usm_values,
+                'goals'   => $info->usm_goals,
+            ]) : $empty;
+        }, $empty);
     }
 
     /** This session: [1 April, 31 March, "2026-27"] — the school's year runs April to March. */

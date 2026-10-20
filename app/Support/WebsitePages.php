@@ -56,6 +56,11 @@ class WebsitePages
         'rules'     => ['Rules & Regulations', 'Rules & Regulations', 'admin.rules-and-regulation'],
         'transport' => ['Transport routes', 'Transport', 'admin.transport'],
         'events'    => ["This session's events", 'Calendar', 'admin.calender'],
+        // About Us: the School Profile's own texts.
+        'about'        => ['About the school', 'School Profile', 'admin.profile'],
+        'vision'       => ['Vision', 'School Profile', 'admin.profile'],
+        'mission'      => ['Mission', 'School Profile', 'admin.profile'],
+        'values_goals' => ['Values & Goals', 'School Profile', 'admin.profile'],
     ];
 
     /** The group School Details sits in, above the site's menus. */
@@ -141,6 +146,25 @@ class WebsitePages
         ];
     }
 
+    /** A menu's tile on Website Data's first screen — Quick Links' look: [heroicon, colour]. */
+    public static function menuTile(string $group): array
+    {
+        return match ($group) {
+            self::DETAILS_GROUP    => ['building-library', 'indigo'],
+            'Home'                 => ['home', 'blue'],
+            'About Us'             => ['information-circle', 'sky'],
+            'Messaging'            => ['chat-bubble-left-right', 'violet'],
+            'Features'             => ['sparkles', 'cyan'],
+            'Photogallery'         => ['photo', 'pink'],
+            'Online Admission'     => ['academic-cap', 'green'],
+            'Curriculum'           => ['book-open', 'amber'],
+            'Mandatory Disclosure' => ['document-text', 'gray'],
+            'Contact'              => ['phone', 'red'],
+            'More'                 => ['squares-plus', 'teal'],
+            default                => ['globe-alt', 'gray'],
+        };
+    }
+
     /**
      * A page's tile on Website Data's list — Quick Links' look: [heroicon,
      * colour] (the colours are among app.css's safelisted tile colours).
@@ -151,7 +175,7 @@ class WebsitePages
             $slug === self::DETAILS              => ['building-library', 'indigo'],
             $slug === 'home'                     => ['home', 'blue'],
             $slug === 'about'                    => ['information-circle', 'indigo'],
-            $slug === 'history'                  => ['clock', 'amber'],
+            $slug === 'values-goals'             => ['heart', 'amber'],
             $slug === 'vision'                   => ['eye', 'sky'],
             $slug === 'mission'                  => ['flag', 'rose'],
             $slug === 'campus-life'              => ['sparkles', 'pink'],
@@ -316,6 +340,8 @@ class WebsitePages
             'rules'     => $lms->hasRules(),
             'transport' => (bool) $lms->transport(),
             'events'    => (bool) $lms->events(),
+            'about', 'vision', 'mission' => $lms->profile()[$source] !== '',
+            'values_goals' => $lms->profile()['values'] . $lms->profile()['goals'] !== '',
             default     => false,
         };
     }
@@ -404,13 +430,13 @@ class WebsitePages
     private static function contentPage(string $slug, string $label): array
     {
         $desk = in_array($slug, self::DESKS, true);
-        // History, Vision and Mission read the About School page's own while empty.
-        $fallback = ['history' => 'history_text', 'vision' => 'vision', 'mission' => 'mission'][$slug] ?? null;
+        // Vision and Mission are the School Profile's text (user's ask of 2026-10-21).
+        $profile = in_array($slug, ['vision', 'mission'], true);
 
         $blocks = [
             ['id' => 'heading', 'type' => 'text', 'path' => "pages.{$slug}.heading", 'label' => 'Heading', 'default' => $label, 'counts' => false],
-            ['id' => 'body', 'type' => 'textarea', 'rows' => 10, 'path' => "pages.{$slug}.body", 'label' => $desk ? 'Message' : 'Text',
-                'help' => 'Leave an empty line between paragraphs.'] + ($fallback ? ['fallback' => $fallback] : []),
+            $profile ? self::live($slug) : ['id' => 'body', 'type' => 'textarea', 'rows' => 10, 'path' => "pages.{$slug}.body", 'label' => $desk ? 'Message' : 'Text',
+                'help' => 'Leave an empty line between paragraphs.'],
             ['id' => 'image', 'type' => 'image', 'path' => "pages.{$slug}.image", 'label' => $desk ? 'Photo' : 'Photo beside the text',
                 'help' => $desk ? 'Their photo, shown beside the message.' : 'Optional.'],
             ['id' => 'photos', 'type' => 'images', 'path' => "pages.{$slug}.photos", 'label' => 'More photos',
@@ -515,15 +541,17 @@ class WebsitePages
                 ['id' => 'location', 'type' => 'location', 'label' => 'Our Location', 'templates' => ['classic'],
                     'help' => 'The map at the foot of the home page, and on Contact Us.'],
             ]],
-            'about' => ['About the school, its history, philosophy, vision and mission.', [
+            // The about text, vision, mission, values and goals are the School
+            // Profile's (user's ask of 2026-10-21); the rest is written here.
+            'about' => ['About the school from your School Profile, with a heading, history and philosophy of your own.', [
                 ['id' => 'about_heading', 'type' => 'text', 'path' => 'about_heading', 'label' => 'Heading'],
-                ['id' => 'about_text', 'type' => 'textarea', 'rows' => 6, 'path' => 'about_text', 'label' => 'About the school', 'help' => 'Also the welcome text on the home page.'],
+                self::live('about'),
                 ['id' => 'about_text2', 'type' => 'textarea', 'rows' => 4, 'path' => 'about_text2', 'label' => 'More about the school', 'help' => 'A second paragraph, optional.'],
-                ['id' => 'history_text', 'type' => 'textarea', 'rows' => 4, 'path' => 'history_text', 'label' => 'Our History', 'help' => 'Also on the History page while that is empty.'],
+                ['id' => 'history_text', 'type' => 'textarea', 'rows' => 4, 'path' => 'history_text', 'label' => 'Our History'],
                 ['id' => 'philosophy', 'type' => 'textarea', 'rows' => 3, 'path' => 'philosophy', 'label' => 'Our Philosophy'],
-                ['id' => 'vision', 'type' => 'textarea', 'rows' => 3, 'path' => 'vision', 'label' => 'Our Vision'],
-                ['id' => 'mission', 'type' => 'textarea', 'rows' => 3, 'path' => 'mission', 'label' => 'Our Mission'],
+                ['id' => 'usm', 'type' => 'note', 'label' => 'Vision, Mission, Values and Goals show under it from your School Profile — change them there.'],
             ]],
+            'values-goals' => ['Your Values and Goals from the School Profile, side by side.', [self::live('values_goals')]],
             'leadership' => ['A card for each leader, with their photo and message.', [
                 ['id' => 'leadership', 'type' => 'list', 'path' => 'leadership', 'label' => 'People',
                     'fields' => [

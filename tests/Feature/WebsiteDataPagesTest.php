@@ -87,14 +87,15 @@ class WebsiteDataPagesTest extends TestCase
     }
 
     /**
-     * The site's menus as chips first (user's ask of 2026-10-20); a menu's
-     * chip shows its pages as chips, and a page's chip opens its data below.
+     * The site's menus as tiles in Quick Links' look (user's ask of
+     * 2026-10-21); a menu's tile opens its pages as tiles, a page's tile opens
+     * its data full width, and Back steps out a level at a time.
      */
-    public function test_it_opens_on_the_sites_menus_as_chips_and_a_menu_on_its_pages(): void
+    public function test_it_opens_on_the_menus_as_tiles_then_a_menus_pages_then_a_page(): void
     {
         $this->website([
-            'pages'   => ['home', 'about', 'history', 'vision', 'gallery', 'disclosures', 'contact', 'query'],
-            'content' => ['pages' => ['history' => ['heading' => 'History', 'body' => 'Founded in 1990.']]],
+            'pages'   => ['home', 'about', 'vision', 'campus-life', 'gallery', 'disclosures', 'contact', 'query'],
+            'content' => ['pages' => ['campus-life' => ['heading' => 'Campus', 'body' => 'Green and open.']]],
         ]);
         $off = count(SchoolWebsite::allPages()) - 8;
 
@@ -102,59 +103,62 @@ class WebsiteDataPagesTest extends TestCase
         $text = $this->text($wd);
 
         // School first, then the site's menus in order, each with how many of
-        // its pages are filled in; no page yet.
-        $this->assertStringContainsString('School 1/1 Home 1/1 About Us 2/3 Photogallery 0/1 Mandatory Disclosure 0/1 Contact 1/1', $text);
-        $this->assertStringContainsString('Pick a menu above', $text);
+        // its pages are filled in; no pages yet.
+        $this->assertStringContainsString('School 1/1 filled Home 1/1 filled About Us 2/3 filled Photogallery 0/1 filled Mandatory Disclosure 0/1 filled Contact 1/1 filled', $text);
         $this->assertStringContainsString("{$off} more pages switched off", $text);
-        $this->assertStringNotContainsString('History', $text);
+        $this->assertStringNotContainsString('Campus & School Life', $text);
 
-        // A menu: its pages as chips, each with whether it is filled in; what
-        // goes in it is the chip's tooltip.
+        // A menu: its pages as tiles, each Filled / Empty / Form; what goes in
+        // it is the tile's tooltip. The other menus are gone.
         $wd->call('openGroup', 'About Us')->assertSet('group', 'About Us')->assertSet('open', '');
         $text = $this->text($wd);
-        $this->assertStringContainsString('About School Filled History Filled Vision Empty', $text);
-        $this->assertStringContainsString('Pick a page of About Us', $text);
+        $this->assertStringContainsString('About Us Website Data › About Us', $text);
+        $this->assertStringContainsString('About School Filled Vision Empty Campus & School Life Filled', $text);
         $this->assertStringContainsString('title="Text · Photo beside the text · More photos"', $wd->html());
-        $this->assertStringNotContainsString("Chairman's Desk", $text);
+        $this->assertStringNotContainsString('Photogallery', $text);
 
-        // A page's chip opens it below, the menu's chips still there.
-        $wd->call('openPage', 'history')->assertSet('open', 'history')->assertSet('data.body', 'Founded in 1990.')
-            ->assertSee(['Website Data › About Us', 'Vision']);
+        // A page opens on its own, full width; Back goes to the menu's pages, then to the menus.
+        $wd->call('openPage', 'campus-life')->assertSet('open', 'campus-life')->assertSet('data.body', 'Green and open.')
+            ->assertSee(['Website Data › About Us', 'Details', 'Save']);
+        $this->assertStringNotContainsString('Vision Empty', $this->text($wd));
+        $wd->call('back')->assertSet('open', '')->assertSet('group', 'About Us');
+        $wd->call('back')->assertSet('open', '')->assertSet('group', '');
 
-        // Another menu closes it; a menu of one page opens that page at once.
+        // A menu of one page opens that page at once, and its Back is to the menus.
         $wd->call('openGroup', 'Photogallery')->assertSet('group', 'Photogallery')->assertSet('open', 'gallery');
+        $wd->call('back')->assertSet('open', '')->assertSet('group', '');
         $wd->call('openGroup', 'Contact')->assertSet('open', '');
         $this->assertStringContainsString('Contact Us Filled Query Form', $this->text($wd));   // Contact Us: the profile's
         $this->assertStringContainsString('title="A form — nothing to fill in"', $wd->html());
         $wd->call('openGroup', 'School')->assertSet('open', 'details')->assertSee('School name');
-        $this->assertStringContainsString('title="Name, logo, phone, address and social links — on every page"', $wd->html());
 
         $wd->call('openGroup', 'No such menu')->assertSet('group', 'School');
         $wd->call('openPage', 'no-such-page')->assertSet('open', '');
 
-        // Opened from a link to a page, its menu is picked with it.
+        // Opened from a link to a page, its menu is picked with it; Vision is the School Profile's.
         Livewire::withQueryParams(['edit' => 'vision'])->test(WebsiteData::class)
-            ->assertSet('group', 'About Us')->assertSet('open', 'vision');
+            ->assertSet('group', 'About Us')->assertSet('open', 'vision')
+            ->assertSee(['From your School Profile', 'Open School Profile']);
     }
 
     public function test_a_page_shows_its_blocks_and_saves_only_them(): void
     {
-        $this->website(['content' => ['motto' => 'Learn to Serve', 'history_text' => 'Our story so far.']]);
+        $this->website(['content' => ['motto' => 'Learn to Serve']]);
 
         $page = Livewire::test(WebsiteData::class)
-            ->call('openPage', 'history')
+            ->call('openPage', 'campus-life')
             ->assertSee(['Heading', 'Text', 'Photo beside the text', 'More photos', 'Upload photo', 'Add photos'])
-            ->assertSet('data.heading', 'History')
-            ->assertSet('data.body', 'Our story so far.');   // About School's, while it has none of its own
-
-        // The History page on the site shows it too.
-        [, $html] = $this->render('history');
-        $this->assertStringContainsString('Our story so far.', $html);
+            ->assertSet('data.heading', 'Campus & School Life')
+            ->assertSet('data.body', '');
 
         $page->set('data.body', "Founded in 1990.\n\nNow 1,200 students.")->assertSet('dirty', true)->call('save')->assertSet('dirty', false);
 
+        // The page on the site shows it.
+        [, $html] = $this->render('campus-life');
+        $this->assertStringContainsString('Now 1,200 students.', $html);
+
         $content = SchoolWebsite::first()->content;
-        $this->assertSame("Founded in 1990.\n\nNow 1,200 students.", $content['pages']['history']['body']);
+        $this->assertSame("Founded in 1990.\n\nNow 1,200 students.", $content['pages']['campus-life']['body']);
         $this->assertSame('Learn to Serve', $content['motto']);
         foreach (['school_name', 'phone', 'address', 'logo'] as $copied) {
             $this->assertArrayNotHasKey($copied, $content, $copied);
@@ -162,7 +166,7 @@ class WebsiteDataPagesTest extends TestCase
 
         // A page with every block of its own emptied leaves the site's content.
         $page->set('data.body', '')->call('save');
-        $this->assertArrayNotHasKey('history', SchoolWebsite::first()->content['pages'] ?? []);
+        $this->assertArrayNotHasKey('campus-life', SchoolWebsite::first()->content['pages'] ?? []);
     }
 
     public function test_photos_and_files_upload_as_soon_as_they_are_picked(): void

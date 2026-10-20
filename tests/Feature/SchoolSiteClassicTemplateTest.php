@@ -120,7 +120,7 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->assertStringContainsString("3 of {$all} on", $html);
         $this->assertStringContainsString('Save Pages', $html);
         $this->assertMatchesRegularExpression('/wire:model="pages" value="about"\s+checked/', $html);
-        $this->assertDoesNotMatchRegularExpression('/wire:model="pages" value="history"\s+checked/', $html);
+        $this->assertDoesNotMatchRegularExpression('/wire:model="pages" value="values-goals"\s+checked/', $html);
 
         $page->call('enableAllPages')->assertSee("{$all} of {$all} on")
             ->call('disableAllPages')->assertSee("1 of {$all} on")
@@ -276,13 +276,13 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $page = Livewire::test(SchoolWebsiteBuilder::class, ['organization' => Organization::find(1)]);
 
         $this->assertStringContainsString(
-            "About Us About School History Mission Vision Manager's Desk Principal's Desk Campus & School Life Messaging Chairman's Desk",
+            "About Us About School Mission Vision Values & Goals Campus & School Life Messaging Chairman's Desk Founder's Desk Co-Founder's Desk Managing Director Executive Director Director's Desk Manager's Desk Principal's Desk Leadership",
             html_entity_decode($text($page))
         );
         $this->assertStringContainsString('Photogallery Photo Gallery Sports & Activities Building Photos', html_entity_decode($text($page)));
         $this->assertStringContainsString('Documents Fills itself', $text($page));
         $this->assertSame(
-            ['about', 'history', 'mission', 'vision', 'manager-desk', 'principal-desk', 'campus-life'],
+            ['about', 'mission', 'vision', 'values-goals', 'campus-life'],
             array_keys(SchoolWebsite::menuGroups('classic')['About Us'])
         );
         // Every page is listed exactly once.

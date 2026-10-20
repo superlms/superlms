@@ -20,10 +20,13 @@ use Illuminate\Http\Response;
  */
 class SchoolSiteController extends Controller
 {
+    /** Old page addresses that now open another page: History is Values & Goals. */
+    private const MOVED = ['history' => 'values-goals'];
+
     /** Map a request path slug to a template view, honouring enabled pages. */
     public function render(SchoolWebsite $site, string $slug): Response
     {
-        $slug = $slug ?: 'home';
+        $slug = self::MOVED[$slug] ?? ($slug ?: 'home');
         $tpl  = $site->templateKey();
         $view = fn (string $name) => "school-site.{$tpl}.{$name}";
 

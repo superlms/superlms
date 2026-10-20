@@ -155,10 +155,12 @@ class SchoolSiteTransportCalendarTest extends TestCase
         }
 
         $calendar = $this->text($this->render($site, 'academic-calendar'));
-        $this->assertStringContainsString('Academic Calendar Session 2026-27 · 4 events S.No Date Event Type Time', $calendar);
-        $this->assertStringContainsString('April 2026 1 01 Apr 2026 Wed Session Begins Event 8:00 AM – 9:00 AM', $calendar);
-        $this->assertStringContainsString('November 2026 3 08 Nov 2026 Sun Diwali Break School closed Holiday All day', $calendar);
-        $this->assertStringContainsString('March 2027 4 10 Mar 2027 Wed Annual Exams Exam All day', $calendar);
+        // A plain table as Transport's: a value a cell, no month lines (user's ask of 2026-10-21).
+        $this->assertStringContainsString('Academic Calendar Session 2026-27 · 4 events S.No Date Day Event Details Type Time', $calendar);
+        $this->assertStringContainsString('1 01 Apr 2026 Wednesday Session Begins — Event 8:00 AM – 9:00 AM', $calendar);
+        $this->assertStringContainsString('3 08 Nov 2026 Sunday Diwali Break School closed Holiday All day', $calendar);
+        $this->assertStringContainsString('4 10 Mar 2027 Wednesday Annual Exams — Exam All day', $calendar);
+        $this->assertStringNotContainsString('April 2026', $calendar);
         foreach (['Called Off', 'Last Session', 'Next Session', 'Their Event', 'published here shortly'] as $not) {
             $this->assertStringNotContainsString($not, $calendar, $not);
         }

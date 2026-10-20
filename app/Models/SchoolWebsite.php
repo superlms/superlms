@@ -67,8 +67,11 @@ class SchoolWebsite extends Model
     {
         return [
             'Home'                 => ['home'],
-            'About Us'             => ['about', 'history', 'mission', 'vision', 'manager-desk', 'principal-desk', 'campus-life'],
-            'Messaging'            => ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'leadership'],
+            // About School, Mission, Vision and Values & Goals read the School
+            // Profile; the Manager's and Principal's desks sit with the other
+            // desks under Messaging (user's ask of 2026-10-21).
+            'About Us'             => ['about', 'mission', 'vision', 'values-goals', 'campus-life'],
+            'Messaging'            => ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'manager-desk', 'principal-desk', 'leadership'],
             'Features'             => ['facilities'],
             'Photogallery'         => ['gallery', 'sports', 'building', 'labs', 'classrooms', 'playground', 'activities', 'programs'],
             'Online Admission'     => ['admission', 'fee-structure', 'rules', 'classes'],
@@ -114,7 +117,7 @@ class SchoolWebsite extends Model
             ],
             'About Us' => [
                 'about'        => ['About School', 'view'],
-                'history'      => ['History', 'content'],
+                'values-goals' => ['Values & Goals', 'view'],   // was History (/history still opens it)
                 'vision'       => ['Vision', 'content'],
                 'mission'      => ['Mission', 'content'],
                 'campus-life'  => ['Campus & School Life', 'content'],
@@ -315,6 +318,8 @@ class SchoolWebsite extends Model
             'philosophy'    => '',
             'vision'        => $info?->usm_vision ?? '',
             'mission'       => $info?->usm_mission ?? '',
+            'values'        => $info?->usm_values ?? '',
+            'goals'         => $info?->usm_goals ?? '',
 
             // Admissions
             'admission_intro'   => 'Admissions are open. Join our school family — enquire today and give your child the best start.',
@@ -367,11 +372,16 @@ class SchoolWebsite extends Model
         // the like a photo page.
         $photos = preg_split('/\s*[\r\n]+\s*/', trim((string) ($row['photos'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
 
-        // History, Vision and Mission show the About School page's own while
-        // they have no text of their own.
+        // Vision and Mission are the School Profile's; the page's own text (or
+        // the About School page's) shows only while the profile has none.
         $body = (string) ($row['body'] ?? '');
-        if (trim($body) === '' && ($from = ['history' => 'history_text', 'vision' => 'vision', 'mission' => 'mission'][$slug] ?? null)) {
-            $body = (string) ($content[$from] ?? '');
+        if (in_array($slug, ['vision', 'mission'], true)) {
+            $profile = $this->profileTexts()[$slug];
+            if ($profile !== '') {
+                $body = $profile;
+            } elseif (trim($body) === '') {
+                $body = (string) ($content[$slug] ?? '');
+            }
         }
 
         return [
@@ -424,7 +434,24 @@ class SchoolWebsite extends Model
         return $rows;
     }
 
-    /** Stored overrides merged over the auto-fetched content. */
+    /**
+     * What the About Us pages read from the School Profile (Profile → School
+     * Info): its about text, vision, mission, values and goals — content key
+     * => text, '' where the profile has none. A text the profile has wins
+     * over anything Website Data holds (user's ask of 2026-10-21), so the
+     * site follows the profile as the school changes it.
+     */
+    public const PROFILE_TEXTS = ['about_text' => 'about_school', 'vision' => 'usm_vision', 'mission' => 'usm_mission',
+        'values' => 'usm_values', 'goals' => 'usm_goals'];
+
+    public function profileTexts(): array
+    {
+        $info = $this->organization?->schoolInfo;
+
+        return array_map(fn ($field) => trim((string) ($info?->{$field} ?? '')), self::PROFILE_TEXTS);
+    }
+
+    /** Stored overrides merged over the auto-fetched content; the profile's own texts win. */
     public function resolvedContent(): array
     {
         $auto    = $this->autoContent();
@@ -439,6 +466,11 @@ class SchoolWebsite extends Model
                 }
             } elseif ($val !== null && $val !== '') {
                 $out[$key] = $val;
+            }
+        }
+        foreach ($this->profileTexts() as $key => $text) {
+            if ($text !== '') {
+                $out[$key] = $text;
             }
         }
         return $out;
