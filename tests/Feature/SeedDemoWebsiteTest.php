@@ -194,6 +194,78 @@ class SeedDemoWebsiteTest extends TestCase
         $this->assertNull($this->site(2)->content);
     }
 
+    /** Gives the website its own name in Website Data, as The Demo School's has. */
+    private function nameTheSite(string $name): void
+    {
+        $site = SchoolWebsite::where('organization_id', 1)->first();
+        $site->content = array_merge($site->content ?? [], ['school_name' => $name]);
+        $site->saveQuietly();
+    }
+
+    /** Every text in Website Data, URLs aside. */
+    private function texts(): string
+    {
+        $out = [];
+        $content = $this->site()->content;
+        array_walk_recursive($content, function ($v) use (&$out) {
+            if (is_string($v) && ! str_starts_with($v, 'http')) {
+                $out[] = $v;
+            }
+        });
+
+        return implode("\n", $out);
+    }
+
+    /**
+     * User's ask of 2026-10-21: the sample text reads the website's own name
+     * (Website Data's School name), not the school's account name — the slides
+     * said "Welcome to The Demo School" under a masthead with another name.
+     */
+    public function test_the_sample_text_reads_the_websites_own_name(): void
+    {
+        $this->nameTheSite('Adarsh Satyadev Inter College Malav');
+        $this->artisan('lms:seed-demo-website', ['--demo' => true])->assertSuccessful();
+
+        $c = $this->site()->resolvedContent();
+        $this->assertSame('Welcome to Adarsh Satyadev Inter College Malav', $c['hero_slides'][0]['title']);
+        $this->assertSame('Welcome to Adarsh Satyadev Inter College Malav', $c['about_heading']);
+        $this->assertStringContainsString('Adarsh Satyadev Inter College Malav was founded in 1998', $c['history_text']);
+        $this->assertStringStartsWith('Adarsh Satyadev Inter College Malav is a co-educational', DB::table('school_infos')->value('about_school'));
+        $this->assertStringNotContainsStringIgnoringCase('The Demo School', $this->texts());
+    }
+
+    public function test_a_site_seeded_with_the_account_name_is_renamed_on_deploy(): void
+    {
+        $this->artisan('lms:seed-demo-website', ['--demo' => true])->assertSuccessful();
+        $this->assertStringContainsString('The Demo School', $this->texts());
+        $files = Storage::disk('s3')->allFiles('admin/website/1/demo');
+        $disclosures = array_column($this->site()->pageDocuments('disclosures'), 'file');
+
+        // The school then names its website; the deploy's migration puts that name in.
+        $this->nameTheSite('ADARSH SATYADEV INTER COLLEGE MALAV');
+        DB::table('school_infos')->where('organization_id', 1)->update(['usm_mission' => 'Written by the school about The Demo School.']);
+        (require database_path('migrations/2026_10_21_220000_demo_school_website_uses_its_own_name.php'))->up();
+
+        $c = $this->site()->resolvedContent();
+        $this->assertSame('Welcome to ADARSH SATYADEV INTER COLLEGE MALAV', $c['hero_slides'][0]['title']);
+        $this->assertStringContainsString('ADARSH SATYADEV INTER COLLEGE MALAV family', $c['cta_text']);
+        $this->assertStringContainsString("Dear Parents and Students,\n\nAt ADARSH SATYADEV INTER COLLEGE MALAV we believe", $this->site()->pageContent('principal-desk')['body']);
+        $this->assertStringNotContainsStringIgnoringCase('The Demo School', $this->texts());
+        $this->assertSame('Our own motto', $c['motto']);
+        // The sample About text is renamed; what the school wrote on its profile is not.
+        $this->assertStringStartsWith('ADARSH SATYADEV INTER COLLEGE MALAV is a co-educational', DB::table('school_infos')->value('about_school'));
+        $this->assertSame('Written by the school about The Demo School.', DB::table('school_infos')->value('usm_mission'));
+        // The sample PDFs are made again where they are kept: the same files, the same links.
+        $this->assertSame($files, Storage::disk('s3')->allFiles('admin/website/1/demo'));
+        $this->assertSame($disclosures, array_column($this->site()->pageDocuments('disclosures'), 'file'));
+
+        // Once is enough: a site already using its own name is left alone.
+        $content = $this->site()->content;
+        $this->artisan('lms:seed-demo-website', ['--demo' => true, '--rename' => true])->assertSuccessful();
+        $this->assertSame($content, $this->site()->content);
+        $this->assertNull($this->site(2)->content);
+    }
+
     public function test_it_needs_a_school(): void
     {
         $this->artisan('lms:seed-demo-website')->assertFailed();

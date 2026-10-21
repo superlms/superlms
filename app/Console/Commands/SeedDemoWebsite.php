@@ -40,7 +40,8 @@ class SeedDemoWebsite extends Command
                             {--org= : Only this organization id}
                             {--demo : The demo school ("The Demo School")}
                             {--force : Overwrite what Website Data already holds}
-                            {--no-pdfs : Do not generate the sample documents}';
+                            {--no-pdfs : Do not generate the sample documents}
+                            {--rename : Only put the website\'s own name where the sample text and documents have the school\'s account name}';
 
     protected $description = 'Fill a school\'s website (and the records it reads) with sample data';
 
@@ -87,8 +88,14 @@ class SeedDemoWebsite extends Command
         $this->info("[{$orgId}] {$org->name}");
 
         [$from, , $session] = SchoolSiteData::session();
-        $name  = trim((string) $org->name);
+        $name  = self::siteName($org);
         $board = trim((string) $org->education_board) ?: 'CBSE';
+
+        if ($this->option('rename')) {
+            $this->rename($org, $name, $board, $session);
+
+            return;
+        }
 
         $info = $this->profile($org, $name);
         $this->team($info);
@@ -101,6 +108,84 @@ class SeedDemoWebsite extends Command
         $this->line('  Fee structure: ' . count($lms->fees()) . ' class groups (from Fee Structure — not seeded)');
 
         $this->website($org, $name, $board, $session, $lms);
+    }
+
+    /**
+     * The school's name as its website shows it — Website Data's School
+     * name, else the school's own — so the sample text reads the same name
+     * as the masthead above it.
+     */
+    public static function siteName(Organization $org): string
+    {
+        $site   = SchoolWebsite::where('organization_id', $org->id)->first();
+        $stored = trim((string) (($site?->content ?? [])['school_name'] ?? ''));
+
+        return $stored !== '' ? $stored : trim((string) $org->name);
+    }
+
+    /**
+     * Sample text and documents written with the school's account name ("The
+     * Demo School") read the website's own name instead: every text in
+     * Website Data, the sample About text on the School Profile (only while
+     * it is still the sample, word for word), and the sample PDFs, made again
+     * where they are kept. Nothing else is touched.
+     */
+    private function rename(Organization $org, string $to, string $board, string $session): void
+    {
+        $from = trim((string) $org->name);
+        $site = SchoolWebsite::where('organization_id', $org->id)->first();
+        if (! $site || $from === '' || strcasecmp($from, $to) === 0) {
+            $this->line('  The website goes by the school\'s own name — nothing to rename.');
+
+            return;
+        }
+        $site->setRelation('organization', $org->loadMissing('schoolInfo'));
+
+        $content = $site->content ?? [];
+        $texts   = 0;
+        array_walk_recursive($content, function (&$value, $key) use ($from, $to, &$texts) {
+            if (is_string($value) && $key !== 'school_name' && stripos($value, $from) !== false) {
+                $value = str_ireplace($from, $to, $value, $n);
+                $texts += $n;
+            }
+        });
+
+        $about = 0;
+        if (Schema::hasTable('school_infos')) {
+            $about = DB::table('school_infos')->where('organization_id', $org->id)
+                ->where('about_school', DemoWebsiteContent::profile($from)['about_school'])
+                ->update(['about_school' => DemoWebsiteContent::profile($to)['about_school'], 'updated_at' => now()]);
+            $org->unsetRelation('schoolInfo');
+            $site->setRelation('organization', $org->loadMissing('schoolInfo'));
+        }
+
+        $site->content = $site->overridesOnly($content);
+        $site->save();
+
+        // The sample PDFs carry the name in their heading: made again, in the same place.
+        $docs = 0;
+        if (! $this->option('no-pdfs')) {
+            $lms  = new SchoolSiteData($org->id);
+            $c    = $site->resolvedContent();
+            $mine = '/admin/website/' . $org->id . '/demo/';
+            foreach ($content['documents'] ?? [] as $slug => $rows) {
+                foreach (is_array($rows) ? $rows : [] as $i => $row) {
+                    if (str_contains((string) ($row['file'] ?? ''), $mine)) {
+                        $url = $this->pdf($org, $to, $board, $session, (string) $slug, (int) $i, (string) ($row['title'] ?? ''), $c, $lms);
+                        if ($url !== '') {
+                            $content['documents'][$slug][$i]['file'] = $url;
+                            $docs++;
+                        }
+                    }
+                }
+            }
+            if ($docs) {
+                $site->content = $site->overridesOnly($content);
+                $site->save();
+            }
+        }
+
+        $this->line("  Renamed \"{$from}\" to \"{$to}\": {$texts} in Website Data" . ($about ? ', the About text' : '') . ", {$docs} documents made again.");
     }
 
     // ─── The school's own records ───────────────────────────────────────
