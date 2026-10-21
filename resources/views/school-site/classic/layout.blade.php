@@ -174,7 +174,7 @@
         .sform label b { color: var(--primary); }
         .sform input, .sform select, .sform textarea { width: 100%; padding: 9px 11px; border: 1px solid #CFD2D8; border-radius: 3px; font: 400 13.5px 'Poppins', sans-serif; color: #222; background: #fff; }
         .sform input:focus, .sform select:focus, .sform textarea:focus { outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent); border-color: var(--primary); }
-        .sform .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+        .sform .hp { display: none; }
         .sform-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
         .sform-msg { font-size: 13px; font-weight: 600; }
 
@@ -448,7 +448,8 @@
                 var missing = Array.prototype.find.call(form.querySelectorAll('[required]'), function (f) { return !f.value.trim(); });
                 if (missing) { say('Please fill in ' + missing.dataset.label + '.'); missing.focus(); return; }
 
-                var data = { organization_id: Number(form.dataset.org), company: form.company.value, subject: form.dataset.kind,
+                var trap = form.querySelector('[name=sf_check]');
+                var data = { organization_id: Number(form.dataset.org), company: trap ? trap.value : '', subject: form.dataset.kind,
                              type: form.dataset.type || null, fields: [] }, extra = [];
                 form.querySelectorAll('[data-label]').forEach(function (f) {
                     var v = f.value.trim(), n = f.name;

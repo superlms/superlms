@@ -321,6 +321,37 @@ class SchoolSiteLiveDataTest extends TestCase
         $this->assertStringContainsString('Fee Structure Session 2026-27 Fees are payable quarterly.', $this->text($this->render($site, 'fee-structure')));
     }
 
+    /**
+     * User's ask of 2026-10-21: the Contact Us page's enquiries did not reach
+     * Website Enquiries. The bot trap was a field named "company", which the
+     * browser's autofill filled with the visitor's own details, and an email
+     * at a test domain was dropped too — both thanked the visitor and kept nothing.
+     */
+    public function test_an_enquiry_is_kept_whatever_its_email_and_autofill_cannot_spring_the_trap(): void
+    {
+        $html = $this->render($this->site(), 'contact');
+        $this->assertStringNotContainsString('name="company"', $html);
+        $this->assertMatchesRegularExpression('#<div class="hp" aria-hidden="true"><input type="text" name="sf_check"#', $html);
+        $this->assertStringContainsString('.sform .hp { display: none; }', $html);
+
+        $send = fn (array $data) => app(WebsiteController::class)->schoolContact(new Request($data));
+        $send(['organization_id' => 1, 'type' => 'contact', 'name' => 'Parent', 'email' => 'test@example.com', 'phone' => '9876543210',
+            'subject' => 'Contact', 'message' => 'Admission for Class V?', 'fields' => [['label' => 'Name', 'value' => 'Parent']]]);
+        $send(['organization_id' => 1, 'type' => 'contact', 'name' => 'Tester', 'email' => 'a@test.com']);
+        $send(['organization_id' => 1, 'type' => 'contact', 'name' => 'Bot', 'company' => 'Spam Inc']);   // the trap still works
+
+        $this->assertSame(['Parent', 'Tester'], SchoolWebsiteEnquiry::orderBy('id')->pluck('name')->all());
+
+        // The admin's filter bar: on Website Enquiries the forms sit on a row of their own; elsewhere the status.
+        $website = Livewire::test(Enqueries::class)->call('showTab', 'website')->html();
+        $this->assertStringContainsString('Form:', $website);
+        $this->assertStringNotContainsString('Status:', $website);
+        $this->assertStringContainsString('All <span class="opacity-70">2</span>', $website);
+        $student = Livewire::test(Enqueries::class)->call('showTab', 'student')->html();
+        $this->assertStringContainsString('Status:', $student);
+        $this->assertStringNotContainsString('Form:', $student);
+    }
+
     public function test_the_websites_forms_arrive_with_their_type_and_fields(): void
     {
         $site = $this->site();

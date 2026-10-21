@@ -218,7 +218,10 @@ class WebsiteController extends Controller
             'fields.*.value'  => 'nullable|string|max:3000',
         ]);
 
-        if ($this->isSpamSubmission($request)) {
+        // Only the bot trap turns an enquiry away. A school wants every one it
+        // gets, a parent's odd-looking email included, so the blocked email
+        // domains of the SUPERLMS site's own forms do not apply here.
+        if (filled($request->input('company'))) {
             return response()->json([
                 'success' => true,
                 'message' => 'Thank you! Your message has been sent. We will get back to you soon.',

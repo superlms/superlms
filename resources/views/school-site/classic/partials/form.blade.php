@@ -6,9 +6,14 @@
     each [name, label, type: text|email|tel|date|select|textarea, required,
     options, wide, subject (its answer is added to the subject), placeholder] —
     and optional $button.
+
+    The trap for bots is a field no one sees (display: none) and with a name
+    autofill does not know: one named "company" was filled by the browser's
+    autofill along with the visitor's name and phone, and the enquiry was
+    then dropped as spam while the visitor was thanked.
 --}}
 <form class="sform" data-org="{{ (int) $site->organization_id }}" data-kind="{{ $kind }}" data-type="{{ $type ?? '' }}" novalidate>
-    <input type="text" name="company" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div class="hp" aria-hidden="true"><input type="text" name="sf_check" tabindex="-1" autocomplete="off"></div>
     <div class="sform-grid">
         @foreach ($fields as $f)
             @php $f += ['type' => 'text', 'required' => false, 'options' => [], 'wide' => false, 'subject' => false, 'placeholder' => '']; @endphp

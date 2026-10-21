@@ -100,29 +100,7 @@
                     </div>
                 </div>
 
-                @if ($activeTab === 'website')
-                    <div class="h-5 w-px bg-gray-300 hidden sm:block"></div>
-
-                    {{-- Form: the website page the enquiry was sent from (All / Contact Us / Query /
-                         Appointment / Career / Online Admission), each with how many came from it. --}}
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-xs text-gray-500 hidden sm:inline">Form:</span>
-                        <div class="flex gap-1 overflow-x-auto">
-                            <button wire:click="applyTypeFilter('')"
-                                class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
-                                       {{ $typeFilter === '' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-                                All <span class="opacity-70">{{ $totalWebsite }}</span>
-                            </button>
-                            @foreach (\App\Models\SchoolWebsiteEnquiry::TYPES as $type => $typeName)
-                                <button wire:click="applyTypeFilter('{{ $type }}')" wire:key="type-{{ $type }}"
-                                    class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
-                                           {{ $typeFilter === $type ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
-                                    {{ $typeName }} <span class="opacity-70">{{ $websiteTypeCounts[$type] ?? 0 }}</span>
-                                </button>
-                            @endforeach
-                        </div>
-                    </div>
-                @else
+                @if ($activeTab !== 'website')
                     <div class="h-5 w-px bg-gray-300 hidden sm:block"></div>
 
                     {{-- Status (All / Pending / Replied), as the Announcements' Audience --}}
@@ -150,6 +128,29 @@
                     </button>
                 @endif
             </div>
+
+            @if ($activeTab === 'website')
+                {{-- Form: the website page the enquiry was sent from (All / Contact Us / Query /
+                     Appointment / Career / Online Admission), each with how many came from it —
+                     a row of its own under the search and dates, as six chips do not fit beside them. --}}
+                <div class="flex items-start gap-2 mt-2.5 pt-2.5 border-t border-gray-200">
+                    <span class="text-xs text-gray-500 py-1 shrink-0">Form:</span>
+                    <div class="flex flex-wrap gap-1">
+                        <button wire:click="applyTypeFilter('')"
+                            class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
+                                   {{ $typeFilter === '' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+                            All <span class="opacity-70">{{ $totalWebsite }}</span>
+                        </button>
+                        @foreach (\App\Models\SchoolWebsiteEnquiry::TYPES as $type => $typeName)
+                            <button wire:click="applyTypeFilter('{{ $type }}')" wire:key="type-{{ $type }}"
+                                class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap
+                                       {{ $typeFilter === $type ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+                                {{ $typeName }} <span class="opacity-70">{{ $websiteTypeCounts[$type] ?? 0 }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
