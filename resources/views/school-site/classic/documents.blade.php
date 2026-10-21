@@ -31,8 +31,8 @@
                             @forelse ($documents as $i => $doc)
                                 @php $url = SchoolWebsite::media($doc['file'] ?? null); @endphp
                                 <tr>
-                                    <td>{{ $i + 1 }}</td>
-                                    <td>
+                                    <td class="sno">{{ $i + 1 }}</td>
+                                    <td class="strong">
                                         @if ($url && $current === 'disclosures')
                                             <a href="{{ url('doc/' . ($i + 1)) }}" style="color:var(--primary);font-weight:500;">{{ $doc['title'] ?? '—' }}</a>
                                         @else

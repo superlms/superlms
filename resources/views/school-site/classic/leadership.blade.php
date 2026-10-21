@@ -12,7 +12,7 @@
     .leader .ph { aspect-ratio: 4 / 5; border: 1px solid var(--line); }
     .leader-role { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--primary); }
     .leader h2 { font-size: 20px; color: #222; margin-bottom: 10px; }
-    @media (max-width: 720px) { .leader { grid-template-columns: 1fr; gap: 16px; } .leader .ph { max-width: 220px; } }
+    @media (max-width: 720px) { .leader { grid-template-columns: 1fr; gap: 16px; } .leader .ph { width: 100%; max-width: 220px; margin: 0 auto; } .leader > div { text-align: center; } .leader .prose { text-align: left; } }
 </style>
 @endpush
 

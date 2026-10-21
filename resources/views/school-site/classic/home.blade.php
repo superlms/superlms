@@ -118,17 +118,28 @@
         .slide-cap { padding: 0 44px; transform: translateY(-62%); }
         .sl-btn { width: 34px; height: 34px; font-size: 20px; }
         .sl-dots { bottom: 36px; }
+        .slide-cap h2 { font-size: clamp(19px, 6vw, 26px); }
+        .slide-cap p { font-size: 13px; }
         .welcome-wrap { margin-top: -26px; }
-        .welcome-body { grid-template-columns: 1fr; gap: 18px; }
-        .welcome-logo img { max-height: 140px; }
-        .welcome-logo svg { width: 140px; height: 140px; }
-        .feat-grid { grid-template-columns: 1fr; }
-        .band-in { grid-template-columns: 1fr; }
+        .welcome-body { grid-template-columns: 1fr; gap: 0; margin-top: 10px; }
+        .welcome-logo { display: none; }   /* the logo is in the masthead just above */
+        .sec-head { margin-bottom: 16px; }
+        /* The facility cards: a row to swipe, the next card peeking in. */
+        .feat-grid { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 12px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .feat-grid::-webkit-scrollbar { display: none; }
+        .feat { flex: 0 0 80%; scroll-snap-align: center; }
+        .feat-hint { display: block; }
+        .band-in { grid-template-columns: 1fr; min-height: 0; }
         .band .ph { min-height: 220px; aspect-ratio: 16 / 10; }
         .band.rev .band-in > .ph { order: 0; }
         .band-text { padding: 28px 18px; }
+        .enroll { padding: 34px 0; }
         .enroll-grid { grid-template-columns: 1fr; gap: 6px; }
+        .enroll .btn { flex: 1; }
+        .loc { padding-top: 30px; }
     }
+    .feat-hint { text-align: center; margin-top: 2px; font-size: 12px; color: var(--muted); }
+    @media (min-width: 721px) { .feat-hint { display: none; } }
 </style>
 @endpush
 
@@ -203,6 +214,7 @@
                     </article>
                 @endforeach
             </div>
+            @if (count($facilities) > 1)<p class="feat-hint">Swipe to see more &rarr;</p>@endif
         </div>
     </section>
 

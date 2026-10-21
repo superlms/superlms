@@ -27,6 +27,7 @@
     $logoUrl  = SchoolWebsite::media($c['logo'] ?? null);
     $boardUrl = SchoolWebsite::media($c['board_logo'] ?? null);
     $medium   = trim((string) ($c['medium'] ?? '')) ?: trim((string) ($c['tagline'] ?? ''));
+    $tel      = preg_replace('/[^0-9+]/', '', explode(',', (string) ($c['phone'] ?? ''))[0]);
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -101,6 +102,9 @@
 
         /* ══════════ MENU BAR ══════════ */
         .menu { position: sticky; top: 0; z-index: 60; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+        .menu-bar { display: flex; align-items: center; }
+        .menu-panel { flex: 1; min-width: 0; }
+        .menu-brand, .menu-toggle, .menu-shade, .menu-panel-head, .menu-panel-foot { display: none; }
         .menu-list { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; }
         .menu-list > li { position: relative; }
         .menu-list > li > a, .menu-list > li > button {
@@ -120,9 +124,66 @@
         .drop a { display: block; padding: 9px 16px; font-size: 12.5px; color: #333; border-bottom: 1px solid #F1F1F1; line-height: 1.45; }
         .drop li:last-child a { border-bottom: 0; }
         .drop a:hover, .drop a.active { background: var(--light); color: var(--primary); }
-        .menu-toggle { display: none; width: 100%; align-items: center; justify-content: space-between; padding: 12px 4px; background: none; border: 0; font: 600 13px 'Poppins', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #222; cursor: pointer; }
-        .menu-toggle span { display: grid; gap: 4px; }
-        .menu-toggle span i { display: block; width: 22px; height: 2px; background: var(--primary); border-radius: 2px; }
+        @media (max-width: 1300px) { .menu-list > li > a, .menu-list > li > button { padding-left: 8px; padding-right: 8px; } }
+
+        /* ── The menu as a drawer: on a phone or tablet, and on any screen its
+           groups do not fit on one row of (the script after the menu decides,
+           html.nav-drawer). The bar shows the school and a Menu button; the
+           menu slides in from the right over a dimmed page, with the school
+           at its head, each group opening under itself (the current page's
+           group already open) and Call / Login at its foot. ── */
+        .nav-drawer .menu-bar { justify-content: space-between; gap: 12px; min-height: 54px; }
+        .nav-drawer .menu-brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 700; font-size: 13px; line-height: 1.2; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); }
+        .mb-logo { flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+        .mb-logo img, .mb-logo svg { max-width: 36px; max-height: 36px; width: auto; height: auto; object-fit: contain; }
+        .mb-logo svg { width: 36px; height: 36px; }
+        .nav-drawer .menu-brand > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* The school in the bar only once the masthead above has scrolled away. */
+        .nav-drawer .menu-brand { opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .25s, transform .25s, visibility .25s; }
+        .nav-drawer .menu.stuck .menu-brand { opacity: 1; visibility: visible; transform: none; }
+        .nav-drawer .menu-toggle { display: inline-flex; flex: none; align-items: center; gap: 10px; padding: 10px 2px; background: none; border: 0; font: 600 12px 'Poppins', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #222; cursor: pointer; }
+        .menu-toggle .bars { position: relative; width: 24px; height: 16px; }
+        .menu-toggle .bars i { position: absolute; left: 0; width: 100%; height: 2px; border-radius: 2px; background: var(--primary); transition: top .3s, transform .3s, opacity .2s; }
+        .menu-toggle .bars i:nth-child(1) { top: 0; }
+        .menu-toggle .bars i:nth-child(2) { top: 7px; }
+        .menu-toggle .bars i:nth-child(3) { top: 14px; }
+        .menu.open .menu-toggle .bars i:nth-child(1) { top: 7px; transform: rotate(45deg); }
+        .menu.open .menu-toggle .bars i:nth-child(2) { opacity: 0; }
+        .menu.open .menu-toggle .bars i:nth-child(3) { top: 7px; transform: rotate(-45deg); }
+        .nav-drawer .menu.open { z-index: 150; }
+        /* The drawer and its shade live in a layer the size of the window that
+           clips them, so the drawer waiting off the right edge never makes the
+           page wider; on a wide screen the layer is no box at all. Slides only
+           once the page has opened (html.nav-anim), never while it loads. */
+        .menu-layer { display: contents; }
+        .nav-drawer .menu-layer { display: block; position: fixed; inset: 0; overflow: hidden; pointer-events: none; visibility: hidden; }
+        .nav-drawer .menu.open .menu-layer { pointer-events: auto; visibility: visible; }
+        .nav-drawer .menu-shade { display: block; position: absolute; inset: 0; background: rgba(15,18,30,.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); opacity: 0; }
+        .nav-drawer .menu.open .menu-shade { opacity: 1; }
+        .nav-drawer .menu-panel {
+            position: absolute; top: 0; right: 0; bottom: 0; width: min(86vw, 360px); display: flex; flex-direction: column;
+            background: #fff; box-shadow: -14px 0 40px rgba(0,0,0,.18); transform: translateX(105%);
+        }
+        .nav-drawer .menu.open .menu-panel { transform: none; }
+        .nav-anim.nav-drawer .menu-layer { transition: visibility .38s; }
+        .nav-anim.nav-drawer .menu-shade { transition: opacity .3s; }
+        .nav-anim.nav-drawer .menu-panel { transition: transform .38s cubic-bezier(.16,1,.3,1); }
+        .nav-drawer .menu-panel-head { display: flex; align-items: center; gap: 12px; padding: 14px 12px 14px 18px; background: var(--light); border-bottom: 3px solid var(--primary); }
+        .menu-panel-head b { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.3; letter-spacing: .03em; text-transform: uppercase; color: var(--primary); }
+        .menu-close { flex: none; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #fff; color: #333; font-size: 24px; line-height: 1; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+        .nav-drawer .menu-list { display: block; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 10px; }
+        .nav-drawer .menu-list > li > a, .nav-drawer .menu-list > li > button { width: 100%; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #F1F1F3; font-size: 13px; font-weight: 500; letter-spacing: .03em; }
+        .nav-drawer .menu-list > li.is-active > a, .nav-drawer .menu-list > li.is-active > button { color: var(--primary); box-shadow: inset 3px 0 0 var(--primary); }
+        .nav-drawer .menu-list .chev { width: 12px; height: 12px; }
+        .nav-drawer .drop { position: static; display: none; min-width: 0; max-height: none; opacity: 1; visibility: visible; transform: none; box-shadow: none; border-top: 0; background: #FAFAFB; }
+        .nav-drawer .menu-list > li.open > .drop { display: block; animation: drop-in .25s ease; }
+        .nav-drawer .menu-list > li.open .chev { transform: rotate(180deg); }
+        .nav-drawer .drop a { padding: 12px 18px 12px 32px; font-size: 13px; }
+        .nav-drawer .drop a.active { font-weight: 600; }
+        .nav-drawer .menu-panel-foot { display: flex; gap: 10px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+        .menu-panel-foot .btn { flex: 1; padding: 11px 12px; }
+        @keyframes drop-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+        html.menu-lock, html.menu-lock body { overflow: hidden; }
 
         /* ══════════ PAGE + CARDS ══════════ */
         main { min-height: 40vh; }
@@ -188,6 +249,11 @@
         .tbl tbody tr:nth-child(even) td { background: #FAFAFB; }
         .tbl tbody tr:hover td { background: var(--light); }
 
+        /* A PDF on a phone: a tile that opens it (see document.blade.php). */
+        .doc-tap { display: none; flex-direction: column; align-items: center; gap: 6px; padding: 26px 16px; border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--line)); border-radius: 10px; background: var(--light); color: var(--primary); text-align: center; }
+        .doc-tap b { color: #222; font-size: 15px; line-height: 1.35; }
+        .doc-tap span { font-size: 12.5px; color: var(--muted); }
+
         /* ══════════ PHOTO GRID + LIGHTBOX ══════════ */
         .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
         .photos figure { background: #fff; border: 1px solid var(--line); }
@@ -227,23 +293,38 @@
         .to-top { position: fixed; right: 18px; bottom: 18px; width: 42px; height: 42px; border-radius: 4px; background: var(--primary); color: #fff; display: none; align-items: center; justify-content: center; z-index: 80; box-shadow: 0 6px 18px rgba(0,0,0,.2); font-size: 18px; }
         .to-top.show { display: flex; }
 
+        /* ══════════ SCROLL ANIMATIONS ══════════
+           As on the SUPERLMS site: blocks tilt up out of the page as they
+           scroll into view, a row of them one after another (the script at
+           the foot tags them; a block already on screen is left as it is). */
+        .ed-anim-on {
+            opacity: 0; will-change: opacity, transform; transform-style: preserve-3d; backface-visibility: hidden;
+            transition: opacity .85s cubic-bezier(.16,1,.3,1), transform .85s cubic-bezier(.16,1,.3,1);
+        }
+        .ed-anim-on.ed-up    { transform: perspective(1400px) rotateX(14deg) translateY(46px) translateZ(-60px); transform-origin: center top; }
+        .ed-anim-on.ed-left  { transform: perspective(1400px) rotateY(-18deg) translateX(-60px) translateZ(-60px); transform-origin: left center; }
+        .ed-anim-on.ed-right { transform: perspective(1400px) rotateY(18deg) translateX(60px) translateZ(-60px); transform-origin: right center; }
+        .ed-anim-on.ed-zoom  { transform: perspective(1400px) rotateX(16deg) scale(.9) translateY(34px); transform-origin: center top; }
+        .ed-anim-on.ed-flip  { transform: perspective(1400px) rotateX(34deg) translateY(40px); transform-origin: center top; }
+        .ed-anim-on.ed-shown { opacity: 1; transform: perspective(1400px) rotateX(0) rotateY(0) translate3d(0,0,0) scale(1); }
+        /* The page's title rises in as the page opens. */
+        .banner h1 { animation: title-in .9s cubic-bezier(.16,1,.3,1) both .1s; }
+        @keyframes title-in { from { opacity: 0; transform: perspective(900px) rotateX(40deg) translateY(24px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) {
+            .ed-anim-on { opacity: 1 !important; transform: none !important; transition: none !important; }
+            .banner h1 { animation: none; }
+        }
+
         /* ══════════ RESPONSIVE ══════════ */
         @media (max-width: 1020px) {
-            .menu-toggle { display: flex; }
-            .menu-list { display: none; flex-direction: column; padding-bottom: 8px; }
-            .menu.open .menu-list { display: flex; }
-            .menu-list > li > a, .menu-list > li > button { width: 100%; justify-content: space-between; padding: 11px 4px; border-top: 1px solid #F0F0F0; font-size: 12.5px; }
-            .drop { position: static; opacity: 1; visibility: visible; transform: none; display: none; box-shadow: none; border-top: 0; max-height: none; background: #FAFAFA; }
-            .menu-list > li.open > .drop { display: block; }
-            .menu-list > li.open .chev { transform: rotate(180deg); }
-            .drop a { padding-left: 18px; }
-            .menu { max-height: 100vh; overflow-y: auto; }
             .foot-grid { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 720px) {
-            .strip-in { flex-direction: column; justify-content: center; text-align: center; gap: 2px; }
-            .strip-links { justify-content: center; gap: 0 14px; }
+            .strip { font-size: 12px; }
+            .strip-in { flex-direction: column; justify-content: center; text-align: center; gap: 1px; }
+            .strip-links { justify-content: center; gap: 0 16px; }
             .strip-links > * + *::before { display: none; }
+            .strip-links .s-soc { display: none; }   /* in the footer — the strip keeps the phone and Login */
             .mast-in { grid-template-columns: 64px 1fr 56px; gap: 10px; padding-top: 10px; padding-bottom: 10px; }
             .mast-logo, .mast-board { height: 64px; }
             .mast-logo img { max-height: 64px; }
@@ -253,10 +334,53 @@
             .mast-wheel { width: 200px; height: 200px; }
             .mast-motto { margin-top: 4px; }
             .card { padding: 22px 18px; }
+            .card + .card { margin-top: 16px; }
             .page { padding: 20px 0 40px; }
             .sform-grid { grid-template-columns: 1fr; }
-            .foot-grid { grid-template-columns: 1fr; gap: 26px; }
+            /* 16px: a phone zooms in on a smaller box when it is tapped. */
+            .sform input, .sform select, .sform textarea, .lms-card .lms-form input, .lms-card .lms-form select, .lms-card .lms-form textarea { font-size: 16px; }
+            .sform-foot .btn { flex: 1; padding: 12px 20px; }
+            .foot-grid { grid-template-columns: 1fr; gap: 26px; padding-top: 36px; padding-bottom: 26px; }
+            .foot-bottom { flex-direction: column; text-align: center; padding-bottom: 76px; }
             .wrap { padding: 0 16px; }
+            .photos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .photos figcaption { padding: 5px 6px; font-size: 11.5px; line-height: 1.35; }
+            .lb { padding: 60px 8px; }
+            .lb button { width: 38px; height: 38px; font-size: 19px; }
+            .lb .lb-p, .lb .lb-n { top: auto; bottom: 12px; transform: none; }
+            .lb .lb-p { left: calc(50% - 46px); }
+            .lb .lb-n { right: calc(50% - 46px); }
+            .map { height: 300px !important; }
+            .doc-embed { display: none; }
+            .doc-tap { display: flex; }
+            .to-top { right: 14px; bottom: 14px; width: 40px; height: 40px; }
+        }
+
+        /* ══════════ TABLES ON A PHONE ══════════
+           A row becomes a card: its title (the bold column) on top, then each
+           value under the column's name (data-label, set by the script from
+           the table's head). Nothing to swipe sideways. */
+        @media (max-width: 640px) {
+            .tbl-wrap, .lms-scroll { overflow: visible; }
+            .tbl thead, .lms-tbl thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+            .tbl, .tbl tbody, .lms-tbl, .lms-tbl tbody { display: block; width: 100%; }
+            .tbl tr, .lms-tbl tr { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+            .lms-tbl tr { margin: 10px 12px; }
+            .lms-tbl tbody tr:first-child { margin-top: 12px; }
+            .tbl td, .lms-tbl td {
+                display: flex; justify-content: space-between; align-items: baseline; gap: 14px; width: auto !important; min-width: 0 !important;
+                padding: 6px 0 !important; border: 0 !important; background: none !important; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere;
+            }
+            .tbl td::before, .lms-tbl td::before { content: attr(data-label); flex: none; max-width: 48%; text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9CA3AF; }
+            .tbl td:not([data-label]), .lms-tbl td:not([data-label]), .tbl td[data-label=""], .lms-tbl td[data-label=""] { justify-content: flex-start; text-align: left !important; }
+            .tbl td:not([data-label])::before, .lms-tbl td:not([data-label])::before { content: none; }
+            .tbl td.sno, .lms-tbl td.sno { display: none; }
+            .tbl td.strong, .lms-tbl td.strong { order: -1; justify-content: flex-start; text-align: left !important; font-size: 15px; font-weight: 600; color: #111827; padding: 6px 0 9px !important; margin-bottom: 3px; border-bottom: 1px solid #F1F2F4 !important; }
+            .tbl td.strong::before, .lms-tbl td.strong::before { content: none; }
+            .tbl td.desc, .lms-tbl td.desc { flex-direction: column; align-items: flex-start; gap: 2px; text-align: left !important; }
+            .tbl td.desc::before, .lms-tbl td.desc::before { max-width: none; }
+            .tbl td.muted-note { justify-content: center; text-align: center !important; }
+            .tbl td.muted-note::before { content: none; }
         }
     </style>
     @stack('styles')
@@ -274,10 +398,10 @@
             </div>
             <div class="strip-links">
                 @foreach ($socials as $label => $url)
-                    <a href="{{ $url }}" target="_blank" rel="noopener">{{ $label }}</a>
+                    <a href="{{ $url }}" target="_blank" rel="noopener" class="s-soc">{{ $label }}</a>
                 @endforeach
                 @if (!empty($c['phone']))
-                    <a href="tel:{{ preg_replace('/[^0-9+]/', '', explode(',', $c['phone'])[0]) }}">{{ $c['phone'] }}</a>
+                    <a href="tel:{{ $tel }}">{{ $c['phone'] }}</a>
                 @endif
                 <a href="{{ $site->adminLoginUrl() }}" target="_blank" rel="noopener">Login</a>
             </div>
@@ -314,10 +438,22 @@
 
     {{-- ══════════ MENU ══════════ --}}
     <nav class="menu" id="menu" aria-label="Main">
-        <div class="wrap">
-            <button class="menu-toggle" type="button" id="menuToggle" aria-expanded="false" aria-controls="menuList">
-                Menu <span aria-hidden="true"><i></i><i></i><i></i></span>
+        <div class="wrap menu-bar">
+            <a href="{{ url('/') }}" class="menu-brand" aria-label="{{ $c['school_name'] }} — Home">
+                <span class="mb-logo">@include('school-site.classic.partials.logo', ['sealId' => 'bar'])</span>
+                <span>{{ $c['school_name'] }}</span>
+            </a>
+            <button class="menu-toggle" type="button" id="menuToggle" aria-expanded="false" aria-controls="menuPanel">
+                Menu <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
             </button>
+            <div class="menu-layer">
+            <div class="menu-shade" data-menu-close></div>
+            <div class="menu-panel" id="menuPanel">
+            <div class="menu-panel-head">
+                <span class="mb-logo">@include('school-site.classic.partials.logo', ['sealId' => 'drawer'])</span>
+                <b>{{ $c['school_name'] }}</b>
+                <button type="button" class="menu-close" data-menu-close aria-label="Close menu">&times;</button>
+            </div>
             <ul class="menu-list" id="menuList">
                 @foreach ($nav as $group => $items)
                     @php $isActive = array_key_exists($current, $items); @endphp
@@ -339,8 +475,33 @@
                     @endif
                 @endforeach
             </ul>
+            <div class="menu-panel-foot">
+                @if ($tel !== '')<a class="btn" href="tel:{{ $tel }}">Call Us</a>@endif
+                <a class="btn btn-ghost" href="{{ $site->adminLoginUrl() }}" target="_blank" rel="noopener">Login</a>
+            </div>
+            </div>
+            </div>
         </div>
     </nav>
+    <script>
+    // The menu is a drawer on a phone or tablet, and on any screen its groups
+    // do not fit on one row of (html.nav-drawer) — decided as soon as the
+    // menu is drawn, and again when the window or the fonts change it.
+    (function () {
+        var html = document.documentElement, list = document.getElementById('menuList');
+        window.__fitMenu = function () {
+            html.classList.remove('nav-drawer');
+            var drawer = window.innerWidth <= 1020;
+            if (!drawer && list && list.children.length > 1) {
+                var k = list.children;
+                drawer = k[k.length - 1].offsetTop > k[0].offsetTop + 4;
+            }
+            html.classList.toggle('nav-drawer', drawer);
+            return drawer;
+        };
+        window.__fitMenu();
+    })();
+    </script>
 
     <main>
         @yield('content')
@@ -411,19 +572,23 @@
             nameEl.style.fontSize = Math.max(least, Math.floor(full * room / need * 10) / 10 - .3) + 'px';
             if (nameEl.scrollWidth > room) nameEl.style.whiteSpace = 'normal';
         }
-        fitName();
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitName);
-        window.addEventListener('load', fitName);
-        var fitTimer;
-        window.addEventListener('resize', function () { clearTimeout(fitTimer); fitTimer = setTimeout(fitName, 100); });
-
-        // Mobile menu and its dropdowns.
+        // The menu drawer: the Menu button opens it, its ×, the dimmed page
+        // and Escape close it; the page underneath stays put while it is open.
         var menu = document.getElementById('menu');
         var toggle = document.getElementById('menuToggle');
-        if (toggle) toggle.addEventListener('click', function () {
-            var open = menu.classList.toggle('open');
+        function setMenu(open) {
+            menu.classList.toggle('open', open);
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        });
+            document.documentElement.classList.toggle('menu-lock', open);
+            if (open && !document.querySelector('.menu-list > li.open')) {
+                var here = document.querySelector('.menu-list > li.has-drop.is-active');
+                if (here) here.classList.add('open');
+            }
+        }
+        if (toggle) toggle.addEventListener('click', function () { setMenu(!menu.classList.contains('open')); });
+        document.querySelectorAll('[data-menu-close]').forEach(function (b) { b.addEventListener('click', function () { setMenu(false); }); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false); });
+        // A group opens under itself; another one open closes.
         document.querySelectorAll('.menu-list > li.has-drop > button').forEach(function (b) {
             b.addEventListener('click', function () {
                 var li = b.parentElement, was = li.classList.contains('open');
@@ -431,6 +596,93 @@
                 if (!was) li.classList.add('open');
             });
         });
+
+        function fitAll() {
+            fitName();
+            if (window.__fitMenu && !window.__fitMenu() && menu.classList.contains('open')) setMenu(false);
+        }
+        fitAll();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+        window.addEventListener('load', fitAll);
+        requestAnimationFrame(function () { requestAnimationFrame(function () { document.documentElement.classList.add('nav-anim'); }); });
+        var mast = document.querySelector('.mast');
+        if (mast && 'IntersectionObserver' in window) {
+            new IntersectionObserver(function (e) { menu.classList.toggle('stuck', !e[0].isIntersecting); }).observe(mast);
+        } else {
+            menu.classList.add('stuck');
+        }
+        var fitTimer;
+        window.addEventListener('resize', function () { clearTimeout(fitTimer); fitTimer = setTimeout(fitAll, 100); });
+
+        // Tables on a phone: each value carries its column's name (shown
+        // beside it when a row becomes a card).
+        document.querySelectorAll('table.tbl, table.lms-tbl').forEach(function (t) {
+            var heads = Array.prototype.map.call(t.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
+            if (!heads.length) return;
+            t.querySelectorAll('tbody tr').forEach(function (tr) {
+                if (tr.children.length !== heads.length) return;
+                Array.prototype.forEach.call(tr.children, function (td, i) { if (heads[i]) td.setAttribute('data-label', heads[i]); });
+            });
+        });
+
+        // Scroll animations, as on the SUPERLMS site: a block tilts up out of
+        // the page as it scrolls into view — the cards of a row one after
+        // another; a text-and-photo band from its two sides. A block already
+        // on screen when the page opens is left as it is, and every block
+        // animates once, then is plain again (so hovers keep working).
+        (function () {
+            if (!('IntersectionObserver' in window)) return;
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var ITEMS = '.sec-head, .feat, .band-text, .band .ph, .enroll .wrap > *, .photos figure, .team figure, .fac, .cls article, '
+                + '.vm > div, .vg > *, .leader, .lms-card, .desk > *, .side > *, .contact > *, .loc .map, .foot-grid > div';
+            var BLOCKS = 'main .card';
+            var phone = window.innerWidth <= 720;
+            var vh = window.innerHeight || document.documentElement.clientHeight;
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (!e.isIntersecting) return;
+                    var el = e.target, cleaned = false;
+                    io.unobserve(el);
+                    el.classList.add('ed-shown');
+                    var done = function (ev) {
+                        if ((ev && ev.target !== el) || cleaned) return;
+                        cleaned = true;
+                        el.classList.remove('ed-anim-on', 'ed-up', 'ed-left', 'ed-right', 'ed-zoom', 'ed-flip', 'ed-shown');
+                        el.style.transitionDelay = '';
+                        el.removeEventListener('transitionend', done);
+                    };
+                    el.addEventListener('transitionend', done);
+                    setTimeout(done, 1900);
+                });
+            }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+            function variant(el) {
+                if (el.classList.contains('sec-head')) return 'ed-flip';
+                if (el.matches('.enroll .wrap > *')) return 'ed-zoom';
+                if (!phone) {
+                    var rev = !!el.closest('.band.rev');
+                    if (el.classList.contains('band-text')) return rev ? 'ed-right' : 'ed-left';
+                    if (el.matches('.band .ph')) return rev ? 'ed-left' : 'ed-right';
+                    if (el.matches('.side > .ph, .contact > :last-child')) return 'ed-right';
+                }
+                return 'ed-up';
+            }
+            function tag(el) {
+                if (el.classList.contains('ed-anim-on') || (el.parentElement && el.parentElement.closest('.ed-anim-on'))) return;
+                if (el.getBoundingClientRect().top < vh * 0.88) return;   // already on screen: no flash
+                var idx = 0, sib = el.previousElementSibling;
+                while (sib) { idx++; sib = sib.previousElementSibling; }
+                el.classList.add('ed-anim-on', variant(el));
+                if (idx) el.style.transitionDelay = Math.min(idx, 7) * 70 + 'ms';
+                io.observe(el);
+            }
+            function init() {
+                document.querySelectorAll(ITEMS).forEach(tag);
+                // A card animates whole only when nothing in it does.
+                document.querySelectorAll(BLOCKS).forEach(function (el) { if (!el.querySelector('.ed-anim-on')) tag(el); });
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+        })();
 
         var top = document.getElementById('toTop');
         window.addEventListener('scroll', function () { top.classList.toggle('show', window.scrollY > 500); }, { passive: true });

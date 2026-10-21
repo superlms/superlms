@@ -41,7 +41,7 @@
                             <tbody>
                                 @foreach ($rows as $r)
                                     <tr>
-                                        <td style="font-weight:600;">{{ $r['year'] }}</td>
+                                        <td class="strong" style="font-weight:600;">{{ $r['year'] }}</td>
                                         <td style="text-align:right;">{{ number_format($r['appeared']) }}</td>
                                         <td style="text-align:right;">{{ number_format($r['passed']) }}</td>
                                         <td style="text-align:right;font-weight:600;color:var(--primary);">{{ number_format($r['pct'], 1) }}</td>

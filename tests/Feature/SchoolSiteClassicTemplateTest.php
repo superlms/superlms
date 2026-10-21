@@ -225,7 +225,9 @@ class SchoolSiteClassicTemplateTest extends TestCase
 
         [$status, $pdf] = $this->render($site, 'doc/1');
         $this->assertSame(200, $status);
-        $this->assertStringContainsString('<object data="https://example.com/aff.pdf" type="application/pdf"', $pdf);
+        $this->assertStringContainsString('<object class="doc-embed" data="https://example.com/aff.pdf" type="application/pdf"', $pdf);
+        // A phone cannot show a PDF in the page: a tile opens it instead.
+        $this->assertStringContainsString('<a class="doc-tap" href="https://example.com/aff.pdf" target="_blank"', $pdf);
         $this->assertStringContainsString('Click to Download', $pdf);
 
         [, $video] = $this->render($site, 'doc/3');
@@ -233,6 +235,46 @@ class SchoolSiteClassicTemplateTest extends TestCase
 
         $this->assertSame(404, $this->render($site, 'doc/2')[0]);   // not uploaded
         $this->assertSame(404, $this->render($site, 'doc/9')[0]);
+    }
+
+    /**
+     * User's ask of 2026-10-21: every page right on a phone — the menu a
+     * drawer (the school at its head, groups that open under themselves,
+     * Call and Login at its foot), tables a card a row, the facility cards a
+     * row to swipe — and blocks that animate in on scroll as on the SUPERLMS site.
+     */
+    public function test_the_site_is_made_for_phones_and_animates_on_scroll(): void
+    {
+        $site = $this->site(['phone' => '98765 43210, 98765 43211', 'facebook' => 'https://facebook.com/x',
+            'facilities' => [['title' => 'Library', 'desc' => 'Books'], ['title' => 'Labs', 'desc' => 'Science']]]);
+        [, $home] = $this->render($site, 'home');
+
+        // The drawer: its layer, the school at its head with a close, Call (the first number) and Login at its foot.
+        $this->assertStringContainsString('<div class="menu-layer">', $home);
+        $this->assertStringContainsString('aria-controls="menuPanel"', $home);
+        $this->assertStringContainsString('class="menu-close" data-menu-close aria-label="Close menu"', $home);
+        $this->assertStringContainsString('<a class="btn" href="tel:9876543210">Call Us</a>', $home);
+        $this->assertStringContainsString('<a class="btn btn-ghost" href="' . $site->adminLoginUrl() . '" target="_blank" rel="noopener">Login</a>', $home);
+        // Decided as the menu is drawn: a phone or tablet, or a menu that does not fit on one row.
+        $this->assertStringContainsString("html.classList.toggle('nav-drawer', drawer)", $home);
+        $this->assertStringContainsString('.nav-drawer .menu.open .menu-panel { transform: none; }', $home);
+        // The strip keeps the phone and Login on a phone; the social links are in the footer.
+        $this->assertStringContainsString('class="s-soc">Facebook</a>', $home);
+        // The facility cards swipe on a phone, with a hint.
+        $this->assertStringContainsString('scroll-snap-type: x mandatory', $home);
+        $this->assertStringContainsString('Swipe to see more', $home);
+        // Scroll animations: the platform's tilt-up, tagged by the script, off for reduced motion.
+        $this->assertStringContainsString('.ed-anim-on.ed-up    { transform: perspective(1400px) rotateX(14deg)', $home);
+        $this->assertStringContainsString("var ITEMS = '.sec-head, .feat, .band-text", $home);
+        $this->assertStringContainsString('@media (prefers-reduced-motion: reduce)', $home);
+        // Tables: a card a row on a phone, each value under its column's name.
+        $this->assertStringContainsString("td.setAttribute('data-label', heads[i])", $home);
+        $this->assertStringContainsString('.tbl td.strong, .lms-tbl td.strong { order: -1;', $home);
+
+        $site->content = ['documents' => ['disclosures' => [['title' => 'Affiliation Letter', 'file' => 'https://example.com/a.pdf', 'date' => 'Apr 2026']]]];
+        [, $docs] = $this->render($site, 'disclosures');
+        $this->assertStringContainsString('<td class="sno">1</td>', $docs);
+        $this->assertMatchesRegularExpression('#<td class="strong">\s*<a href="' . preg_quote(url('doc/1'), '#') . '"#', $docs);
     }
 
     public function test_every_classic_page_renders_and_classic_is_the_only_template(): void

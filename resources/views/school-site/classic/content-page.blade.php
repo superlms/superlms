@@ -25,7 +25,7 @@
     .photos-head { font-size: 15px; font-weight: 600; color: #222; margin: 26px 0 12px; }
     @media (max-width: 820px) {
         .desk, .side { grid-template-columns: 1fr; gap: 20px; }
-        .desk .ph { max-width: 240px; }
+        .desk .ph { width: 100%; max-width: 240px; margin: 0 auto; }
     }
 </style>
 @endpush

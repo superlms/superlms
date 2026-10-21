@@ -26,9 +26,15 @@
                                 allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
                     </div>
                 @elseif ($isPdf)
-                    <object data="{{ $docUrl }}" type="application/pdf" style="width:100%;height:80vh;min-height:520px;border:1px solid var(--line);">
+                    {{-- A phone's browser cannot show a PDF inside a page: there it is opened with the button. --}}
+                    <object class="doc-embed" data="{{ $docUrl }}" type="application/pdf" style="width:100%;height:80vh;min-height:520px;border:1px solid var(--line);">
                         <p class="muted-note">This document cannot be shown here — use Click to Download below.</p>
                     </object>
+                    <a class="doc-tap" href="{{ $docUrl }}" target="_blank" rel="noopener">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+                        <b>{{ $document['title'] }}</b>
+                        <span>PDF — tap to open</span>
+                    </a>
                 @elseif ($isImage)
                     <a href="{{ $docUrl }}" target="_blank" rel="noopener"><img src="{{ $docUrl }}" alt="{{ $document['title'] }}" style="margin:0 auto;border:1px solid var(--line);"></a>
                 @endif
