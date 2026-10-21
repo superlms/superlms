@@ -89,10 +89,12 @@
         .mast-logo img, .mast-board img { max-height: 104px; width: auto; object-fit: contain; }
         .mast-logo svg, .mast-board svg { width: 100px; height: 100px; }
         .mast-text { text-align: center; min-width: 0; }
+        /* The school's name on one line: a long one is made smaller to fit
+           (the script below), and wraps only on a phone too narrow for it. */
         .mast-name {
             display: block; color: var(--primary); font-weight: 800; text-transform: uppercase;
             font-size: clamp(24px, 4.3vw, 58px); line-height: 1.08; letter-spacing: .06em;
-            text-shadow: 0 1px 0 rgba(255,255,255,.6);
+            text-shadow: 0 1px 0 rgba(255,255,255,.6); white-space: nowrap;
         }
         .mast-motto { margin-top: 8px; font-weight: 700; font-size: clamp(12px, 1.25vw, 15px); color: #222; line-height: 1.35; }
         .mast-medium { font-weight: 600; font-size: clamp(11px, 1.05vw, 13.5px); color: #444; line-height: 1.35; }
@@ -394,6 +396,27 @@
 
     <script>
     (function () {
+        // The school's name on one line: a name too long for its space at
+        // the full size is made smaller until it fits; below the smallest
+        // size worth reading (a narrow phone) it wraps instead.
+        var nameEl = document.querySelector('.mast-name');
+        function fitName() {
+            if (!nameEl) return;
+            nameEl.style.fontSize = '';
+            nameEl.style.whiteSpace = 'nowrap';
+            var room = nameEl.parentNode.clientWidth, need = nameEl.scrollWidth;
+            if (!room || need <= room) return;
+            var full = parseFloat(getComputedStyle(nameEl).fontSize);
+            var least = 14;
+            nameEl.style.fontSize = Math.max(least, Math.floor(full * room / need * 10) / 10 - .3) + 'px';
+            if (nameEl.scrollWidth > room) nameEl.style.whiteSpace = 'normal';
+        }
+        fitName();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitName);
+        window.addEventListener('load', fitName);
+        var fitTimer;
+        window.addEventListener('resize', function () { clearTimeout(fitTimer); fitTimer = setTimeout(fitName, 100); });
+
         // Mobile menu and its dropdowns.
         var menu = document.getElementById('menu');
         var toggle = document.getElementById('menuToggle');

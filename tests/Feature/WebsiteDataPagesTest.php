@@ -87,6 +87,55 @@ class WebsiteDataPagesTest extends TestCase
     }
 
     /**
+     * User's asks of 2026-10-21: each page's header has an Enabled / Disabled
+     * switch — on, the page shows on the site and in its menu; off, it is gone
+     * from both; Save answers with what its popup says; the header strips
+     * stay whole while the page scrolls (data-lms-pin).
+     */
+    public function test_a_page_is_switched_on_or_off_from_its_header_and_save_says_it_is_saved(): void
+    {
+        // Created quietly: a site created live tells the super admins.
+        SchoolWebsite::withoutEvents(fn () => $this->website(['domain' => 'sunrise.test', 'status' => true, 'pages' => ['home', 'about', 'campus-life'],
+            'content' => ['pages' => ['campus-life' => ['heading' => 'Campus', 'body' => 'Green and open.']]]]));
+
+        $wd = Livewire::test(WebsiteData::class)->call('openPage', 'campus-life');
+        $this->assertStringContainsString('data-lms-pin', $wd->html());
+        $this->assertStringContainsString('aria-checked="true"', $wd->html());
+        $wd->assertSee(['Enabled', 'View page'])->assertDontSee('it is not shown on your website or in its menu');
+
+        // Off: gone from the site and its menu; the page says so, and View page goes.
+        $wd->call('setPageOn', false)->assertReturned(['title' => 'Campus & School Life is disabled', 'sub' => 'It no longer shows on your website.']);
+        $this->assertSame(['home', 'about'], SchoolWebsite::first()->pages);
+        $this->assertSame(404, $this->render('campus-life')[0]);
+        $this->assertStringNotContainsString('href="http://localhost/campus-life"', $this->render('home')[1]);
+        $this->assertStringContainsString('aria-checked="false"', $wd->html());
+        $wd->assertSee(['Disabled', 'it is not shown on your website or in its menu'])->assertDontSee('View page');
+        $wd->call('back');
+        $this->assertStringContainsString('Campus & School Life Disabled', $this->text($wd));
+
+        // On again: back on the site, in the catalogue's order; what was written is kept.
+        $wd->call('openPage', 'campus-life')->call('setPageOn', true)
+            ->assertReturned(['title' => 'Campus & School Life is enabled', 'sub' => 'It now shows on your website and in its menu.']);
+        $this->assertSame(['home', 'about', 'campus-life'], SchoolWebsite::first()->pages);
+        $this->assertSame(200, $this->render('campus-life')[0]);
+        $this->assertStringContainsString('Green and open.', $this->render('campus-life')[1]);
+
+        // Save answers with the popup's words; a page that is not saved answers nothing.
+        $wd->set('data.body', 'Green, open and safe.')->call('save')
+            ->assertReturned(['title' => 'This data has been saved', 'sub' => 'Campus & School Life is updated on your website.'])
+            ->assertSet('dirty', false);
+        $this->assertSame('Green, open and safe.', SchoolWebsite::first()->content['pages']['campus-life']['body']);
+        Livewire::test(WebsiteData::class)->call('openPage', 'details')->set('data.school_name', '')->call('save')
+            ->assertHasErrors('data.school_name')->assertReturned(null);
+
+        // Home and School Details have no switch.
+        Livewire::test(WebsiteData::class)->call('openPage', 'home')->assertDontSee('role="switch"', false)
+            ->call('setPageOn', false)->assertReturned(null);
+        Livewire::test(WebsiteData::class)->call('openPage', 'details')->assertDontSee('role="switch"', false);
+        $this->assertSame(['home', 'about', 'campus-life'], SchoolWebsite::first()->pages);
+    }
+
+    /**
      * The site's menus as tiles in Quick Links' look (user's ask of
      * 2026-10-21); a menu's tile opens its pages as tiles, a page's tile opens
      * its data full width, and Back steps out a level at a time.
@@ -102,18 +151,20 @@ class WebsiteDataPagesTest extends TestCase
         $wd   = Livewire::test(WebsiteData::class)->assertSet('open', '')->assertSet('group', '');
         $text = $this->text($wd);
 
-        // School first, then the site's menus in order, each with how many of
-        // its pages are filled in; no pages yet.
-        $this->assertStringContainsString('School 1/1 filled Home 1/1 filled About Us 2/3 filled Photogallery 0/1 filled Mandatory Disclosure 0/1 filled Contact 1/1 filled', $text);
-        $this->assertStringContainsString("{$off} more pages switched off", $text);
+        // School first, then every menu of the site in order, each with how
+        // many of its enabled pages are filled in — a menu with none enabled
+        // says Disabled; no pages yet.
+        $this->assertStringContainsString('School 1/1 filled Home 1/1 filled About Us 2/3 filled Messaging Disabled Features Disabled '
+            . 'Photogallery 0/1 filled Online Admission Disabled Curriculum Disabled Mandatory Disclosure 0/1 filled Contact 1/1 filled More Disabled', $text);
+        $this->assertStringContainsString("{$off} pages disabled", $text);
         $this->assertStringNotContainsString('Campus & School Life', $text);
 
-        // A menu: its pages as tiles, each Filled / Empty / Form; what goes in
-        // it is the tile's tooltip. The other menus are gone.
+        // A menu: its pages as tiles, each Filled / Empty / Form, or Disabled;
+        // what goes in it is the tile's tooltip. The other menus are gone.
         $wd->call('openGroup', 'About Us')->assertSet('group', 'About Us')->assertSet('open', '');
         $text = $this->text($wd);
         $this->assertStringContainsString('About Us Website Data › About Us', $text);
-        $this->assertStringContainsString('About School Filled Vision Empty Campus & School Life Filled', $text);
+        $this->assertStringContainsString('About School Filled Mission Disabled Vision Empty Values & Goals Disabled Campus & School Life Filled', $text);
         $this->assertStringContainsString('title="Text · Photo beside the text · More photos"', $wd->html());
         $this->assertStringNotContainsString('Photogallery', $text);
 
@@ -125,10 +176,10 @@ class WebsiteDataPagesTest extends TestCase
         $wd->call('back')->assertSet('open', '')->assertSet('group', '');
 
         // A menu of one page opens that page at once, and its Back is to the menus.
-        $wd->call('openGroup', 'Photogallery')->assertSet('group', 'Photogallery')->assertSet('open', 'gallery');
+        $wd->call('openGroup', 'Mandatory Disclosure')->assertSet('group', 'Mandatory Disclosure')->assertSet('open', 'disclosures');
         $wd->call('back')->assertSet('open', '')->assertSet('group', '');
         $wd->call('openGroup', 'Contact')->assertSet('open', '');
-        $this->assertStringContainsString('Contact Us Filled Query Form', $this->text($wd));   // Contact Us: the profile's
+        $this->assertStringContainsString('Contact Us Filled Career Disabled Query Form Appointment Disabled', $this->text($wd));   // Contact Us: the profile's
         $this->assertStringContainsString('title="A form — nothing to fill in"', $wd->html());
         $wd->call('openGroup', 'School')->assertSet('open', 'details')->assertSee('School name');
 

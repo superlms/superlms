@@ -104,9 +104,11 @@ class WebsitePages
     }
 
     /**
-     * The list Website Data opens on: the pages switched on for the site,
-     * under the menus the site shows them in, each with what goes in it and
-     * whether anything is filled in (or read from the school's records); and
+     * The list Website Data opens on: every page of the site's template,
+     * under the menus the site shows them in, each with what goes in it,
+     * whether anything is filled in (or read from the school's records) and
+     * whether it is switched on (`on`) — a page switched off is listed too,
+     * so the school can switch it on again (user's ask of 2026-10-21); and
      * how many are switched off.
      */
     public static function listing(SchoolWebsite $site, ?SchoolSiteData $lms = null): array
@@ -116,7 +118,7 @@ class WebsitePages
         $enabled  = $site->enabledPages();
         $lms    ??= new SchoolSiteData($site->organization_id);
 
-        $row = function (string $slug) use ($template, $content, $lms) {
+        $row = function (string $slug) use ($template, $content, $lms, $enabled) {
             $page    = self::page($slug, $template);
             $counted = array_filter($page['blocks'], fn ($b) => self::counts($b));
             $live    = array_filter($page['blocks'], fn ($b) => $b['type'] === 'live');
@@ -129,15 +131,14 @@ class WebsitePages
                 'status'  => ! $shown ? 'form'
                     : (array_filter($counted, fn ($b) => self::isFilled($b, $content))
                         || array_filter($live, fn ($b) => self::hasLive($lms, $b['source'])) ? 'filled' : 'empty'),
+                'on'      => $slug === self::DETAILS || in_array($slug, $enabled, true),
             ];
         };
 
         $groups = [];
         foreach (SchoolWebsite::menuGroups($template) as $group => $pages) {
             foreach (array_keys($pages) as $slug) {
-                if (in_array($slug, $enabled, true)) {
-                    $groups[$group][$slug] = $row($slug);
-                }
+                $groups[$group][$slug] = $row($slug);
             }
         }
 

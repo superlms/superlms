@@ -27,9 +27,14 @@ use WireUi\Traits\WireUiActions;
  * Photos and files upload as soon as they are picked; Save writes the
  * page's blocks into the site's content and they are live.
  *
- * Only content is written here — the super admin's template, pages, theme,
- * domain and publish switch are left alone — and only what differs from the
- * school's profile, so the site keeps following its logo, phone and the rest.
+ * Content is written here — only what differs from the school's profile, so
+ * the site keeps following its logo, phone and the rest — and each page can
+ * be switched on or off for the site from its header (user's ask of
+ * 2026-10-21; the same list the Super Admin ticks pages in). The template,
+ * theme, domain and publish switch are the Super Admin's.
+ *
+ * Save and the switch answer with what the page's popup says: "Saving…"
+ * while the request runs, then that the data has been saved.
  */
 class WebsiteData extends Component
 {
@@ -365,17 +370,21 @@ class WebsiteData extends Component
 
     // ─── Save ────────────────────────────────────────────────────────────
 
-    public function save(): void
+    /**
+     * Save the open page; what the popup then says — {title, sub} — or null
+     * when nothing was saved (the fields marked in red say why).
+     */
+    public function save(): ?array
     {
         if (! $this->organization) {
             $this->notification()->error('No organization', 'Could not resolve your school.');
 
-            return;
+            return null;
         }
         $site = $this->site();
         $page = $this->page();
         if (! $page) {
-            return;
+            return null;
         }
 
         $rules = $messages = [];
@@ -394,7 +403,41 @@ class WebsiteData extends Component
         $site->save();
 
         $this->dirty = false;
-        $this->notification()->success('Saved', "{$page['label']} is updated on your website.");
+        $this->listing = null;
+
+        return ['title' => 'This data has been saved', 'sub' => "{$page['label']} is updated on your website."];
+    }
+
+    // ─── On or off for the site ─────────────────────────────────────────
+
+    /** Whether a page can be switched off: every page but Home and School Details. */
+    public static function switchable(string $slug): bool
+    {
+        return $slug !== '' && $slug !== 'home' && $slug !== WebsitePages::DETAILS && SchoolWebsite::pageType($slug) !== null;
+    }
+
+    /**
+     * Switch the open page on (shown on the site, in its menu) or off (gone
+     * from the site and its menu); what the popup then says, or null.
+     */
+    public function setPageOn(bool $on): ?array
+    {
+        $page = $this->page();
+        if (! $this->organization || ! $page || ! self::switchable($this->open)) {
+            return null;
+        }
+
+        $site    = $this->site();
+        $enabled = $site->enabledPages();
+        $enabled = $on ? array_merge($enabled, [$this->open]) : array_diff($enabled, [$this->open]);
+        // Kept in the catalogue's order, as the Super Admin's Pages tab saves them.
+        $site->pages = array_values(array_intersect(array_keys(SchoolWebsite::allPages()), $enabled));
+        $site->save();
+        $this->listing = null;
+
+        return $on
+            ? ['title' => "{$page['label']} is enabled", 'sub' => 'It now shows on your website and in its menu.']
+            : ['title' => "{$page['label']} is disabled", 'sub' => 'It no longer shows on your website.'];
     }
 
     public function render()
@@ -408,9 +451,11 @@ class WebsiteData extends Component
             'page'    => $page,
             'menus'   => $this->menus(),
             'off'     => $this->listing()['off'],
+            'pageOn'  => $page && $site->isPageEnabled($this->open),
+            'canSwitch' => self::switchable($this->open),
             'lms'     => $this->lms(),
-            'pageUrl' => $live && $page
-                ? 'https://' . $site->domain . '/' . (in_array($this->open, ['home', WebsitePages::DETAILS], true) ? '' : $this->open)
+            'pageUrl' => $live && $page && ($this->open === WebsitePages::DETAILS || $site->isPageEnabled($this->open))
+                ?'https://' . $site->domain . '/' . (in_array($this->open, ['home', WebsitePages::DETAILS], true) ? '' : $this->open)
                 : null,
             'mapSrc'  => isset($this->data['location']) ? SchoolWebsite::mapSrc([
                 'school_name' => $site->resolvedContent()['school_name'] ?? '',
