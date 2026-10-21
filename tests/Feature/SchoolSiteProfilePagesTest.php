@@ -144,6 +144,31 @@ class SchoolSiteProfilePagesTest extends TestCase
         $this->assertStringContainsString('Values & Goals Filled', $text);
     }
 
+    /** User's ask of 2026-10-21: Our Team shows the team added on the School Profile. */
+    public function test_our_team_is_the_school_profiles_team(): void
+    {
+        // A list typed in Website Data earlier shows only while the profile has nobody.
+        $this->site(['content' => ['team' => [['name' => 'Old Member', 'role' => 'Clerk', 'photo' => '']]]]);
+        $this->assertStringContainsString('Old Member', $this->render('team'));
+
+        $infoId = DB::table('school_infos')->value('id');
+        DB::table('school_management_teams')->insert([
+            ['school_info_id' => $infoId, 'name' => 'Meera Rao', 'designation' => 'Principal', 'photo_path' => 'https://cdn.example.com/meera.jpg', 'sort_order' => 1],
+            ['school_info_id' => $infoId, 'name' => 'Arun Kumar', 'designation' => 'Manager', 'photo_path' => null, 'sort_order' => 0],
+        ]);
+
+        $team = $this->render('team');
+        // In the profile's order (each photo slot carries the hidden logo watermark).
+        $this->assertMatchesRegularExpression('/Arun Kumar Manager .*Meera Rao Principal/', $team);
+        $this->assertStringNotContainsString('Old Member', $team);
+
+        // Website Data's Our Team page is the profile's team, live — nothing to type there.
+        $page = Livewire::test(WebsiteData::class)->call('openPage', 'team')
+            ->assertSee(['Our Team', 'Live', 'From your School Profile', 'Arun Kumar', 'Meera Rao', 'Principal', 'https://cdn.example.com/meera.jpg', 'Open School Profile'])
+            ->assertDontSee(['Add member', 'Old Member']);
+        $this->assertSame([], $page->get('data'));
+    }
+
     public function test_a_site_with_history_on_gets_values_and_goals(): void
     {
         $this->site(['pages' => ['home', 'about', 'history', 'contact']]);

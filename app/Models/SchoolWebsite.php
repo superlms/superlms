@@ -473,6 +473,11 @@ class SchoolWebsite extends Model
                 $out[$key] = $text;
             }
         }
+        // Our Team is the School Profile's team; a list kept in Website Data
+        // shows only while the profile has nobody on it.
+        if (! empty($auto['team'])) {
+            $out['team'] = $auto['team'];
+        }
         return $out;
     }
 

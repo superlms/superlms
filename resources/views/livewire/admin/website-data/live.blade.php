@@ -2,8 +2,8 @@
     A live block of a Website Data page: what the site reads from the
     school's own records (App\Support\SchoolSiteData) — its classes with
     sections and subjects, its fee structure, its rules, its routes, the
-    session's events and the School Profile's about, vision, mission, values
-    and goals — shown as the site shows it now, with a link to where it is
+    session's events and the School Profile's about, vision, mission, values,
+    goals and team — shown as the site shows it now, with a link to where it is
     set up. Nothing to fill in here; a card in the About App editor's look.
     Params: $b (with its source), $lms.
 --}}
@@ -220,6 +220,48 @@
                     </div>
                 @else
                     <p class="px-5 py-4 text-sm text-gray-500">Not written yet — write it on your {{ $where }} (School Info) and it shows on your website by itself.</p>
+                @endif
+                @break
+
+            @case('team')
+                {{-- The profile's team as Mark Attendance lists its teachers:
+                     the photo (or the first letter) beside the name. --}}
+                @php $team = $lms->team(); @endphp
+                @if ($team)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $th }} w-px">S.No</th>
+                                    <th class="{{ $th }}">Member</th>
+                                    <th class="{{ $th }}">Designation</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($team as $i => $m)
+                                    @php $photo = \App\Models\SchoolWebsite::media($m['photo']); @endphp
+                                    <tr class="hover:bg-gray-50/70 transition-colors">
+                                        <td class="px-4 py-2.5 text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2.5">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                @if ($photo)
+                                                    <img src="{{ $photo }}" alt="" loading="lazy" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                @else
+                                                    <div class="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                                        <span class="text-xs font-semibold text-teal-600">{{ mb_strtoupper(mb_substr($m['name'], 0, 1)) }}</span>
+                                                    </div>
+                                                @endif
+                                                <span class="font-semibold text-gray-900 truncate">{{ $m['name'] }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-gray-700">{{ $m['role'] ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="px-5 py-4 text-sm text-gray-500">Nobody on your team yet — add them on your {{ $where }} (Management Team) and they show on your website by themselves.</p>
                 @endif
                 @break
         @endswitch

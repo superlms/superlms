@@ -61,6 +61,8 @@ class WebsitePages
         'vision'       => ['Vision', 'School Profile', 'admin.profile'],
         'mission'      => ['Mission', 'School Profile', 'admin.profile'],
         'values_goals' => ['Values & Goals', 'School Profile', 'admin.profile'],
+        // Our Team: the School Profile's team (user's ask of 2026-10-21).
+        'team'         => ['Our Team', 'School Profile', 'admin.profile'],
     ];
 
     /** The group School Details sits in, above the site's menus. */
@@ -342,6 +344,7 @@ class WebsitePages
             'events'    => (bool) $lms->events(),
             'about', 'vision', 'mission' => $lms->profile()[$source] !== '',
             'values_goals' => $lms->profile()['values'] . $lms->profile()['goals'] !== '',
+            'team'      => (bool) $lms->team(),
             default     => false,
         };
     }
@@ -562,11 +565,9 @@ class WebsitePages
                     ],
                     'add' => 'Add person'],
             ]],
-            'team' => ['Your staff, each with a photo.', [
-                ['id' => 'team', 'type' => 'list', 'path' => 'team', 'label' => 'Members', 'help' => 'Empty: the management team on your school profile.',
-                    'fields' => ['photo' => ['image', 'Photo'], 'name' => ['text', 'Name'], 'role' => ['text', 'Designation', 'e.g. PGT Physics']],
-                    'add' => 'Add member', 'bulk' => 'photo'],
-            ]],
+            // The members added to the School Profile's team, with their photos
+            // (user's ask of 2026-10-21) — added and changed there, not here.
+            'team' => ['The team on your School Profile, each with their photo and designation.', [self::live('team')]],
             'facilities' => ['A card for each facility — also the cards on the home page.', [
                 ['id' => 'facilities', 'type' => 'list', 'path' => 'facilities', 'label' => 'Facilities', 'help' => 'Empty: a starter set is shown.',
                     'fields' => [

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\RulesAndRegulation;
 use App\Models\Admin\SchoolInfo;
+use App\Models\Admin\SchoolManagementTeam;
 use App\Models\Admin\Transportation;
 use App\Models\Calendar\TimeTable;
 use App\Models\Student\Section;
@@ -244,6 +245,31 @@ class SchoolSiteData
                 'goals'   => $info->usm_goals,
             ]) : $empty;
         }, $empty);
+    }
+
+    /**
+     * The team on the School Profile, in its order — what the website's Our
+     * Team page shows: [{name, role, photo}].
+     */
+    public function team(): array
+    {
+        return $this->memo['team'] ??= $this->read(function () {
+            $infoId = SchoolInfo::where('organization_id', $this->orgId)->value('id');
+            if (! $infoId) {
+                return [];
+            }
+
+            return SchoolManagementTeam::where('school_info_id', $infoId)
+                ->orderBy('sort_order')->orderBy('id')
+                ->get(['name', 'designation', 'photo_path'])
+                ->map(fn ($m) => [
+                    'name'  => trim((string) $m->name),
+                    'role'  => trim((string) $m->designation),
+                    'photo' => trim((string) $m->photo_path),
+                ])
+                ->filter(fn ($m) => $m['name'] !== '')
+                ->values()->all();
+        });
     }
 
     /** This session: [1 April, 31 March, "2026-27"] — the school's year runs April to March. */
