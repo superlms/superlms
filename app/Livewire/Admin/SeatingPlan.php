@@ -189,16 +189,21 @@ class SeatingPlan extends Component
             ->get();
 
         $titles = [];
+        $owner  = []; // key => the sheet that set it
         foreach ($sheets as $sheet) {
             foreach ($sheet->papers as $paper) {
                 if (empty($paper->exam_date)) continue;
                 $key = $paper->exam_date->toDateString() . '|' . (int) ($paper->shift ?: 1);
-                // The first sheet seen wins, and section sheets come first.
-                $titles[$key] ??= $paper->subject->name ?? 'Paper';
+                // The first sheet seen wins, and section sheets come first;
+                // several subjects of that sheet in one slot read "Hindi / Sanskrit".
+                $owner[$key] ??= $sheet->id;
+                if ($owner[$key] === $sheet->id) {
+                    $titles[$key][] = $paper->subject->name ?? 'Paper';
+                }
             }
         }
 
-        return $titles;
+        return array_map(fn ($names) => implode(' / ', array_unique($names)), $titles);
     }
 
     /**
@@ -1026,10 +1031,13 @@ class SeatingPlan extends Component
     }
 
     /**
-     * Two papers clash when the same class sits both at once: the same date
-     * with overlapping times, or — when a paper carries no times — the same
-     * date and shift. Checked inside the form and against every datesheet the
-     * class already has, including the class-wide one a section inherits.
+     * Within one exam a class may sit several subjects in the same slot (the
+     * same date and start time, or the same shift when untimed) — electives
+     * such as Hindi / Sanskrit, or a stream's subjects. What is still a clash:
+     * papers of the exam that overlap without sharing the slot (a mistyped
+     * time), and any paper of another exam the class already has at that time.
+     * Checked inside the form and against every datesheet the class already
+     * has, including the class-wide one a section inherits.
      *
      * @return string[] one line per clash
      */
@@ -1049,12 +1057,13 @@ class SeatingPlan extends Component
 
         $clashes = [];
 
-        // Inside the form
+        // Inside the form: sharing a slot is fine, overlapping it is not.
         for ($i = 0; $i < count($rows); $i++) {
             for ($j = $i + 1; $j < count($rows); $j++) {
-                if ($this->papersOverlap($rows[$i], $rows[$j])) {
+                if ($this->papersOverlap($rows[$i], $rows[$j]) && !$this->papersShareSlot($rows[$i], $rows[$j])) {
                     $clashes[] = $rows[$i]['subject'] . ' and ' . $rows[$j]['subject']
-                        . ' are both on ' . $this->prettyDate($rows[$i]['date']) . ' at the same time.';
+                        . ' overlap on ' . $this->prettyDate($rows[$i]['date'])
+                        . '. Papers in the same slot must start at the same time.';
                 }
             }
         }
@@ -1088,7 +1097,7 @@ class SeatingPlan extends Component
             ->get([
                 'exam_datesheet_papers.exam_date', 'exam_datesheet_papers.start_time',
                 'exam_datesheet_papers.end_time', 'exam_datesheet_papers.shift',
-                's.name as subject_name', 'e.exam_name as exam_name',
+                's.name as subject_name', 'e.exam_name as exam_name', 'd.exam_id as exam_id',
             ]);
 
         foreach ($rows as $row) {
@@ -1099,7 +1108,8 @@ class SeatingPlan extends Component
                     'end'   => $old->end_time ? substr($old->end_time, 0, 5) : null,
                     'shift' => (int) ($old->shift ?: 1),
                 ];
-                if ($this->papersOverlap($row, $other)) {
+                $sameExam = (int) $old->exam_id === (int) $this->dsExamId;
+                if ($this->papersOverlap($row, $other) && !($sameExam && $this->papersShareSlot($row, $other))) {
                     $clashes[] = $row['subject'] . ' on ' . $this->prettyDate($row['date'])
                         . ' runs into ' . $old->subject_name
                         . ($old->exam_name ? ' (' . $old->exam_name . ')' : '')
@@ -1118,6 +1128,18 @@ class SeatingPlan extends Component
 
         if ($a['start'] && $a['end'] && $b['start'] && $b['end']) {
             return $a['start'] < $b['end'] && $b['start'] < $a['end'];
+        }
+
+        return (int) $a['shift'] === (int) $b['shift'];
+    }
+
+    /** One slot: the same day and start time — or the same shift when either is untimed. */
+    private function papersShareSlot(array $a, array $b): bool
+    {
+        if ($a['date'] !== $b['date']) return false;
+
+        if ($a['start'] && $b['start']) {
+            return $a['start'] === $b['start'];
         }
 
         return (int) $a['shift'] === (int) $b['shift'];

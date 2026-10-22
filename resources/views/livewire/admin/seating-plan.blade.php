@@ -839,7 +839,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $editDatesheetId ? 'Edit Datesheet' : 'Create Datesheet' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Pick an exam and class, then set the date, time &amp; shift per subject. One class cannot sit two papers at once.</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick an exam and class, then set the date, time &amp; shift per subject. Subjects taken side by side (e.g. Hindi / Sanskrit) can share a date and start time.</p>
                     </div>
                     <button wire:click="closeDatesheetPanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
