@@ -296,17 +296,25 @@
         /* ══════════ SCROLL ANIMATIONS ══════════
            As on the SUPERLMS site: blocks tilt up out of the page as they
            scroll into view, a row of them one after another (the script at
-           the foot tags them; a block already on screen is left as it is). */
-        .ed-anim-on {
-            opacity: 0; will-change: opacity, transform; transform-style: preserve-3d; backface-visibility: hidden;
-            transition: opacity .85s cubic-bezier(.16,1,.3,1), transform .85s cubic-bezier(.16,1,.3,1);
-        }
+           the foot tags them; a block already on screen is left as it is).
+           On a phone or tablet a block only fades in with a short rise
+           (ed-soft) — nothing tilts, and a block that fills the screen is
+           not moved at all, so the page never seems to slide under a finger.
+           The transition is on ed-shown alone: a block being tagged goes
+           out of sight at once instead of fading away first. */
+        .ed-anim-on { opacity: 0; }
         .ed-anim-on.ed-up    { transform: perspective(1400px) rotateX(14deg) translateY(46px) translateZ(-60px); transform-origin: center top; }
         .ed-anim-on.ed-left  { transform: perspective(1400px) rotateY(-18deg) translateX(-60px) translateZ(-60px); transform-origin: left center; }
         .ed-anim-on.ed-right { transform: perspective(1400px) rotateY(18deg) translateX(60px) translateZ(-60px); transform-origin: right center; }
         .ed-anim-on.ed-zoom  { transform: perspective(1400px) rotateX(16deg) scale(.9) translateY(34px); transform-origin: center top; }
         .ed-anim-on.ed-flip  { transform: perspective(1400px) rotateX(34deg) translateY(40px); transform-origin: center top; }
-        .ed-anim-on.ed-shown { opacity: 1; transform: perspective(1400px) rotateX(0) rotateY(0) translate3d(0,0,0) scale(1); }
+        .ed-anim-on.ed-soft  { transform: translateY(18px); }
+        .ed-anim-on.ed-shown {
+            opacity: 1; transform: perspective(1400px) rotateX(0) rotateY(0) translate3d(0,0,0) scale(1);
+            transition: opacity .85s cubic-bezier(.16,1,.3,1), transform .85s cubic-bezier(.16,1,.3,1);
+            transition-delay: var(--ed-delay, 0s);   /* a row's cards one after another */
+        }
+        .ed-anim-on.ed-soft.ed-shown { transform: none; transition-duration: .5s; }
         /* The page's title rises in as the page opens. */
         .banner h1 { animation: title-in .9s cubic-bezier(.16,1,.3,1) both .1s; }
         @keyframes title-in { from { opacity: 0; transform: perspective(900px) rotateX(40deg) translateY(24px); } to { opacity: 1; transform: none; } }
@@ -636,7 +644,7 @@
             var ITEMS = '.sec-head, .feat, .band-text, .band .ph, .enroll .wrap > *, .photos figure, .team figure, .fac, .cls article, '
                 + '.vm > div, .vg > *, .leader, .lms-card, .desk > *, .side > *, .contact > *, .loc .map, .foot-grid > div';
             var BLOCKS = 'main .card';
-            var phone = window.innerWidth <= 720;
+            var small = window.innerWidth <= 1020;   // a phone or tablet
             var vh = window.innerHeight || document.documentElement.clientHeight;
             var io = new IntersectionObserver(function (entries) {
                 entries.forEach(function (e) {
@@ -647,8 +655,8 @@
                     var done = function (ev) {
                         if ((ev && ev.target !== el) || cleaned) return;
                         cleaned = true;
-                        el.classList.remove('ed-anim-on', 'ed-up', 'ed-left', 'ed-right', 'ed-zoom', 'ed-flip', 'ed-shown');
-                        el.style.transitionDelay = '';
+                        el.classList.remove('ed-anim-on', 'ed-up', 'ed-left', 'ed-right', 'ed-zoom', 'ed-flip', 'ed-soft', 'ed-shown');
+                        el.style.removeProperty('--ed-delay');
                         el.removeEventListener('transitionend', done);
                     };
                     el.addEventListener('transitionend', done);
@@ -657,23 +665,34 @@
             }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
 
             function variant(el) {
+                if (small) return 'ed-soft';
                 if (el.classList.contains('sec-head')) return 'ed-flip';
                 if (el.matches('.enroll .wrap > *')) return 'ed-zoom';
-                if (!phone) {
-                    var rev = !!el.closest('.band.rev');
-                    if (el.classList.contains('band-text')) return rev ? 'ed-right' : 'ed-left';
-                    if (el.matches('.band .ph')) return rev ? 'ed-left' : 'ed-right';
-                    if (el.matches('.side > .ph, .contact > :last-child')) return 'ed-right';
-                }
+                var rev = !!el.closest('.band.rev');
+                if (el.classList.contains('band-text')) return rev ? 'ed-right' : 'ed-left';
+                if (el.matches('.band .ph')) return rev ? 'ed-left' : 'ed-right';
+                if (el.matches('.side > .ph, .contact > :last-child')) return 'ed-right';
                 return 'ed-up';
+            }
+            // A row that scrolls sideways (the facility cards on a phone):
+            // its cards come into view by a swipe, not by the page's scroll.
+            function inSwipeRow(el) {
+                for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+                    var o = getComputedStyle(p).overflowX;
+                    if (o === 'auto' || o === 'scroll') return true;
+                }
+                return false;
             }
             function tag(el) {
                 if (el.classList.contains('ed-anim-on') || (el.parentElement && el.parentElement.closest('.ed-anim-on'))) return;
                 if (el.getBoundingClientRect().top < vh * 0.88) return;   // already on screen: no flash
+                // On a phone or tablet a block that fills most of the screen is
+                // the page itself: moving it would slide the page under a finger.
+                if (small && (el.offsetHeight > vh * 0.6 || inSwipeRow(el))) return;
                 var idx = 0, sib = el.previousElementSibling;
                 while (sib) { idx++; sib = sib.previousElementSibling; }
                 el.classList.add('ed-anim-on', variant(el));
-                if (idx) el.style.transitionDelay = Math.min(idx, 7) * 70 + 'ms';
+                if (idx) el.style.setProperty('--ed-delay', Math.min(idx, 7) * 70 + 'ms');
                 io.observe(el);
             }
             function init() {
