@@ -51,7 +51,9 @@
 @push('styles')
 <style>
     /* ══════════ SLIDER ══════════ */
-    .slider { position: relative; height: clamp(240px, 41vw, 560px); overflow: hidden; background: var(--navy2); }
+    /* touch-action: a finger on the slider scrolls the page up and down; a
+       sideways swipe is the slider's own (the script below). */
+    .slider { position: relative; height: clamp(240px, 41vw, 560px); overflow: hidden; background: var(--navy2); touch-action: pan-y pinch-zoom; }
     .slide { position: absolute; inset: 0; transform: translateX(100%); transition: transform .9s cubic-bezier(.65, 0, .35, 1); }
     .slide.on { transform: none; }
     .slide > img { width: 100%; height: 100%; object-fit: cover; }
@@ -91,7 +93,9 @@
 
     /* ══════════ TEXT + PICTURE BANDS ══════════ */
     .band { background: #fff; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    .band-in { display: grid; grid-template-columns: 1fr 1fr; min-height: 420px; }
+    /* minmax(0, …): the photo's least height (with its aspect ratio) must not
+       widen its column past a narrow phone's screen. */
+    .band-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 420px; }
     .band-text { padding: 46px clamp(20px, 4vw, 56px); align-self: center; }
     .band-text h2 { font-size: clamp(20px, 2.1vw, 26px); font-weight: 700; line-height: 1.3; color: #111; margin-bottom: 16px; }
     .band .ph { min-height: 300px; height: 100%; }
@@ -125,12 +129,16 @@
         .welcome-logo { display: none; }   /* the logo is in the masthead just above */
         .sec-head { margin-bottom: 16px; }
         /* The facility cards: a row to swipe, the next card peeking in. */
-        .feat-grid { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 12px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        /* overscroll-behavior: a swipe past the last card stays in the row,
+           never reaching the browser (whose sideways swipe is "go back"). */
+        .feat-grid { display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 12px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
         .feat-grid::-webkit-scrollbar { display: none; }
         .feat { flex: 0 0 80%; scroll-snap-align: center; }
         .feat-hint { display: block; }
-        .band-in { grid-template-columns: 1fr; min-height: 0; }
-        .band .ph { min-height: 220px; aspect-ratio: 16 / 10; }
+        .band-in { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+        /* width: a grid item with an aspect ratio sizes its own width from it
+           (220px high → 352px wide), so it is held to the screen's. */
+        .band .ph { width: 100%; min-height: 220px; aspect-ratio: 16 / 10; }
         .band.rev .band-in > .ph { order: 0; }
         .band-text { padding: 28px 18px; }
         .enroll { padding: 34px 0; }
@@ -345,14 +353,23 @@
     root.addEventListener('mouseleave', play);
     document.addEventListener('visibilitychange', function () { document.hidden ? stop() : play(); });
 
-    var x0 = null;
-    root.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; stop(); }, { passive: true });
+    // A swipe across the slider changes the slide; a thumb scrolling the page
+    // over it never does, though it drifts sideways as it goes up: the move
+    // must be mostly sideways, and the page must not have scrolled.
+    var x0 = null, y0 = 0, sy0 = 0;
+    root.addEventListener('touchstart', function (e) {
+        if (e.touches.length !== 1) { x0 = null; return; }
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; sy0 = window.scrollY; stop();
+    }, { passive: true });
     root.addEventListener('touchend', function (e) {
-        if (x0 === null) return;
-        var dx = e.changedTouches[0].clientX - x0; x0 = null;
-        if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+        if (x0 === null) { play(); return; }
+        var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > 2 * Math.abs(dy) && Math.abs(window.scrollY - sy0) < 8) {
+            go(at + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+        }
         play();
-    });
+    }, { passive: true });
+    root.addEventListener('touchcancel', function () { x0 = null; play(); }, { passive: true });
     play();
 })();
 </script>

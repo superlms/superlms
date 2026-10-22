@@ -61,7 +61,13 @@
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { font-family: 'Poppins', Calibri, Arial, sans-serif; font-size: 14px; line-height: 1.75; color: var(--text); background: var(--page); overflow-x: hidden; }
+        /* Nothing can make the page wider than the screen, whatever a school
+           puts in it: clip (not hidden) cuts it off at the body, so a phone has
+           nothing to slide sideways to, and the menu still sticks to the top.
+           A browser without clip keeps the hidden above. */
+        html, body { overflow-x: clip; }
         img { max-width: 100%; display: block; }
+        iframe, video, embed, object { max-width: 100%; }
         a { color: inherit; text-decoration: none; }
         .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 20px; }
 
