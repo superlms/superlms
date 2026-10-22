@@ -34,6 +34,8 @@
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    {{-- A phone or tablet has the menu as a drawer from the first paint, not after the page's scripts. --}}
+    <script>if (window.innerWidth <= 1020) document.documentElement.classList.add('nav-drawer');</script>
     <title>{{ isset($title) ? $title . ' – ' . $c['school_name'] : $c['school_name'] . ($medium ? ' – ' . $medium : '') }}</title>
     <meta name="description" content="{{ Str::limit(strip_tags($c['about_text'] ?? ''), 150) }}">
     @if($logoUrl)<link href="{{ $logoUrl }}" rel="icon">@endif
@@ -347,6 +349,7 @@
             .mast-board svg { width: 54px; height: 54px; }
             .mast-wheel { width: 200px; height: 200px; }
             .mast-motto { margin-top: 4px; }
+            .mast-name { white-space: normal; }   /* until the script fits it: wrapped, never cut off */
             .card { padding: 22px 18px; }
             .card + .card { margin-top: 16px; }
             .page { padding: 20px 0 40px; }
@@ -504,13 +507,15 @@
     (function () {
         var html = document.documentElement, list = document.getElementById('menuList');
         window.__fitMenu = function () {
-            html.classList.remove('nav-drawer');
             var drawer = window.innerWidth <= 1020;
             if (!drawer && list && list.children.length > 1) {
+                // Measured as one row; a phone never needs to be, so its menu
+                // is never taken out of the drawer, even for a moment.
+                html.classList.remove('nav-drawer');
                 var k = list.children;
                 drawer = k[k.length - 1].offsetTop > k[0].offsetTop + 4;
             }
-            html.classList.toggle('nav-drawer', drawer);
+            if (html.classList.contains('nav-drawer') !== drawer) html.classList.toggle('nav-drawer', drawer);
             return drawer;
         };
         window.__fitMenu();
@@ -574,17 +579,28 @@
         // The school's name on one line: a name too long for its space at
         // the full size is made smaller until it fits; below the smallest
         // size worth reading (a narrow phone) it wraps instead.
+        // It is measured on an unseen copy, so the name on the page only ever
+        // changes to its final size: the page never shifts while it is fitted.
         var nameEl = document.querySelector('.mast-name');
         function fitName() {
             if (!nameEl) return;
-            nameEl.style.fontSize = '';
-            nameEl.style.whiteSpace = 'nowrap';
-            var room = nameEl.parentNode.clientWidth, need = nameEl.scrollWidth;
-            if (!room || need <= room) return;
-            var full = parseFloat(getComputedStyle(nameEl).fontSize);
-            var least = 14;
-            nameEl.style.fontSize = Math.max(least, Math.floor(full * room / need * 10) / 10 - .3) + 'px';
-            if (nameEl.scrollWidth > room) nameEl.style.whiteSpace = 'normal';
+            var box = nameEl.parentNode, room = box.clientWidth;
+            if (!room) return;
+            var probe = nameEl.cloneNode(true);
+            probe.removeAttribute('style');
+            probe.setAttribute('aria-hidden', 'true');
+            probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;width:auto;white-space:nowrap;';
+            box.appendChild(probe);
+            var size = '', wrap = 'nowrap', need = probe.scrollWidth;
+            if (need > room) {
+                var full = parseFloat(getComputedStyle(probe).fontSize), least = 14;
+                size = Math.max(least, Math.floor(full * room / need * 10) / 10 - .3) + 'px';
+                probe.style.fontSize = size;
+                if (probe.scrollWidth > room) wrap = 'normal';
+            }
+            box.removeChild(probe);
+            if (nameEl.style.fontSize !== size) nameEl.style.fontSize = size;
+            if (nameEl.style.whiteSpace !== wrap) nameEl.style.whiteSpace = wrap;
         }
         // The menu drawer: the Menu button opens it, its ×, the dimmed page
         // and Escape close it; the page underneath stays put while it is open.
@@ -625,8 +641,16 @@
         } else {
             menu.classList.add('stuck');
         }
-        var fitTimer;
-        window.addEventListener('resize', function () { clearTimeout(fitTimer); fitTimer = setTimeout(fitAll, 100); });
+        // Fitted again only when the window's width changes. On a phone the
+        // address bar hides and shows as the page scrolls, resizing the
+        // window's height over and over; nothing here depends on it, and
+        // fitting then moved the page under the reader's finger.
+        var fitTimer, fitWidth = window.innerWidth;
+        window.addEventListener('resize', function () {
+            if (window.innerWidth === fitWidth) return;
+            fitWidth = window.innerWidth;
+            clearTimeout(fitTimer); fitTimer = setTimeout(fitAll, 100);
+        });
 
         // Tables on a phone: each value carries its column's name (shown
         // beside it when a row becomes a card).
