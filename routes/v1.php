@@ -20,6 +20,7 @@ use App\Http\Controllers\v1\LibraryController;
 use App\Http\Controllers\v1\AccountsController;
 use App\Http\Controllers\v1\AdminController;
 use App\Http\Controllers\v1\AdminAnalyticsController;
+use App\Http\Controllers\v1\AdminPanelController;
 use App\Http\Controllers\v1\AdminChatController;
 use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
@@ -409,6 +410,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/analytics/school', [AdminAnalyticsController::class, 'analytics']);
             // The first admin app's analytics, for builds that still read it
             Route::get('/analytics', [AdminController::class, 'analytics']);
+            // The web panel's Dashboard and Analytics, figure for figure and in
+            // the panel's order (the same Livewire components, mounted for the app)
+            Route::get('/panel/home',      [AdminPanelController::class, 'home']);
+            Route::get('/panel/analytics', [AdminPanelController::class, 'analytics']);
+            Route::post('/panel/arrangement/{id}', [AdminPanelController::class, 'assignArrangement'])->whereNumber('id');
 
             // More → Admissions / Users / Rate LMS
             Route::get('/admissions', [AdminController::class, 'admissions']);

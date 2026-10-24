@@ -1215,24 +1215,29 @@ class Analytics extends Component
             ->where('status', self::TCH_ABSENT)
             ->pluck('teacher_detail_id');
 
-        // Load arrangements for absent teachers today
+        // Load arrangements for absent teachers today. The period is the
+        // arrangement's `timetable` (there is no teacherTimeTable relation: a
+        // day with an arrangement used to stop the page), and its time is the
+        // period's start – end. A teacher's name is their user's (a teacher's
+        // details hold none, so the names used to read blank).
         $this->arrangements = TeacherArrangement::with([
-            'originalTeacher',
+            'originalTeacher.user',
             'substituteTeacher',
-            'teacherTimeTable.standard',
-            'teacherTimeTable.section',
+            'timetable.standard',
+            'timetable.section',
         ])
             ->whereDate('date', $today)
             ->whereIn('original_teacher_id', $absentTeacherIds)
             ->get()
             ->map(fn($a) => [
                 'id'                    => $a->id,
-                'class'                 => $a->teacherTimeTable?->standard?->name ?? '—',
-                'section'               => $a->teacherTimeTable?->section?->name  ?? '—',
-                'absent_teacher'        => $a->originalTeacher?->name ?? '—',
-                'time'                  => $a->teacherTimeTable?->time
-                    ?? $a->teacherTimeTable?->period
-                    ?? '—',
+                'class'                 => $a->timetable?->standard?->name ?? '—',
+                'section'               => $a->timetable?->section?->name  ?? '—',
+                'absent_teacher'        => $a->originalTeacher?->user?->name ?? '—',
+                'time'                  => $a->timetable?->start_time
+                    ? Carbon::parse($a->timetable->start_time)->format('g:i A')
+                        . ($a->timetable->end_time ? ' – ' . Carbon::parse($a->timetable->end_time)->format('g:i A') : '')
+                    : '—',
                 'substitute_teacher_id' => $a->substitute_teacher_id,
                 'status'                => $a->substitute_teacher_id ? 'assigned' : 'pending',
             ])->toArray();
@@ -1240,9 +1245,10 @@ class Analytics extends Component
         // Available teachers = not absent today
         $this->availableTeachers = TeacherDetail::where('organization_id', $orgId)
             ->whereNotIn('id', $absentTeacherIds)
+            ->with('user:id,name')
             ->tap(fn ($q) => NameOrder::teachers($q))
             ->get()
-            ->map(fn($t) => ['id' => $t->id, 'name' => $t->name])
+            ->map(fn($t) => ['id' => $t->id, 'name' => $t->user?->name])
             ->toArray();
     }
 
