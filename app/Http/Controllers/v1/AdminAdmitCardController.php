@@ -4,18 +4,15 @@ namespace App\Http\Controllers\v1;
 
 use App\Http\Controllers\Admin\AdmitCardController as WebAdmitCardController;
 use App\Models\Admin\Exam;
-use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\AdmitCard as ModelAdmitCard;
 use App\Models\Student\Section;
-use App\Models\Student\SectionSubject;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
-use App\Models\Student\Subject;
+use App\Support\AdmitCardSchedule;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use App\Support\NameOrder;
 
 /**
@@ -274,6 +271,9 @@ class AdminAdmitCardController extends ApiController
         $card = ModelAdmitCard::with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section', 'organization'])
             ->where('organization_id', $user->organization_id)->find($id);
         if (!$card) return $this->error('Admit card not found.', 404);
+
+        // The schedule as the datesheet has it now, not as it was at issue.
+        AdmitCardSchedule::refresh([$card]);
 
         $seating = null;
         if ($card->room_number && $card->seat_number) $seating = 'R(' . $card->room_number . ')/ S(' . $card->seat_number . ')';
@@ -535,7 +535,7 @@ class AdminAdmitCardController extends ApiController
         }
 
         $orgId = $student->organization_id;
-        $subjects = $this->subjectsFromDatesheet($orgId, $exam->id, (int) $student->standard_id, $student->section_id ? (int) $student->section_id : null);
+        $subjects = AdmitCardSchedule::forNewCard($orgId, $exam->id, (int) $student->standard_id, $student->section_id ? (int) $student->section_id : null);
 
         ModelAdmitCard::create([
             'student_detail_id'   => $student->id,
@@ -563,64 +563,6 @@ class AdminAdmitCardController extends ApiController
         ]);
 
         return true;
-    }
-
-    private function subjectsFromDatesheet(int $orgId, int $examId, int $standardId, ?int $sectionId): array
-    {
-        $base = ExamDatesheet::with('papers.subject')
-            ->where('organization_id', $orgId)
-            ->where('exam_id', $examId)
-            ->where('standard_id', $standardId);
-
-        $ds = null;
-        if ($sectionId) {
-            $ds = (clone $base)->where('section_id', $sectionId)->first();
-        }
-        $ds ??= (clone $base)->whereNull('section_id')->first() ?? (clone $base)->first();
-
-        if ($ds && $ds->papers->isNotEmpty()) {
-            return $ds->papers->map(fn ($p) => [
-                'subject_id'    => (string) $p->subject_id,
-                'subject_name'  => $p->subject->name ?? '',
-                'exam_date'     => optional($p->exam_date)->format('Y-m-d') ?? '',
-                'exam_time'     => $p->start_time ? Carbon::parse($p->start_time)->format('H:i') : '',
-                'exam_end_time' => $p->end_time ? Carbon::parse($p->end_time)->format('H:i') : '',
-                'exam_duration' => $this->durationLabel($p->start_time, $p->end_time),
-                'shift'         => $p->shift,
-                'status'        => 'eligible',
-            ])->values()->toArray();
-        }
-
-        $q = SectionSubject::where('organization_id', $orgId)->where('standard_id', $standardId);
-        if ($sectionId) $q->where('section_id', $sectionId);
-        $subjects = Subject::whereIn('id', $q->pluck('subject_id')->unique())
-            ->where('is_active', true)->orderBy('id')->get();
-
-        return $subjects->map(fn ($s) => [
-            'subject_id'    => (string) $s->id,
-            'subject_name'  => $s->name,
-            'exam_date'     => '',
-            'exam_time'     => '',
-            'exam_end_time' => '',
-            'exam_duration' => '',
-            'shift'         => 1,
-            'status'        => 'eligible',
-        ])->toArray();
-    }
-
-    private function durationLabel($start, $end): string
-    {
-        if (!$start || !$end) return '';
-        try {
-            $mins = Carbon::parse($end)->diffInMinutes(Carbon::parse($start));
-            if ($mins <= 0) return '';
-            $h = intdiv($mins, 60);
-            $m = $mins % 60;
-            $label = $h ? $h . ($h === 1 ? ' Hour' : ' Hours') : '';
-            return trim($label . ($m ? " {$m} Min" : ''));
-        } catch (\Throwable $e) {
-            return '';
-        }
     }
 
     private function meetsAttendanceCriteria(int $studentId, int $percentage): bool

@@ -13,6 +13,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\Teacher\TeacherSubject;
 use App\Services\Seating\SeatLocator;
+use App\Support\AdmitCardSchedule;
 use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -403,16 +404,7 @@ class ExamController extends ApiController
     /** The date sheet a class and section sit by — the admit card's choice. */
     private function datesheetFor(int $orgId, int $examId, int $standardId, ?int $sectionId): ?ExamDatesheet
     {
-        $base = ExamDatesheet::with('papers.subject')
-            ->where('organization_id', $orgId)
-            ->where('exam_id', $examId)
-            ->where('standard_id', $standardId);
-
-        $sheet = $sectionId ? (clone $base)->where('section_id', $sectionId)->first() : null;
-
-        return $sheet
-            ?? (clone $base)->whereNull('section_id')->first()
-            ?? (clone $base)->first();
+        return AdmitCardSchedule::sheet($orgId, $examId, $standardId, $sectionId);
     }
 
     private function formatPapers($papers): array
@@ -818,6 +810,9 @@ class ExamController extends ApiController
      */
     private function attachSeating(AdmitCard $admitCard): void
     {
+        // The schedule as the datesheet has it now, not as it was at issue.
+        AdmitCardSchedule::refresh([$admitCard]);
+
         $sessions = app(SeatLocator::class)->forExam(
             (int) $admitCard->organization_id,
             (int) $admitCard->exam_id,

@@ -30,7 +30,8 @@ class ExamDatesheet extends Model
 
     public function papers()
     {
-        return $this->hasMany(ExamDatesheetPaper::class)->orderBy('exam_date')->orderBy('start_time');
+        // Papers sat side by side (one date and start) keep one order: the id's.
+        return $this->hasMany(ExamDatesheetPaper::class)->orderBy('exam_date')->orderBy('start_time')->orderBy('id');
     }
 
     /** Deleted: its papers (Cascade::children) goes with it. */

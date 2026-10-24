@@ -7,6 +7,7 @@ use App\Models\Student\{AdmitCard, StudentDetail};
 use App\Models\Teacher\TeacherDetail;
 use App\Services\IdCardService;
 use App\Services\ResponseService;
+use App\Support\AdmitCardSchedule;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -218,6 +219,9 @@ class IdCardController extends Controller
                     404
                 );
             }
+
+            // The schedule as the datesheet has it now, not as it was at issue.
+            AdmitCardSchedule::refresh([$admitCard]);
 
             // Get current date and time for checking upcoming exams
             $now = Carbon::now();

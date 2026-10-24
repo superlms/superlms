@@ -4,21 +4,18 @@ namespace App\Livewire\Admin;
 
 use App\Models\Student\AdmitCard as ModelAdmitCard;
 use App\Models\Admin\Exam;
-use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
-use App\Models\Student\SectionSubject;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
-use App\Models\Student\Subject;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\AdmitCardSchedule;
 use App\Support\NameOrder;
 
 /**
@@ -241,76 +238,15 @@ class AdmitCard extends Component
     }
 
     /**
-     * Build the admit-card subject rows from the exam datesheet for this class.
-     * Prefers a section-specific datesheet, then a class-wide one; falls back to
-     * the class's mapped subjects (no schedule) if no datesheet exists yet.
+     * The new card's schedule: the class's datesheet, or — none saved yet —
+     * its subjects with no dates, filled in once the datesheet is saved
+     * (AdmitCardSchedule, which every page showing a card reads through).
      *
      * @return array<int,array<string,mixed>>
      */
     private function subjectsFromDatesheet(int $examId, int $standardId, ?int $sectionId): array
     {
-        $base = ExamDatesheet::with('papers.subject')
-            ->where('organization_id', $this->orgId())
-            ->where('exam_id', $examId)
-            ->where('standard_id', $standardId);
-
-        $ds = null;
-        if ($sectionId) {
-            $ds = (clone $base)->where('section_id', $sectionId)->first();
-        }
-        $ds ??= (clone $base)->whereNull('section_id')->first()
-            ?? (clone $base)->first();
-
-        if ($ds && $ds->papers->isNotEmpty()) {
-            return $ds->papers->map(fn ($p) => [
-                'subject_id'    => (string) $p->subject_id,
-                'subject_name'  => $p->subject->name ?? '',
-                'exam_date'     => optional($p->exam_date)->format('Y-m-d') ?? '',
-                'exam_time'     => $p->start_time ? Carbon::parse($p->start_time)->format('H:i') : '',
-                'exam_end_time' => $p->end_time ? Carbon::parse($p->end_time)->format('H:i') : '',
-                'exam_duration' => $this->durationLabel($p->start_time, $p->end_time),
-                'shift'         => $p->shift,
-                'status'        => 'eligible',
-            ])->values()->toArray();
-        }
-
-        // Fallback — list the class's subjects with a blank schedule.
-        $q = SectionSubject::where('organization_id', $this->orgId())->where('standard_id', $standardId);
-        if ($sectionId) {
-            $q->where('section_id', $sectionId);
-        }
-        $subjects = Subject::whereIn('id', $q->pluck('subject_id')->unique())
-            ->where('is_active', true)->orderBy('id')->get();
-
-        return $subjects->map(fn ($s) => [
-            'subject_id'    => (string) $s->id,
-            'subject_name'  => $s->name,
-            'exam_date'     => '',
-            'exam_time'     => '',
-            'exam_end_time' => '',
-            'exam_duration' => '',
-            'shift'         => 1,
-            'status'        => 'eligible',
-        ])->toArray();
-    }
-
-    private function durationLabel($start, $end): string
-    {
-        if (!$start || !$end) {
-            return '';
-        }
-        try {
-            $mins = Carbon::parse($end)->diffInMinutes(Carbon::parse($start));
-            if ($mins <= 0) {
-                return '';
-            }
-            $h = intdiv($mins, 60);
-            $m = $mins % 60;
-            $label = $h ? $h . ($h === 1 ? ' Hour' : ' Hours') : '';
-            return trim($label . ($m ? " {$m} Min" : ''));
-        } catch (\Throwable $e) {
-            return '';
-        }
+        return AdmitCardSchedule::forNewCard($this->orgId(), $examId, $standardId, $sectionId);
     }
 
     private function meetsAttendanceCriteria(int $studentId): bool

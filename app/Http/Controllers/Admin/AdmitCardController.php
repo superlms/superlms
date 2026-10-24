@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Student\AdmitCard;
 use App\Services\Seating\SeatLocator;
+use App\Support\AdmitCardSchedule;
 use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -199,10 +200,16 @@ class AdmitCardController extends Controller
      * to the room/seat for that paper, so each subject row on the card can print
      * its own seat. `seating_label` stays as the card-wide fallback.
      *
+     * First each card's schedule is brought up to the datesheet as it is now
+     * (AdmitCardSchedule) — a card issued before the datesheet was saved, or
+     * changed, would otherwise print its old copy.
+     *
      * @param  Collection<int,AdmitCard>  $cards
      */
     private function attachSeating(Collection $cards): void
     {
+        AdmitCardSchedule::refresh($cards);
+
         foreach ($cards->groupBy('exam_id') as $examId => $group) {
             $orgId = (int) $group->first()->organization_id;
 
