@@ -465,8 +465,9 @@ class Standard extends Component
 
         $data = [
             'name'            => $this->standardName,
-            // Roll numbers are built from the last digit of this code, so what
-            // the admin types here decides what this class's rolls look like.
+            // A roll is this code + a 3-digit serial (05001), so what the admin
+            // types here decides what this class's rolls look like; a changed
+            // code changes them all (Standard model, StudentNumbers::recodeClass).
             'code'            => $this->standardCode,
             'board'           => $this->standardBoard ?: $this->resolveOrgBoard(),
             'order'           => $order,

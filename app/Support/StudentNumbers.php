@@ -132,30 +132,152 @@ class StudentNumbers
     }
 
     /**
-     * Roll number = lastDigit(class.code) + 2-digit serial starting at 01.
+     * Roll number = the class's whole code + a 3-digit serial from 001.
      *
-     * The serial is scoped to the class (not the section) so every roll number
-     * inside a class is unique — the prefix only carries the class, so a
-     * per-section counter would hand the same roll to A-01 and B-01.
+     *   class code "05" → 05001, 05002, 05003 … (05999, then 051000)
+     *   class code "12" → 12001, 12002 …
      *
-     * Example: class code "03" → 301, 302, 303 …
+     * The serial is counted over the whole class, every section together, so
+     * no two students of a class share a roll; it is the highest serial the
+     * class already has + 1. The code is the class's own (no two classes of a
+     * school share one), so neither do two classes' rolls. A changed code
+     * changes every roll of the class with it (recodeClass, from Standard),
+     * and a student moved to another class takes a roll of that class
+     * (StudentDetail). Until 2026-10-24 a roll was the code's last digit + a
+     * 2-digit serial (501, 5118); the migration of that day numbered every
+     * class again this way.
      */
     public static function rollNumber($standardId): string
     {
-        $standard   = Standard::find((int) $standardId);
-        $classDigit = self::lastDigit($standard?->code ?? $standard?->id);
+        $standard = Standard::find((int) $standardId);
+        $prefix   = self::rollPrefix($standard?->code, (int) $standardId);
 
-        // Only look at rolls already minted in this class under the same
-        // prefix — legacy rolls ("001", "002") don't match and are left alone.
-        $last = StudentDetail::where('standard_id', (int) $standardId)
+        $max = StudentDetail::where('standard_id', (int) $standardId)
             ->whereNotNull('roll_no')
-            ->where('roll_no', 'like', $classDigit . '%')
-            ->orderByRaw('CAST(SUBSTRING(roll_no, 2) AS UNSIGNED) DESC')
-            ->value('roll_no');
+            ->pluck('roll_no')
+            ->map(fn ($roll) => self::rollSerial($roll, $prefix))
+            ->filter()
+            ->max() ?? 0;
 
-        $serial = $last ? ((int) substr($last, 1)) + 1 : 1;
+        return self::roll($prefix, $max + 1);
+    }
 
-        return $classDigit . str_pad((string) $serial, 2, '0', STR_PAD_LEFT);
+    /** What a class's rolls start with: its code, as typed; a class without one, its id ("07"). */
+    public static function rollPrefix(?string $code, int $standardId): string
+    {
+        $code = trim((string) $code);
+
+        return $code !== '' ? $code : str_pad((string) $standardId, 2, '0', STR_PAD_LEFT);
+    }
+
+    /** "05" + 7 → "05007". */
+    public static function roll(string $prefix, int $serial): string
+    {
+        return $prefix . str_pad((string) max(1, $serial), 3, '0', STR_PAD_LEFT);
+    }
+
+    /** The serial of a roll made from this prefix ("05007" → 7), or null for any other roll. */
+    public static function rollSerial(?string $roll, string $prefix): ?int
+    {
+        $roll = trim((string) $roll);
+        if ($prefix === '' || !str_starts_with($roll, $prefix)) {
+            return null;
+        }
+        $rest = substr($roll, strlen($prefix));
+
+        return preg_match('/^\d{3,}$/', $rest) ? (int) $rest : null;
+    }
+
+    /**
+     * A class's code changed: every roll of it takes the new code, its serial
+     * kept ("05007" → "12007"). A student whose roll is not of the old code
+     * (none yet, or one typed by hand) takes the next roll of the new code.
+     */
+    public static function recodeClass(int $standardId, ?string $oldCode, ?string $newCode): int
+    {
+        $old = self::rollPrefix($oldCode, $standardId);
+        $new = self::rollPrefix($newCode, $standardId);
+        if ($old === $new) {
+            return 0;
+        }
+
+        $students = DB::table('student_details')->where('standard_id', $standardId)
+            ->orderBy('id')->get(['id', 'roll_no']);
+
+        $serials = $students->mapWithKeys(fn ($s) => [$s->id => self::rollSerial($s->roll_no, $old)]);
+        $next    = (int) ($serials->filter()->max() ?? 0);
+        $cards   = DB::getSchemaBuilder()->hasTable('admit_cards');
+        $changed = 0;
+
+        foreach ($students as $s) {
+            $serial = $serials[$s->id] ?? null;
+            $changed += self::setRoll((int) $s->id, $s->roll_no, self::roll($new, $serial ?: ++$next), $cards);
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Every student of a class numbered again from 001 by its code, in the
+     * order their rolls stood — by the roll's number, then (no roll, or one
+     * that is not a number) the order they were added. What the 2026-10-24
+     * migration ran over every class.
+     */
+    public static function renumberClass(int $standardId, ?string $code): int
+    {
+        $prefix   = self::rollPrefix($code, $standardId);
+        $students = DB::table('student_details')->where('standard_id', $standardId)->get(['id', 'roll_no'])
+            ->sortBy([
+                fn ($a, $b) => self::rollOrder($a->roll_no) <=> self::rollOrder($b->roll_no),
+                fn ($a, $b) => $a->id <=> $b->id,
+            ])->values();
+
+        $cards   = DB::getSchemaBuilder()->hasTable('admit_cards');
+        $changed = 0;
+        foreach ($students as $i => $s) {
+            $changed += self::setRoll((int) $s->id, $s->roll_no, self::roll($prefix, $i + 1), $cards);
+        }
+
+        return $changed;
+    }
+
+    /** A roll as a number to sort by; one that is not a number goes last. */
+    private static function rollOrder(?string $roll): int
+    {
+        $roll = trim((string) $roll);
+
+        return preg_match('/^\d{1,15}$/', $roll) ? (int) $roll : PHP_INT_MAX;
+    }
+
+    /**
+     * Give a student a new roll, and their admit cards with it — a card keeps
+     * the roll it was issued with, and one that still shows the old roll would
+     * print a number the student no longer has. Returns 1 when it changed.
+     */
+    public static function setRoll(int $studentDetailId, ?string $old, string $new, ?bool $cards = null): int
+    {
+        if ((string) $old === $new) {
+            return 0;
+        }
+
+        DB::table('student_details')->where('id', $studentDetailId)->update(['roll_no' => $new]);
+        self::followOnCards($studentDetailId, $old, $new, $cards);
+
+        return 1;
+    }
+
+    /**
+     * The student's admit cards that show their old roll (or none) show the
+     * new one. $cards: whether admit_cards exists, when the caller knows.
+     */
+    public static function followOnCards(int $studentDetailId, ?string $old, string $new, ?bool $cards = null): void
+    {
+        if ($cards ?? DB::getSchemaBuilder()->hasTable('admit_cards')) {
+            DB::table('admit_cards')->where('student_detail_id', $studentDetailId)
+                ->where(fn ($q) => $q->where('roll_number', (string) $old)
+                    ->orWhereNull('roll_number')->orWhere('roll_number', '')->orWhere('roll_number', 'N/A'))
+                ->update(['roll_number' => $new]);
+        }
     }
 
     /**
@@ -189,13 +311,5 @@ class StudentNumbers
         }
 
         return substr(str_pad((string) $year, 4, '0', STR_PAD_LEFT), -2);
-    }
-
-    /** Last numeric digit of a code-like value, "0" when there isn't one. */
-    private static function lastDigit($value): string
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-
-        return ($digits === '' || $digits === null) ? '0' : substr($digits, -1);
     }
 }

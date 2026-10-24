@@ -165,9 +165,9 @@ class AdminStandardController extends ApiController
         if (Standard::where('organization_id', $orgId)->where('name', $request->name)->exists()) {
             return $this->error('A class with this name already exists.', 422);
         }
-        // Codes are auto-minted ("01", "02", "03" … per school) — the student
-        // roll number is built from the last digit — but an explicit code is
-        // still honoured for backwards compatibility.
+        // Codes are auto-minted ("01", "02", "03" … per school) — a student's
+        // roll number is the code + a 3-digit serial (05001) — but an explicit
+        // code is still honoured for backwards compatibility.
         $code = $request->filled('code')
             ? (string) $request->code
             : StudentNumbers::nextStandardCode($orgId);

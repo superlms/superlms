@@ -439,10 +439,11 @@
                                     maxlength="10"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
                                 <p class="mt-1.5 text-xs text-gray-500">
-                                    Roll numbers for this class start with the last digit of the code
-                                    @php $preview = substr(preg_replace('/\D/', '', (string) $standardCode) ?: '0', -1); @endphp
+                                    Roll numbers for this class are the code followed by 001, 002…
+                                    @php $preview = trim((string) $standardCode) ?: '01'; @endphp
                                     — code <span class="font-semibold text-gray-700">{{ $standardCode ?: '—' }}</span>
-                                    gives <span class="font-semibold text-gray-700">{{ $preview }}01, {{ $preview }}02, {{ $preview }}03…</span>
+                                    gives <span class="font-semibold text-gray-700">{{ $preview }}001, {{ $preview }}002, {{ $preview }}003…</span>
+                                    @if($editId) Changing the code changes every roll number of the class with it. @endif
                                 </p>
                                 @error('standardCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>

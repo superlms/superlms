@@ -8,6 +8,7 @@ use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use App\Support\Cascade;
+use App\Support\StudentNumbers;
 
 class Standard extends Model
 {
@@ -51,9 +52,18 @@ class Standard extends Model
         return $this->hasMany(HomeWork::class);
     }
 
-    /** Deleted: the class's set-up and content, never a student's own records (Cascade::structure) goes with it. */
     protected static function booted(): void
     {
+        /** Deleted: the class's set-up and content, never a student's own records (Cascade::structure) goes with it. */
         static::deleting(fn (self $m) => Cascade::structure($m->getTable(), (int) $m->getKey()));
+
+        // A roll is the class's code + a serial: a new code, and every roll of
+        // the class takes it, the serial kept ("05007" → "12007"), wherever the
+        // class is saved from — the panel, the admin app, the Super Admin.
+        static::updated(function (self $m) {
+            if ($m->wasChanged('code')) {
+                StudentNumbers::recodeClass((int) $m->getKey(), $m->getOriginal('code'), $m->code);
+            }
+        });
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Admin\StudentIdCard;
 use App\Models\Admin\Transportation;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\StudentNumbers;
 use App\Support\StudentSection;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Model;
@@ -69,6 +70,23 @@ class StudentDetail extends Model
                 return;
             }
             $detail->section_id = StudentSection::resolve($detail->standard_id, $detail->section_id);
+        });
+
+        // A roll is the class's code + a serial (StudentNumbers), so a student
+        // moved to another class takes the next roll of that class — unless the
+        // move came with a roll of its own.
+        static::saving(function (self $detail) {
+            if ($detail->exists && $detail->standard_id && $detail->getOriginal('standard_id')
+                && $detail->isDirty('standard_id') && ! $detail->isDirty('roll_no')) {
+                $detail->roll_no = StudentNumbers::rollNumber($detail->standard_id);
+            }
+        });
+
+        // A new roll reaches the admit cards that showed the old one.
+        static::updated(function (self $detail) {
+            if ($detail->wasChanged('roll_no') && $detail->roll_no) {
+                StudentNumbers::followOnCards((int) $detail->getKey(), $detail->getOriginal('roll_no'), (string) $detail->roll_no);
+            }
         });
     }
 

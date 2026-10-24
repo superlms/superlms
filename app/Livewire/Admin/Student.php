@@ -1283,7 +1283,7 @@ class Student extends Component
     }
 
     /**
-     * Roll number = lastDigit(class.code) + 2-digit serial from 01 (e.g. 301).
+     * Roll number = the class code + a 3-digit serial from 001 (e.g. 05001).
      * Scoped to the class, so every roll inside a class is unique.
      */
     protected function generateRollNumber(): string
