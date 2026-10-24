@@ -219,6 +219,36 @@ class AdmitCardScheduleTest extends TestCase
         $this->assertSame(['2026-10-27', '2026-10-29', '2026-11-04', '2026-11-04'], array_column($rows, 'exam_date'));
     }
 
+    public function test_the_room_is_written_short_so_the_seat_fits_its_column(): void
+    {
+        $this->assertSame('R15- C8 (1)', \App\Support\SeatLabel::shortRoom('ROOM 15- C8 (1)'));
+        $this->assertSame('R7- A3 (2)', \App\Support\SeatLabel::shortRoom('Room 7- A3 (2)'));
+        $this->assertSame('R12', \App\Support\SeatLabel::shortRoom('Room No. 12'));
+        $this->assertSame('EH2- B1 (1)', \App\Support\SeatLabel::shortRoom('Exam Hall 2- B1 (1)'));
+        $this->assertSame('EH- A1 (1)', \App\Support\SeatLabel::shortRoom('EXAM HALL- A1 (1)'));
+        $this->assertSame('Lab 2- A1 (1)', \App\Support\SeatLabel::shortRoom('Lab 2- A1 (1)'));
+        $this->assertSame('Roomy Hall', \App\Support\SeatLabel::shortRoom('Roomy Hall'));
+        $this->assertSame('—', \App\Support\SeatLabel::shortRoom(null));
+
+        // On the printed card.
+        $this->datesheet($this->sec);
+        $card = AdmitCardModel::with('studentDetail.standard', 'studentDetail.section')->find($this->issue());
+        AdmitCardSchedule::refresh([$card]);
+        $card->seating_sessions = [
+            '2026-10-27|1' => ['room' => 'ROOM 15', 'seat' => 'C8', 'label' => 'ROOM 15- C8 (1)'],
+            '2026-11-04|1' => ['room' => 'Exam Hall 2', 'seat' => 'A3', 'label' => 'Exam Hall 2- A3 (2)'],
+        ];
+        $html = view('admin.admit-card-sheet', ['admitCards' => collect([$card]), 'single' => null,
+            'organization' => new \App\Models\Organization(['name' => 'Adarsh'])])->render();
+        $text = preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5));
+
+        $this->assertStringContainsString('ENGLISH 27 Oct 2026, Tue 9:00 AM – 12:00 PM R15- C8 (1)', $text);
+        $this->assertStringContainsString('COMPUTER 04 Nov 2026, Wed 9:00 AM – 12:00 PM EH2- A3 (2)', $text);
+        $this->assertStringNotContainsString('ROOM 15', $text);
+        $this->assertStringNotContainsString('Exam Hall 2', $text);
+        $this->assertStringContainsString('.papers td.seat { font-size: 7pt; }', $html);
+    }
+
     public function test_what_a_card_carried_of_its_own_stays_with_its_subject(): void
     {
         $card = $this->issue();

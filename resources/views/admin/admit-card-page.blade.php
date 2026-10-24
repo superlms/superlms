@@ -85,6 +85,8 @@
         .papers th.c, .papers td.c { text-align: center; }
         .papers th:last-child, .papers td:last-child { padding-right: 0; }
         .papers .seat { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
+        /* The seat a size down from the rest of the row, as on the four-up sheet. */
+        .papers td.seat { font-size: 8pt; }
         /* Every mark on the card prints at full strength — no faded greys. */
         .no-papers { font-size: 9pt; }
 

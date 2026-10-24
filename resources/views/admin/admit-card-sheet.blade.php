@@ -135,6 +135,8 @@
         .papers th:last-child, .papers td:last-child { padding-right: 0; }
         .papers th.c, .papers td.c { text-align: center; }
         .papers .seat { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
+        /* The seat a size down from the rest of the row, so "EH2- A3 (1)" fits whole. */
+        .papers td.seat { font-size: 7pt; }
         .no-papers {
             font-size: 5.6pt; border: 0.5pt dashed #000;
             padding: 3mm; text-align: center;
@@ -147,6 +149,9 @@
         .card.many-x .papers th  { font-size: 5.6pt; padding-bottom: 0.4mm; }
         .card.many-x .papers td  { font-size: 6.2pt; padding: 0.15mm 0.8mm; }
         .card.many-xx .papers td { font-size: 4.6pt; padding: 0.02mm 0.7mm; }
+        .card.many .papers td.seat    { font-size: 6.4pt; }
+        .card.many-x .papers td.seat  { font-size: 5.4pt; }
+        .card.many-xx .papers td.seat { font-size: 4.1pt; }
 
         /* ── Instructions: pinned above the foot, so they end on the same line
               in every card and the schedule window above never moves ── */

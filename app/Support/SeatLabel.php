@@ -39,6 +39,30 @@ class SeatLabel
         return ($room ? $room . '- ' : '') . $desk . ' (' . max(1, (int) $position) . ')';
     }
 
+    /**
+     * The room's word cut short, for the admit card's narrow Room / Seat
+     * column: "ROOM 15- C8 (1)" → "R15- C8 (1)", "Exam Hall 2- A3 (1)" →
+     * "EH2- A3 (1)". Works on a room name or a whole label; any other name
+     * ("Lab 2", "Hall 3") is left as it is.
+     */
+    public static function shortRoom(?string $label): string
+    {
+        $label = trim((string) $label);
+        if ($label === '') {
+            return '—';
+        }
+
+        // The space (or "No.", ":", "#", "-") between the word and the room's
+        // number goes; the "- " before the desk stays.
+        $gap = '(?:[\s.:#]|-(?=\s*\d))*';
+        $short = preg_replace('/^exam[\s._-]*hall(?![a-z])' . $gap . '/iu', 'EH', $label, 1);
+        if ($short === $label) {
+            $short = preg_replace('/^room(?![a-z])(?:[\s.]*(?:no\.?|number)(?![a-z]))?' . $gap . '/iu', 'R', $label, 1);
+        }
+
+        return $short ?? $label;
+    }
+
     /** 1 → A, 26 → Z, 27 → AA. */
     public static function column(int $colNo): string
     {

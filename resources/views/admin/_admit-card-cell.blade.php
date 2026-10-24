@@ -122,10 +122,11 @@
             <table class="papers">
                 <thead>
                     <tr>
-                        <th style="width:34%;">Subject</th>
-                        <th style="width:24%;">Date</th>
+                        {{-- Room / Seat wide enough for a whole "R15- C8 (1)". --}}
+                        <th style="width:31%;">Subject</th>
+                        <th style="width:23%;">Date</th>
                         <th style="width:26%;">Time</th>
-                        <th style="width:16%;" class="c">Room / Seat</th>
+                        <th style="width:20%;" class="c">Room / Seat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -140,8 +141,9 @@
                             $from = !empty($paper['exam_time']) ? \Carbon\Carbon::parse($paper['exam_time'])->format('g:i A') : '';
                             $to   = !empty($paper['exam_end_time']) ? \Carbon\Carbon::parse($paper['exam_end_time'])->format('g:i A') : '';
 
-                            // Room, desk and place read as one thing — "1- A1 (1)".
-                            $where = $seat['label'] ?? ($seat['room'] ?? '—');
+                            // Room, desk and place read as one thing — "1- A1 (1)" — with
+                            // "Room" as R and "Exam Hall" as EH, so it fits its column.
+                            $where = \App\Support\SeatLabel::shortRoom($seat['label'] ?? ($seat['room'] ?? null));
                         @endphp
                         <tr>
                             <td>{{ $paper['subject_name'] ?? '—' }}</td>
