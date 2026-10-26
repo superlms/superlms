@@ -423,12 +423,44 @@
                     <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
                         <span class="text-xs font-medium text-gray-600 mr-1">2 · Filter</span>
                         @if ($exportType === 'student')
-                            <select wire:model.live="exportStandard"
-                                class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">All Classes</option>
-                                @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                            </select>
-                            <select wire:model.live="exportSection" @disabled(!$exportStandard)
+                            {{-- Classes: tick one, several, or none for the whole school. --}}
+                            @php
+                                $pickedClasses = $standards->whereIn('id', array_map('intval', $exportStandards));
+                                $classLabel = match (true) {
+                                    $pickedClasses->isEmpty()    => 'All Classes',
+                                    $pickedClasses->count() <= 3 => $pickedClasses->pluck('name')->implode(', '),
+                                    default                      => $pickedClasses->count() . ' classes',
+                                };
+                            @endphp
+                            {{-- .capture: the panel stops clicks from going up (wire:click.stop), so "outside" listens on the way down. --}}
+                            <div class="relative" x-data="{ open: false }" x-on:click.outside.capture="open = false" x-on:keydown.escape="open = false">
+                                <button type="button" x-on:click="open = !open" title="{{ $pickedClasses->pluck('name')->implode(', ') ?: 'All Classes' }}"
+                                    class="relative text-sm text-left bg-white border border-gray-300 rounded-md pl-3 pr-8 py-1.5 min-w-[9rem] max-w-[15rem] truncate focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                    {{ $classLabel }}
+                                    <svg class="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                <div x-show="open" style="display: none"
+                                    class="absolute left-0 top-full mt-1 z-20 w-60 bg-white border border-gray-200 rounded-md shadow-lg">
+                                    <div class="flex items-center justify-between px-3 py-2 border-b border-gray-100 text-xs">
+                                        <span class="text-gray-500">Tick one or more classes</span>
+                                        <button type="button" wire:click="clearExportStandards" class="font-medium text-gray-500 hover:text-gray-800">All</button>
+                                    </div>
+                                    <div class="max-h-64 overflow-y-auto py-1">
+                                        @foreach ($standards as $std)
+                                            <label wire:key="xs-{{ $std->id }}" class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                                <input type="checkbox" value="{{ $std->id }}" wire:model.live="exportStandards"
+                                                    class="rounded border-gray-300 text-violet-600 focus:ring-violet-500">
+                                                <span class="truncate">{{ $std->name }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <div class="px-3 py-2 border-t border-gray-100 text-right">
+                                        <button type="button" x-on:click="open = false" class="text-xs font-medium text-violet-700 hover:text-violet-900">Done</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <select wire:model.live="exportSection" @disabled(count($exportStandards) !== 1)
+                                title="{{ count($exportStandards) === 1 ? 'A section of this class' : 'Pick one class for its sections' }}"
                                 class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:opacity-50">
                                 <option value="">All Sections</option>
                                 @foreach ($exportSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
@@ -492,8 +524,61 @@
                     </div>
                 @endif
 
-                {{-- Footer: the file, then Close and Download --}}
-                <div class="px-6 py-3.5 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+                {{-- Footer: the file, then Close and Download.
+                     Download starts the file, then steps it along a few seconds
+                     at a time — photos, then the sheet — showing how far it has
+                     got, and fetches it once ready (IdCardExportController). One
+                     long request for a whole school's photos ran into the
+                     gateway's 60 s and came back as a 504. The download card at
+                     the foot of the page stays up while it is made, even if the
+                     panel is closed. --}}
+                <div class="flex-shrink-0 border-t border-gray-200"
+                    x-data="{
+                        busy: false, failed: false, done: 0, total: 0, stage: '',
+                        get pct() { return this.stage === 'photos' && this.total ? Math.round(this.done * 100 / this.total) : (this.stage === 'sheet' || this.stage === 'ready' ? 100 : 4); },
+                        get line() {
+                            if (this.stage === 'photos') return 'Fetching photos ' + this.done + ' / ' + this.total;
+                            if (this.stage === 'sheet') return 'Writing the sheet…';
+                            if (this.stage === 'ready') return 'Downloading…';
+                            return 'Starting…';
+                        },
+                        async run(url) {
+                            if (this.busy) return;
+                            Object.assign(this, { busy: true, failed: false, done: 0, total: 0, stage: 'start' });
+                            const card = window.lmsDownload ? window.lmsDownload.start('ID card export') : null;
+                            const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+                            const post = (u) => fetch(u, { method: 'POST', credentials: 'same-origin', headers: {
+                                'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': @js(csrf_token()),
+                            } }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+                            try {
+                                const job = await post(url);
+                                let s = { done: 0, total: job.total, stage: job.total ? 'photos' : 'sheet', ready: false };
+                                let misses = 0;
+                                while (!s.ready) {
+                                    Object.assign(this, { done: s.done, total: s.total, stage: s.stage });
+                                    try {
+                                        s = await post(job.step_url);
+                                        misses = 0;
+                                        if (s.busy) await wait(1500);
+                                    } catch (e) {
+                                        if (++misses > 3) throw e;
+                                        await wait(2000 * misses);
+                                    }
+                                }
+                                this.stage = 'ready';
+                                if (window.lmsDownload) window.lmsDownload.open(job.file_url); else window.location.href = job.file_url;
+                                if (card) window.lmsDownload.stop(card);
+                            } catch (e) {
+                                this.failed = true;
+                                if (card) window.lmsDownload.fail(card, 'The ID card export could not be made. Please try again.');
+                            }
+                            this.busy = false;
+                        },
+                    }">
+                <div x-show="busy" style="display: none" class="h-1 bg-gray-100">
+                    <div class="h-full bg-violet-500 transition-all duration-500" x-bind:style="'width:' + pct + '%'"></div>
+                </div>
+                <div class="px-6 py-3.5 flex flex-wrap items-center justify-between gap-2">
                     <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
                         @foreach (['xlsx' => ['Excel (.xlsx)', 'Photos inside the sheet, one in each row'], 'zip' => ['Excel + photos (.zip)', 'The sheet, and every photo as a file named as the "Photo File Name" column says']] as $f => [$fLabel, $fDesc])
                             <button type="button" wire:click="$set('exportFormat', '{{ $f }}')" wire:key="xf-{{ $f }}" title="{{ $fDesc }}"
@@ -501,19 +586,22 @@
                         @endforeach
                     </div>
                     <div class="flex items-center gap-2">
+                        <span x-show="busy" style="display: none" class="text-xs text-gray-500 tabular-nums" x-text="line"></span>
+                        <span x-show="failed && !busy" style="display: none" class="text-xs text-red-600">Could not make the file — try again.</span>
                         <button wire:click="closeExport" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
                         @if ($picked && $exportColumns && $exportCount > 0)
-                            {{-- The panel's download loader shows until the file comes (photos take a few seconds). --}}
-                            <a href="{{ $exportUrl }}"
-                                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md inline-flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                Download
-                            </a>
+                            <button type="button" x-on:click="run(@js($exportStartUrl))" x-bind:disabled="busy"
+                                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-700 disabled:cursor-wait text-white text-sm font-medium rounded-md inline-flex items-center gap-1.5">
+                                <svg x-show="!busy" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                <span x-show="busy" style="display: none" class="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
+                                <span x-text="busy ? 'Preparing…' : 'Download'">Download</span>
+                            </button>
                         @else
                             <span class="px-5 py-2 bg-gray-300 text-white text-sm font-medium rounded-md cursor-not-allowed"
                                 title="{{ !$picked ? 'Pick whose data first' : ($exportColumns ? 'Nobody to export' : 'Reset to get the columns back') }}">Download</span>
                         @endif
                     </div>
+                </div>
                 </div>
             </div>
         </div>

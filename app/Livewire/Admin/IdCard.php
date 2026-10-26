@@ -57,7 +57,9 @@ class IdCard extends Component
     // ordered here (App\Support\IdCardExport)
     public bool $showExportPanel = false;
     public string $exportType    = '';        // '' until whose data is picked
-    public $exportStandard       = '';
+    /** The classes picked (ids); none = every class. */
+    public array $exportStandards = [];
+    /** A section, only while one class is picked. */
     public $exportSection        = '';
     public string $exportWhich   = 'all';   // all | issued | not_issued
     public string $exportFormat  = 'xlsx';  // xlsx | zip
@@ -355,7 +357,7 @@ class IdCard extends Component
     public function openExport(): void
     {
         $this->exportType      = '';
-        $this->exportStandard  = '';
+        $this->exportStandards = [];
         $this->exportSection   = '';
         $this->exportWhich     = 'all';
         $this->exportColumns   = [];
@@ -375,15 +377,24 @@ class IdCard extends Component
             return;
         }
         // A student export starts on the class (and section) the list is filtered to.
-        $this->exportStandard = $this->exportType === 'student' ? (string) $this->standardFilter : '';
-        $this->exportSection  = $this->exportType === 'student' ? (string) $this->sectionFilter : '';
-        $this->exportWhich    = 'all';
-        $this->exportColumns  = IdCardExport::savedColumns((int) Auth::user()->organization_id, $this->exportType);
+        $this->exportStandards = $this->exportType === 'student' && filled($this->standardFilter) ? [(string) $this->standardFilter] : [];
+        $this->exportSection   = $this->exportType === 'student' ? (string) $this->sectionFilter : '';
+        $this->exportWhich     = 'all';
+        $this->exportColumns   = IdCardExport::savedColumns((int) Auth::user()->organization_id, $this->exportType);
     }
 
-    public function updatedExportStandard(): void
+    /** A class ticked or unticked: the section goes, as it belongs to one class. */
+    public function updatedExportStandards(): void
     {
-        $this->exportSection = '';
+        $this->exportStandards = array_map('strval', IdCardExport::standardIds($this->exportStandards));
+        $this->exportSection   = '';
+    }
+
+    /** "All classes": nothing ticked. */
+    public function clearExportStandards(): void
+    {
+        $this->exportStandards = [];
+        $this->exportSection   = '';
     }
 
     public function updatedExportWhich(): void
@@ -444,15 +455,27 @@ class IdCard extends Component
         IdCardExport::saveColumns((int) Auth::user()->organization_id, $this->exportType, $this->exportColumns);
     }
 
-    /** The download link for what is picked (the browser fetches the file from it). */
-    private function exportUrl(): string
+    /** The classes picked, as ids (students only). */
+    private function exportClassIds(): array
     {
-        return route('admin.id-card.export', array_filter([
+        return $this->exportType === 'student' ? IdCardExport::standardIds($this->exportStandards) : [];
+    }
+
+    /**
+     * Where the panel starts the file for what is picked. The panel then steps
+     * it along a few seconds at a time (IdCardExportController), so a whole
+     * school's photos never run into the gateway's time limit.
+     */
+    private function exportStartUrl(): string
+    {
+        $classes = $this->exportClassIds();
+
+        return route('admin.id-card.export.start', array_filter([
             'organization' => Auth::user()->organization_id,
             'type'         => $this->exportType,
             'cols'         => implode(',', $this->exportColumns),
-            'class'        => $this->exportType === 'student' ? $this->exportStandard : null,
-            'section'      => $this->exportType === 'student' ? $this->exportSection : null,
+            'class'        => implode(',', $classes),
+            'section'      => count($classes) === 1 ? $this->exportSection : null,
             'which'        => $this->exportWhich,
             'format'       => $this->exportFormat,
         ], fn ($v) => $v !== null && $v !== ''));
@@ -463,19 +486,20 @@ class IdCard extends Component
     {
         if (!in_array($this->exportType, IdCardExport::TYPES, true)) {
             // Whose data is not picked yet: nothing to count or list.
-            return ['exportFields' => [], 'exportCount' => 0, 'exportSections' => collect(), 'exportUrl' => ''];
+            return ['exportFields' => [], 'exportCount' => 0, 'exportSections' => collect(), 'exportStartUrl' => ''];
         }
 
-        $standardId = $this->exportType === 'student' && $this->exportStandard ? (int) $this->exportStandard : null;
-        $sectionId  = $standardId && $this->exportSection ? (int) $this->exportSection : null;
+        $classes   = $this->exportClassIds();
+        $oneClass  = count($classes) === 1 ? $classes[0] : null;
+        $sectionId = $oneClass && $this->exportSection ? (int) $this->exportSection : null;
 
         return [
             'exportFields'   => IdCardExport::fields($this->exportType),
-            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $standardId, $sectionId, $this->exportWhich),
-            'exportSections' => $standardId
-                ? \App\Models\Student\Section::where('standard_id', $standardId)->orderBy('id')->get(['id', 'name'])
+            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich),
+            'exportSections' => $oneClass
+                ? \App\Models\Student\Section::where('standard_id', $oneClass)->orderBy('id')->get(['id', 'name'])
                 : collect(),
-            'exportUrl'      => $this->exportUrl(),
+            'exportStartUrl' => $this->exportStartUrl(),
         ];
     }
 

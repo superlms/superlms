@@ -112,7 +112,7 @@ class IdCardExportTest extends TestCase
         $this->assertSame([], $page->get('exportColumns'));
         $html = $page->html();
         $this->assertStringContainsString('1 · Whose data', $html);
-        $this->assertStringNotContainsString('wire:model.live="exportStandard"', $html);
+        $this->assertStringNotContainsString('wire:model.live="exportStandards"', $html);
         $this->assertStringNotContainsString('id-card/export', $html);
 
         // Students: the class and section filters, and the card's own columns.
@@ -120,7 +120,7 @@ class IdCardExportTest extends TestCase
         $this->assertSame(['sr_no', 'name', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo'],
             $page->get('exportColumns'));
         $html = $page->html();
-        $this->assertStringContainsString('wire:model.live="exportStandard"', $html);
+        $this->assertStringContainsString('wire:model.live="exportStandards"', $html);
         $this->assertStringNotContainsString('Add a column', $html);
         $this->assertStringNotContainsString('Preview', $html);
         $this->assertStringNotContainsString('Zoya Khan', $html);
@@ -128,7 +128,7 @@ class IdCardExportTest extends TestCase
 
         // Teachers have no class filter.
         $page->set('exportType', 'teacher');
-        $this->assertStringNotContainsString('wire:model.live="exportStandard"', $page->html());
+        $this->assertStringNotContainsString('wire:model.live="exportStandards"', $page->html());
         $this->assertSame(IdCardExport::defaults('teacher'), $page->get('exportColumns'));
     }
 
@@ -245,5 +245,103 @@ class IdCardExportTest extends TestCase
         DB::table('student_id_cards')->insert(['organization_id' => $this->org, 'student_detail_id' => $zoya, 'card_number' => 'ID-1', 'status' => 'active']);
         $this->assertSame(['Zoya Khan'], IdCardExport::people($this->org, 'student', null, null, 'issued')->pluck('full_name')->all());
         $this->assertSame(1, IdCardExport::count($this->org, 'student', null, null, 'not_issued'));
+    }
+
+    public function test_several_classes_can_be_picked_together(): void
+    {
+        $five  = DB::table('standards')->where('name', 'V')->value('id');
+        $six   = DB::table('standards')->where('name', 'VI')->value('id');
+        $seven = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'VII', 'order' => 7]);
+        DB::table('student_details')->insert(['organization_id' => $this->org, 'full_name' => 'Kabir Rao', 'standard_id' => $seven]);
+
+        // V and VI, not VII — in class order; "5,6" means the same as [5, 6].
+        $this->assertSame(['Zoya Khan', 'Aarav Jain'],
+            IdCardExport::people($this->org, 'student', [$six, $five])->pluck('full_name')->all());
+        $this->assertSame(2, IdCardExport::count($this->org, 'student', "{$five},{$six}"));
+        // A section narrows only one class: with two classes it is let go.
+        $a = DB::table('sections')->where('name', 'A')->value('id');
+        $this->assertSame(2, IdCardExport::count($this->org, 'student', [$five, $six], $a));
+        $this->assertSame(1, IdCardExport::count($this->org, 'student', [$five], $a));
+
+        // The panel: tick two classes; the count follows and the section waits for one class.
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
+            ->set('exportStandards', [(string) $five, (string) $six]);
+        $html = $page->html();
+        $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
+        $this->assertStringContainsString('V, VI', $html);
+        $this->assertStringContainsString('class=' . $five . '%2C' . $six, $html);
+        $this->assertMatchesRegularExpression('#<select wire:model.live="exportSection" disabled#', $html);
+
+        $page->call('clearExportStandards');
+        $this->assertSame([], $page->get('exportStandards'));
+        $this->assertMatchesRegularExpression('#<strong[^>]*>3</strong> students#', $page->html());
+
+        // The file's name says which classes.
+        [, $name, , $work] = IdCardExport::build($this->org, 'Delhi Public School', 'student', ['name'], [$five, $six], null, 'all', 'xlsx');
+        $this->assertSame('delhi-public-school_students_v-vi_' . now()->format('Y-m-d') . '.xlsx', $name);
+        IdCardExport::cleanup($work);
+    }
+
+    public function test_the_file_is_built_in_short_steps_with_progress(): void
+    {
+        // Two more students with photos: three photos to fetch in all.
+        $five = DB::table('standards')->where('name', 'V')->value('id');
+        DB::table('student_details')->insert([
+            ['organization_id' => $this->org, 'full_name' => 'Meera Das', 'admission_no' => 'ADM-3', 'image' => $this->photo(), 'standard_id' => $five],
+            ['organization_id' => $this->org, 'full_name' => 'Neel Shah', 'admission_no' => 'ADM-4', 'image' => $this->photo(), 'standard_id' => $five],
+        ]);
+        $me = (int) auth()->id();
+
+        $job = IdCardExport::start($this->org, $me, 'Delhi Public School', 'student', ['name', 'photo'], null, null, 'all', 'xlsx');
+        $this->assertSame(4, $job['people']);
+        $this->assertSame(3, $job['total']);
+
+        // Not ready until the photos and then the sheet have each had a step.
+        $this->assertNull(IdCardExport::file($job['id'], $this->org, $me));
+        $s = IdCardExport::step($job['id'], $this->org, $me, 0.0);
+        $this->assertSame(['done' => 3, 'total' => 3, 'stage' => 'sheet', 'ready' => false], $s);
+        $s = IdCardExport::step($job['id'], $this->org, $me, 0.0);
+        $this->assertSame(['done' => 3, 'total' => 3, 'stage' => 'ready', 'ready' => true], $s);
+
+        // Someone else's export: neither its steps nor its file.
+        $this->assertNull(IdCardExport::step($job['id'], 99, $me));
+        $this->assertNull(IdCardExport::file($job['id'], $this->org, $me + 1));
+        $this->assertNull(IdCardExport::step('../../etc/passwd', $this->org, $me));
+
+        [$path, , , $work] = IdCardExport::file($job['id'], $this->org, $me);
+        $this->assertCount(3, IOFactory::load($path)->getActiveSheet()->getDrawingCollection());
+        IdCardExport::cleanup($work);
+        $this->assertDirectoryDoesNotExist($work);
+    }
+
+    public function test_the_panel_starts_steps_and_fetches_the_file_over_http(): void
+    {
+        $this->withoutMiddleware();
+        $five  = DB::table('standards')->where('name', 'V')->value('id');
+        $six   = DB::table('standards')->where('name', 'VI')->value('id');
+        $other = DB::table('standards')->insertGetId(['organization_id' => 99, 'name' => 'X', 'order' => 10]);
+
+        $job = $this->postJson(route('admin.id-card.export.start', [
+            'organization' => $this->org, 'type' => 'student', 'cols' => 'name,photo,class',
+            'class' => "{$five},{$six},{$other}",   // another school's class is left out
+        ]))->assertOk()->json();
+        $this->assertSame(2, $job['people']);
+
+        $ready = false;
+        for ($i = 0; $i < 5 && !$ready; $i++) {
+            $ready = $this->postJson($job['step_url'])->assertOk()->json('ready');
+        }
+        $this->assertTrue($ready);
+
+        $response = $this->get($job['file_url'])->assertOk();
+        $file = tempnam(sys_get_temp_dir(), 'idx');
+        file_put_contents($file, $response->streamedContent());
+        $sheet = IOFactory::load($file)->getActiveSheet();
+        $this->assertSame(['Zoya Khan', 'Aarav Jain'], [$sheet->getCell('A2')->getValue(), $sheet->getCell('A3')->getValue()]);
+        @unlink($file);
+
+        // Sent once: the folder is cleared after.
+        $this->get($job['file_url'])->assertNotFound();
+        $this->postJson(str_replace($job['id'], str_repeat('a', 24), $job['step_url']))->assertNotFound();
     }
 }

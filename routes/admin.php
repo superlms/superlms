@@ -228,6 +228,13 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         // ID Card → Export: the data (with photos) as a spreadsheet, columns as picked
         Route::get('/id-card/export', [\App\Http\Controllers\Admin\IdCardExportController::class, 'download'])
             ->name('admin.id-card.export');
+        // …built a few seconds at a time, so a whole school's photos never hit the gateway's 60 s
+        Route::post('/id-card/export/start', [\App\Http\Controllers\Admin\IdCardExportController::class, 'start'])
+            ->name('admin.id-card.export.start');
+        Route::post('/id-card/export/{id}/step', [\App\Http\Controllers\Admin\IdCardExportController::class, 'step'])
+            ->where('id', '[A-Za-z0-9]{24}')->name('admin.id-card.export.step');
+        Route::get('/id-card/export/{id}/file', [\App\Http\Controllers\Admin\IdCardExportController::class, 'file'])
+            ->where('id', '[A-Za-z0-9]{24}')->name('admin.id-card.export.file');
 
         // Transport fee receipt
         Route::get('/transport/receipt/{id}', [\App\Http\Controllers\Admin\TransportReceiptController::class, 'show'])

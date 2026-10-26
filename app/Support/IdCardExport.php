@@ -6,12 +6,14 @@ use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\EmployeeIdCard;
 use App\Models\Admin\StudentIdCard;
 use App\Models\Admin\TeacherIdCard;
+use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Services\IdCardService;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -33,6 +35,12 @@ use ZipArchive;
  * Two formats: an .xlsx with the photos inside the sheet, or a .zip holding
  * that sheet and a photos/ folder — each photo named as the "Photo File Name"
  * column says — for card software that links photos by file name.
+ *
+ * Students can be one class (and a section of it), several classes, or the
+ * whole school. A whole school's photos take minutes to fetch and fit — far
+ * longer than one web request may run (nginx answers 504 at 60 s) — so the
+ * file is built a few seconds at a time: start(), then step() until it says
+ * ready, then file(). build() runs the same steps in one go.
  */
 class IdCardExport
 {
@@ -45,6 +53,13 @@ class IdCardExport
     private const ROW_PT    = 78;
     /** A photo in the zip's folder: its longer side at most this, in px. */
     private const FOLDER_PX = 800;
+
+    /** A step fetches photos for about this many seconds, then answers. */
+    private const STEP_SECONDS = 10;
+    /** Photos fetched side by side. */
+    private const BATCH = 16;
+    /** A job left behind (the tab closed half-way) is cleared after this long, in seconds. */
+    private const STALE_AFTER = 6 * 3600;
 
     /** Every column a kind can have, in the order "Add all" puts them: key => heading. */
     public static function fields(string $type): array
@@ -179,14 +194,34 @@ class IdCardExport
     // ── The people ──────────────────────────────────────────────────────────
 
     /**
-     * The kind's people in the school — students of the class / section picked
-     * (every class when none) in class order, A to Z within it; teachers and
-     * staff A to Z — narrowed to those holding an active ID card (issued) or
-     * holding none (not_issued).
+     * The classes picked, as ids: one class id, several (an array, or "3,5,8"),
+     * or none — every class.
+     *
+     * @return int[]
      */
-    public static function people(int $orgId, string $type, ?int $standardId = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null): Collection
+    public static function standardIds(mixed $standards): array
     {
-        $query = self::query($orgId, $type, $standardId, $sectionId, $which);
+        if (is_string($standards)) {
+            $standards = explode(',', $standards);
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('intval', (array) $standards),
+            fn ($id) => $id > 0,
+        )));
+    }
+
+    /**
+     * The kind's people in the school — students of the classes picked (every
+     * class when none; a section only when one class is picked) in class
+     * order, A to Z within it; teachers and staff A to Z — narrowed to those
+     * holding an active ID card (issued) or holding none (not_issued).
+     *
+     * @param  int|string|int[]|null  $standards  see standardIds()
+     */
+    public static function people(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null): Collection
+    {
+        $query = self::query($orgId, $type, $standards, $sectionId, $which);
 
         if ($type === 'student') {
             // Class order, then section, then A to Z — worked out on the bare
@@ -212,18 +247,20 @@ class IdCardExport
     }
 
     /** How many people the export will have. */
-    public static function count(int $orgId, string $type, ?int $standardId = null, ?int $sectionId = null, string $which = 'all'): int
+    public static function count(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all'): int
     {
-        return self::query($orgId, $type, $standardId, $sectionId, $which)->count();
+        return self::query($orgId, $type, $standards, $sectionId, $which)->count();
     }
 
-    /** The kind's people, narrowed by class / section and by holding a card — unordered. */
-    private static function query(int $orgId, string $type, ?int $standardId, ?int $sectionId, string $which)
+    /** The kind's people, narrowed by classes / section and by holding a card — unordered. */
+    private static function query(int $orgId, string $type, mixed $standards, ?int $sectionId, string $which)
     {
         if ($type === 'student') {
+            $classes = self::standardIds($standards);
             $query = StudentDetail::where('organization_id', $orgId)
-                ->when($standardId, fn ($q) => $q->where('standard_id', $standardId))
-                ->when($standardId && $sectionId, fn ($q) => $q->where('section_id', $sectionId));
+                ->when($classes, fn ($q) => $q->whereIn('standard_id', $classes))
+                // A section belongs to one class: it narrows only when one class is picked.
+                ->when(count($classes) === 1 && $sectionId, fn ($q) => $q->where('section_id', $sectionId));
             $cards = StudentIdCard::where('organization_id', $orgId)->where('status', 'active')->select('student_detail_id');
         } elseif ($type === 'teacher') {
             $query = TeacherDetail::where('organization_id', $orgId);
@@ -407,56 +444,143 @@ class IdCardExport
     // ── The file ────────────────────────────────────────────────────────────
 
     /**
-     * Build the export into a working folder and return [file path, download
-     * name, mime type, working folder]. The caller sends the file, then hands
-     * the folder to cleanup().
+     * Build the export in one go and return [file path, download name, mime
+     * type, working folder]. The caller sends the file, then hands the folder
+     * to cleanup(). Fine for a class; the panel uses start() / step() instead,
+     * so a whole school never runs into the gateway's time limit.
      */
-    public static function build(int $orgId, string $schoolName, string $type, array $columns, ?int $standardId, ?int $sectionId, string $which, string $format): array
+    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0): array
     {
-        $columns = self::clean($type, $columns) ?: self::defaults($type);
-        $people  = self::people($orgId, $type, $standardId, $sectionId, $which);
-        $rows    = self::rows($orgId, $type, $people, $columns);
+        $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format);
+        do {
+            $status = self::step($job['id'], $orgId, $userId, null);
+        } while ($status && !$status['ready']);
 
-        $withPhotos = in_array('photo', $columns, true) || $format === 'zip';
-        $work       = storage_path('app/tmp/id-card-export-' . Str::random(16));
-        @mkdir($work, 0775, true);
-
-        // Every photo fetched once, side by side; [row index => [thumb, full]] files.
-        $photos = $withPhotos ? self::fetchPhotos($people, $type, $work, $format === 'zip') : [];
-
-        $sheetPath = $work . '/sheet.xlsx';
-        self::writeSheet($sheetPath, $type, $columns, $rows, $photos);
-
-        $scope = $type === 'student' && $standardId
-            ? (Str::slug(self::classWithSection(
-                (string) Standard::whereKey($standardId)->value('name'),
-                $sectionId ? (string) \App\Models\Student\Section::whereKey($sectionId)->value('name') : '',
-            )) ?: 'class')
-            : 'all';
-        $stem = Str::slug($schoolName ?: 'school') . '_' . Str::slug(self::label($type)) . '_' . $scope . '_' . now()->format('Y-m-d');
-
-        if ($format !== 'zip') {
-            return [$sheetPath, $stem . '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $work];
-        }
-
-        $zipPath = $work . '/export.zip';
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-        $zip->addFile($sheetPath, $stem . '.xlsx');
-        $fileCol = 'photo_file';
-        $fileNames = self::rows($orgId, $type, $people, [$fileCol]);
-        foreach ($photos as $i => $p) {
-            $name = $fileNames[$i][$fileCol] ?? '';
-            if ($name !== '' && !empty($p['full']) && is_file($p['full'])) {
-                $zip->addFile($p['full'], 'photos/' . $name);
-            }
-        }
-        $zip->close();
-
-        return [$zipPath, $stem . '.zip', 'application/zip', $work];
+        return self::file($job['id'], $orgId, $userId);
     }
 
-    /** Delete what build() left in its working folder. */
+    /**
+     * Begin an export: who is in it, their rows, and which photos to fetch —
+     * kept in a working folder of its own. Quick: no photo is fetched yet.
+     *
+     * @return array{id: string, people: int, total: int}  total = photos to fetch
+     */
+    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format): array
+    {
+        self::clearStale();
+
+        $format  = $format === 'zip' ? 'zip' : 'xlsx';
+        $columns = self::clean($type, $columns) ?: self::defaults($type);
+        $people  = self::people($orgId, $type, $standards, $sectionId, $which);
+        $thumbs  = in_array('photo', $columns, true);
+        $full    = $format === 'zip';
+
+        // The photo's link and its name in the zip come with the row.
+        $all = self::rows($orgId, $type, $people, array_values(array_unique([...$columns, 'photo', 'photo_file'])));
+
+        $rows = $photos = $files = [];
+        foreach ($all as $i => $r) {
+            $rows[$i] = array_combine($columns, array_map(fn ($c) => $r[$c], $columns));
+            if (($thumbs || $full) && $r['photo'] !== '') {
+                $photos[$i] = $r['photo'];
+                $files[$i]  = $r['photo_file'];
+            }
+        }
+
+        $id   = Str::random(24);
+        $work = self::workDir($id);
+        @mkdir($work, 0775, true);
+
+        self::save($work, [
+            'org'     => $orgId,
+            'user'    => $userId,
+            'type'    => $type,
+            'columns' => $columns,
+            'rows'    => $rows,
+            'photos'  => $photos,   // row index => link
+            'files'   => $files,    // row index => name in the zip's photos/ folder
+            'thumbs'  => $thumbs,
+            'full'    => $full,
+            'format'  => $format,
+            'stem'    => Str::slug($schoolName ?: 'school') . '_' . Str::slug(self::label($type)) . '_'
+                . self::scope($orgId, $type, $standards, $sectionId) . '_' . now()->format('Y-m-d'),
+            'next'    => 0,         // photos fetched so far
+            'ready'   => false,
+        ]);
+
+        return ['id' => $id, 'people' => count($rows), 'total' => count($photos)];
+    }
+
+    /**
+     * One step of an export: fetch photos for about $seconds (at least one
+     * batch; null = all of them), or — once every photo is in — write the
+     * sheet (and the zip). Null when there is no such export for this person.
+     *
+     * @return array{done: int, total: int, stage: string, ready: bool, busy?: bool}|null
+     */
+    public static function step(string $id, int $orgId, int $userId, ?float $seconds = self::STEP_SECONDS): ?array
+    {
+        $work = self::workDir($id);
+        $job  = $work ? self::load($work) : null;
+        if (!$job || $job['org'] !== $orgId || $job['user'] !== $userId) {
+            return null;
+        }
+
+        // One step at a time: a second one only says how far the first has got.
+        // The lock lasts no longer than php-fpm lets a request run (120 s).
+        $lock = Cache::lock('id-card-export-step:' . $id, 120);
+        if (!$lock->get()) {
+            return self::status($job) + ['busy' => true];
+        }
+
+        try {
+            $job = self::load($work) ?? $job;
+            if ($job['ready']) {
+                return self::status($job);
+            }
+
+            $keys    = array_keys($job['photos']);
+            $total   = count($keys);
+            $fetched = false;
+            $started = microtime(true);
+            while ($job['next'] < $total && (!$fetched || $seconds === null || microtime(true) - $started < $seconds)) {
+                $batch = array_slice($keys, $job['next'], self::BATCH);
+                self::fetchPhotos(array_intersect_key($job['photos'], array_flip($batch)), $work, $job['thumbs'], $job['full']);
+                $job['next'] += count($batch);
+                $fetched = true;
+                self::save($work, $job);
+            }
+
+            // The sheet gets a step of its own, unless it is all in one go.
+            if ($job['next'] >= $total && ($seconds === null || !$fetched)) {
+                self::finish($work, $job);
+                self::save($work, $job);
+            }
+
+            return self::status($job);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The finished file: [path, download name, mime type, working folder], or
+     * null when it is not ready or not this person's.
+     */
+    public static function file(string $id, int $orgId, int $userId): ?array
+    {
+        $work = self::workDir($id);
+        $job  = $work ? self::load($work) : null;
+        if (!$job || !$job['ready'] || $job['org'] !== $orgId || $job['user'] !== $userId) {
+            return null;
+        }
+
+        $path = $work . '/' . $job['result']['file'];
+
+        return is_file($path) ? [$path, $job['result']['name'], $job['result']['mime'], $work] : null;
+    }
+
+    /** Delete an export's working folder. */
     public static function cleanup(string $work): void
     {
         foreach (glob($work . '/*') ?: [] as $f) {
@@ -465,58 +589,153 @@ class IdCardExport
         @rmdir($work);
     }
 
-    /**
-     * Fetch every person's photo, twenty at a time in parallel, and keep a
-     * small JPEG for the sheet (and, for the zip, a larger one).
-     *
-     * @return array<int, array{thumb: ?string, full: ?string}>  by row index
-     */
-    private static function fetchPhotos(Collection $people, string $type, string $work, bool $full): array
+    /** How far an export has got, as the panel shows it. */
+    private static function status(array $job): array
     {
-        $urls = [];
-        foreach ($people->values() as $i => $p) {
-            if ($url = self::photoUrl($p, $type)) {
-                $urls[$i] = $url;
-            }
-        }
+        $total = count($job['photos']);
 
-        $out = [];
-        foreach (array_chunk($urls, 20, true) as $chunk) {
-            $bytes = [];
-            $http  = array_filter($chunk, fn ($u) => !str_starts_with($u, 'data:'));
-            foreach (array_diff_key($chunk, $http) as $i => $u) {
-                $bytes[$i] = base64_decode((string) substr($u, (int) strpos($u, ',') + 1)) ?: null;
-            }
-
-            if ($http) {
-                try {
-                    $responses = Http::pool(fn (Pool $pool) => array_map(
-                        fn ($i, $u) => $pool->as((string) $i)->timeout(20)->connectTimeout(5)->get($u),
-                        array_keys($http),
-                        $http,
-                    ));
-                } catch (\Throwable $e) {
-                    $responses = [];
-                }
-                foreach ($http as $i => $u) {
-                    $r = $responses[(string) $i] ?? null;
-                    $bytes[$i] = ($r instanceof \Illuminate\Http\Client\Response && $r->successful()) ? $r->body() : null;
-                }
-            }
-
-            foreach ($bytes as $i => $data) {
-                $out[$i] = [
-                    'thumb' => $data ? self::jpeg($data, self::THUMB_PX * 2, "{$work}/t{$i}.jpg", true) : null,
-                    'full'  => $data && $full ? self::jpeg($data, self::FOLDER_PX, "{$work}/f{$i}.jpg", false) : null,
-                ];
-            }
-        }
-
-        return $out;
+        return [
+            'done'  => min($job['next'], $total),
+            'total' => $total,
+            'stage' => $job['ready'] ? 'ready' : ($job['next'] < $total ? 'photos' : 'sheet'),
+            'ready' => (bool) $job['ready'],
+        ];
     }
 
-    /** The image as a JPEG at most $max px on its longer side (or $max tall); null when it is not an image. */
-    private static function jpeg(string $data, int $max, string $path, bool $byHeight): ?string
+    /** Write the sheet (and, for the zip, put it and the photos together); the job is then ready. */
+    private static function finish(string $work, array &$job): void
+    {
+        $photos = [];
+        foreach (array_keys($job['photos']) as $i) {
+            $thumb = "{$work}/t{$i}.jpg";
+            $photos[$i] = ['thumb' => is_file($thumb) ? $thumb : null];
+        }
+
+        $sheetPath = $work . '/sheet.xlsx';
+        self::writeSheet($sheetPath, $job['type'], $job['columns'], $job['rows'], $photos);
+
+        if ($job['format'] !== 'zip') {
+            $job['result'] = ['file' => 'sheet.xlsx', 'name' => $job['stem'] . '.xlsx',
+                'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        } else {
+            $zip = new ZipArchive();
+            $zip->open($work . '/export.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+            $zip->addFile($sheetPath, $job['stem'] . '.xlsx');
+            foreach ($job['files'] as $i => $name) {
+                $full = "{$work}/f{$i}.jpg";
+                if ($name !== '' && is_file($full)) {
+                    $zip->addFile($full, 'photos/' . $name);
+                    // A JPEG does not squeeze any smaller: stored as it is, the zip is made in a moment.
+                    $zip->setCompressionName('photos/' . $name, ZipArchive::CM_STORE);
+                }
+            }
+            $zip->close();
+            $job['result'] = ['file' => 'export.zip', 'name' => $job['stem'] . '.zip', 'mime' => 'application/zip'];
+        }
+
+        $job['ready'] = true;
+    }
+
+    /** The file name's middle: "all", the one class "v-a", or the classes picked "v-vi-vii" (or "8-classes"). */
+    private static function scope(int $orgId, string $type, mixed $standards, ?int $sectionId): string
+    {
+        $classes = self::standardIds($standards);
+        if ($type !== 'student' || !$classes) {
+            return 'all';
+        }
+
+        if (count($classes) === 1) {
+            return Str::slug(self::classWithSection(
+                (string) Standard::whereKey($classes[0])->value('name'),
+                $sectionId ? (string) Section::whereKey($sectionId)->value('name') : '',
+            )) ?: 'class';
+        }
+
+        $names = Standard::where('organization_id', $orgId)->whereIn('id', $classes)->inClassOrder()->pluck('name');
+
+        return count($classes) <= 4 ? (Str::slug($names->implode(' ')) ?: count($classes) . '-classes') : count($classes) . '-classes';
+    }
+
+    /** An export's working folder; null for an id that is not one of ours. */
+    private static function workDir(string $id): ?string
+    {
+        return preg_match('/^[A-Za-z0-9]{24}$/', $id) ? storage_path('app/tmp/id-card-export-' . $id) : null;
+    }
+
+    private static function load(string $work): ?array
+    {
+        $raw = @file_get_contents($work . '/job.json');
+        $job = $raw ? json_decode($raw, true) : null;
+
+        return is_array($job) ? $job : null;
+    }
+
+    private static function save(string $work, array $job): void
+    {
+        $tmp = $work . '/job.json.' . Str::random(6);
+        file_put_contents($tmp, json_encode($job, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
+        rename($tmp, $work . '/job.json');
+    }
+
+    /** Clear what exports left behind (a tab closed half-way, a file never fetched). */
+    private static function clearStale(): void
+    {
+        foreach (glob(storage_path('app/tmp/id-card-export-*'), GLOB_ONLYDIR) ?: [] as $dir) {
+            if ((int) @filemtime($dir) < time() - self::STALE_AFTER) {
+                self::cleanup($dir);
+            }
+        }
+    }
+
+    /**
+     * Fetch these photos side by side and keep, for each, a small JPEG for the
+     * sheet (t{i}.jpg) and, for the zip, a larger one (f{i}.jpg).
+     *
+     * @param  array<int, string>  $urls  row index => link
+     */
+    private static function fetchPhotos(array $urls, string $work, bool $thumbs, bool $full): void
+    {
+        $bytes = [];
+        $http  = array_filter($urls, fn ($u) => !str_starts_with($u, 'data:'));
+        foreach (array_diff_key($urls, $http) as $i => $u) {
+            $bytes[$i] = base64_decode((string) substr($u, (int) strpos($u, ',') + 1)) ?: null;
+        }
+
+        if ($http) {
+            try {
+                $responses = Http::pool(fn (Pool $pool) => array_map(
+                    fn ($i, $u) => $pool->as((string) $i)->timeout(15)->connectTimeout(5)->get($u),
+                    array_keys($http),
+                    $http,
+                ));
+            } catch (\Throwable $e) {
+                $responses = [];
+            }
+            foreach ($http as $i => $u) {
+                $r = $responses[(string) $i] ?? null;
+                $bytes[$i] = ($r instanceof \Illuminate\Http\Client\Response && $r->successful()) ? $r->body() : null;
+            }
+        }
+
+        foreach ($bytes as $i => $data) {
+            $src = $data ? self::decode($data) : null;
+            unset($bytes[$i]);
+            if (!$src) {
+                continue;
+            }
+            // Decoded once, fitted to both sizes.
+            if ($thumbs) {
+                self::jpeg($src, self::THUMB_PX * 2, "{$work}/t{$i}.jpg", true);
+            }
+            if ($full) {
+                self::jpeg($src, self::FOLDER_PX, "{$work}/f{$i}.jpg", false);
+            }
+            imagedestroy($src);
+        }
+    }
+
+    /** The picture, upright; null when it is not an image. */
+    private static function decode(string $data): ?\GdImage
     {
         if (!function_exists('imagecreatefromstring')) {
             return null;
@@ -526,10 +745,15 @@ class IdCardExport
         if (!$src) {
             return null;
         }
+
         // A phone photo is stored as the camera held it and only says how to
         // turn it; a browser turns it, GD does not — the sheet showed it on its side.
-        $src = PhotoOrientation::upright($src, PhotoOrientation::of($data));
+        return PhotoOrientation::upright($src, PhotoOrientation::of($data));
+    }
 
+    /** The picture as a JPEG at most $max px on its longer side (or $max tall). */
+    private static function jpeg(\GdImage $src, int $max, string $path, bool $byHeight): ?string
+    {
         $w = imagesx($src);
         $h = imagesy($src);
         $scale = $byHeight ? min(1, $max / max(1, $h)) : min(1, $max / max(1, max($w, $h)));
@@ -541,7 +765,6 @@ class IdCardExport
         imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
         imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
         $ok = imagejpeg($dst, $path, 88);
-        imagedestroy($src);
         imagedestroy($dst);
 
         return $ok ? $path : null;
