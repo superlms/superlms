@@ -33,6 +33,7 @@ use App\Http\Controllers\v1\AdminTeacherController;
 use App\Http\Controllers\v1\AdminLedgerController;
 use App\Http\Controllers\v1\AdminPayrollController;
 use App\Http\Controllers\v1\AdminFeeController;
+use App\Http\Controllers\v1\AdminFeeSetupController;
 use App\Http\Controllers\v1\AdminIdCardController;
 use App\Http\Controllers\v1\AdminExamController;
 use App\Http\Controllers\v1\AdminSyllabusController;
@@ -571,6 +572,56 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/fees/qr/{id}',                      [AdminFeeController::class, 'qrRequest'])->whereNumber('id');
             Route::post('/fees/qr/{id}/approve',             [AdminFeeController::class, 'qrApprove'])->whereNumber('id');
             Route::post('/fees/qr/{id}/reject',              [AdminFeeController::class, 'qrReject'])->whereNumber('id');
+
+            // Fees — the rest of the panel's sections: Fee Structure (Add Dues, a
+            // route's fee), Penalties, Fee Cycle (Calculator), Concession,
+            // Payment QR and Accounts user
+            Route::get('/fees/structure',                    [AdminFeeSetupController::class, 'structure']);
+            Route::post('/fees/structure',                   [AdminFeeSetupController::class, 'addStructure']);
+            Route::post('/fees/structure/group',             [AdminFeeSetupController::class, 'editStructure']);
+            Route::delete('/fees/structure/group',           [AdminFeeSetupController::class, 'deleteStructure']);
+            Route::get('/fees/structure/pdf',                [AdminFeeSetupController::class, 'structurePdf']);
+            Route::get('/fees/structure/transport-pdf',      [AdminFeeSetupController::class, 'transportPdf']);
+            Route::post('/fees/routes/{id}',                 [AdminFeeSetupController::class, 'saveRoute'])->whereNumber('id');
+            Route::delete('/fees/routes/{id}',               [AdminFeeSetupController::class, 'deleteRoute'])->whereNumber('id');
+            Route::get('/fees/dues',                         [AdminFeeSetupController::class, 'dues']);
+            Route::post('/fees/dues',                        [AdminFeeSetupController::class, 'saveDues']);
+            Route::get('/fees/penalties/class',              [AdminFeeSetupController::class, 'penaltyClass']);
+            Route::post('/fees/penalties/{id}/waiver',       [AdminFeeSetupController::class, 'waivePenalty'])->whereNumber('id');
+            Route::get('/fees/cycles',                       [AdminFeeSetupController::class, 'cycles']);
+            Route::post('/fees/cycles',                      [AdminFeeSetupController::class, 'addCycles']);
+            Route::get('/fees/cycles/bulk',                  [AdminFeeSetupController::class, 'cycleBulk']);
+            Route::post('/fees/cycles/bulk',                 [AdminFeeSetupController::class, 'saveCycleBulk']);
+            Route::get('/fees/cycles/csv',                   [AdminFeeSetupController::class, 'cycleCsv']);
+            Route::get('/fees/cycles/calculator',            [AdminFeeSetupController::class, 'calculator']);
+            Route::get('/fees/cycles/{id}',                  [AdminFeeSetupController::class, 'cycle'])->whereNumber('id');
+            Route::get('/fees/cycles/{id}/preview',          [AdminFeeSetupController::class, 'cyclePreview'])->whereNumber('id');
+            Route::post('/fees/cycles/{id}',                 [AdminFeeSetupController::class, 'saveCycle'])->whereNumber('id');
+            Route::delete('/fees/cycles/{id}',               [AdminFeeSetupController::class, 'deleteCycle'])->whereNumber('id');
+            Route::get('/fees/concessions',                  [AdminFeeSetupController::class, 'concessions']);
+            Route::post('/fees/concessions',                 [AdminFeeSetupController::class, 'saveConcession']);
+            Route::post('/fees/concessions/{id}',            [AdminFeeSetupController::class, 'saveConcession'])->whereNumber('id');
+            Route::get('/fees/payment-qr',                   [AdminFeeSetupController::class, 'paymentQr']);
+            Route::post('/fees/payment-qr',                  [AdminFeeSetupController::class, 'savePaymentQr']);
+            Route::delete('/fees/payment-qr',                [AdminFeeSetupController::class, 'deletePaymentQr']);
+            Route::get('/fees/account-users',                [AdminFeeSetupController::class, 'accountUsers']);
+            Route::post('/fees/account-users',               [AdminFeeSetupController::class, 'saveAccountUser']);
+            Route::get('/fees/account-users/{id}',           [AdminFeeSetupController::class, 'accountUserShow'])->whereNumber('id');
+            Route::post('/fees/account-users/{id}',          [AdminFeeSetupController::class, 'saveAccountUser'])->whereNumber('id');
+            Route::post('/fees/account-users/{id}/toggle',   [AdminFeeSetupController::class, 'toggleAccountUser'])->whereNumber('id');
+            Route::post('/fees/account-users/{id}/remove-image', [AdminFeeSetupController::class, 'removeAccountUserImage'])->whereNumber('id');
+            Route::delete('/fees/account-users/{id}',        [AdminFeeSetupController::class, 'deleteAccountUser'])->whereNumber('id');
+
+            // Payroll — the panel's newer screens: Mark Attendance for everyone,
+            // a date's statuses, Mark Salary (one person's months), Add → Driver
+            Route::get('/payroll/attendance/day',            [AdminPayrollController::class, 'attendanceDay']);
+            Route::get('/payroll/attendance/sheet',          [AdminPayrollController::class, 'attendanceSheet']);
+            Route::post('/payroll/attendance/sheet',         [AdminPayrollController::class, 'saveAttendanceSheet']);
+            Route::get('/payroll/account/{id}',              [AdminPayrollController::class, 'account'])->whereNumber('id');
+            Route::post('/payroll/account/{id}/payments',    [AdminPayrollController::class, 'addAccountPayment'])->whereNumber('id');
+            Route::get('/payroll/lookups',                   [AdminPayrollController::class, 'lookups']);
+            Route::post('/payroll/drivers',                  [AdminPayrollController::class, 'addDriver']);
+
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');

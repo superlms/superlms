@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\v1;
 
+use App\Http\Controllers\v1\Concerns\RunsPanelActions;
 use App\Livewire\Admin\Payroll as PayrollPage;
 use App\Models\Admin\AdminAttendance;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\AdminSalaryPayment;
+use App\Models\Admin\Transportation;
 use App\Models\Teacher\TeacherAttendance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,6 +29,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class AdminPayrollController extends ApiController
 {
+    use RunsPanelActions;
+
     private const ADMIN_ROLES = ['admin', 'sub-admin'];
     private const TYPES = ['teacher', 'management', 'employee', 'driver'];
     private const MARK_STATUSES = ['present', 'absent', 'half_day', 'leave'];
@@ -130,9 +134,13 @@ class AdminPayrollController extends ApiController
             $stats[$t] = $all->filter(fn ($e) => $e->hasType($t))->count();
         }
 
+        // This month's present days out of working days, as the panel's list shows.
+        $att = $this->run($this->page(), 'monthAttendanceSummary', $all);
+
         return $this->success([
-            'employees' => $list->map(fn ($e) => $this->shape($e))->values(),
+            'employees' => $list->map(fn ($e) => $this->shape($e) + ['month_attendance' => $att[$e->id] ?? null])->values(),
             'stats'     => $stats,
+            'month'     => now()->format('M'),
         ], 'Employees fetched.');
     }
 
@@ -545,14 +553,20 @@ class AdminPayrollController extends ApiController
 
     // ══════════════════════════ PAYMENTS ══════════════════════════
 
-    /** GET /admin/payroll/payments?employee_id=&month=&search= */
+    /** GET /admin/payroll/payments?type=&employee_id=&month=&search= */
     public function payments(Request $request)
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
 
+        // A type picked and none of its people: every payment of that type's people.
+        $people = $request->filled('type') && !$request->filled('employee_id')
+            ? AdminEmployee::forOrganization($user->organization_id)->get()->filter(fn ($e) => $e->hasType($request->type))->pluck('id')
+            : null;
+
         $rows = AdminSalaryPayment::forOrganization($user->organization_id)
             ->with('employee')
+            ->when($people !== null, fn ($q) => $q->whereIn('admin_employee_id', $people))
             ->when($request->filled('employee_id'), fn ($q) => $q->where('admin_employee_id', $request->employee_id))
             ->when($request->filled('month'), fn ($q) => $q->forMonth($request->month))
             ->latest()->get()
@@ -571,5 +585,241 @@ class AdminPayrollController extends ApiController
             ]),
             'total' => (float) $rows->where('status', 'paid')->sum('amount'),
         ], 'Payments fetched.');
+    }
+
+    // ══════════════════════════ THE PANEL'S NEWER SCREENS ══════════════════════════
+    // Mark Attendance for everyone at once (teachers too, in the Attendance
+    // module's own records), a date's statuses with their remarks, the Mark
+    // Salary tab (one person's months since April, and Add Payment against a
+    // month), and Add → Driver.
+
+    /** A real calendar day, not one still to come. */
+    private function pastDate(?string $date): ?string
+    {
+        $d = \DateTime::createFromFormat('!Y-m-d', (string) $date);
+        return $d && $d->format('Y-m-d') === $date && $date <= now()->toDateString() ? $date : null;
+    }
+
+    /**
+     * GET /admin/payroll/attendance/day?date=YYYY-MM-DD
+     * The Attendance tab's date view: everyone that day — a teacher's from the
+     * Attendance module — with the status and remark, and the day's counts.
+     */
+    public function attendanceDay(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = (int) $user->organization_id;
+
+        $date = $this->pastDate($request->input('date')) ?? now()->toDateString();
+        $this->provision();
+
+        $employees = $this->orderByType(AdminEmployee::forOrganization($orgId)->orderBy('name')->get());
+        $marks     = $this->run($this->page(), 'dayMarks', $date, $employees);
+
+        $counts = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'leave' => 0, 'not_marked' => 0];
+        $rows = $employees->map(function ($e) use ($marks, &$counts) {
+            $m = $marks[$e->id] ?? ['status' => null, 'remark' => ''];
+            $counts[$m['status'] && isset($counts[$m['status']]) ? $m['status'] : 'not_marked']++;
+            return $this->shape($e) + ['status' => $m['status'], 'remark' => (string) $m['remark']];
+        })->values();
+
+        return $this->success([
+            'date'      => $date,
+            'label'     => Carbon::parse($date)->format('l, d M Y'),
+            'employees' => $rows,
+            'counts'    => $counts,
+        ], 'Attendance fetched.');
+    }
+
+    /**
+     * GET /admin/payroll/attendance/sheet?date=YYYY-MM-DD
+     * The Mark Attendance panel for a day: everyone — teachers first, then
+     * management, drivers and employees, A to Z — each with what is saved for
+     * them (status and remark), and whether the day is already marked.
+     */
+    public function attendanceSheet(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = (int) $user->organization_id;
+
+        $date = $this->pastDate($request->input('date')) ?? now()->toDateString();
+        $this->provision();
+
+        $page = $this->page(['panelDate' => $date]);
+        $this->run($page, 'loadMarkPanel');
+
+        $people = AdminEmployee::forOrganization($orgId)->get()
+            ->sortBy(fn ($e) => [PayrollPage::MARK_ORDER[$e->type] ?? 9, mb_strtolower((string) $e->name)])
+            ->values();
+
+        return $this->success([
+            'date'     => $date,
+            'label'    => Carbon::parse($date)->format('l, d M Y'),
+            'existing' => (bool) $page->panelExisting,
+            'rows'     => $people->map(fn ($e) => $this->shape($e) + [
+                'status' => (string) ($page->panelRows[$e->id]['status'] ?? ''),
+                'remark' => (string) ($page->panelRows[$e->id]['remark'] ?? ''),
+            ])->values(),
+            'statuses' => ['present', 'absent', 'half_day', 'holiday'],
+        ], 'Attendance sheet fetched.');
+    }
+
+    /**
+     * POST /admin/payroll/attendance/sheet {date, rows: {employee id: {status, remark}}}
+     * The panel's Save: a teacher's row to the Attendance module, everyone
+     * else's to payroll's; a blank row saves nothing (and clears an earlier
+     * mark); everyone on Holiday needs the remark.
+     */
+    public function saveAttendanceSheet(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $rows = [];
+        foreach ((array) $request->input('rows', []) as $id => $r) {
+            $rows[(int) $id] = [
+                'status' => (string) ($r['status'] ?? ''),
+                'remark' => trim((string) ($r['remark'] ?? '')),
+            ];
+        }
+
+        $page = $this->page([
+            'panelDate' => (string) $request->input('date', ''),
+            'panelRows' => $rows,
+        ]);
+
+        return $this->act($page, 'saveMarkPanel', [], [], 'Attendance saved.');
+    }
+
+    /**
+     * GET /admin/payroll/account/{id}
+     * The Mark Salary tab for one person: who they are, and each month from 1
+     * April (or the month they joined) to this one — the attendance marked,
+     * the salary it works out to, what was paid against it — with the totals.
+     */
+    public function account($id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $e = AdminEmployee::forOrganization($user->organization_id)->find($id);
+        if (!$e) return $this->error('Employee not found.', 404);
+
+        $account = $this->run($this->page(['salaryEmpId' => (string) $e->id]), 'salaryAccount', $e);
+
+        return $this->success([
+            'employee' => $this->shape($e) + [
+                'bank_name'        => $e->bank_name,
+                'bank_account_no'  => $e->bank_account_no,
+                'bank_ifsc'        => $e->bank_ifsc,
+                'bank_holder_name' => $e->bank_holder_name,
+            ],
+            'months'   => $account['months'],
+            'payable'  => (float) $account['payable'],
+            'paid'     => (float) $account['paid'],
+            'balance'  => (float) $account['balance'],
+            'paid_leaves_a_month' => PayrollPage::PAID_LEAVES_A_MONTH,
+        ], 'Salary account fetched.');
+    }
+
+    /**
+     * POST /admin/payroll/account/{id}/payments {amount, date, from, remark?, month?}
+     * Add Payment: kept against the month whose screen it was added from, else
+     * the month of its date.
+     */
+    public function addAccountPayment(Request $request, $id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $e = AdminEmployee::forOrganization($user->organization_id)->find($id);
+        if (!$e) return $this->error('Employee not found.', 404);
+
+        $page = $this->page([
+            'salaryEmpId' => (string) $e->id,
+            'spMonth'     => (string) $request->input('month', ''),
+            'spAmount'    => trim((string) $request->input('amount', '')),
+            'spDate'      => (string) $request->input('date', ''),
+            'spFrom'      => trim((string) $request->input('from', '')),
+            'spRemark'    => trim((string) $request->input('remark', '')),
+        ]);
+
+        return $this->act($page, 'saveSalaryPayment', [], [
+            'spAmount' => 'amount',
+            'spDate'   => 'date',
+            'spFrom'   => 'from',
+            'spRemark' => 'remark',
+        ], 'Payment added.');
+    }
+
+    /** GET /admin/payroll/lookups — the routes a new driver can be put on, as Transport lists them. */
+    public function lookups()
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        return $this->success([
+            'routes' => Transportation::where('organization_id', $user->organization_id)
+                ->orderBy('route_name')->orderBy('vehicle_type')
+                ->get(['id', 'route_name', 'vehicle_type'])
+                ->map(fn ($r) => ['id' => $r->id, 'name' => $r->route_name, 'vehicle_type' => $r->vehicle_type])
+                ->values(),
+        ], 'Lookups fetched.');
+    }
+
+    /**
+     * POST /admin/payroll/drivers (multipart) — Add → Driver: made as Transport
+     * makes a driver (a login on password 123456, the driver record, the routes
+     * picked), with their payroll row carrying the salary and bank details.
+     * {name, mobile, email?, license_no?, vehicle_no?, experience?, is_active?, route_ids[]?,
+     *  salary, designation?, joining_date?, address?, bank_*?, photo?}
+     */
+    public function addDriver(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $page = $this->page([
+            'empType'        => 'driver',
+            'empName'        => trim((string) $request->input('name', '')),
+            'empEmail'       => trim((string) $request->input('email', '')),
+            'empMobile'      => trim((string) $request->input('mobile', '')),
+            'empDesignation' => trim((string) $request->input('designation', '')),
+            'empSalary'      => trim((string) $request->input('salary', '')),
+            'empAddress'     => trim((string) $request->input('address', '')),
+            'empBankName'    => trim((string) $request->input('bank_name', '')),
+            'empAccountNo'   => trim((string) $request->input('bank_account_no', '')),
+            'empHolderName'  => trim((string) $request->input('bank_holder_name', '')),
+            'empBranch'      => trim((string) $request->input('bank_branch', '')),
+            'empIfsc'        => trim((string) $request->input('bank_ifsc', '')),
+            'empJoiningDate' => (string) $request->input('joining_date', ''),
+            'drvLicenseNo'   => trim((string) $request->input('license_no', '')),
+            'drvVehicleNo'   => trim((string) $request->input('vehicle_no', '')),
+            'drvExperience'  => trim((string) $request->input('experience', '')),
+            'drvActive'      => $request->boolean('is_active', true),
+            'drvRoutes'      => array_values(array_map('intval', (array) $request->input('route_ids', []))),
+        ]);
+        $page->empPhoto = $request->file('photo');
+
+        return $this->act($page, 'saveEmployee', [], [
+            'empName'        => 'name',
+            'empEmail'       => 'email',
+            'empMobile'      => 'mobile',
+            'empDesignation' => 'designation',
+            'empSalary'      => 'salary',
+            'empAddress'     => 'address',
+            'empBankName'    => 'bank_name',
+            'empAccountNo'   => 'bank_account_no',
+            'empHolderName'  => 'bank_holder_name',
+            'empBranch'      => 'bank_branch',
+            'empIfsc'        => 'bank_ifsc',
+            'empJoiningDate' => 'joining_date',
+            'empPhoto'       => 'photo',
+            'drvLicenseNo'   => 'license_no',
+            'drvVehicleNo'   => 'vehicle_no',
+            'drvExperience'  => 'experience',
+        ], 'Driver added!');
     }
 }
