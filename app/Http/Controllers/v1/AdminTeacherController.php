@@ -10,6 +10,7 @@ use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\PhotoCrop;
 use App\Support\TeacherExport;
 use App\Support\Usernames;
 use Illuminate\Http\Request;
@@ -178,8 +179,10 @@ class AdminTeacherController extends ApiController
 
     /**
      * POST /admin/teachers/{id}/photo — the panel's photo viewer: a new photo
-     * (an image of up to 1 MB) in place of the old, or remove=1 to take it
-     * off. The rest of the teacher is left as it is.
+     * (an image of up to 2 MB) in place of the old, or remove=1 to take it
+     * off. With crop_x … crop_h (the app's passport frame, PhotoCrop) a new
+     * photo is cut to that part — and, with no new photo, the saved one is.
+     * The rest of the teacher is left as it is.
      */
     public function photo(Request $request, $id)
     {
@@ -199,16 +202,39 @@ class AdminTeacherController extends ApiController
             return $this->success(['image' => null], 'Photo removed.');
         }
 
-        if ($err = $this->validateWith($request, ['image' => 'required|image|max:1024'], [
-            'image.max'   => 'Image must be 1 MB or smaller.',
+        // No new photo, only the part to keep of the one they have: that one is
+        // cut, and the uncut one taken off once the cut one is stored.
+        $crop = PhotoCrop::fromRequest($request);
+        if ($crop && !$request->hasFile('image')) {
+            if (!$teacher->image) {
+                return $this->error('There is no photo to crop.', 422);
+            }
+            $path = $this->cropSaved($teacher->image, $crop);
+            if (!$path) {
+                return $this->error('The photo could not be cropped just now. Please try again.', 422);
+            }
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $old = $teacher->image;
+            $teacher->update(['image' => Storage::disk('s3')->url($path)]);
+            $this->safeS3Delete($old);
+
+            return $this->success(['image' => $teacher->image], 'Photo updated.');
+        }
+
+        if ($err = $this->validateWith($request, ['image' => 'required|image|max:2048'], [
+            'image.max'   => 'Image must be 2 MB or smaller.',
             'image.image' => 'Please pick an image.',
         ])) return $err;
 
         try {
-            if ($teacher->image) $this->safeS3Delete($teacher->image);
-            $path = $request->file('image')->store('admin/teachers/images', 's3');
+            // A new photo with a part to keep is cut to it; without, kept as sent.
+            $path = $this->storeCropped($request->file('image')->get(), $crop);
+            $path ??= $request->file('image')->store('admin/teachers/images', 's3');
             Storage::disk('s3')->setVisibility($path, 'public');
+            $old = $teacher->image;
             $teacher->update(['image' => Storage::disk('s3')->url($path)]);
+            // The old photo goes only once the new one is saved.
+            if ($old) $this->safeS3Delete($old);
         } catch (\Throwable $e) {
             return $this->error('Could not save the photo: ' . $e->getMessage(), 500);
         }
@@ -351,7 +377,10 @@ class AdminTeacherController extends ApiController
                 $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
             }
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('admin/teachers/images', 's3');
+                // Cut to the passport frame the app's photo selector was set
+                // to, when it sent one (PhotoCrop); otherwise kept as sent.
+                $path = $this->storeCropped($request->file('image')->get(), PhotoCrop::fromRequest($request));
+                $path ??= $request->file('image')->store('admin/teachers/images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $userData['image'] = Storage::disk('s3')->url($path);
             }
@@ -422,11 +451,26 @@ class AdminTeacherController extends ApiController
                 'mobile_number' => $request->mobile,
                 'is_active'     => $request->boolean('is_active'),
             ];
+            // The photo replaced, taken off once the teacher is saved.
+            $oldImage = null;
             if ($request->hasFile('image')) {
-                if ($teacher->image) $this->safeS3Delete($teacher->image);
-                $path = $request->file('image')->store('admin/teachers/images', 's3');
+                // Cut to the passport frame the app's photo selector was set
+                // to, when it sent one (PhotoCrop); otherwise kept as sent.
+                $path = $this->storeCropped($request->file('image')->get(), PhotoCrop::fromRequest($request));
+                $path ??= $request->file('image')->store('admin/teachers/images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $userData['image'] = Storage::disk('s3')->url($path);
+                $oldImage = $teacher->image;
+            } elseif ($teacher->image && ($crop = PhotoCrop::fromRequest($request))) {
+                // No new photo, only a part to keep of the one they have:
+                // that one is cut and stored as a new one.
+                $path = $this->cropSaved($teacher->image, $crop);
+                if (!$path) {
+                    return $this->error('The photo could not be cropped just now. Please try again.', 422);
+                }
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $userData['image'] = Storage::disk('s3')->url($path);
+                $oldImage = $teacher->image;
             }
             $teacher->fill($userData);
             if (Schema::hasColumn('users', 'dob')) $teacher->dob = $request->dob;
@@ -446,6 +490,7 @@ class AdminTeacherController extends ApiController
                     'emergency_contact' => $request->emergency_contact ?: null,
                 ]);
             });
+            if ($oldImage) $this->safeS3Delete($oldImage);
 
             if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $request->mobile)) {
                 \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
@@ -506,6 +551,21 @@ class AdminTeacherController extends ApiController
                 logger()->error('AdminTeacher welcome email failed: ' . $e->getMessage());
             }
         })->afterResponse();
+    }
+
+    /**
+     * The photo cut to the part kept (PhotoCrop) and stored; its path — or
+     * null when no part was asked for or the picture could not be cut.
+     */
+    private function storeCropped(string $bytes, ?array $crop): ?string
+    {
+        return PhotoCrop::store($bytes, $crop, 'admin/teachers/images');
+    }
+
+    /** The photo a teacher has, cut to the part kept and stored as a new one. */
+    private function cropSaved(string $url, array $crop): ?string
+    {
+        return PhotoCrop::storeSaved($url, $crop, 'admin/teachers/images');
     }
 
     private function safeS3Delete(?string $url): void

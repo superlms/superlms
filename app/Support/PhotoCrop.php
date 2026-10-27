@@ -3,26 +3,30 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * A photo cut to the part the app's photo editor was set to.
  *
- * The app (the class teacher's Students) can't cut a picture itself, so it
- * sends the photo and where the part sits on it: crop_x, crop_y, crop_w,
- * crop_h, each a fraction (0–1) of the photo's width or height as it shows on
- * the phone — upright. The part may be any shape (cut from any side) or a
- * square (the earlier circle cropper). The photo is turned upright here the
- * same way (its EXIF orientation) and the part cut out as it is, its longer
- * side at most MAX px. The teacher's own profile photo is cut by
- * v1\TeacherController::squareAvatar, left as it is.
+ * The app can't cut a picture itself, so it sends the photo and where the part
+ * sits on it: crop_x, crop_y, crop_w, crop_h, each a fraction (0–1) of the
+ * photo's width or height as it shows on the phone — upright. The part may be
+ * any shape: the passport frame (35 × 45 mm) of the app's photo selector, a
+ * part cut from any side, or a square (the earlier circle cropper). The photo
+ * is turned upright here the same way (its EXIF orientation) and the part cut
+ * out as it is, its longer side at most MAX px. Students' and teachers' photos
+ * alike — the admin app's forms and pages, the class teacher's Students, and
+ * a teacher's own profile photo.
  */
 class PhotoCrop
 {
     public const MAX = 1024;
 
     /**
-     * The square the request asks for, as [x, y, w, h] fractions kept inside
-     * the photo — or null when it asks for none (older apps, the admin app).
+     * The part the request asks for, as [x, y, w, h] fractions kept inside
+     * the photo — or null when it asks for none (older apps).
      */
     public static function fromRequest(Request $request): ?array
     {
@@ -103,5 +107,37 @@ class PhotoCrop
         imagedestroy($source);
 
         return $jpeg !== '' ? $jpeg : null;
+    }
+
+    /**
+     * The picture cut to the part and stored on S3 in $folder; its path — or
+     * null when no part was asked for or the picture could not be cut.
+     */
+    public static function store(string $bytes, ?array $crop, string $folder): ?string
+    {
+        if (!$crop || ($jpeg = self::cut($bytes, $crop)) === null) {
+            return null;
+        }
+
+        $path = trim($folder, '/') . '/' . Str::random(40) . '.jpg';
+
+        return Storage::disk('s3')->put($path, $jpeg) ? $path : null;
+    }
+
+    /**
+     * A photo already saved (its address) cut to the part and stored in
+     * $folder as a new one; its path — or null when it could not be fetched
+     * or cut. The saved one is left for the caller to take off.
+     */
+    public static function storeSaved(string $url, array $crop, string $folder): ?string
+    {
+        $url = Str::startsWith($url, ['http://', 'https://']) ? $url : Storage::disk('s3')->url($url);
+        try {
+            $response = Http::timeout(20)->connectTimeout(3)->get($url);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $response->successful() ? self::store($response->body(), $crop, $folder) : null;
     }
 }

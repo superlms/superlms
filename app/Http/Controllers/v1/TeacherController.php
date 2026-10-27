@@ -8,6 +8,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Services\ResponseService;
+use App\Support\PhotoCrop;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -106,9 +107,12 @@ class TeacherController extends Controller
      * POST /api/v1/teacher/profile/photo  (multipart: photo, crop_x, crop_y, crop_w, crop_h)
      *
      * Adds or replaces the teacher's own profile photo. The app sends the photo
-     * as picked, plus the square framed in its cropper as fractions (0–1) of the
-     * upright photo. The square is cut here and stored as a JPEG of at most
-     * 512px, in the same S3 folder the admin Teachers form uses.
+     * as picked, plus the part framed in its photo selector as fractions (0–1)
+     * of the upright photo — the passport frame (35 × 45 mm), or the square of
+     * an older app's cropper. That part is cut here as it is (PhotoCrop, its
+     * longer side at most 1024px); sent without one, the centre square is kept
+     * (at most 512px). Stored as a JPEG in the S3 folder the admin Teachers
+     * form uses.
      */
     public function updateTeacherPhoto(Request $request)
     {
@@ -139,13 +143,13 @@ class TeacherController extends Controller
             );
         }
 
-        // Without a full crop, the centre square is taken.
-        $crop = $request->filled(['crop_x', 'crop_y', 'crop_w', 'crop_h'])
-            ? array_map('floatval', $request->only(['crop_x', 'crop_y', 'crop_w', 'crop_h']))
-            : null;
+        // The part framed, cut as it is; without a full one, the centre square.
+        $crop = PhotoCrop::fromRequest($request);
 
         try {
-            $jpeg = $this->squareAvatar($request->file('photo'), $crop);
+            $jpeg = $crop
+                ? PhotoCrop::cut((string) file_get_contents($request->file('photo')->getRealPath()), $crop)
+                : $this->squareAvatar($request->file('photo'));
             if ($jpeg === null) {
                 return $this->responseService->error('That photo could not be read. Try another one.', 422);
             }
@@ -196,11 +200,11 @@ class TeacherController extends Controller
     }
 
     /**
-     * JPEG bytes of the square cut from an uploaded photo, at most 512px, or
-     * null when GD can't read the file. $crop holds crop_x/crop_y/crop_w/crop_h
-     * as fractions of the upright photo; null takes the centre square.
+     * JPEG bytes of the centre square of an uploaded photo, at most 512px, or
+     * null when GD can't read the file — for a photo sent without a part to
+     * keep (a part sent is cut by PhotoCrop).
      */
-    private function squareAvatar(UploadedFile $file, ?array $crop): ?string
+    private function squareAvatar(UploadedFile $file): ?string
     {
         $path  = $file->getRealPath();
         $image = @imagecreatefromstring((string) file_get_contents($path));
@@ -235,18 +239,9 @@ class TeacherController extends Controller
         $width  = imagesx($image);
         $height = imagesy($image);
 
-        if ($crop) {
-            $side = (int) round(min($crop['crop_w'] * $width, $crop['crop_h'] * $height));
-            $x    = (int) round($crop['crop_x'] * $width);
-            $y    = (int) round($crop['crop_y'] * $height);
-        } else {
-            $side = min($width, $height);
-            $x    = intdiv($width - $side, 2);
-            $y    = intdiv($height - $side, 2);
-        }
-        $side = max(1, min($side, $width, $height));
-        $x    = max(0, min($x, $width - $side));
-        $y    = max(0, min($y, $height - $side));
+        $side = max(1, min($width, $height));
+        $x    = intdiv($width - $side, 2);
+        $y    = intdiv($height - $side, 2);
 
         $size   = min(512, $side);
         $avatar = imagecreatetruecolor($size, $size);

@@ -699,31 +699,18 @@ class AdminStudentController extends ApiController
     // ══════════════════════════ HELPERS ══════════════════════════
 
     /**
-     * The photo cut to the square (PhotoCrop) and stored; its path — or null
-     * when no square was asked for or the picture could not be cut.
+     * The photo cut to the part kept (PhotoCrop) and stored; its path — or
+     * null when no part was asked for or the picture could not be cut.
      */
     private function storeCropped(string $bytes, ?array $crop): ?string
     {
-        if (!$crop || ($jpeg = PhotoCrop::cut($bytes, $crop)) === null) {
-            return null;
-        }
-
-        $path = 'admin/students/images/' . Str::random(40) . '.jpg';
-
-        return Storage::disk('s3')->put($path, $jpeg) ? $path : null;
+        return PhotoCrop::store($bytes, $crop, 'admin/students/images');
     }
 
-    /** The photo a student has, cut to the square and stored as a new one. */
+    /** The photo a student has, cut to the part kept and stored as a new one. */
     private function cropSaved(string $url, array $crop): ?string
     {
-        $url = Str::startsWith($url, ['http://', 'https://']) ? $url : Storage::disk('s3')->url($url);
-        try {
-            $response = \Illuminate\Support\Facades\Http::timeout(20)->connectTimeout(3)->get($url);
-        } catch (\Throwable $e) {
-            return null;
-        }
-
-        return $response->successful() ? $this->storeCropped($response->body(), $crop) : null;
+        return PhotoCrop::storeSaved($url, $crop, 'admin/students/images');
     }
 
     private function safeS3Delete(?string $url): void
