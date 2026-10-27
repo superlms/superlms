@@ -152,6 +152,12 @@ Route::get('/account-setup/{token}', [\App\Http\Controllers\AccountSetupControll
     ->middleware('throttle:30,1')
     ->name('account.setup');
 
+// The app's download link in the SMS welcome (WelcomeSms): short, and fixed in
+// the DLT templates, so the store link can change without new templates.
+// Before website.php, whose {organization} wildcard would swallow it.
+Route::get('/app', fn () => redirect()->away((string) config('services.whatsapp.app_url')))
+    ->name('app.download');
+
 // Caddy's question before it gets a certificate for a school's own domain:
 // yes only for a published school website's (infra/lite/Caddyfile). Before
 // website.php, whose {organization} wildcard would swallow it.

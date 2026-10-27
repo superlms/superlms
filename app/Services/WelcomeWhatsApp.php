@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Log;
  *
  * Sent after the response, like the email, so saving never waits on it; and
  * nothing here can make a save fail.
+ *
+ * A school the super admin has turned SMS on for gets none of this: the
+ * welcome goes by SMS instead (App\Services\WelcomeSms), and only by SMS.
  */
 class WelcomeWhatsApp
 {
@@ -29,6 +32,11 @@ class WelcomeWhatsApp
      */
     public static function student(int $userId, string $feature = 'welcome'): void
     {
+        if (WelcomeSms::forUser($userId)) {
+            WelcomeSms::student($userId, $feature);
+            return;
+        }
+
         if (!WhatsAppService::enabled()) {
             return;
         }
@@ -65,6 +73,11 @@ class WelcomeWhatsApp
 
     public static function teacher(int $userId, string $feature = 'welcome'): void
     {
+        if (WelcomeSms::forUser($userId)) {
+            WelcomeSms::teacher($userId, $feature);
+            return;
+        }
+
         if (!WhatsAppService::enabled()) {
             return;
         }
@@ -109,6 +122,11 @@ class WelcomeWhatsApp
     {
         if (!SchoolWhatsApp::credentialsOn((int) $user->organization_id)) {
             return ['ok' => false, 'message' => 'Send Credentials is off for this school, so nothing was sent.'];
+        }
+
+        // A school on SMS gets its credentials by SMS, as its welcome.
+        if (WelcomeSms::on((int) $user->organization_id)) {
+            return WelcomeSms::resend($user, $kind);
         }
 
         if (!WhatsAppService::enabled()) {

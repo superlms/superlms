@@ -701,8 +701,10 @@ class Student extends Component
                 // Email changed on an edit → send credentials to the NEW address,
                 // carrying a password the student can actually log in with: the
                 // one they already have when we can recover it, a freshly set
-                // one when we can't.
-                if ($oldStudentEmail && $student->email && strcasecmp($oldStudentEmail, $student->email) !== 0) {
+                // one when we can't. Not for a school on SMS: its logins go
+                // by SMS only (WelcomeSms).
+                if ($oldStudentEmail && $student->email && strcasecmp($oldStudentEmail, $student->email) !== 0
+                    && !\App\Services\WelcomeSms::on((int) $orgId)) {
                     $emailTemplateKey = config('services.zeptomail.student_password_template_key');
                     if ($emailTemplateKey) {
                         $schoolName   = Organization::find($orgId)?->name ?? 'School';
@@ -752,7 +754,9 @@ class Student extends Component
                 // either way.
                 $emailTemplateKey = config('services.zeptomail.student_password_template_key');
                 // No email given → nothing to send; WhatsApp below still goes.
-                if ($emailTemplateKey && $plainPassword && $student->email) {
+                // A school on SMS: no email — WelcomeWhatsApp::student() below
+                // sends the SMS, and only that.
+                if ($emailTemplateKey && $plainPassword && $student->email && !\App\Services\WelcomeSms::on((int) $orgId)) {
                     $schoolName     = Organization::find($orgId)?->name ?? 'School';
                     $emailPayload   = [
                         'template_key' => $emailTemplateKey,

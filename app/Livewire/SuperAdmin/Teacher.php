@@ -404,8 +404,9 @@ class Teacher extends Component
         }
 
         // Email changed → re-send credentials to the NEW address with the
-        // SAME (unchanged) password, exactly like the admin module.
-        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0) {
+        // SAME (unchanged) password, exactly like the admin module. Not for a
+        // school on SMS: its logins go by SMS only (WelcomeSms).
+        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0 && !\App\Services\WelcomeSms::on((int) $this->editOrgId)) {
             try {
                 $templateKey = config('services.zeptomail.teacher_password_template_key');
                 if ($templateKey) {
@@ -594,7 +595,9 @@ class Teacher extends Component
 
         try {
             $templateKey = config('services.zeptomail.teacher_password_template_key');
-            if ($templateKey) {
+            if (\App\Services\WelcomeSms::on((int) $org->id)) {
+                // A school on SMS: no email — the SMS below is the welcome.
+            } elseif ($templateKey) {
                 ZeptoMailService::sendTemplate($templateKey, $this->addEmail, $this->addName, [
                     'password'      => $plainPassword,
                     'email_address' => $this->addEmail,

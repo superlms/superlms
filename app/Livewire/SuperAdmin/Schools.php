@@ -247,6 +247,34 @@ class Schools extends Component
         $this->notification()->success($label . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
     }
 
+    // ─── SMS tab: the welcome by SMS (Bhash) on / off, and what went ──────────
+
+    /**
+     * Welcome by SMS on or off for the school on screen. On: new students and
+     * teachers get their login by SMS only — no welcome email, no WhatsApp
+     * (App\Services\WelcomeSms).
+     */
+    public function toggleSms(): void
+    {
+        $orgId = $this->whatsAppOrgId();
+        if (!$orgId || !\App\Services\SchoolSms::tracked()) {
+            return;
+        }
+
+        $on = !\App\Services\SchoolSms::enabled($orgId, 'welcome');
+        \App\Services\SchoolSms::setEnabled($orgId, 'welcome', $on, auth()->id());
+
+        $this->notification()->success('Welcome by SMS ' . ($on ? 'is on' : 'is off') . ' for ' . $this->detailSchool->name . '.');
+    }
+
+    /** What the SMS tab shows, or null before the tables are there. */
+    public function smsSummary(): ?array
+    {
+        $orgId = $this->whatsAppOrgId();
+
+        return $orgId && \App\Services\SchoolSms::tracked() ? \App\Services\SchoolSms::summary($orgId) : null;
+    }
+
     // ─── Custom Fee tab: the school's own per-student fee in place of the ordinary one ──
 
     /**

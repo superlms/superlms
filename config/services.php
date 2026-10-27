@@ -88,6 +88,43 @@ return [
         'app_url'         => env('APP_PLAY_STORE_URL', 'https://play.google.com/store/apps/details?id=com.edyoneapp'),
     ],
 
+    // SMS through Bhash SMS (App\Services\SmsService). A school the super
+    // admin turns SMS on for gets the welcome by SMS only — no welcome email,
+    // no WhatsApp (App\Services\WelcomeSms). Nothing goes until user, pass and
+    // sender are set; until then every school keeps the email and WhatsApp.
+    'bhash_sms' => [
+        'enabled'  => env('BHASH_SMS_ENABLED', true),
+        'url'      => env('BHASH_SMS_URL', 'https://bhashsms.com/api/sendmsg.php'),
+        'user'     => env('BHASH_SMS_USER'),
+        'pass'     => env('BHASH_SMS_PASS'),
+        'sender'   => env('BHASH_SMS_SENDER'),            // the 6-letter DLT header
+        'priority' => env('BHASH_SMS_PRIORITY', 'ndnd'),
+        'stype'    => env('BHASH_SMS_STYPE', 'normal'),
+        // DLT: the entity (PE) id, and what the account's API calls it and a
+        // template's id. Each goes only when it has a value; change the names
+        // if the API page in the Bhash panel calls them something else.
+        'entity_id'      => env('BHASH_SMS_ENTITY_ID'),
+        'entity_param'   => env('BHASH_SMS_ENTITY_PARAM', 'entityid'),
+        'template_param' => env('BHASH_SMS_TEMPLATE_PARAM', 'templateid'),
+        // Each text must be the DLT-approved template word for word, every
+        // {#var#} filled in the order WelcomeSms gives (each 30 characters at
+        // most). The link is fixed in the text, as DLT wants, and must be
+        // whitelisted there; /app sends it on to the Play Store. An override
+        // in .env must be in double quotes (it has #).
+        'templates' => [
+            // name, school, class, section, admission no., password
+            'student_welcome' => [
+                'id'   => env('BHASH_SMS_TEMPLATE_STUDENT'),
+                'text' => env('BHASH_SMS_TEXT_STUDENT', 'Dear {#var#}, welcome to {#var#}. Class: {#var#}, Section: {#var#}. Login - Admission No: {#var#}, Password: {#var#}. Download the app: https://superlms.in/app - SuperLMS'),
+            ],
+            // name, school, username, password
+            'teacher_welcome' => [
+                'id'   => env('BHASH_SMS_TEMPLATE_TEACHER'),
+                'text' => env('BHASH_SMS_TEXT_TEACHER', 'Dear {#var#}, welcome to {#var#}. Login - Username: {#var#}, Password: {#var#}. Download the app: https://superlms.in/app - SuperLMS'),
+            ],
+        ],
+    ],
+
     'zeptomail' => [
         'api_url' => env('ZEPTOMAIL_API_URL', 'https://api.zeptomail.in/v1.1'),
         'api_token' => env('ZEPTOMAIL_API_TOKEN'),

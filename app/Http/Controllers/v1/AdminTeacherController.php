@@ -534,7 +534,9 @@ class AdminTeacherController extends ApiController
     private function sendWelcomeEmail(User $teacher, int $orgId, string $plainPassword): void
     {
         $key = config('services.zeptomail.teacher_password_template_key');
-        if (!$key) return;
+        // A school on SMS: the login goes by SMS only (WelcomeSms), on adding
+        // and on a changed email alike.
+        if (!$key || \App\Services\WelcomeSms::on($orgId)) return;
         $schoolName = Organization::find($orgId)?->name ?? 'School';
         dispatch(function () use ($key, $teacher, $plainPassword, $schoolName) {
             try {

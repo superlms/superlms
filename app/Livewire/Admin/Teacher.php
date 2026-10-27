@@ -580,7 +580,8 @@ class Teacher extends Component
      */
     private function sendCredentialsMail(User $teacher, string $password, string $kind): void
     {
-        if (!$teacher->email) {
+        // A school on SMS: its logins go by SMS only (WelcomeSms).
+        if (!$teacher->email || \App\Services\WelcomeSms::on((int) $teacher->organization_id)) {
             return;
         }
 

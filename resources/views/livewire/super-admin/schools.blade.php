@@ -324,6 +324,7 @@
         'overview' => 'Overview',
         'modules' => 'Modules',
         'whatsapp' => 'WhatsApp',
+        'sms' => 'SMS',
         'custom_fee' => 'Custom Fee',
         'biometric' => 'Biometric',
         'bank' => 'Bank Details',
@@ -464,6 +465,95 @@
                             @include('livewire.partials.whatsapp-analytics', ['wa' => $wa, 'waEditable' => true, 'waKey' => 'sa-school-' . $detailSchool->id])
                         @else
                             <p class="text-center py-12 text-sm text-gray-400">WhatsApp messages are not set up yet.</p>
+                        @endif
+                    </div>
+                @endif
+
+                {{-- ════════ SMS TAB ════════
+                     Welcome by SMS (Bhash) on / off: on, a new student or teacher
+                     gets their login by SMS only, in place of the welcome email and
+                     WhatsApp (App\Services\WelcomeSms). And the SMS that went. --}}
+                @if ($detailTab === 'sms')
+                    <div class="p-5 space-y-4">
+                        @if ($sms = $this->smsSummary())
+                            <div class="border border-gray-200 rounded-md">
+                                <div class="px-4 py-3 flex flex-wrap items-center gap-3">
+                                    <button type="button" role="switch" aria-checked="{{ $sms['enabled'] ? 'true' : 'false' }}"
+                                        wire:click="toggleSms" wire:loading.attr="disabled" wire:target="toggleSms"
+                                        title="{{ $sms['enabled'] ? 'Turn off' : 'Turn on' }}"
+                                        class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 {{ $sms['enabled'] ? 'bg-emerald-500' : 'bg-gray-300' }}">
+                                        <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {{ $sms['enabled'] ? 'translate-x-4.5' : 'translate-x-0.5' }}"></span>
+                                    </button>
+                                    <span class="text-sm font-medium text-gray-800">Welcome by SMS</span>
+                                    <span class="text-xs {{ $sms['enabled'] ? 'text-emerald-600' : 'text-gray-400' }}">{{ $sms['enabled'] ? 'On' : 'Off' }}</span>
+                                </div>
+                                <div class="px-4 py-3 border-t border-gray-100 space-y-2">
+                                    <p class="text-xs text-gray-500 leading-relaxed">
+                                        When on, a new student gets an SMS with the school, class, section, admission number,
+                                        password and the app link, and a new teacher one with their username, password and the
+                                        app link — and <strong class="text-gray-700">no welcome email and no WhatsApp</strong>.
+                                        A changed mobile number and Send Credentials go by SMS too. When off, the email and
+                                        WhatsApp go as before.
+                                    </p>
+                                    @unless ($sms['configured'])
+                                        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+                                            Bhash SMS is not set up on the server yet (BHASH_SMS_USER, BHASH_SMS_PASS, BHASH_SMS_SENDER),
+                                            so this school still gets the email and WhatsApp.
+                                        </p>
+                                    @endunless
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                @foreach ([
+                                    ['Sent this month', number_format($sms['month']['sent']), 'text-gray-900'],
+                                    ['Failed this month', number_format($sms['month']['failed']), $sms['month']['failed'] ? 'text-red-600' : 'text-gray-900'],
+                                    ['SMS parts this month', number_format($sms['month']['parts']), 'text-gray-900'],
+                                    ['Sent in all', number_format($sms['total']), 'text-gray-900'],
+                                ] as [$smsLabel, $smsValue, $smsTone])
+                                    <div class="border border-gray-200 rounded-md px-4 py-3">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $smsLabel }}</p>
+                                        <p class="mt-1 text-sm font-semibold tabular-nums {{ $smsTone }}">{{ $smsValue }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="border border-gray-200 rounded-md overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-gray-50 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left">When</th>
+                                            <th class="px-4 py-2 text-left">To</th>
+                                            <th class="px-4 py-2 text-left">Kind</th>
+                                            <th class="px-4 py-2 text-left">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @forelse ($sms['messages'] as $smsRow)
+                                            <tr wire:key="sms-row-{{ $smsRow['id'] }}">
+                                                <td class="px-4 py-2 whitespace-nowrap text-gray-500 tabular-nums">{{ optional($smsRow['at'])->format('d M Y, h:i A') }}</td>
+                                                <td class="px-4 py-2">
+                                                    <span class="text-gray-800">{{ $smsRow['name'] }}</span>
+                                                    <span class="text-xs text-gray-400"> · {{ $smsRow['who'] }} · {{ $smsRow['to'] }}</span>
+                                                </td>
+                                                <td class="px-4 py-2 text-gray-600">{{ $smsRow['kind'] }}</td>
+                                                <td class="px-4 py-2">
+                                                    <span class="text-xs font-medium {{ $smsRow['status'] === 'sent' ? 'text-emerald-600' : ($smsRow['status'] === 'failed' ? 'text-red-600' : 'text-gray-500') }}">
+                                                        {{ ucfirst($smsRow['status']) }}
+                                                    </span>
+                                                    @if ($smsRow['status'] === 'failed' && $smsRow['error'])
+                                                        <span class="block text-xs text-gray-400 break-words max-w-xs">{{ $smsRow['error'] }}</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">No SMS sent for this school yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-center py-12 text-sm text-gray-400">SMS is not set up yet.</p>
                         @endif
                     </div>
                 @endif

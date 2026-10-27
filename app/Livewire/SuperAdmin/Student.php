@@ -544,8 +544,9 @@ class Student extends Component
 
         // Email changed → send credentials to the NEW address, exactly like the
         // admin module: the password they already have when we can recover it,
-        // a freshly set one when we can't.
-        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0) {
+        // a freshly set one when we can't. Not for a school on SMS: its logins
+        // go by SMS only (WelcomeSms).
+        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0 && !\App\Services\WelcomeSms::on((int) $this->editOrgId)) {
             try {
                 $templateKey = config('services.zeptomail.student_password_template_key');
                 if ($templateKey) {
@@ -967,7 +968,9 @@ class Student extends Component
 
         try {
             $templateKey = config('services.zeptomail.student_password_template_key');
-            if ($templateKey) {
+            if (\App\Services\WelcomeSms::on((int) $org->id)) {
+                // A school on SMS: no email — the SMS below is the welcome.
+            } elseif ($templateKey) {
                 ZeptoMailService::sendTemplate($templateKey, $this->addEmail, $this->addName, [
                     'password'         => $plainPassword,
                     'school_name'      => $org->name,
