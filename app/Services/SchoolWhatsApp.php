@@ -22,10 +22,14 @@ use Illuminate\Support\Facades\Schema;
  *   absent_alert   a student marked absent today       student_absent_alert   charged, when the school has it on
  *   fee_received   a fee booked for a student          fee_received           charged, when the school has it on
  *   credentials    Send Credentials on a student's or teacher's view            charged, when the school has it on
+ *   notice         a message the school sends to many (More → Messaging)      school_notice          charged, when the school has it on
  *   welcome        the welcome on adding a student or teacher                   free (the platform's)
  *
- * Every message is a row in whatsapp_messages with its rate (RATE, a fixed
- * ₹0.66 a message; a row keeps the rate it went at);
+ * Every message is a row in whatsapp_messages with its rate (the Super
+ * Admin's WhatsApp rate in Messaging → Settings, ₹0.66 until set; a row
+ * keeps the rate it went at), paid from the school's messaging wallet
+ * (MessagingWallet) — with Prepaid on, a charged message is not sent when
+ * the wallet cannot pay for it;
  * Meta's status webhook (WhatsAppWebhookController) marks one failed, and a
  * failed message is not charged. The paid messages are off for every school
  * until the super admin turns them on (Super Admin → Schools → the school →
@@ -39,15 +43,16 @@ class SchoolWhatsApp
         'absent_alert' => ['Absent alert', true, true],
         'fee_received' => ['Fee received', true, true],
         'credentials'  => ['Credentials', true, true],
+        'notice'       => ['Notice', true, true],
         'welcome'      => ['Welcome (free)', false, false],
     ];
 
-    /** What a school pays for one charged message: 66 paise, fixed. */
+    /** What a school pays for one charged message until the Super Admin sets a rate: 66 paise. */
     public const RATE = 0.66;
 
     public static function rate(): float
     {
-        return self::RATE;
+        return MessagingWallet::tracked() ? MessagingWallet::whatsappRate() : self::RATE;
     }
 
     /** Whether the tables are there yet (the migration of 14 Oct 2026) — asked once a request. */
@@ -117,6 +122,12 @@ class SchoolWhatsApp
         }
 
         $charged = (bool) (self::FEATURES[$feature][1] ?? false);
+
+        // Prepaid: a charged message goes only when the school's wallet can pay for it.
+        if ($charged && !MessagingWallet::canSpend($orgId, self::rate())) {
+            Log::info('WhatsApp: messaging wallet short, not sent', ['feature' => $feature, 'org' => $orgId] + $who);
+            return false;
+        }
 
         // Claim the row first: the unique dedupe key keeps a second run out.
         try {
@@ -374,6 +385,42 @@ class SchoolWhatsApp
             ['user_id' => $student->user_id, 'student_detail_id' => $student->id],
             'fee_received:' . $kind . ':' . (int) $payment->id,
         );
+    }
+
+    /**
+     * school_notice: {{1}} school {{2}} the message — what a school sends to
+     * many from More → Messaging (App\Jobs\SendMessagingCampaign). Only for a
+     * school that has it on; one per person and message (the dedupe key).
+     * WhatsApp takes no line breaks in a value, so the lines are joined.
+     */
+    public static function notice(int $orgId, ?string $phone, string $message, array $who, string $dedupeKey): bool
+    {
+        if (!self::enabled($orgId, 'notice')) {
+            return false;
+        }
+
+        return self::send(
+            $orgId,
+            'notice',
+            $phone,
+            (string) config('services.whatsapp.templates.notice', 'school_notice'),
+            [
+                Organization::whereKey($orgId)->value('name') ?? 'School',
+                self::oneLine($message),
+            ],
+            null,
+            $who,
+            $dedupeKey,
+        );
+    }
+
+    /** A message as one line WhatsApp takes as a value: no line breaks or tabs, no long runs of spaces. */
+    public static function oneLine(string $message, int $max = 900): string
+    {
+        $text = preg_replace('/\s*\R+\s*/u', ' · ', trim($message));
+        $text = preg_replace('/[\t ]{2,}|\t/u', ' ', (string) $text);
+
+        return mb_substr(trim((string) $text), 0, $max);
     }
 
     // ─── What a school has been charged ────────────────────────────────────────

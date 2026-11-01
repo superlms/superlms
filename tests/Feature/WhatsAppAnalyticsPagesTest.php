@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Admin\Analytics;
+use App\Livewire\SuperAdmin\Messaging;
 use App\Livewire\SuperAdmin\Schools;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
@@ -15,9 +16,10 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Where a school's WhatsApp is seen: Super Admin → Schools → a school → the
- * WhatsApp tab after Modules (the Absent alert / Fee received switches and the
- * analytics), and the school admin's Analytics (the same analytics, to read)
+ * Where a school's WhatsApp is seen: Super Admin → Messaging → WhatsApp with
+ * the school picked (the Absent alert / Fee received / Send Credentials /
+ * Notice switches and the analytics — once the school view's WhatsApp tab),
+ * and the school admin's Analytics (the same analytics, to read)
  * — the last 30 days or a month, each kind day by day, what it came to,
  * delivery and the messages, filtered by kind and status.
  */
@@ -83,7 +85,7 @@ class WhatsAppAnalyticsPagesTest extends TestCase
         return preg_replace('/\s+/', ' ', strip_tags($page->html()));
     }
 
-    public function test_the_school_view_has_a_whatsapp_tab_after_modules_with_switches_and_analytics(): void
+    public function test_messaging_has_a_schools_whatsapp_switches_and_analytics(): void
     {
         $super = new User(['name' => 'Super', 'email' => 'super@example.com']);
         $super->id = 901;
@@ -91,23 +93,25 @@ class WhatsAppAnalyticsPagesTest extends TestCase
         $super->permissions = [];
         $this->actingAs($super);
 
-        $page = Livewire::test(Schools::class)->call('viewSchoolDetail', 1);
-        $html = $page->html();
-        $this->assertTrue(strpos($html, "setDetailTab('modules')") < strpos($html, "setDetailTab('whatsapp')")
-            && strpos($html, "setDetailTab('whatsapp')") < strpos($html, "setDetailTab('bank')"), 'WhatsApp comes right after Modules');
+        // The school view has no WhatsApp or SMS tab now: they are on Messaging.
+        $html = Livewire::test(Schools::class)->call('viewSchoolDetail', 1)->html();
+        $this->assertStringContainsString("setDetailTab('modules')", $html);
+        $this->assertStringNotContainsString("setDetailTab('whatsapp')", $html);
+        $this->assertStringNotContainsString("setDetailTab('sms')", $html);
 
-        $page->call('setDetailTab', 'whatsapp');
+        $page = Livewire::test(Messaging::class)->call('openSchool', 1, 'whatsapp');
         $html = $page->html();
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('absent_alert')\"", $html);
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('fee_received')\"", $html);
         // Send Credentials: the third switch, after Absent alert and Fee received (2026-10-15).
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('credentials')\"", $html);
         $this->assertTrue(strpos($html, "toggleWhatsApp('fee_received')") < strpos($html, "toggleWhatsApp('credentials')"));
-        $this->assertStringContainsString('Absent alert Off Fee received Off Send Credentials Off', $this->text($page));
+        $this->assertStringContainsString("wire:click=\"toggleWhatsApp('notice')\"", $html);
+        $this->assertStringContainsString('Absent alert Off Fee received Off Send Credentials Off Notice Off', $this->text($page));
         $this->assertStringContainsString('wire:model.live="waPeriod"', $html);
-        $this->assertStringContainsString('wire:key="wa-daily-sa-school-1-', $html);
+        $this->assertStringContainsString('wire:key="wa-daily-sa-messaging-1-', $html);
         foreach (['Messages 3 Last 30 days', 'Absent alert 1 Off · ₹0.66 each', 'Fee received 1 Off · ₹0.66 each',
-                  'Credentials 0 Off · ₹0.66 each', 'Welcome (free) 1 On adding someone',
+                  'Credentials 0 Off · ₹0.66 each', 'Notice 0 Off · ₹0.66 each', 'Welcome (free) 1 On adding someone',
                   'Charged ₹1.32 2 charged · 1 not delivered', 'Read 1 (25%)', 'Delivered 1 (25%)', 'Sent 1 (25%)',
                   'Not delivered 1 (25%)', 'Busiest day 15 Oct · 2', 'Messages · Last 30 days 4',
                   '1 15 Oct 2026 09:05 AM Fee received Bala Rao +91 99887 76655 Delivered ₹0.66',
@@ -145,7 +149,7 @@ class WhatsAppAnalyticsPagesTest extends TestCase
         $this->assertStringNotContainsString('Show more', $this->text($page->call('showMoreWhatsApp')));
 
         // Another school starts again at the last 30 days, with its own figures.
-        $page->set('waPeriod', '2026-09')->call('viewSchoolDetail', 2)->call('setDetailTab', 'whatsapp');
+        $page->set('waPeriod', '2026-09')->call('openSchool', 2, 'whatsapp');
         $this->assertSame(['', '', ''], [$page->get('waPeriod'), $page->get('waFeature'), $page->get('waStatus')]);
         $this->assertStringContainsString('Messages 1 Last 30 days', $this->text($page));
     }

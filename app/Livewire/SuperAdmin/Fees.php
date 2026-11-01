@@ -420,6 +420,8 @@ class Fees extends Component
             'avg_per_student'  => $totalStudents > 0 ? round($expected / $totalStudents) : 0,
             'collection_pct'   => $pct,
             'fy_monthly_chart' => $fyChart,
+            // Of the collected: money of deleted students nobody owed yet (SuperAdminFeeAllocator).
+            'carried'          => SuperAdminFeeAllocator::carriedFor($orgId, $this->academicYear),
         ];
     }
 

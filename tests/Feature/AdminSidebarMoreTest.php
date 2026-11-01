@@ -144,7 +144,8 @@ class AdminSidebarMoreTest extends TestCase
         $this->assertContains('admin.exam-copy', $routes);
         $this->assertNotContains('admin.documents', $routes);
         $this->assertSame('admin.exam-copy', $routes[4]);   // where Documents was
-        $this->assertCount(13, $routes);                     // Credit is no longer a tile (2026-10-09)
+        $this->assertSame('admin.messaging', $routes[5]);   // the messaging wallet (2026-11-01)
+        $this->assertCount(14, $routes);                     // Credit is no longer a tile (2026-10-09)
         $this->assertNotContains('admin.credit', $routes);
 
         Livewire::test(More::class)->assertSee('Exam Copy')->assertSeeHtml('/exam-copy"');
@@ -159,7 +160,7 @@ class AdminSidebarMoreTest extends TestCase
 
         $this->assertNotContains('admin.exam-copy', $routes);
         $this->assertContains('admin.profile', $routes);
-        $this->assertCount(12, $routes);
+        $this->assertCount(13, $routes);
     }
 
     public function test_a_sub_admin_sees_each_only_when_granted(): void

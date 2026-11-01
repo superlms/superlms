@@ -323,7 +323,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->message('absent_alert', 'sent', '2026-10-05 12:00:00', 2);    // another school
 
         $this->assertSame([
-            'counts'   => ['absent_alert' => 2, 'fee_received' => 1, 'credentials' => 1, 'welcome' => 1],
+            'counts'   => ['absent_alert' => 2, 'fee_received' => 1, 'credentials' => 1, 'notice' => 0, 'welcome' => 1],
             'charged'  => 4,
             'amount'   => 2.64,
             'failed'   => 1,
@@ -338,7 +338,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame(['2026-09-16 00:00:00', '2026-10-15 23:59:59', 'Last 30 days'], $range(''));
         $this->assertSame(['2026-09-01 00:00:00', '2026-09-30 23:59:59', 'Sep 2026'], $range('2026-09'));
         $this->assertSame(['2026-10-01 00:00:00', '2026-10-15 23:59:59', 'Oct 2026'], $range('2026-10'));   // up to today
-        $this->assertSame(['absent_alert' => false, 'fee_received' => false, 'credentials' => false], SchoolWhatsApp::switches(1));
+        $this->assertSame(['absent_alert' => false, 'fee_received' => false, 'credentials' => false, 'notice' => false], SchoolWhatsApp::switches(1));
 
         $this->assertTrue(SchoolWhatsApp::inUse(1));
         $this->assertFalse(SchoolWhatsApp::inUse(3));

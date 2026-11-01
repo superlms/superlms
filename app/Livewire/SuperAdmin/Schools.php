@@ -30,8 +30,6 @@ use WireUi\Traits\WireUiActions;
 class Schools extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
-    // The school view's WhatsApp tab (after Modules).
-    use \App\Livewire\Concerns\HandlesWhatsAppAnalytics;
 
     public int $totalSchools   = 0;
     public int $activeSchools  = 0;
@@ -209,7 +207,6 @@ class Schools extends Component
         $this->activeView         = 'detail';
         $this->selectedStudentId  = null;
         $this->selectedTeacherId  = null;
-        $this->resetWhatsAppFilters();
         $this->showCustomFeeConfirm = false;
         $this->showBiometricConfirm = false;
     }
@@ -221,59 +218,10 @@ class Schools extends Component
         $this->detailTab          = 'overview';
         $this->selectedStudentId  = null;
         $this->selectedTeacherId  = null;
-        $this->resetWhatsAppFilters();
         $this->showCustomFeeConfirm = false;
     }
 
-    // ─── WhatsApp tab: the school's paid messages on / off, and its analytics ──
-
-    protected function whatsAppOrgId(): ?int
-    {
-        return $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
-    }
-
-    /** Turn one of the school's paid messages (Absent alert, Fee received, Send Credentials) on or off. */
-    public function toggleWhatsApp(string $feature): void
-    {
-        $orgId = $this->whatsAppOrgId();
-        if (!$orgId || !\App\Services\SchoolWhatsApp::tracked() || !(\App\Services\SchoolWhatsApp::FEATURES[$feature][2] ?? false)) {
-            return;
-        }
-
-        $on = !\App\Services\SchoolWhatsApp::enabled($orgId, $feature);
-        \App\Services\SchoolWhatsApp::setEnabled($orgId, $feature, $on);
-
-        $label = $feature === 'credentials' ? 'Send Credentials' : \App\Services\SchoolWhatsApp::FEATURES[$feature][0];
-        $this->notification()->success($label . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
-    }
-
-    // ─── SMS tab: the welcome by SMS (Bhash) on / off, and what went ──────────
-
-    /**
-     * Welcome by SMS on or off for the school on screen. On: new students and
-     * teachers get their login by SMS only — no welcome email, no WhatsApp
-     * (App\Services\WelcomeSms).
-     */
-    public function toggleSms(): void
-    {
-        $orgId = $this->whatsAppOrgId();
-        if (!$orgId || !\App\Services\SchoolSms::tracked()) {
-            return;
-        }
-
-        $on = !\App\Services\SchoolSms::enabled($orgId, 'welcome');
-        \App\Services\SchoolSms::setEnabled($orgId, 'welcome', $on, auth()->id());
-
-        $this->notification()->success('Welcome by SMS ' . ($on ? 'is on' : 'is off') . ' for ' . $this->detailSchool->name . '.');
-    }
-
-    /** What the SMS tab shows, or null before the tables are there. */
-    public function smsSummary(): ?array
-    {
-        $orgId = $this->whatsAppOrgId();
-
-        return $orgId && \App\Services\SchoolSms::tracked() ? \App\Services\SchoolSms::summary($orgId) : null;
-    }
+    // WhatsApp and SMS of a school: Super Admin → Messaging (App\Livewire\SuperAdmin\Messaging).
 
     // ─── Custom Fee tab: the school's own per-student fee in place of the ordinary one ──
 

@@ -19,6 +19,7 @@
         'absent_alert' => ['rgba(244,63,94,0.75)',  'bg-rose-500'],
         'fee_received' => ['rgba(16,185,129,0.75)', 'bg-emerald-500'],
         'credentials'  => ['rgba(99,102,241,0.75)', 'bg-indigo-500'],
+        'notice'       => ['rgba(245,158,11,0.75)', 'bg-amber-500'],
         'welcome'      => ['rgba(148,163,184,0.8)', 'bg-slate-400'],
     ];
 

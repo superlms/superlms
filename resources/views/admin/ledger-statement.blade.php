@@ -233,8 +233,12 @@
     </table>
 
     <p class="foot-note">
+        @if (!empty($footNote))
+            {{ $footNote }}
+        @else
         Deposits include academic, transport &amp; admission fee collections and manual credit entries.
         Withdrawals include paid staff salaries and manual expense entries.
+        @endif
         Net balance across all records to date: <span class="semi">Rs. {{ number_format($netBalance, 2) }}</span>.
         This is a system-generated statement and does not require a signature.
     </p>

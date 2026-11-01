@@ -54,8 +54,16 @@ class StudentDetail extends Model
 
     protected static function booted(): void
     {
-        // Deleted: every record of the student's, and of their login's, goes with it (Cascade::student).
-        static::deleting(fn (self $detail) => Cascade::student((int) $detail->getKey(), $detail->user_id ? (int) $detail->user_id : null));
+        // Deleted: what the school paid the Super Admin on the student's fee row
+        // moves to the next students still owing (SuperAdminFeeAllocator), then
+        // every record of the student's, and of their login's, goes with it (Cascade::student).
+        static::deleting(function (self $detail) {
+            \App\Support\SuperAdminFeeAllocator::studentLeaving((int) $detail->getKey());
+            Cascade::student((int) $detail->getKey(), $detail->user_id ? (int) $detail->user_id : null);
+        });
+
+        // A new student takes money carried on the school's fee from students deleted before.
+        static::created(fn (self $detail) => \App\Support\SuperAdminFeeAllocator::settleCarried((int) $detail->organization_id));
 
         // Whoever saves a student — the panel, the admin or teacher app, the
         // Super Admin — the section is one of their class's own: none picked

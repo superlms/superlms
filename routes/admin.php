@@ -127,6 +127,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/fee-structure', FeeStructure::class)->name('admin.fee-structure');
         Route::get('/ledger', Ledger::class)->name('admin.ledger');
         Route::get('/more', More::class)->name('admin.more');
+        // The school's messaging wallet, and its WhatsApp / email to many (More → Messaging).
+        Route::get('/messaging', \App\Livewire\Admin\Messaging::class)->name('admin.messaging');
         Route::get('/ledger/statement', [\App\Http\Controllers\Admin\LedgerStatementController::class, 'download'])
             ->name('admin.ledger.statement');
         Route::get('/fee-structure/pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'show'])

@@ -126,7 +126,7 @@ class SuperAdminWebsiteViewsTest extends TestCase
             ->assertSet('title', 'Going paperless');
     }
 
-    public function test_quick_links_are_a_six_by_four_grid(): void
+    public function test_quick_links_are_a_six_by_five_grid(): void
     {
         $user = new User(['name' => 'Super', 'email' => 'super@example.com']);
         $user->id = 1;
@@ -135,7 +135,8 @@ class SuperAdminWebsiteViewsTest extends TestCase
 
         $page = Livewire::test(QuickLinks::class);
 
-        $this->assertCount(24, $page->viewData('orderedLinks'));
-        $this->assertStringContainsString('md:grid-cols-6 md:grid-rows-4 md:auto-rows-fr', $page->html());
+        // 26 screens with Ledger and Messaging (2026-11-01), on 6 columns × 5 rows.
+        $this->assertCount(26, $page->viewData('orderedLinks'));
+        $this->assertStringContainsString('md:grid-cols-6 md:grid-rows-5 md:auto-rows-fr', $page->html());
     }
 }

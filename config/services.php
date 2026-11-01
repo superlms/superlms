@@ -76,6 +76,8 @@ return [
             // School messages, charged to the school (App\Services\SchoolWhatsApp).
             'absent'  => env('WHATSAPP_TEMPLATE_ABSENT', 'student_absent_alert'),
             'fee'     => env('WHATSAPP_TEMPLATE_FEE', 'fee_received'),
+            // A school's message to many (More → Messaging): {{1}} school, {{2}} the message.
+            'notice'  => env('WHATSAPP_TEMPLATE_NOTICE', 'school_notice'),
         ],
         // Meta's status webhook (/api/whatsapp/webhook): the token Meta echoes
         // when the callback is set up, and the app secret its posts are signed with.

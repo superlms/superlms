@@ -576,6 +576,13 @@
                                             <dt class="text-gray-500">Collected</dt>
                                             <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($fsCollected) }}</dd>
                                         </div>
+                                        {{-- Money of deleted students that nobody owed yet: it goes to the next student added. --}}
+                                        @if (($fsCarried = (float) ($schoolStats['carried'] ?? 0)) > 0.005)
+                                            <div class="flex items-baseline justify-between gap-3">
+                                                <dt class="text-gray-500">Carried <span class="text-[11px] text-gray-400">· for the next student added</span></dt>
+                                                <dd class="font-semibold text-amber-600 tabular-nums">{{ $inr($fsCarried) }}</dd>
+                                            </div>
+                                        @endif
                                         <div class="flex items-baseline justify-between gap-3">
                                             <dt class="text-gray-500">Remaining</dt>
                                             <dd class="font-semibold tabular-nums {{ $fsExpected - $fsCollected > 0.5 ? 'text-red-500' : 'text-gray-900' }}">{{ $inr(max(0, $fsExpected - $fsCollected)) }}</dd>

@@ -268,11 +268,26 @@ return [
             'icon' => 'banknotes',
             'prefix' => 'super-admin.payroll',
         ],
+        // Credits (fees received from schools, by hand) and expenses (salaries
+        // paid, by hand), as the school's Ledger.
+        [
+            'title' => 'Ledger',
+            'link' => 'super-admin.ledger',
+            'icon' => 'book-open',
+            'prefix' => 'super-admin.ledger',
+        ],
         [
             'title' => 'Push Notification',
             'link' => 'super-admin.push-notification',
             'icon' => 'megaphone',
             'prefix' => 'super-admin.push-notification',
+        ],
+        // The schools' messaging wallets, their WhatsApp, SMS and email.
+        [
+            'title' => 'Messaging',
+            'link' => 'super-admin.messaging',
+            'icon' => 'chat-bubble-left-right',
+            'prefix' => 'super-admin.messaging',
         ],
         // Off the sidebar and Quick Links; the page, its route and the
         // sub-super-admin permission stay.

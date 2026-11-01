@@ -560,6 +560,224 @@ class SuperAdminFeeAllocator
         return ['ok' => true, 'delta' => $delta];
     }
 
+    // ─── A student deleted: the school's money stays the school's ──────────────
+
+    /** The remark a row of carried money (no student) has. */
+    public const CARRIED = 'Carried from deleted students';
+
+    /** Whether the fee tables are there (asked once a request), so a student is never stopped by them. */
+    private static function tracked(): bool
+    {
+        $key = 'superadmin.fee_payments.tracked';
+        if (!app()->bound($key)) {
+            try {
+                $has = \Illuminate\Support\Facades\Schema::hasTable('super_admin_fee_payments')
+                    && \Illuminate\Support\Facades\Schema::hasTable('super_admin_fee_structures');
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+            app()->instance($key, $has);
+        }
+
+        return (bool) app($key);
+    }
+
+    /**
+     * A student is being deleted (StudentDetail's deleting event). What the
+     * school paid on the student's Per Student fee row was received and stays
+     * received: it moves onto the next students still owing on the same fee,
+     * in the order Amount Received pays them, so Fees' collected total stays
+     * what came in. Before, the database's cascade dropped the row with the
+     * student and Fees showed ₹14,860 of a ₹15,000 payment.
+     *
+     * When nobody owes anything the money is carried on the fee (a row of no
+     * student) and goes to the next student added (settleCarried). The rows
+     * are written quietly: no money came or went, so no receipt is noted.
+     * Never stops the delete.
+     */
+    public static function studentLeaving(int $studentDetailId): void
+    {
+        if (!self::tracked()) {
+            return;
+        }
+
+        try {
+            $rows = SuperAdminFeePayment::where('student_detail_id', $studentDetailId)
+                ->where('amount', '>', 0)
+                ->get();
+
+            foreach ($rows as $row) {
+                $structure = SuperAdminFeeStructure::find($row->super_admin_fee_structure_id);
+                if (!$structure || $structure->fee_type !== 'per_student') {
+                    continue;
+                }
+
+                DB::transaction(function () use ($row, $structure, $studentDetailId) {
+                    self::passOn(
+                        $structure,
+                        (float) $row->amount,
+                        (string) ($row->payment_mode ?: 'cash'),
+                        $row->payment_date?->toDateString() ?? now()->toDateString(),
+                        $row->receipt_number,
+                        [$studentDetailId],
+                    );
+                    SuperAdminFeePayment::withoutEvents(fn () => $row->delete());
+                });
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Money carried on a school's Per Student fees (from students deleted when
+     * nobody owed anything) goes onto the students now owing — run when a
+     * student is added. Never stops the add.
+     */
+    public static function settleCarried(int $orgId): void
+    {
+        if ($orgId <= 0 || !self::tracked()) {
+            return;
+        }
+
+        try {
+            $carried = SuperAdminFeePayment::where('organization_id', $orgId)
+                ->whereNull('student_detail_id')
+                ->whereNull('installment_period')
+                ->where('amount', '>', 0)
+                ->get();
+
+            foreach ($carried as $row) {
+                $structure = SuperAdminFeeStructure::find($row->super_admin_fee_structure_id);
+                if (!$structure || $structure->fee_type !== 'per_student') {
+                    continue;
+                }
+
+                DB::transaction(function () use ($row, $structure) {
+                    $plan = self::writePlan(
+                        $structure,
+                        self::plan(self::dues($structure), (float) $row->amount),
+                        (string) ($row->payment_mode ?: 'cash'),
+                        $row->payment_date?->toDateString() ?? now()->toDateString(),
+                        '',
+                    );
+                    $left = round((float) $row->amount - array_sum(array_column($plan, 'take')), 2);
+
+                    SuperAdminFeePayment::withoutEvents(function () use ($row, $left) {
+                        if ($left < 0.005) {
+                            $row->delete();
+                        } else {
+                            $row->amount = $left;
+                            $row->save();
+                        }
+                    });
+                });
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Money received on a Per Student fee that no row holds any more — the
+     * students it was on were deleted before studentLeaving() was there, and
+     * the database's cascade took their rows. It is what the receipts add up
+     * to less what the rows hold; it goes onto the students owing now, as a
+     * deleted student's money does. Run once by a migration; returns ₹ placed
+     * (or carried) per fee id.
+     */
+    public static function restoreLost(): array
+    {
+        if (!self::tracked() || !\Illuminate\Support\Facades\Schema::hasTable((new SuperAdminFeeReceipt)->getTable())) {
+            return [];
+        }
+
+        $restored = [];
+        foreach (SuperAdminFeeStructure::where('fee_type', 'per_student')->get() as $structure) {
+            $received = round((float) SuperAdminFeeReceipt::where('super_admin_fee_structure_id', $structure->id)->sum('amount'), 2);
+            $held     = round((float) SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)->sum('amount'), 2);
+            $lost     = round($received - $held, 2);
+            if ($lost < 0.005) {
+                continue;
+            }
+
+            $last = SuperAdminFeeReceipt::where('super_admin_fee_structure_id', $structure->id)
+                ->where('amount', '>', 0)
+                ->orderByDesc('payment_date')->orderByDesc('id')
+                ->first();
+
+            DB::transaction(fn () => self::passOn(
+                $structure,
+                $lost,
+                (string) ($last?->payment_mode ?: 'cash'),
+                $last?->payment_date?->toDateString() ?? now()->toDateString(),
+                $last?->receipt_number,
+            ));
+            $restored[$structure->id] = $lost;
+        }
+
+        return $restored;
+    }
+
+    /**
+     * Put $amount onto a Per Student fee's students still owing (but $skip),
+     * in order, quietly; what nobody owes is carried on the fee.
+     */
+    private static function passOn(SuperAdminFeeStructure $structure, float $amount, string $mode, string $date, ?string $receiptNumber, array $skip = []): void
+    {
+        $dues = array_values(array_filter(
+            self::dues($structure),
+            fn ($d) => !in_array($d['student_id'], $skip, true)
+        ));
+        $plan = self::writePlan($structure, self::plan($dues, $amount), $mode, $date, '');
+        $left = round($amount - array_sum(array_column($plan, 'take')), 2);
+        if ($left < 0.005) {
+            return;
+        }
+
+        SuperAdminFeePayment::withoutEvents(function () use ($structure, $left, $mode, $date, $receiptNumber) {
+            $row = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
+                ->whereNull('student_detail_id')
+                ->whereNull('installment_period')
+                ->first();
+
+            if ($row) {
+                $row->amount = round((float) $row->amount + $left, 2);
+                $row->save();
+                return;
+            }
+
+            (new SuperAdminFeePayment([
+                'organization_id'              => $structure->organization_id,
+                'super_admin_fee_structure_id' => $structure->id,
+                'student_detail_id'            => null,
+                'installment_period'           => null,
+                'standard_id'                  => $structure->standard_id,
+                'amount'                       => $left,
+                'academic_year'                => $structure->academic_year,
+                'payment_mode'                 => $mode,
+                'payment_date'                 => $date,
+                'receipt_number'               => $receiptNumber,
+                'remark'                       => self::CARRIED,
+                'is_paid'                      => false,
+            ]))->save();
+        });
+    }
+
+    /** Money carried on a school's fee for the next student added (₹). */
+    public static function carriedFor(int $orgId, ?string $year = null): float
+    {
+        if (!self::tracked()) {
+            return 0.0;
+        }
+
+        return round((float) SuperAdminFeePayment::where('organization_id', $orgId)
+            ->whereNull('student_detail_id')
+            ->whereNull('installment_period')
+            ->when($year, fn ($q) => $q->where('academic_year', $year))
+            ->sum('amount'), 2);
+    }
+
     /**
      * What is due, in the order more money on an edited payment goes: the
      * payment's own part paid students / months first, then the fee's order
