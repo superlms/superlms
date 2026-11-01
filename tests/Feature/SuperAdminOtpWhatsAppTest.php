@@ -194,7 +194,15 @@ class SuperAdminOtpWhatsAppTest extends TestCase
             ->assertSee('Wrong password for this email.');
     }
 
-    public function test_login_shows_where_the_code_went_and_why_not(): void
+    private function mainSuperAdmin(): void
+    {
+        DB::table('users')->insert([
+            'name' => 'Main', 'email' => 'superlms.india@gmail.com', 'role' => 'super-admin',
+            'password' => Hash::make('Right@123'), 'mobile_number' => '8864985914', 'alternative_mobile' => '9368388050',
+        ]);
+    }
+
+    public function test_the_otp_screen_does_not_say_where_the_code_went(): void
     {
         Http::fake([
             'graph.facebook.com/*' => Http::sequence()
@@ -202,18 +210,37 @@ class SuperAdminOtpWhatsAppTest extends TestCase
                 ->push(['error' => ['message' => '(#131026) Message undeliverable']], 400),
             'zepto.test/*' => Http::response(['request_id' => 'r4']),
         ]);
-        DB::table('users')->insert([
-            'name' => 'Main', 'email' => 'superlms.india@gmail.com', 'role' => 'super-admin',
-            'password' => Hash::make('Right@123'), 'mobile_number' => '8864985914', 'alternative_mobile' => '9368388050',
-        ]);
+        $this->mainSuperAdmin();
 
         Livewire::test(Login::class)
             ->set('email', 'superlms.india@gmail.com')->set('password', 'Right@123')
             ->call('login')
             ->assertSet('step', 'otp')
-            ->assertSee('superlms.india@gmail.com')
-            ->assertSee('+91 ••••••5914')
-            ->assertSee('+91 ••••••8050 — not sent: this number is not on WhatsApp, or cannot receive messages');
+            ->assertHasNoErrors()
+            ->assertSee('Enter the 6-digit code we sent you')
+            ->assertDontSee('5914')
+            ->assertDontSee('8050');
+
+        // It still went to both numbers.
+        $this->assertCount(2, $this->whatsAppRequests());
+    }
+
+    public function test_a_code_that_went_nowhere_says_why(): void
+    {
+        Http::fake([
+            'graph.facebook.com/*' => Http::response(['error' => ['message' => '(#132001) Template name does not exist in the translation']], 404),
+            '*'                    => Http::response(['message' => 'Mail Credit exhausted'], 500),
+        ]);
+        $this->mainSuperAdmin();
+
+        Livewire::test(Login::class)
+            ->set('email', 'superlms.india@gmail.com')->set('password', 'Right@123')
+            ->call('login')
+            ->assertSet('step', 'otp')
+            ->assertHasErrors('otp')
+            ->assertSee('The code could not be sent')
+            ->assertSee('Email: the mail service (ZeptoMail) is out of credit')
+            ->assertSee('WhatsApp +91 ••••••5914: the WhatsApp template');
     }
 
     public function test_login_code_boxes_say_what_is_missing(): void

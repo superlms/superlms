@@ -75,22 +75,22 @@
                                     this.$refs['otp' + (index - 1)].focus();
                                 }
                             }
-                        }" @error('otp') data-invalid @enderror class="sa-otp-row flex justify-center gap-2 sm:gap-3 mb-4">
+                        }" class="flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
                                 x-model="otp[{{ $i }}]"
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
-                                :class="{ 'is-filled': String(otp[{{ $i }}] ?? '').trim() !== '' }"
                                 inputmode="numeric" aria-label="Digit {{ $i + 1 }}"
-                                class="sa-otp"
+                                class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
+                                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                                 @if ($i === 0) autofocus @endif>
                         @endfor
                     </div>
 
                     @error('otp')
-                        <p class="text-red-600 text-xs text-center mb-3">{{ $message }}</p>
+                        <p class="text-red-500 text-xs text-center mb-3">{{ $message }}</p>
                     @enderror
 
                     <x-otp-lockout :until="$otpLockedUntil" />

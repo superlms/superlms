@@ -97,29 +97,8 @@
             @if ($step === 'otp')
                 <div class="text-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code — the same code goes everywhere below</p>
+                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code we sent you</p>
                 </div>
-
-                {{-- Where the code went, and why not where it didn't --}}
-                @if ($otpChannels)
-                    <ul class="w-full max-w-sm mb-5 space-y-1.5 text-sm">
-                        @foreach ($otpChannels as $row)
-                            <li class="flex items-start gap-2 {{ $row['ok'] ? 'text-gray-700' : 'text-red-600' }}">
-                                @if ($row['ok'])
-                                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                @else
-                                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                                @endif
-                                <span class="min-w-0 break-words">
-                                    <span class="font-semibold">{{ $row['channel'] }}</span>
-                                    {{ $row['to'] }}{{ $row['ok'] ? '' : ' — not sent: ' . $row['error'] }}
-                                </span>
-                            </li>
-                        @endforeach
-                    </ul>
-                @else
-                    <p class="text-violet-600 text-sm font-medium -mt-4 mb-5">{{ $otpSentTo }}</p>
-                @endif
 
                 <div class="w-full max-w-sm">
                     {{-- 6-box OTP input --}}
@@ -146,23 +125,22 @@
                             }
                         }"
                         x-init="$watch('otp', () => { if (!allFilled()) submitting = false; })"
-                        @error('otp') data-invalid @enderror
-                        class="sa-otp-row flex justify-center gap-2 sm:gap-3 mb-4">
+                        class="flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
                                 x-model="otp[{{ $i }}]"
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
-                                :class="{ 'is-filled': String(otp[{{ $i }}] ?? '').trim() !== '' }"
                                 inputmode="numeric" aria-label="Digit {{ $i + 1 }}"
-                                class="sa-otp"
+                                class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
+                                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                                 @if ($i === 0) autofocus @endif>
                         @endfor
                     </div>
 
                     @error('otp')
-                        <p class="text-red-600 text-xs text-center mb-3">{{ $message }}</p>
+                        <p class="text-red-500 text-xs text-center mb-3">{{ $message }}</p>
                     @enderror
 
                     <x-otp-lockout :until="$otpLockedUntil" />

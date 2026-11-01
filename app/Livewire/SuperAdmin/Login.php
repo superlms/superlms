@@ -18,14 +18,6 @@ class Login extends Component
 
     public $email    = '';
     public $password = '';
-    public $otpSentTo = '';
-
-    /**
-     * Where this sign-in's code went, one row per channel, for the OTP screen:
-     * [['channel' => 'Email'|'WhatsApp', 'to' => shown address, 'ok' => bool,
-     *   'error' => why it didn't go]].
-     */
-    public array $otpChannels = [];
 
     // OTP step — array of 6 single digits (matches accounts VerifyOtp pattern)
     public array $otp = ['', '', '', '', '', ''];
@@ -113,6 +105,7 @@ class Login extends Component
         } catch (OtpDeliveryException $e) {
             $this->otpChallenge = $e->challenge;
             \Log::warning('SUPERADMIN OTP not delivered; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
+            $notSent = self::whyNotSent($delivery);
         } catch (\Throwable $e) {
             // A lockout must stop the flow — and with no request opened there
             // is no code to enter either.
@@ -126,12 +119,15 @@ class Login extends Component
             return;
         }
 
-        $this->otpSentTo   = $user->email;
-        $this->otpChannels = self::channels($delivery);
         $this->otp        = ['', '', '', '', '', ''];
         $this->countdown  = 120;
         $this->canResend  = false;
         $this->step       = 'otp';
+
+        // Where the code went isn't shown — only that it went nowhere, and why.
+        if (isset($notSent)) {
+            $this->addError('otp', $notSent);
+        }
     }
 
     public function verifyOtp()
@@ -215,14 +211,10 @@ class Login extends Component
         } catch (OtpDeliveryException $e) {
             // TEMPORARY, as in login(): the new code is in the log.
             \Log::warning('SUPERADMIN OTP resend not delivered; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
-            $this->addError('otp', 'The new code could not be sent anywhere — the reasons are below.');
+            $this->addError('otp', self::whyNotSent($delivery));
         } catch (\Exception $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
-        }
-
-        if ($delivery) {
-            $this->otpChannels = self::channels($delivery);
         }
     }
 
@@ -235,8 +227,6 @@ class Login extends Component
     {
         $this->step      = 'credentials';
         $this->otp       = ['', '', '', '', '', ''];
-        $this->otpSentTo = '';
-        $this->otpChannels = [];
         $this->resetValidation();
     }
 
@@ -246,30 +236,22 @@ class Login extends Component
         return array_values(array_filter([$user->mobile_number, $user->alternative_mobile], 'filled'));
     }
 
-    /** sendOtp()'s delivery report as rows for the OTP screen. */
-    private static function channels(?array $delivery): array
+    /**
+     * The code reached no one: why, channel by channel, from sendOtp()'s
+     * delivery report — "Email: …; WhatsApp +91 ••••••5914: …".
+     */
+    private static function whyNotSent(?array $delivery): string
     {
-        if (!$delivery) {
-            return [];
+        $reasons = [];
+
+        if (!empty($delivery['email']['error'])) {
+            $reasons[] = 'Email: ' . $delivery['email']['error'];
+        }
+        foreach ($delivery['whatsapp'] ?? [] as $wa) {
+            $reasons[] = 'WhatsApp ' . self::maskMobile($wa['to']) . ': ' . $wa['error'];
         }
 
-        $rows = [[
-            'channel' => 'Email',
-            'to'      => $delivery['email']['to'],
-            'ok'      => $delivery['email']['ok'],
-            'error'   => $delivery['email']['error'],
-        ]];
-
-        foreach ($delivery['whatsapp'] as $wa) {
-            $rows[] = [
-                'channel' => 'WhatsApp',
-                'to'      => self::maskMobile($wa['to']),
-                'ok'      => $wa['ok'],
-                'error'   => $wa['error'],
-            ];
-        }
-
-        return $rows;
+        return 'The code could not be sent' . ($reasons ? ' — ' . implode('; ', $reasons) : '') . '. Try Resend OTP in 2 minutes.';
     }
 
     /** "+91 ••••••8563" — enough to tell which phone to look at. */
