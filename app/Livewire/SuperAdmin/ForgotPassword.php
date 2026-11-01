@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\OtpNumbers;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
@@ -68,7 +69,7 @@ class ForgotPassword extends Component
 
         $delivery = null;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, null, $delivery);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, array_filter([OtpNumbers::primary($user)]), $delivery);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('email', self::sendProblem($e, $delivery));
@@ -157,7 +158,7 @@ class ForgotPassword extends Component
 
         $delivery = null;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, null, $delivery);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, array_filter([OtpNumbers::primary($user)]), $delivery);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', self::sendProblem($e, $delivery));
@@ -224,16 +225,22 @@ class ForgotPassword extends Component
             ->with('success', 'Password reset successfully. Please login with your new password.');
     }
 
-    /** Why the code didn't go: the lockout as it reads, else the email's own reason. */
+    /** Why the code didn't go: the lockout as it reads, else each channel's own reason. */
     private static function sendProblem(\Throwable $e, ?array $delivery): string
     {
-        $email = $delivery['email'] ?? null;
-
-        if ($e instanceof OtpDeliveryException && !empty($email['error'])) {
-            return 'Could not send the code to ' . $email['to'] . ': ' . $email['error'] . '. Try again in a minute.';
+        if (!$e instanceof OtpDeliveryException || !$delivery) {
+            return $e->getMessage();
         }
 
-        return $e->getMessage();
+        $reasons = [];
+        if (!empty($delivery['email']['error'])) {
+            $reasons[] = 'email: ' . $delivery['email']['error'];
+        }
+        foreach ($delivery['whatsapp'] as $wa) {
+            $reasons[] = 'WhatsApp: ' . $wa['error'];
+        }
+
+        return 'Could not send the code' . ($reasons ? ' — ' . implode('; ', $reasons) : '') . '. Try again in a minute.';
     }
 
     // ─── Toggles ──────────────────────────────────────────────────────────────

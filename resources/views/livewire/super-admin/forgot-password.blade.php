@@ -14,7 +14,7 @@
 
             <!-- Logo -->
             <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
-                <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                     class="w-full h-full object-contain">
             </div>
 
@@ -57,8 +57,7 @@
             @if ($step === 'otp')
                 <div class="text-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email</p>
-                    <p class="text-violet-600 text-sm font-medium mt-1">{{ $email }}</p>
+                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code we sent you</p>
                 </div>
 
                 <div class="w-full max-w-sm">

@@ -5,14 +5,24 @@
         <div class="px-4 sm:px-6 py-3 sm:min-h-15 flex items-center">
             <h1 class="text-lg sm:text-xl font-bold text-gray-900">My Profile</h1>
         </div>
-        <div class="border-t border-gray-200 px-4 sm:px-6">
+        <div class="border-t border-gray-200 px-4 sm:px-6 overflow-x-auto">
             <div class="flex gap-1">
                 <button wire:click="showTab('profile')"
                     class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'profile' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                     Profile
                 </button>
+                <button wire:click="showTab('numbers')"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap {{ $activeTab === 'numbers' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                    OTP Numbers
+                </button>
+                @if ($isMain)
+                    <button wire:click="showTab('platform')"
+                        class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'platform' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        Platform
+                    </button>
+                @endif
                 <button wire:click="showTab('password')"
-                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'password' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap {{ $activeTab === 'password' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                     Change Password
                 </button>
             </div>
@@ -56,10 +66,13 @@
                 </div>
 
                 <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100 text-sm">
-                    <div><dt class="text-gray-500">Mobile</dt><dd class="text-gray-800 font-medium mt-0.5">{{ $user->mobile_number ?: '—' }}</dd></div>
-                    @if (!empty($user->alternative_mobile))
-                        <div><dt class="text-gray-500">Alternative Mobile</dt><dd class="text-gray-800 font-medium mt-0.5">{{ $user->alternative_mobile }}</dd></div>
-                    @endif
+                    <div>
+                        <dt class="text-gray-500">Primary Mobile (OTP)</dt>
+                        <dd class="text-gray-800 font-medium mt-0.5">
+                            {{ $user->mobile_number ?: '—' }}
+                            <button wire:click="showTab('numbers')" class="ml-2 text-xs font-medium text-purple-600 hover:text-purple-800">Manage</button>
+                        </dd>
+                    </div>
                     @if (!empty($user->dob))
                         <div><dt class="text-gray-500">Date of Birth</dt><dd class="text-gray-800 font-medium mt-0.5">{{ \Carbon\Carbon::parse($user->dob)->format('d M Y') }}</dd></div>
                     @endif
@@ -82,6 +95,157 @@
                         </div>
                     </div>
                 @endif
+            </div>
+        @endif
+
+        {{-- OTP NUMBERS TAB --}}
+        @if ($activeTab === 'numbers')
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-base font-bold text-gray-900">OTP Numbers</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    The sign-in and forgot-password code goes to your email and, on WhatsApp, to the
+                    <span class="font-semibold text-gray-700">primary</span> number only. Up to {{ $maxNumbers }} numbers.
+                </p>
+
+                <ul class="mt-5 divide-y divide-gray-100 border border-gray-100 rounded-lg">
+                    @forelse ($numbers as $n)
+                        @php $key = $n['primary'] ? 'p' : (string) $n['id']; @endphp
+                        <li class="px-4 py-3" wire:key="otp-number-{{ $key }}">
+                            @if ($editing === $key)
+                                <div class="flex flex-col sm:flex-row sm:items-start gap-2">
+                                    <div class="flex-1">
+                                        <input type="tel" wire:model="editNumber" wire:keydown.enter="saveEdit" inputmode="tel" maxlength="16"
+                                            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 {{ $errors->has('editNumber') ? 'border-rose-400' : 'border-gray-200' }}">
+                                        @error('editNumber') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button wire:click="saveEdit" wire:loading.attr="disabled" class="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg">Save</button>
+                                        <button wire:click="cancelEdit" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2">Cancel</button>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                    <span class="text-sm font-medium text-gray-900 tabular-nums">{{ \App\Support\OtpNumbers::format($n['phone']) }}</span>
+                                    @if ($n['primary'])
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold">Primary · gets the OTP</span>
+                                    @endif
+                                    <div class="ml-auto flex items-center gap-3 text-sm">
+                                        @unless ($n['primary'])
+                                            <button wire:click="makePrimary({{ $n['id'] }})" class="font-medium text-purple-600 hover:text-purple-800">Make primary</button>
+                                        @endunless
+                                        <button wire:click="startEdit('{{ $key }}')" class="text-gray-500 hover:text-gray-800">Edit</button>
+                                        <button wire:click="deleteNumber('{{ $key }}')"
+                                            wire:confirm="Delete {{ \App\Support\OtpNumbers::format($n['phone']) }}?{{ $n['primary'] ? ' The next number becomes primary.' : '' }}"
+                                            class="text-rose-500 hover:text-rose-700">Delete</button>
+                                    </div>
+                                </div>
+                            @endif
+                        </li>
+                    @empty
+                        <li class="px-4 py-6 text-sm text-gray-500 text-center">No number yet — the code goes by email only. Add one below.</li>
+                    @endforelse
+                </ul>
+
+                @if (count($numbers) < $maxNumbers)
+                    <div class="mt-5">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Add a number</label>
+                        <div class="flex gap-2">
+                            <input type="tel" wire:model="newNumber" wire:keydown.enter="addNumber" inputmode="tel" maxlength="16"
+                                placeholder="10-digit mobile number"
+                                class="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 {{ $errors->has('newNumber') ? 'border-rose-400' : 'border-gray-200' }}">
+                            <button wire:click="addNumber" wire:loading.attr="disabled"
+                                class="text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white font-medium px-4 py-2 rounded-lg">Add</button>
+                        </div>
+                        @error('newNumber') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        {{-- PLATFORM TAB (main super admin) --}}
+        @if ($activeTab === 'platform' && $isMain)
+            {{-- Logo --}}
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-base font-bold text-gray-900">Platform Logo</h2>
+                <p class="text-sm text-gray-500 mt-1">Shown on the login pages, the sidebars and the website. PNG, JPG, WEBP or SVG, up to 2 MB.</p>
+
+                <div class="mt-5 flex flex-col sm:flex-row sm:items-center gap-5">
+                    <div class="flex items-center gap-4">
+                        <div class="text-center">
+                            <div class="w-24 h-24 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center p-2">
+                                <img src="{{ $logoUrl }}" alt="Current logo" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">{{ $customLogo ? 'Current' : 'Original' }}</p>
+                        </div>
+                        @if ($logoPreview)
+                            <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5-5 5M6 12h12"/></svg>
+                            <div class="text-center">
+                                <div class="w-24 h-24 rounded-xl border-2 border-purple-300 bg-gray-50 flex items-center justify-center p-2">
+                                    <img src="{{ $logoPreview }}" alt="New logo" class="max-w-full max-h-full object-contain">
+                                </div>
+                                <p class="text-xs text-purple-600 mt-1">New</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="flex-1 space-y-2">
+                        <label class="inline-flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-800 cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4-4 4M12 4v12"/></svg>
+                            Choose image or SVG
+                            <input type="file" wire:model="logo" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
+                        </label>
+                        <div wire:loading wire:target="logo" class="text-xs text-gray-400">Uploading…</div>
+                        @error('logo') <p class="text-xs text-rose-500">{{ $message }}</p> @enderror
+                        <div class="flex flex-wrap gap-2">
+                            @if ($logo && !$errors->has('logo'))
+                                <button wire:click="saveLogo" wire:loading.attr="disabled" wire:target="saveLogo"
+                                    class="text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white font-medium px-4 py-2 rounded-lg">
+                                    <span wire:loading.remove wire:target="saveLogo">Save Logo</span>
+                                    <span wire:loading wire:target="saveLogo">Saving…</span>
+                                </button>
+                            @endif
+                            @if ($customLogo)
+                                <button wire:click="resetLogo" wire:confirm="Go back to the original SuperLMS logo?"
+                                    class="text-sm text-gray-500 hover:text-gray-800 px-3 py-2">Use original logo</button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Platform details --}}
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-base font-bold text-gray-900">Platform Details</h2>
+                <dl class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 text-sm">
+                    <div><dt class="text-gray-500">Platform</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['name'] }}</dd></div>
+                    <div class="col-span-2 sm:col-span-2 min-w-0"><dt class="text-gray-500">Website</dt>
+                        <dd class="mt-0.5 truncate"><a href="{{ $platform['website'] }}" target="_blank" rel="noopener" class="font-semibold text-purple-600 hover:text-purple-800">{{ $platform['website'] }}</a></dd></div>
+                    <div><dt class="text-gray-500">Schools</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['schools'] }} <span class="text-xs font-normal text-gray-400">({{ $platform['active'] }} active)</span></dd></div>
+                    <div><dt class="text-gray-500">Students</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['students'] }}</dd></div>
+                    <div><dt class="text-gray-500">Teachers</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['teachers'] }}</dd></div>
+                    <div><dt class="text-gray-500">School admins</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['admins'] }}</dd></div>
+                    <div><dt class="text-gray-500">Super admin accounts</dt><dd class="text-gray-900 font-semibold mt-0.5">{{ $platform['super'] }}</dd></div>
+                </dl>
+            </div>
+
+            {{-- Website data --}}
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 class="text-base font-bold text-gray-900">Website Data</h2>
+                <p class="text-sm text-gray-500 mt-1">What superlms.in shows and has collected.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                    @foreach ($websiteData as $row)
+                        <div class="flex items-center justify-between gap-3 border border-gray-100 rounded-lg px-4 py-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-gray-500">{{ $row['label'] }}</p>
+                                <p class="text-lg font-bold text-gray-900 leading-tight">{{ $row['count'] }}</p>
+                                <p class="text-xs text-gray-400">{{ $row['latest'] ? 'Latest ' . $row['latest'] : 'None yet' }}</p>
+                            </div>
+                            @if ($row['url'])
+                                <a href="{{ $row['url'] }}" class="text-sm font-medium text-purple-600 hover:text-purple-800 whitespace-nowrap">View →</a>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
             </div>
         @endif
 

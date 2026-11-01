@@ -84,7 +84,7 @@
         <div class="flex-1 h-0 overflow-y-auto bg-white border-r border-gray-200">
             <!-- Mobile Logo Section -->
             <div class="flex-shrink-0 flex flex-col items-center px-4 pt-1 pb-3 border-b border-gray-200">
-                <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                     class="w-14 h-14 object-contain mb-1">
                 <h2 class="text-sm font-bold text-gray-900 text-center">SUPERLMS</h2>
             </div>
@@ -132,7 +132,7 @@
         </div>
         <!-- Logo section -->
         <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-3 pt-1 border-b border-gray-200">
-            <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+            <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                 class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
             <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">SUPERLMS</h2>
         </div>

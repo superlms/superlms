@@ -4,7 +4,7 @@
 <nav class="navbar" id="navbar">
      <a class="nav-logo" href="#">
             <div class="flex-shrink-0 flex">
-                <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                     class="w-12 h-12 object-contain mb-2" style="width:48px;height:48px;object-fit:contain;">
             </div>
             <div class="logo-text">SUPER<span>LMS</span></div>

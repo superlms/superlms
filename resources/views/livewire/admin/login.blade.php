@@ -15,7 +15,7 @@
 
             <!-- Logo -->
             <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
-                <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                     class="w-full h-full object-contain">
             </div>
 

@@ -6,6 +6,7 @@ use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
 use App\Services\WhatsAppService;
+use App\Support\OtpNumbers;
 use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -95,8 +96,7 @@ class Login extends Component
 
         // The OTP request is opened inside sendOtp BEFORE anything is sent, so
         // even if delivery fails we can still continue. The same code goes on
-        // WhatsApp to the account's mobile and alternative mobile; one of them
-        // arriving is enough. TEMPORARY: if nothing goes (e.g. ZeptoMail
+        // WhatsApp to the account's primary number; either arriving is enough. TEMPORARY: if nothing goes (e.g. ZeptoMail
         // outage and WhatsApp down), log the OTP so a super-admin can sign in
         // from the logs. Remove this catch once email is healthy.
         $delivery = null;
@@ -230,10 +230,10 @@ class Login extends Component
         $this->resetValidation();
     }
 
-    /** The account's mobile and alternative mobile — the code goes on WhatsApp to each. */
+    /** The account's primary number (Profile → OTP Numbers) — the only one the code goes to on WhatsApp. */
     private static function whatsAppNumbers(User $user): array
     {
-        return array_values(array_filter([$user->mobile_number, $user->alternative_mobile], 'filled'));
+        return array_filter([OtpNumbers::primary($user)]);
     }
 
     /**

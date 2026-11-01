@@ -26,7 +26,7 @@
             <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
                 <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
                     <div class="flex-shrink-0">
-                        <img src="{{ asset('website-image/Group 11525.png') }}" alt="SUPERLMS"
+                        <img src="{{ \App\Support\Platform::logoUrl() }}" alt="SUPERLMS"
                             class="w-24 h-24 rounded-2xl object-contain border border-gray-200 shadow-sm bg-white p-2">
                     </div>
                 </div>

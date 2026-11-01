@@ -54,7 +54,10 @@ class ResetPassword extends Component
         }
 
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Admin Panel', $this->otpChallenge);
+            // The code also goes on WhatsApp to the admin's number — the one
+            // the super admin entered when adding the school (kept on the
+            // admin's account), or the school's own number when it has none.
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Admin Panel', $this->otpChallenge, self::whatsAppNumber($user));
             $this->step = 2;
             $this->resendAvailableAt = now()->addSeconds(self::RESEND_COOLDOWN)->timestamp;
             $this->dispatch('start-countdown', resendAt: $this->resendAvailableAt);
@@ -156,6 +159,22 @@ class ResetPassword extends Component
         $this->resetErrorBag('otp');
 
         $this->sendOtp();
+    }
+
+    private static function whatsAppNumber(User $user): ?string
+    {
+        $mine = trim((string) $user->mobile_number);
+        if ($mine !== '') {
+            return $mine;
+        }
+
+        try {
+            $school = trim((string) $user->organization?->mobile_number);
+        } catch (\Throwable $e) {
+            $school = '';
+        }
+
+        return $school !== '' ? $school : null;
     }
 
     public function render()

@@ -42,7 +42,7 @@
             <div class="flex-shrink-0 flex items-center px-4 py-4 border-b border-gray-200">
                 <div class="flex justify-between gap-2 ">
                     <div class="flex-shrink-0 flex">
-                        <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
+                        <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
                             alt="Logo" class="w-20 h-20 object-contain mb-2">
                         <h2 class="text-sm font-bold text-gray-900 text-center">
                             {{ auth()->user()->organization->name }}
@@ -101,7 +101,7 @@
         </div>
         <!-- Logo section -->
         <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-4 pt-1 border-b border-gray-200">
-            <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
+            <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
                 alt="Logo" class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
             <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">
                 {{ auth()->user()->organization->name }}

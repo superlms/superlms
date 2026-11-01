@@ -221,8 +221,46 @@ class SuperAdminOtpWhatsAppTest extends TestCase
             ->assertDontSee('5914')
             ->assertDontSee('8050');
 
-        // It still went to both numbers.
-        $this->assertCount(2, $this->whatsAppRequests());
+        // It went to the primary number only.
+        $sent = $this->whatsAppRequests();
+        $this->assertCount(1, $sent);
+        $this->assertSame('918864985914', $sent[0]['to']);
+    }
+
+    public function test_super_admin_forgot_password_goes_on_whatsapp_to_the_primary(): void
+    {
+        Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.f']], 'request_id' => 'r'])]);
+        $this->mainSuperAdmin();
+
+        Livewire::test(ForgotPassword::class)
+            ->set('email', 'superlms.india@gmail.com')
+            ->call('submitEmail')
+            ->assertSet('step', 'otp')
+            ->assertDontSee('superlms.india@gmail.com');
+
+        $sent = $this->whatsAppRequests();
+        $this->assertCount(1, $sent);
+        $this->assertSame('918864985914', $sent[0]['to']);
+    }
+
+    public function test_school_admin_forgot_password_goes_to_the_number_given_with_the_school(): void
+    {
+        Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.a']], 'request_id' => 'r'])]);
+        Schema::create('organizations', function (Blueprint $t) {
+            $t->id(); $t->string('name')->nullable(); $t->string('mobile_number')->nullable(); $t->timestamps();
+        });
+        Schema::table('users', fn (Blueprint $t) => $t->unsignedBigInteger('organization_id')->nullable());
+
+        $org = DB::table('organizations')->insertGetId(['name' => 'Adarsh', 'mobile_number' => '9811122233']);
+        DB::table('users')->insert([
+            ['name' => 'Head', 'email' => 'head@school.in', 'role' => 'admin', 'mobile_number' => '9876501234', 'organization_id' => $org],
+            ['name' => 'Desk', 'email' => 'desk@school.in', 'role' => 'sub-admin', 'mobile_number' => null, 'organization_id' => $org],
+        ]);
+
+        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'head@school.in')->call('sendOtp')->assertSet('step', 2);
+        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'desk@school.in')->call('sendOtp')->assertSet('step', 2);
+
+        $this->assertSame(['919876501234', '919811122233'], array_map(fn ($r) => $r['to'], $this->whatsAppRequests()));
     }
 
     public function test_a_code_that_went_nowhere_says_why(): void

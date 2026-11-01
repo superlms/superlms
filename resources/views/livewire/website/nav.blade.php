@@ -6,7 +6,7 @@
 
         <div
             class="absolute left-4 bottom-[-36px] w-[64px] sm:w-[88px] h-[64px] sm:h-[88px] rounded-[20px] sm:rounded-[28px] border border-pink-300 bg-white shadow flex items-center justify-center z-30">
-            <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
+            <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                 class="w-[48px] sm:w-[70px] h-[48px] sm:h-[70px] object-contain">
         </div>
 

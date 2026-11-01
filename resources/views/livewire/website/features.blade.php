@@ -69,7 +69,7 @@
                     <div
                         class="bg-white rounded-xl p-6 shadow-[0_0_0_2px_#f472b6] text-center border border-gray-200 font-bold">
                         <div class="mb-4">
-                            <img src="{{ asset('website-image/Group 11525.png') }}" class="mx-auto w-16 h-16">
+                            <img src="{{ \App\Support\Platform::logoUrl() }}" class="mx-auto w-16 h-16">
                         </div>
                         <h3 class="text-xl mb-4 w-fit mx-auto">SUPERLMS</h3>
                         <a href="https://play.google.com/store/apps/details?id=com.edyoneapp" target="_blank"> <button

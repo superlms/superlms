@@ -345,7 +345,7 @@
 
                     {{-- Header --}}
                     <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                        <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
+                        <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
                             width="36" height="36" class="w-9 h-9 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
                             <h2 class="text-lg font-semibold text-gray-900 leading-tight">Super Assist</h2>

@@ -196,7 +196,7 @@
                         title="Super Assist"
                         aria-label="Super Assist"
                         class="h-9 w-9 rounded-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-colors">
-                        <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
+                        <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
                             width="20" height="20" class="w-5 h-5 object-contain">
                     </button>
                 @endif
@@ -209,10 +209,18 @@
                     @endif
                 </div>
 
-                {{-- The super admin's Profile button was taken off the top bar at
-                     the user's ask (2026-10-11); the page, its route and
-                     profilePage() stay. Admin/sub-admin reach Profile from More,
+                {{-- The super admin's Profile, back on the top bar just before
+                     Logout (2026-11-01): OTP numbers, platform logo and details
+                     live there. Admin/sub-admin reach Profile from More,
                      accounts from the sidebar. --}}
+                @if (in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']))
+                    <a href="{{ route('super-admin.profile') }}" title="Profile" aria-label="Profile"
+                        class="h-9 w-9 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 hover:text-gray-700 flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.964 0a9 9 0 10-11.964 0m11.964 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </a>
+                @endif
 
                 @if (in_array(auth()->user()->role, ['accounts', 'admin', 'sub-admin']))
                     <div class="relative inline-flex"
