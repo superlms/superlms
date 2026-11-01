@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Cache;
@@ -44,20 +45,20 @@ class ForgotPassword extends Component
 
         $this->validate(
             ['email' => 'required|email'],
-            ['email.required' => 'The email field is required.',
-             'email.email'    => 'Please enter a valid email address.']
+            ['email.required' => 'Enter your email address.',
+             'email.email'    => 'This is not a valid email address — it should look like name@example.com.']
         );
 
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('email', 'No super admin account found with this email address.');
+            $this->addError('email', 'No Super Admin account uses this email address.');
             return;
         }
 
         // Same rule as the login: an inactive sub super-admin can't get in.
         if ($user->role === 'sub-super-admin' && !$user->is_active) {
-            $this->addError('email', 'Your account is inactive. Please contact the administrator.');
+            $this->addError('email', 'This account is switched off. The main super admin can switch it on in Users.');
             return;
         }
 
@@ -65,11 +66,12 @@ class ForgotPassword extends Component
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
 
+        $delivery = null;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, null, $delivery);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
-            $this->addError('email', $e->getMessage());
+            $this->addError('email', self::sendProblem($e, $delivery));
             return;
         }
 
@@ -91,17 +93,31 @@ class ForgotPassword extends Component
 
     public function verifyOtp()
     {
-        $entered = implode('', $this->otp);
+        // Errors stay between requests: the last try's message must not stand
+        // in front of this one's.
+        $this->resetValidation('otp');
 
-        if (strlen($entered) !== 6 || !ctype_digit($entered)) {
-            $this->addError('otp', 'Please enter a valid 6-digit OTP.');
+        $entered = implode('', array_map(fn($d) => is_scalar($d) ? trim((string) $d) : '', $this->otp));
+
+        if ($entered === '') {
+            $this->addError('otp', 'Enter the 6-digit code.');
+            return;
+        }
+
+        if (!ctype_digit($entered)) {
+            $this->addError('otp', 'The code has numbers only (0–9) — remove any letters or signs.');
+            return;
+        }
+
+        if (strlen($entered) !== 6) {
+            $this->addError('otp', 'Enter all 6 digits — only ' . strlen($entered) . ' entered.');
             return;
         }
 
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('otp', 'Unable to verify. Please start over.');
+            $this->addError('otp', 'No Super Admin account uses this email any more. Start again.');
             $this->step = 'email';
             return;
         }
@@ -131,7 +147,7 @@ class ForgotPassword extends Component
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('otp', 'Unable to resend OTP. Please go back and try again.');
+            $this->addError('otp', 'No Super Admin account uses this email any more. Go back and change the email.');
             return;
         }
 
@@ -139,11 +155,12 @@ class ForgotPassword extends Component
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
 
+        $delivery = null;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, null, $delivery);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
-            $this->addError('otp', $e->getMessage());
+            $this->addError('otp', self::sendProblem($e, $delivery));
             return;
         }
 
@@ -162,23 +179,30 @@ class ForgotPassword extends Component
 
     public function resetPassword()
     {
+        // One message per rule, the first one broken, saying what to change.
+        $length = mb_strlen($this->password);
         $this->validate(
             [
-                'password'              => ['required', 'min:8', 'max:16', 'regex:/^(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).+$/'],
-                'password_confirmation' => 'required|same:password',
+                'password'              => ['bail', 'required', 'min:8', 'max:16', 'regex:/[0-9]/',
+                    function ($attribute, $value, $fail) {
+                        if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', (string) $value)) {
+                            $fail('Add at least one special character: ! @ # $ % ^ & * ( ) , . ? " : { } | < >');
+                        }
+                    }],
+                'password_confirmation' => ['bail', 'required', 'same:password'],
             ],
             [
-                'password.required'              => 'The password field is required.',
-                'password.min'                   => 'Password must be at least 8 characters.',
-                'password.max'                   => 'Password must not exceed 16 characters.',
-                'password.regex'                 => 'Password must contain at least 1 number and 1 special character.',
-                'password_confirmation.required' => 'Please confirm your password.',
-                'password_confirmation.same'     => 'Passwords do not match.',
+                'password.required'              => 'Enter a new password.',
+                'password.min'                   => "Too short — {$length} characters. Use 8 to 16.",
+                'password.max'                   => "Too long — {$length} characters. Use 8 to 16.",
+                'password.regex'                 => 'Add at least one number (0–9).',
+                'password_confirmation.required' => 'Type the new password again here.',
+                'password_confirmation.same'     => 'This does not match the new password above.',
             ]
         );
 
         if (!Cache::get('super_admin_otp_verified_' . $this->email)) {
-            $this->addError('password', 'Session expired. Please start the process again.');
+            $this->addError('password', 'The verified code is more than 10 minutes old. Start again from your email.');
             $this->step = 'email';
             return;
         }
@@ -186,7 +210,7 @@ class ForgotPassword extends Component
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('password', 'User not found. Please start the process again.');
+            $this->addError('password', 'No Super Admin account uses this email any more. Start again.');
             $this->step = 'email';
             return;
         }
@@ -198,6 +222,18 @@ class ForgotPassword extends Component
 
         return redirect()->route('super-admin.login')
             ->with('success', 'Password reset successfully. Please login with your new password.');
+    }
+
+    /** Why the code didn't go: the lockout as it reads, else the email's own reason. */
+    private static function sendProblem(\Throwable $e, ?array $delivery): string
+    {
+        $email = $delivery['email'] ?? null;
+
+        if ($e instanceof OtpDeliveryException && !empty($email['error'])) {
+            return 'Could not send the code to ' . $email['to'] . ': ' . $email['error'] . '. Try again in a minute.';
+        }
+
+        return $e->getMessage();
     }
 
     // ─── Toggles ──────────────────────────────────────────────────────────────

@@ -62,13 +62,21 @@ class OtpMailService
      * OtpDeliveryException is thrown for the caller to surface — 2FA is never
      * skipped.
      *
-     * With $whatsAppTo (a mobile number) the same code also goes on WhatsApp,
-     * and $sentOnWhatsApp says whether it did. Then the code arriving on
-     * either channel is enough: no exception while WhatsApp delivered it.
+     * With $whatsAppTo (one mobile number or several) the same code also goes
+     * on WhatsApp to each of them. Then the code arriving anywhere is enough:
+     * no exception while one WhatsApp went.
+     *
+     * $delivery tells, even when an exception is thrown, where the code went
+     * and why not where it didn't:
+     *   ['email'    => ['to' => address, 'ok' => bool, 'error' => ?string],
+     *    'whatsapp' => [['to' => '91…', 'ok' => bool, 'error' => ?string], …]]
      */
-    public static function sendOtp(User $user, string $panelName, ?string $challenge = null, ?string $whatsAppTo = null, ?bool &$sentOnWhatsApp = null): string
+    public static function sendOtp(User $user, string $panelName, ?string $challenge = null, array|string|null $whatsAppTo = null, ?array &$delivery = null): string
     {
-        $sentOnWhatsApp = false;
+        $delivery = [
+            'email'    => ['to' => (string) $user->email, 'ok' => false, 'error' => null],
+            'whatsapp' => [],
+        ];
 
         // Resending must not be a way around the lockout.
         if ($remaining = self::lockoutSecondsRemaining($user)) {
@@ -92,20 +100,25 @@ class OtpMailService
         ], $ttl);
         Cache::put(self::latestKey($user), $challenge, $ttl);
 
-        // ── The same code on WhatsApp, when asked for ──
-        if (filled($whatsAppTo)) {
-            $sentOnWhatsApp = self::sendViaWhatsApp($whatsAppTo, $otp);
+        // ── The same code on WhatsApp, to each number asked for ──
+        foreach (self::whatsAppNumbers($whatsAppTo) as $to => $raw) {
+            // (string): PHP turns an all-digit key into an int.
+            $delivery['whatsapp'][] = ['to' => (string) $to] + self::sendViaWhatsApp($raw, $otp);
         }
+        $sentOnWhatsApp = in_array(true, array_column($delivery['whatsapp'], 'ok'), true);
 
         // ── Primary: ZeptoMail template ──
         try {
             self::sendViaZeptoMail($user, $panelName, $otp);
+            $delivery['email']['ok'] = true;
             return $challenge;
         } catch (\Throwable $e) {
+            $zeptoError = $e->getMessage();
+            $delivery['email']['error'] = self::emailProblem($zeptoError);
             Log::warning('OTP primary (ZeptoMail) send failed — trying SMTP fallback', [
                 'email' => $user->email,
                 'panel' => $panelName,
-                'error' => $e->getMessage(),
+                'error' => $zeptoError,
             ]);
         }
 
@@ -126,6 +139,7 @@ class OtpMailService
         try {
             Mail::to($user->email)->send(new LoginOtpMail($otp, $user->name ?? '', $panelName));
         } catch (\Throwable $e) {
+            $delivery['email']['error'] .= '; the backup mailer failed too: ' . Str::limit($e->getMessage(), 90);
             Log::error('OTP SMTP fallback send failed', [
                 'email' => $user->email,
                 'panel' => $panelName,
@@ -137,7 +151,60 @@ class OtpMailService
             throw new OtpDeliveryException($failed, $challenge, $otp);
         }
 
+        $delivery['email'] = ['to' => (string) $user->email, 'ok' => true, 'error' => null];
+
         return $challenge;
+    }
+
+    /**
+     * The numbers to send to, each once: normalized (91 + ten digits) => as
+     * given. A number WhatsApp can't use stays in, so it is reported, not lost.
+     *
+     * @return array<string, string>
+     */
+    private static function whatsAppNumbers(array|string|null $to): array
+    {
+        $numbers = [];
+        foreach ((array) $to as $raw) {
+            $raw = trim((string) $raw);
+            if ($raw !== '') {
+                $numbers[WhatsAppService::normalizePhone($raw) ?? $raw] = $raw;
+            }
+        }
+
+        return $numbers;
+    }
+
+    /** Why the email did not go, in words a person can act on. */
+    private static function emailProblem(string $error): string
+    {
+        return match (true) {
+            str_contains($error, 'ZEPTOMAIL_OTP_TEMPLATE_KEY') => 'the OTP email template is not set on the server (ZEPTOMAIL_OTP_TEMPLATE_KEY)',
+            str_contains($error, 'API token not configured')   => 'the mail service is not set up on the server (ZEPTOMAIL_API_TOKEN)',
+            stripos($error, 'credit') !== false               => 'the mail service (ZeptoMail) is out of credit',
+            stripos($error, 'timed out') !== false,
+            stripos($error, 'cURL error') !== false            => 'the mail service (ZeptoMail) could not be reached',
+            default => 'the mail service refused it: ' . Str::limit(preg_replace('/^ZeptoMail send failed:\s*/', '', $error), 110),
+        };
+    }
+
+    /** Why a WhatsApp did not go, in words a person can act on. */
+    private static function whatsAppProblem(?string $error, string $template): string
+    {
+        $error = (string) $error;
+
+        return match (true) {
+            $error === 'WhatsApp is not set up'               => 'WhatsApp is not set up on the server (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)',
+            $error === 'No usable mobile number'              => 'not a valid Indian mobile number',
+            str_contains($error, '132001'),
+            stripos($error, 'does not exist') !== false       => "the WhatsApp template \"{$template}\" is not in Meta yet, or not approved",
+            str_contains($error, '132000'),
+            str_contains($error, '132012')                    => "the WhatsApp template \"{$template}\" has a different layout — it must be an Authentication template with a Copy code button",
+            str_contains($error, '131026')                    => 'this number is not on WhatsApp, or cannot receive messages',
+            str_contains($error, '131030')                    => 'this number is not in the allowed list of the WhatsApp test number',
+            stripos($error, 'access token') !== false         => 'the WhatsApp token on the server has expired or is wrong',
+            default => 'WhatsApp refused it: ' . Str::limit($error, 110),
+        };
     }
 
     /**
@@ -162,15 +229,20 @@ class OtpMailService
 
     /**
      * Deliver the OTP on WhatsApp: an Authentication template whose body and
-     * Copy code button both carry the code. False when it did not go (no
-     * WhatsApp set up, no usable number, template not approved…) — logged by
-     * WhatsAppService, never thrown.
+     * Copy code button both carry the code. ['ok' => bool, 'error' => why
+     * not] — logged by WhatsAppService, never thrown.
+     *
+     * @return array{ok: bool, error: ?string}
      */
-    private static function sendViaWhatsApp(string $to, string $otp): bool
+    private static function sendViaWhatsApp(string $to, string $otp): array
     {
         $template = (string) config('services.whatsapp.templates.otp', 'login_otp');
+        $result   = WhatsAppService::sendTemplateResult($to, $template, [$otp], $otp);
 
-        return WhatsAppService::sendTemplate($to, $template, [$otp], $otp);
+        return [
+            'ok'    => $result['ok'],
+            'error' => $result['ok'] ? null : self::whatsAppProblem($result['error'], $template),
+        ];
     }
 
     /**

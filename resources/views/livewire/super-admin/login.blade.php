@@ -1,4 +1,6 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
+    @include('partials.super-admin-auth-fields')
+
     {{-- Inside the installed app: over to its code screen --}}
     @include('partials.panel-app-login', ['panel' => 'superadmin'])
 
@@ -37,25 +39,29 @@
                 </div>
 
                 <div class="w-full max-w-sm" x-data="{ email: @entangle('email'), password: @entangle('password'), showPass: false }">
-                    <div class="mb-4">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">Email</label>
-                        <input type="email" x-model="email" placeholder="Enter your email"
-                            wire:keydown.enter="login"
-                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition">
+                    <div class="mb-5">
+                        <div class="sa-field" :class="{ 'is-filled': String(email ?? '').trim() !== '' }"
+                            @error('email') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid')">
+                            <input id="sa-login-email" type="email" x-model="email" placeholder="Enter your email"
+                                autocomplete="username" wire:keydown.enter="login">
+                            <label for="sa-login-email">Email</label>
+                        </div>
                         @error('email')
-                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                            <p class="sa-field-error">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="mb-4">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">Password</label>
-                        <div class="relative">
-                            <input :type="showPass ? 'text' : 'password'" x-model="password"
+                        <div class="sa-field has-eye" :class="{ 'is-filled': String(password ?? '') !== '' }"
+                            @error('password') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid')">
+                            <input id="sa-login-password" :type="showPass ? 'text' : 'password'" x-model="password"
                                 placeholder="Enter your password"
-                                wire:keydown.enter="login"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition pr-10">
-                            <button type="button" @click="showPass = !showPass"
-                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none">
+                                autocomplete="current-password" wire:keydown.enter="login">
+                            <label for="sa-login-password">Password</label>
+                            <button type="button" @click="showPass = !showPass" class="sa-eye focus:outline-none"
+                                :title="showPass ? 'Hide password' : 'Show password'">
                                 <svg x-show="showPass" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
@@ -69,7 +75,7 @@
                             </button>
                         </div>
                         @error('password')
-                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                            <p class="sa-field-error">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -91,12 +97,29 @@
             @if ($step === 'otp')
                 <div class="text-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your {{ $otpWhatsApp ? 'email and WhatsApp' : 'email' }}</p>
-                    <p class="text-violet-600 text-sm font-medium mt-1">{{ $otpSentTo }}</p>
-                    @if ($otpWhatsApp)
-                        <p class="text-violet-600 text-sm font-medium">WhatsApp {{ $otpWhatsApp }}</p>
-                    @endif
+                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code — the same code goes everywhere below</p>
                 </div>
+
+                {{-- Where the code went, and why not where it didn't --}}
+                @if ($otpChannels)
+                    <ul class="w-full max-w-sm mb-5 space-y-1.5 text-sm">
+                        @foreach ($otpChannels as $row)
+                            <li class="flex items-start gap-2 {{ $row['ok'] ? 'text-gray-700' : 'text-red-600' }}">
+                                @if ($row['ok'])
+                                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                @else
+                                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                @endif
+                                <span class="min-w-0 break-words">
+                                    <span class="font-semibold">{{ $row['channel'] }}</span>
+                                    {{ $row['to'] }}{{ $row['ok'] ? '' : ' — not sent: ' . $row['error'] }}
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-violet-600 text-sm font-medium -mt-4 mb-5">{{ $otpSentTo }}</p>
+                @endif
 
                 <div class="w-full max-w-sm">
                     {{-- 6-box OTP input --}}
@@ -123,22 +146,23 @@
                             }
                         }"
                         x-init="$watch('otp', () => { if (!allFilled()) submitting = false; })"
-                        class="flex justify-center gap-2 sm:gap-3 mb-4">
+                        @error('otp') data-invalid @enderror
+                        class="sa-otp-row flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
                                 x-model="otp[{{ $i }}]"
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
-                                inputmode="numeric"
-                                class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
-                                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                                :class="{ 'is-filled': String(otp[{{ $i }}] ?? '').trim() !== '' }"
+                                inputmode="numeric" aria-label="Digit {{ $i + 1 }}"
+                                class="sa-otp"
                                 @if ($i === 0) autofocus @endif>
                         @endfor
                     </div>
 
                     @error('otp')
-                        <p class="text-red-500 text-xs text-center mb-3">{{ $message }}</p>
+                        <p class="text-red-600 text-xs text-center mb-3">{{ $message }}</p>
                     @enderror
 
                     <x-otp-lockout :until="$otpLockedUntil" />

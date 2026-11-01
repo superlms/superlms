@@ -20,8 +20,12 @@ class Login extends Component
     public $password = '';
     public $otpSentTo = '';
 
-    /** The WhatsApp number the code also went to, masked — empty when it went by email only. */
-    public string $otpWhatsApp = '';
+    /**
+     * Where this sign-in's code went, one row per channel, for the OTP screen:
+     * [['channel' => 'Email'|'WhatsApp', 'to' => shown address, 'ok' => bool,
+     *   'error' => why it didn't go]].
+     */
+    public array $otpChannels = [];
 
     // OTP step — array of 6 single digits (matches accounts VerifyOtp pattern)
     public array $otp = ['', '', '', '', '', ''];
@@ -47,20 +51,20 @@ class Login extends Component
             'email'    => 'required|email',
             'password' => 'required',
         ], [
-            'email.required'    => 'The email field is required.',
-            'email.email'       => 'Must be a valid email address.',
-            'password.required' => 'The password field is required.',
+            'email.required'    => 'Enter your email address.',
+            'email.email'       => 'This is not a valid email address — it should look like name@example.com.',
+            'password.required' => 'Enter your password.',
         ]);
 
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('email', 'Email does not exist.');
+            $this->addError('email', 'No Super Admin account uses this email address.');
             return;
         }
 
         if (!Hash::check($this->password, $user->password)) {
-            $this->addError('password', 'Incorrect password.');
+            $this->addError('password', 'Wrong password for this email. Check Caps Lock, or use Forgot password.');
             return;
         }
 
@@ -73,12 +77,12 @@ class Login extends Component
         $isSubSuperAdmin  = $user->role === 'sub-super-admin';
 
         if (!$isMainSuperAdmin && !$isSubSuperAdmin) {
-            $this->addError('email', 'You do not have super-admin access.');
+            $this->addError('email', 'This email is not allowed into the Super Admin panel.');
             return;
         }
 
         if ($isSubSuperAdmin && !$user->is_active) {
-            $this->addError('email', 'Your account is inactive. Please contact the administrator.');
+            $this->addError('email', 'This account is switched off. The main super admin can switch it on in Users.');
             return;
         }
 
@@ -97,18 +101,18 @@ class Login extends Component
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
 
-        // The OTP request is opened inside sendOtp BEFORE the email is sent,
-        // so even if email delivery fails we can still continue. The same code
-        // goes to the account's mobile on WhatsApp too; if that arrives, an
-        // email failure doesn't matter. TEMPORARY: if neither goes (e.g.
-        // ZeptoMail outage), log the OTP so a super-admin can sign in from the
-        // logs. Remove this catch once email is healthy.
-        $sentOnWhatsApp = false;
+        // The OTP request is opened inside sendOtp BEFORE anything is sent, so
+        // even if delivery fails we can still continue. The same code goes on
+        // WhatsApp to the account's mobile and alternative mobile; one of them
+        // arriving is enough. TEMPORARY: if nothing goes (e.g. ZeptoMail
+        // outage and WhatsApp down), log the OTP so a super-admin can sign in
+        // from the logs. Remove this catch once email is healthy.
+        $delivery = null;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, $user->mobile_number, $sentOnWhatsApp);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, self::whatsAppNumbers($user), $delivery);
         } catch (OtpDeliveryException $e) {
             $this->otpChallenge = $e->challenge;
-            \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
+            \Log::warning('SUPERADMIN OTP not delivered; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
         } catch (\Throwable $e) {
             // A lockout must stop the flow — and with no request opened there
             // is no code to enter either.
@@ -118,12 +122,12 @@ class Login extends Component
                 return;
             }
             logger()->error('OTP send failed during super-admin login: ' . $e->getMessage());
-            $this->addError('email', 'Failed to send OTP. Please try again.');
+            $this->addError('email', 'Could not make a sign-in code: ' . $e->getMessage());
             return;
         }
 
         $this->otpSentTo   = $user->email;
-        $this->otpWhatsApp = $sentOnWhatsApp ? self::maskMobile($user->mobile_number) : '';
+        $this->otpChannels = self::channels($delivery);
         $this->otp        = ['', '', '', '', '', ''];
         $this->countdown  = 120;
         $this->canResend  = false;
@@ -139,17 +143,32 @@ class Login extends Component
             return redirect()->route('super-admin.quick-links');
         }
 
-        $entered = implode('', array_map(fn($d) => is_scalar($d) ? (string) $d : '', $this->otp));
+        // Errors stay between requests: the last try's message must not stand
+        // in front of this one's.
+        $this->resetValidation('otp');
 
-        if (strlen($entered) !== 6 || !ctype_digit($entered)) {
-            $this->addError('otp', 'Please enter a valid 6-digit OTP.');
+        $digits  = array_map(fn($d) => is_scalar($d) ? trim((string) $d) : '', $this->otp);
+        $entered = implode('', $digits);
+
+        if ($entered === '') {
+            $this->addError('otp', 'Enter the 6-digit code.');
+            return;
+        }
+
+        if (!ctype_digit($entered)) {
+            $this->addError('otp', 'The code has numbers only (0–9) — remove any letters or signs.');
+            return;
+        }
+
+        if (strlen($entered) !== 6) {
+            $this->addError('otp', 'Enter all 6 digits — only ' . strlen($entered) . ' entered.');
             return;
         }
 
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
-            $this->addError('otp', 'Session expired. Please login again.');
+            $this->addError('otp', 'This sign-in has expired. Go back and log in again.');
             $this->step = 'credentials';
             return;
         }
@@ -186,17 +205,24 @@ class Login extends Component
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
 
+        $delivery = null;
         try {
-            $sentOnWhatsApp = false;
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, $user->mobile_number, $sentOnWhatsApp);
-            $this->otpWhatsApp = $sentOnWhatsApp ? self::maskMobile($user->mobile_number) : '';
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, self::whatsAppNumbers($user), $delivery);
             $this->otp       = ['', '', '', '', '', ''];
             $this->countdown = 120;
             $this->canResend = false;
             $this->resetValidation('otp');
+        } catch (OtpDeliveryException $e) {
+            // TEMPORARY, as in login(): the new code is in the log.
+            \Log::warning('SUPERADMIN OTP resend not delivered; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
+            $this->addError('otp', 'The new code could not be sent anywhere — the reasons are below.');
         } catch (\Exception $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
+        }
+
+        if ($delivery) {
+            $this->otpChannels = self::channels($delivery);
         }
     }
 
@@ -210,8 +236,40 @@ class Login extends Component
         $this->step      = 'credentials';
         $this->otp       = ['', '', '', '', '', ''];
         $this->otpSentTo = '';
-        $this->otpWhatsApp = '';
+        $this->otpChannels = [];
         $this->resetValidation();
+    }
+
+    /** The account's mobile and alternative mobile — the code goes on WhatsApp to each. */
+    private static function whatsAppNumbers(User $user): array
+    {
+        return array_values(array_filter([$user->mobile_number, $user->alternative_mobile], 'filled'));
+    }
+
+    /** sendOtp()'s delivery report as rows for the OTP screen. */
+    private static function channels(?array $delivery): array
+    {
+        if (!$delivery) {
+            return [];
+        }
+
+        $rows = [[
+            'channel' => 'Email',
+            'to'      => $delivery['email']['to'],
+            'ok'      => $delivery['email']['ok'],
+            'error'   => $delivery['email']['error'],
+        ]];
+
+        foreach ($delivery['whatsapp'] as $wa) {
+            $rows[] = [
+                'channel' => 'WhatsApp',
+                'to'      => self::maskMobile($wa['to']),
+                'ok'      => $wa['ok'],
+                'error'   => $wa['error'],
+            ];
+        }
+
+        return $rows;
     }
 
     /** "+91 ••••••8563" — enough to tell which phone to look at. */
