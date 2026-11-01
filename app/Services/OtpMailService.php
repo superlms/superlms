@@ -61,9 +61,15 @@ class OtpMailService
      * everyone out of their panel. If neither channel can deliver, an
      * OtpDeliveryException is thrown for the caller to surface — 2FA is never
      * skipped.
+     *
+     * With $whatsAppTo (a mobile number) the same code also goes on WhatsApp,
+     * and $sentOnWhatsApp says whether it did. Then the code arriving on
+     * either channel is enough: no exception while WhatsApp delivered it.
      */
-    public static function sendOtp(User $user, string $panelName, ?string $challenge = null): string
+    public static function sendOtp(User $user, string $panelName, ?string $challenge = null, ?string $whatsAppTo = null, ?bool &$sentOnWhatsApp = null): string
     {
+        $sentOnWhatsApp = false;
+
         // Resending must not be a way around the lockout.
         if ($remaining = self::lockoutSecondsRemaining($user)) {
             throw new \RuntimeException(self::lockoutMessage($remaining));
@@ -86,6 +92,11 @@ class OtpMailService
         ], $ttl);
         Cache::put(self::latestKey($user), $challenge, $ttl);
 
+        // ── The same code on WhatsApp, when asked for ──
+        if (filled($whatsAppTo)) {
+            $sentOnWhatsApp = self::sendViaWhatsApp($whatsAppTo, $otp);
+        }
+
         // ── Primary: ZeptoMail template ──
         try {
             self::sendViaZeptoMail($user, $panelName, $otp);
@@ -106,6 +117,9 @@ class OtpMailService
         $failed = "Couldn't send the OTP email right now. Please try again in a moment.";
 
         if (!self::hasRealMailer()) {
+            if ($sentOnWhatsApp) {
+                return $challenge;
+            }
             throw new OtpDeliveryException($failed, $challenge, $otp);
         }
 
@@ -117,6 +131,9 @@ class OtpMailService
                 'panel' => $panelName,
                 'error' => $e->getMessage(),
             ]);
+            if ($sentOnWhatsApp) {
+                return $challenge;
+            }
             throw new OtpDeliveryException($failed, $challenge, $otp);
         }
 
@@ -141,6 +158,19 @@ class OtpMailService
             'team' => $panelName,
             'product_name' => 'SuperLMS',
         ]);
+    }
+
+    /**
+     * Deliver the OTP on WhatsApp: an Authentication template whose body and
+     * Copy code button both carry the code. False when it did not go (no
+     * WhatsApp set up, no usable number, template not approved…) — logged by
+     * WhatsAppService, never thrown.
+     */
+    private static function sendViaWhatsApp(string $to, string $otp): bool
+    {
+        $template = (string) config('services.whatsapp.templates.otp', 'login_otp');
+
+        return WhatsAppService::sendTemplate($to, $template, [$otp], $otp);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Services\WhatsAppService;
 use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +19,9 @@ class Login extends Component
     public $email    = '';
     public $password = '';
     public $otpSentTo = '';
+
+    /** The WhatsApp number the code also went to, masked — empty when it went by email only. */
+    public string $otpWhatsApp = '';
 
     // OTP step — array of 6 single digits (matches accounts VerifyOtp pattern)
     public array $otp = ['', '', '', '', '', ''];
@@ -94,11 +98,14 @@ class Login extends Component
         $user->email = User::cleanEmail($user->email);
 
         // The OTP request is opened inside sendOtp BEFORE the email is sent,
-        // so even if email delivery fails we can still continue. TEMPORARY: if
-        // delivery fails (e.g. ZeptoMail outage), log the OTP so a super-admin
-        // can sign in from the logs. Remove this catch once email is healthy.
+        // so even if email delivery fails we can still continue. The same code
+        // goes to the account's mobile on WhatsApp too; if that arrives, an
+        // email failure doesn't matter. TEMPORARY: if neither goes (e.g.
+        // ZeptoMail outage), log the OTP so a super-admin can sign in from the
+        // logs. Remove this catch once email is healthy.
+        $sentOnWhatsApp = false;
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge);
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, $user->mobile_number, $sentOnWhatsApp);
         } catch (OtpDeliveryException $e) {
             $this->otpChallenge = $e->challenge;
             \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
@@ -115,7 +122,8 @@ class Login extends Component
             return;
         }
 
-        $this->otpSentTo  = $user->email;
+        $this->otpSentTo   = $user->email;
+        $this->otpWhatsApp = $sentOnWhatsApp ? self::maskMobile($user->mobile_number) : '';
         $this->otp        = ['', '', '', '', '', ''];
         $this->countdown  = 120;
         $this->canResend  = false;
@@ -179,7 +187,9 @@ class Login extends Component
         $user->email = User::cleanEmail($user->email);
 
         try {
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge);
+            $sentOnWhatsApp = false;
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, $user->mobile_number, $sentOnWhatsApp);
+            $this->otpWhatsApp = $sentOnWhatsApp ? self::maskMobile($user->mobile_number) : '';
             $this->otp       = ['', '', '', '', '', ''];
             $this->countdown = 120;
             $this->canResend = false;
@@ -200,7 +210,16 @@ class Login extends Component
         $this->step      = 'credentials';
         $this->otp       = ['', '', '', '', '', ''];
         $this->otpSentTo = '';
+        $this->otpWhatsApp = '';
         $this->resetValidation();
+    }
+
+    /** "+91 ••••••8563" — enough to tell which phone to look at. */
+    private static function maskMobile(?string $mobile): string
+    {
+        $digits = WhatsAppService::normalizePhone($mobile) ?? preg_replace('/\D+/', '', (string) $mobile);
+
+        return '+91 ••••••' . substr($digits, -4);
     }
 
     public function render()

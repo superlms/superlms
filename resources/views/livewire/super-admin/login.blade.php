@@ -91,8 +91,11 @@
             @if ($step === 'otp')
                 <div class="text-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email</p>
+                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your {{ $otpWhatsApp ? 'email and WhatsApp' : 'email' }}</p>
                     <p class="text-violet-600 text-sm font-medium mt-1">{{ $otpSentTo }}</p>
+                    @if ($otpWhatsApp)
+                        <p class="text-violet-600 text-sm font-medium">WhatsApp {{ $otpWhatsApp }}</p>
+                    @endif
                 </div>
 
                 <div class="w-full max-w-sm">

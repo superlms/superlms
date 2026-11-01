@@ -78,6 +78,9 @@ return [
             'fee'     => env('WHATSAPP_TEMPLATE_FEE', 'fee_received'),
             // A school's message to many (More → Messaging): {{1}} school, {{2}} the message.
             'notice'  => env('WHATSAPP_TEMPLATE_NOTICE', 'school_notice'),
+            // The super admin's sign-in code, beside the email (App\Services\OtpMailService):
+            // an Authentication template with a Copy code button, {{1}} the code.
+            'otp'     => env('WHATSAPP_TEMPLATE_OTP', 'login_otp'),
         ],
         // Meta's status webhook (/api/whatsapp/webhook): the token Meta echoes
         // when the callback is set up, and the app secret its posts are signed with.

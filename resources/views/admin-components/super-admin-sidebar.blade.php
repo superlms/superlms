@@ -25,13 +25,13 @@
      - every box that scrolls inside a page (slide-in panel bodies, lists,
        wide tables) gets the page's own slim 8px bar, darker on hover,
        instead of the browser's wide one.
-     Expanded on md+, the logo sits 12px higher (up beside the menu button,
+     Expanded on md+, the logo sits 28px higher (up beside the menu button,
      which stays on top and clickable) and is 56px instead of 72px, so the
      menu gets more room. --}}
 <style>
     @media (min-width: 768px) {
         html.sidebar-expanded .lms-sa-rail .lms-topbar { position: relative; z-index: 1; }
-        html.sidebar-expanded .lms-sa-rail .lms-logo-wrap { margin-top: -.75rem; }
+        html.sidebar-expanded .lms-sa-rail .lms-logo-wrap { margin-top: -1.75rem; }
         html.sidebar-expanded .lms-sa-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
     }
 
@@ -92,7 +92,6 @@
             <!-- Mobile Navigation -->
             <nav class="px-4 py-4">
                 <div class="mb-6">
-                    <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Dashboard</h3>
                     <div class="space-y-0.5">
                         @foreach ($navItems as $menu_item)
                             @php
@@ -141,9 +140,7 @@
         <!-- Scrollable navigation area -->
         <div id="sidebar-nav" class="flex-1 flex flex-col overflow-y-auto">
             <nav class="lms-nav flex-1 px-4 py-4 space-y-6">
-                <!-- Dashboard Section -->
                 <div>
-                    <h3 class="lms-section-title text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Dashboard</h3>
                     <div class="space-y-0.5">
                         @foreach ($navItems as $menu_item)
                             @php
