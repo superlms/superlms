@@ -220,6 +220,125 @@ class PhonePeService
         ];
     }
 
+    // ─── UPI AutoPay (subscriptions) — Fee Autopay ───────────────────────────
+    //
+    // The mandate is set up on PhonePe's hosted checkout (like a payment, it
+    // gives a redirectUrl the app opens); after that each debit is told to the
+    // parent (notify) and, 24 hours later, taken (redeem). Amounts in paise.
+    // See App\Services\FeeAutopay.
+
+    /** How a mandate is authorised: a ₹2 penny drop, not a first debit. */
+    public const AUTOPAY_AUTH_WORKFLOW = 'PENNY_DROP';
+    public const AUTOPAY_AUTH_AMOUNT   = 200;
+
+    /** The most a hosted-checkout mandate may debit at a time (₹15,000). */
+    public const AUTOPAY_MAX_PAISE = 1500000;
+
+    /**
+     * Start a mandate on PhonePe's hosted checkout.
+     *
+     * @return array{orderId:string,state:string,redirectUrl:string,raw:array}
+     */
+    public function setupSubscription(
+        string $merchantOrderId,
+        string $merchantSubscriptionId,
+        int $maxAmountPaise,
+        int $expireAtMs,
+        string $redirectUrl,
+    ): array {
+        $data = $this->subscriptionCall('post', '/checkout/v2/pay', [
+            'merchantOrderId' => $merchantOrderId,
+            'amount'          => self::AUTOPAY_AUTH_AMOUNT,
+            'expireAfter'     => 1200, // seconds (20 min) to approve it
+            'paymentFlow'     => [
+                'type'                => 'SUBSCRIPTION_CHECKOUT_SETUP',
+                'message'             => 'Fee Autopay',
+                'merchantUrls'        => ['redirectUrl' => $redirectUrl],
+                'subscriptionDetails' => [
+                    'subscriptionType'       => 'RECURRING',
+                    'merchantSubscriptionId' => $merchantSubscriptionId,
+                    'authWorkflowType'       => self::AUTOPAY_AUTH_WORKFLOW,
+                    'amountType'             => 'VARIABLE',
+                    'maxAmount'              => min($maxAmountPaise, self::AUTOPAY_MAX_PAISE),
+                    'frequency'              => 'ON_DEMAND',
+                    'expireAt'               => $expireAtMs,
+                ],
+            ],
+        ], 'setup', $merchantOrderId);
+
+        return [
+            'orderId'     => $data['orderId'] ?? '',
+            'state'       => $data['state'] ?? 'PENDING',
+            'redirectUrl' => $data['redirectUrl'] ?? '',
+            'raw'         => $data,
+        ];
+    }
+
+    /** A mandate's state: ACTIVATION_IN_PROGRESS | ACTIVE | PAUSED | CANCELLED | REVOKED | EXPIRED | FAILED … */
+    public function subscriptionStatus(string $merchantSubscriptionId): array
+    {
+        return $this->subscriptionCall('get', "/subscriptions/v2/{$merchantSubscriptionId}/status?details=true", [], 'subscription status', $merchantSubscriptionId);
+    }
+
+    /**
+     * Tell the parent a debit is coming (the pre-debit notification). The debit
+     * may be taken with redeem() 24 hours later; PhonePe retries a failed one
+     * for 48 hours.
+     *
+     * @return array{orderId:string,state:string,raw:array}
+     */
+    public function notifyRedemption(string $merchantOrderId, string $merchantSubscriptionId, int $amountPaise): array
+    {
+        $data = $this->subscriptionCall('post', '/subscriptions/v2/notify', [
+            'merchantOrderId' => $merchantOrderId,
+            'amount'          => $amountPaise,
+            'paymentFlow'     => [
+                'type'                    => 'SUBSCRIPTION_REDEMPTION',
+                'merchantSubscriptionId'  => $merchantSubscriptionId,
+                'redemptionRetryStrategy' => 'STANDARD',
+                'autoDebit'               => false,
+            ],
+        ], 'notify', $merchantOrderId);
+
+        return ['orderId' => $data['orderId'] ?? '', 'state' => $data['state'] ?? 'NOTIFICATION_IN_PROGRESS', 'raw' => $data];
+    }
+
+    /** Take a notified debit. @return array{state:string,raw:array} */
+    public function redeem(string $merchantOrderId): array
+    {
+        $data = $this->subscriptionCall('post', '/subscriptions/v2/redeem', ['merchantOrderId' => $merchantOrderId], 'redeem', $merchantOrderId);
+
+        return ['state' => $data['state'] ?? 'PENDING', 'raw' => $data];
+    }
+
+    /** A notify / redemption order's state: NOTIFICATION_IN_PROGRESS | NOTIFIED | PENDING | COMPLETED | FAILED. */
+    public function subscriptionOrderStatus(string $merchantOrderId): array
+    {
+        return $this->subscriptionCall('get', "/subscriptions/v2/order/{$merchantOrderId}/status?details=true", [], 'order status', $merchantOrderId);
+    }
+
+    /** Cancel a mandate. PhonePe answers 204; the state then goes CANCEL_IN_PROGRESS → CANCELLED. */
+    public function cancelSubscription(string $merchantSubscriptionId): void
+    {
+        $this->subscriptionCall('post', "/subscriptions/v2/{$merchantSubscriptionId}/cancel", [], 'cancel', $merchantSubscriptionId);
+    }
+
+    private function subscriptionCall(string $method, string $path, array $body, string $what, string $ref): array
+    {
+        $request = Http::withToken($this->accessToken(), 'O-Bearer')->acceptJson()->timeout(20);
+        $response = $method === 'get'
+            ? $request->get($this->pgBase() . $path)
+            : $request->post($this->pgBase() . $path, $body ?: (object) []);
+
+        if ($response->failed()) {
+            Log::error('PhonePe autopay ' . $what . ' failed', ['ref' => $ref, 'status' => $response->status(), 'body' => $response->body()]);
+            $message = $response->json('message') ?: $response->json('code') ?: ('HTTP ' . $response->status());
+            throw new RuntimeException('PhonePe ' . $what . ': ' . $message);
+        }
+
+        return (array) ($response->json() ?? []);
+    }
+
     /**
      * Validate a webhook callback.
      *

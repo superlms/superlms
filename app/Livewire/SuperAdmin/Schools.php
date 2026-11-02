@@ -116,6 +116,7 @@ class Schools extends Component
     public string $pgWebhookUsername = '';
     public string $pgWebhookPassword = '';   // blank = keep existing
     public bool   $pgIsActive        = false;
+    public bool   $pgAutopay         = false;   // Fee Autopay (App\Services\FeeAutopay)
 
     protected $listeners = [
         'editSchool'   => 'onEdit',
@@ -762,6 +763,7 @@ class Schools extends Component
         $this->pgEnv             = $setting->env ?? 'sandbox';
         $this->pgWebhookUsername = $setting->webhook_username ?? '';
         $this->pgIsActive        = (bool) ($setting->is_active ?? false);
+        $this->pgAutopay         = (bool) ($setting->autopay_enabled ?? false);
         // Secrets are never sent back to the browser — blank means "keep".
         $this->pgClientSecret     = '';
         $this->pgWebhookPassword  = '';
@@ -774,7 +776,7 @@ class Schools extends Component
         $this->showPaymentModal = false;
         $this->reset([
             'pgClientId', 'pgClientSecret', 'pgClientVersion', 'pgEnv',
-            'pgWebhookUsername', 'pgWebhookPassword', 'pgIsActive', 'editPaymentMode',
+            'pgWebhookUsername', 'pgWebhookPassword', 'pgIsActive', 'pgAutopay', 'editPaymentMode',
         ]);
         $this->pgClientVersion = '1';
         $this->pgEnv = 'sandbox';
@@ -798,6 +800,15 @@ class Schools extends Component
         if ($this->pgIsActive && (!filled($this->pgClientId) || !$hasSecret)) {
             $this->addError('pgIsActive', 'Client ID and Client Secret are required to activate online collection.');
             return;
+        }
+
+        // Fee Autopay runs only on the school's own, active merchant.
+        if ($this->pgAutopay && !$this->pgIsActive) {
+            $this->addError('pgAutopay', 'Turn on online collection for this school first — Autopay uses its own PhonePe account.');
+            return;
+        }
+        if (\App\Services\FeeAutopay::tracked()) {
+            $setting->autopay_enabled = $this->pgAutopay;
         }
 
         $setting->gateway          = 'phonepe';

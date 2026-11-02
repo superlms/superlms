@@ -44,6 +44,15 @@ Schedule::command('fees:remind')
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping();
 
+// Every 30 minutes: Fee Autopay — installments due in the next two days told
+// to the parent through PhonePe, taken 24 hours later in PhonePe's debit hours,
+// and settled into ordinary online fee payments. Only in schools the Super
+// Admin turned Autopay on for. See App\Services\FeeAutopay.
+Schedule::command('fees:autopay')
+    ->everyThirtyMinutes()
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping(25);
+
 // Every minute, at any hour: WhatsApp the students marked absent today — by a
 // teacher, the admin, a sub admin or the accounts desk — in schools that have
 // "Absent alert" on: one message a student a day, two minutes after the mark

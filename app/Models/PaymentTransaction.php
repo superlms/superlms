@@ -117,8 +117,11 @@ class PaymentTransaction extends Model
                         'amount'            => $txn->amount,
                         'payment_mode'      => 'online',
                         'payment_date'      => now()->toDateString(),
-                        'submitted_by'      => 'PhonePe',
-                        'remark'            => 'Online payment via PhonePe (' . $txn->merchant_order_id . ')',
+                        // Fee Autopay's debits (App\Services\FeeAutopay) say so.
+                        'submitted_by'      => !empty($meta['autopay']) ? 'PhonePe Autopay' : 'PhonePe',
+                        'remark'            => !empty($meta['autopay'])
+                            ? 'Autopay via PhonePe — ' . ($meta['installment'] ?? 'installment') . ' (' . $txn->merchant_order_id . ')'
+                            : 'Online payment via PhonePe (' . $txn->merchant_order_id . ')',
                     ]);
 
                     $txn->fee_payment_id = $fee->id;

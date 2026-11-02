@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\URL;
 Route::get('/payment/return/{merchantOrderId}', [PhonePeController::class, 'paymentReturn'])
     ->name('phonepe.return');
 
+// …and after approving a Fee Autopay mandate (App\Services\FeeAutopay).
+Route::get('/autopay/return/{merchantOrderId}', [PhonePeController::class, 'autopayReturn'])
+    ->name('autopay.return');
+
 // ── Installable PWA entry points ──────────────────────────────────────────
 // Each installed app (admin / super-admin / accounts) opens at its own
 // start_url below. The panel still open in some window or tab → straight to

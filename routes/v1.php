@@ -397,6 +397,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/pay', [PaymentController::class, 'initiate'])->middleware('throttle:payments');
             Route::get('/pay/{merchantOrderId}/status', [PaymentController::class, 'status']);
 
+            // Fee Autopay (PhonePe UPI AutoPay): the mandate, set up and stopped
+            // here; the installments are then paid on their own (App\Services\FeeAutopay).
+            Route::get('/autopay', [\App\Http\Controllers\v1\AutopayController::class, 'show']);
+            Route::post('/autopay/setup', [\App\Http\Controllers\v1\AutopayController::class, 'setup'])->middleware('throttle:payments');
+            Route::post('/autopay/cancel', [\App\Http\Controllers\v1\AutopayController::class, 'cancel']);
+
             // Paying on the school's own UPI QR, then reporting it (UTR /
             // screenshot) for the school to check.
             Route::get('/qr', [QrPaymentController::class, 'show']);

@@ -19,6 +19,12 @@
             'qr_payments'    => ['QR Payments',     'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check payments · your QR & UPI ID', 'emerald'],
             'account_users'  => ['Accounts user',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
         ];
+        // Autopay — where SuperLMS turned it on, or mandates were made while it was.
+        $autopayOrg = (int) (auth()->user()->organization_id ?? 0);
+        if (\App\Services\FeeAutopay::available($autopayOrg)
+            || (\App\Services\FeeAutopay::tracked() && \App\Models\Admin\Fee\FeeAutopayMandate::where('organization_id', $autopayOrg)->exists())) {
+            $feeTabs['autopay'] = ['Autopay', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', "Parents' UPI AutoPay — installments paid on their own", 'blue'];
+        }
         $feeColorMap = [
             'blue'    => ['bg' => 'bg-blue-50',    'text' => 'text-blue-600'],
             'emerald' => ['bg' => 'bg-emerald-50', 'text' => 'text-emerald-600'],
@@ -426,6 +432,11 @@
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'account_users')
         @livewire('admin.account-users')
+    @endif
+
+    {{-- Autopay: parents' PhonePe UPI AutoPay mandates and debits (App\Livewire\Admin\FeeAutopay). --}}
+    @if ($activeTab === 'autopay')
+        @livewire('admin.fee-autopay', key('fee-autopay'))
     @endif
 
     </div>

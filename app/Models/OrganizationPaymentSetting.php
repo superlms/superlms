@@ -23,6 +23,7 @@ class OrganizationPaymentSetting extends Model
         'webhook_username',
         'webhook_password',
         'is_active',
+        'autopay_enabled',
         'payout_client_id',
         'payout_client_secret',
         'payout_account_ref',
@@ -34,6 +35,7 @@ class OrganizationPaymentSetting extends Model
         'webhook_password'     => 'encrypted',
         'payout_client_secret' => 'encrypted',
         'is_active'            => 'boolean',
+        'autopay_enabled'      => 'boolean',
         'payout_is_active'     => 'boolean',
     ];
 
@@ -51,6 +53,16 @@ class OrganizationPaymentSetting extends Model
     public function collectionReady(): bool
     {
         return $this->is_active && !empty($this->client_id) && !empty($this->client_secret);
+    }
+
+    /**
+     * Fee Autopay (PhonePe UPI AutoPay) is on: the school's own merchant takes
+     * collection and the Super Admin turned Autopay on — PhonePe must have
+     * enabled AutoPay on that merchant too. Never on the platform account.
+     */
+    public function autopayReady(): bool
+    {
+        return $this->collectionReady() && (bool) $this->autopay_enabled;
     }
 
     /** Payout (org disbursing money out) is enabled. */

@@ -707,6 +707,7 @@
         'Environment' => strtoupper($pg->env ?? 'sandbox'),
         'Webhook Username' => $pg->webhook_username ?: '—',
         'Webhook Password' => $pg->webhook_password ? '•••••••• (saved)' : '—',
+        'Fee Autopay' => \App\Services\FeeAutopay::tracked() ? ($pg->autopayReady() ? 'On' : ($pg->autopay_enabled ? 'On, but collection is not active' : 'Off')) : '—',
     ] as $label => $value)
                                     <div class="flex items-center gap-6 py-3">
                                         <span class="text-xs text-gray-400 w-36 flex-shrink-0">{{ $label }}</span>
@@ -1542,6 +1543,14 @@
                         <span class="text-sm font-medium text-gray-700">Activate online collection for this school</span>
                     </label>
                     @error('pgIsActive') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                    <label class="flex items-start gap-2 pt-1 cursor-pointer">
+                        <input wire:model.defer="pgAutopay" type="checkbox" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-700">Fee Autopay (UPI AutoPay)</span>
+                            <span class="block text-xs text-gray-400">Parents can set up Autopay in the app and each installment is taken on its own (up to ₹15,000 a time). PhonePe must turn on AutoPay for this merchant first.</span>
+                        </span>
+                    </label>
+                    @error('pgAutopay') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400">Set the same Webhook URL <span class="font-mono">/api/v1/phonepe/webhook</span> + username/password in this school's PhonePe dashboard.</p>
                 </div>
 
