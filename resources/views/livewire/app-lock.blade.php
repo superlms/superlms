@@ -97,7 +97,7 @@
                     x-on:focus.window="look()"
                     x-on:visibilitychange.document="document.hidden || look()">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email</p>
+                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
                     <p class="{{ $c['text'] }} text-sm font-medium mt-1">{{ $otpSentTo }}</p>
                 </div>
 

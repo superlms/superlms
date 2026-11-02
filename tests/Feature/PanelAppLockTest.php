@@ -55,6 +55,7 @@ class PanelAppLockTest extends TestCase
             $t->string('role')->nullable();
             $t->unsignedBigInteger('organization_id')->nullable();
             $t->unsignedBigInteger('allowed_organization_id')->nullable();
+            $t->string('mobile_number')->nullable();
             $t->boolean('is_active')->default(true);
             $t->text('permissions')->nullable();
             $t->string('remember_token')->nullable();
@@ -430,6 +431,61 @@ class PanelAppLockTest extends TestCase
             ->call('verifyOtp')
             ->assertRedirect(route('super-admin.dashboard'));
         $this->assertTrue(Auth::guard('superadmin')->user()->is($super));
+    }
+
+    public function test_the_super_admin_apps_code_goes_on_whatsapp_too_as_at_its_login(): void
+    {
+        config([
+            'services.whatsapp.enabled'         => true,
+            'services.whatsapp.token'           => 'wa-token',
+            'services.whatsapp.phone_number_id' => '123',
+            'services.whatsapp.templates.otp'   => 'login_otp',
+        ]);
+        Http::swap(new \Illuminate\Http\Client\Factory());
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.1']]])]);
+        $sentOnWhatsApp = fn () => Http::recorded(fn ($r) => str_contains($r->url(), 'graph.facebook.com'))->map(fn ($p) => $p[0])->values();
+
+        $super = $this->user('super-admin', ['mobile_number' => '88649 85914']);
+        PanelApp::remember('superadmin', $super);
+
+        // Opened from its shortcut: the same code by email and on WhatsApp to the primary number.
+        $app = $this->app('superadmin')->call('opened', 'closed')
+            ->assertSet('step', 'otp')
+            ->assertSet('otpOnWhatsApp', true)
+            ->assertSee('sent to your email and WhatsApp');
+        $wa = $sentOnWhatsApp();
+        $this->assertCount(1, $wa);
+        $this->assertSame('918864985914', $wa[0]['to']);
+        $this->assertSame($this->mailedCode(), $wa[0]['template']['components'][0]['parameters'][0]['text']);
+
+        // Resend goes on WhatsApp again, with the new code.
+        $this->travel(3)->minutes();
+        $app->call('resendOtp');
+        $this->assertCount(2, $sentOnWhatsApp());
+        $this->assertSame($this->mailedCode(), $sentOnWhatsApp()[1]['template']['components'][0]['parameters'][0]['text']);
+
+        $app->set('otp', str_split($this->mailedCode()))
+            ->call('verifyOtp')
+            ->assertRedirect(route('super-admin.dashboard'));
+
+        // A school's app opened on the super admin's code goes there too.
+        $this->user('admin');
+        Auth::guard('superadmin')->login($super);
+        $this->app('admin', 9)->call('opened', 'closed')->assertSet('viaSuperAdmin', true)->assertSet('otpOnWhatsApp', true);
+        $this->assertCount(3, $sentOnWhatsApp());
+        $this->assertSame('918864985914', $sentOnWhatsApp()[2]['to']);
+    }
+
+    public function test_the_school_and_accounts_apps_codes_stay_email_only(): void
+    {
+        config(['services.whatsapp.enabled' => true, 'services.whatsapp.token' => 'wa-token', 'services.whatsapp.phone_number_id' => '123']);
+
+        $admin = $this->user('admin', ['mobile_number' => '9876543210']);
+        PanelApp::remember('admin', $admin);
+        $this->app('admin', 9)->call('opened', 'closed')->assertSet('step', 'otp')->assertSet('otpOnWhatsApp', false)
+            ->assertSee('sent to your email')->assertDontSee('and WhatsApp');
+
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'graph.facebook.com'));
     }
 
     public function test_resend_waits_for_its_cooldown(): void

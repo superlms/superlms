@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\OtpNumbers;
 use App\Support\PanelApp;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
@@ -73,6 +74,9 @@ class AppLock extends Component
 
     public string $otpSentTo = '';
     public array  $otp       = ['', '', '', '', '', ''];
+
+    /** The code also reached the super admin's WhatsApp. */
+    public bool $otpOnWhatsApp = false;
 
     /** Unix timestamp (server clock) before which Resend OTP stays disabled. */
     public int $resendAvailableAt = 0;
@@ -235,17 +239,27 @@ class AppLock extends Component
         $to = clone $account;
         $to->email = User::cleanEmail($account->email);
 
-        $this->otp       = ['', '', '', '', '', ''];
-        $this->otpSentTo = $this->masked($to->email);
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->otpSentTo     = $this->masked($to->email);
+        $this->otpOnWhatsApp = false;
         $this->resetValidation('otp');
+
+        // A super admin's code goes on WhatsApp to the account's primary number
+        // too (Profile → OTP Numbers), as at the Super Admin login.
+        $superAdmin = $this->panel === 'superadmin' || $this->viaSuperAdmin;
+        $whatsApp   = $superAdmin ? array_filter([OtpNumbers::primary($account)]) : null;
+        $delivery   = null;
 
         try {
             $this->otpChallenge = OtpMailService::sendOtp(
                 $to,
                 self::PANEL_NAMES[$this->viaSuperAdmin ? 'superadmin' : $this->panel],
                 $this->otpChallenge,
+                $whatsApp,
+                $delivery,
             );
             $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
+            $this->otpOnWhatsApp     = in_array(true, array_column($delivery['whatsapp'] ?? [], 'ok'), true);
         } catch (\Throwable $e) {
             // Nothing was mailed: Resend OTP is there to try again at once.
             $this->resendAvailableAt = 0;
@@ -259,8 +273,10 @@ class AppLock extends Component
             if ($e instanceof OtpDeliveryException) {
                 $this->otpChallenge = $e->challenge;
             }
-            logger()->error('OTP send failed opening the ' . $this->panel . ' app: ' . $e->getMessage());
-            $this->addError('otp', "Couldn't send the OTP email right now. Please try again in a moment.");
+            logger()->error('OTP send failed opening the ' . $this->panel . ' app: ' . $e->getMessage(), ['delivery' => $delivery]);
+            $this->addError('otp', $whatsApp
+                ? "Couldn't send the code by email or WhatsApp right now. Please try again in a moment."
+                : "Couldn't send the OTP email right now. Please try again in a moment.");
         }
     }
 
