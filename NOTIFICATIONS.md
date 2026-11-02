@@ -59,6 +59,16 @@ $firebase->notifyUsers($classUsers, 'announcement', [
 `title`/`body` are optional — if omitted, the app falls back to the catalog's
 default template for that `type`. Invalid/expired tokens are auto-pruned.
 
+## A school's Notification switch
+
+Super Admin → Schools → a school → Modules → **Notification** (the last one,
+on by default). Off, not one push reaches the phones of that school's people —
+announcements, attendance, fees, chat, the Super Admin's own Push Notification,
+all of it. `FirebaseNotificationService::pushableUserIds()` drops them inside
+`notifyUser()` / `notifyUsers()` / `notifyUserIds()`, which every push goes
+through, so no rule needs to check it itself. Tokens are kept: switched back on,
+pushes resume at once. The web panels' bell is not affected.
+
 ## When each notification fires ("konsa notification kab, kisko")
 
 Implemented rules (dispatched via `App\Services\AppPushNotifier`, wired in

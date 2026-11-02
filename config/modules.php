@@ -138,4 +138,12 @@ return [
         'default' => true,
         'links'   => ['admin.admissions', 'accounts.admissions'],
     ],
+    // App push notifications. Off = no push of any kind reaches the phones of
+    // this school's students, teachers or staff (App\Services\FirebaseNotificationService).
+    // No screens of its own, so nothing is hidden from the panels.
+    'notification' => [
+        'label'   => 'Notification',
+        'default' => true,
+        'links'   => [],
+    ],
 ];

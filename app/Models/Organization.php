@@ -329,13 +329,44 @@ class Organization extends Model
         return (bool) ($modules[$key]['default'] ?? true);
     }
 
-    /** Load (and cache) this school's saved module_key => enabled(bool) map. */
-    protected function moduleMap(): array
+    /**
+     * Ids of the schools that have a module switched off — for checks across
+     * many schools at once (e.g. who may get an app push). Same rule as
+     * hasModule(): a school with no saved row has the module's default. Fails
+     * OPEN (nothing off) if the table is missing or unreadable.
+     *
+     * @return array<int>
+     */
+    public static function idsWithModuleOff(string $key): array
     {
-        if ($this->moduleMapCache !== null) {
-            return $this->moduleMapCache;
+        $def = config('modules', [])[$key] ?? null;
+
+        if ($def === null || !self::moduleTableExists()) {
+            return [];
         }
 
+        try {
+            if ($def['default'] ?? true) {
+                $ids = OrganizationModule::query()
+                    ->where('module_key', $key)
+                    ->where('enabled', false)
+                    ->pluck('organization_id');
+            } else {
+                $on  = OrganizationModule::query()
+                    ->where('module_key', $key)
+                    ->where('enabled', true)
+                    ->pluck('organization_id');
+                $ids = static::query()->whereNotIn('id', $on)->pluck('id');
+            }
+
+            return $ids->map(fn($id) => (int) $id)->unique()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    private static function moduleTableExists(): bool
+    {
         if (self::$moduleTableExists === null) {
             try {
                 self::$moduleTableExists = Schema::hasTable('module_organization');
@@ -344,7 +375,17 @@ class Organization extends Model
             }
         }
 
-        if (!self::$moduleTableExists || !$this->id) {
+        return self::$moduleTableExists;
+    }
+
+    /** Load (and cache) this school's saved module_key => enabled(bool) map. */
+    protected function moduleMap(): array
+    {
+        if ($this->moduleMapCache !== null) {
+            return $this->moduleMapCache;
+        }
+
+        if (!self::moduleTableExists() || !$this->id) {
             return $this->moduleMapCache = [];
         }
 

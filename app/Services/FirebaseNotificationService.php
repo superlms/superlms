@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\UserFcmToken;
 use Illuminate\Support\Collection;
@@ -53,6 +54,11 @@ class FirebaseNotificationService
             return false;
         }
 
+        if (empty(self::pushableUserIds([$user->id]))) {
+            logger()->info('[push] school notifications off', ['type' => $type, 'user_id' => $user->id]);
+            return false;
+        }
+
         return $this->sendData(
             $user->fcmTokens()->pluck('token')->filter()->all(),
             $type,
@@ -90,6 +96,17 @@ class FirebaseNotificationService
             return false;
         }
 
+        $asked   = count($userIds);
+        $userIds = self::pushableUserIds($userIds);
+
+        if (count($userIds) < $asked) {
+            logger()->info('[push] school notifications off', ['type' => $type, 'skipped' => $asked - count($userIds)]);
+        }
+
+        if (empty($userIds)) {
+            return false;
+        }
+
         $tokens = UserFcmToken::whereIn('user_id', $userIds)
             ->pluck('token')
             ->filter()
@@ -102,6 +119,39 @@ class FirebaseNotificationService
         ]);
 
         return $this->sendData($tokens, $type, $opts);
+    }
+
+    /**
+     * The users among these who may get an app push. A school with the
+     * Notification module switched off (Super Admin → Schools → Modules) gets
+     * none at all — every push to the app comes through this class, so this is
+     * the one gate. Users with no school (the super admin) always may.
+     *
+     * @param  iterable<int>  $userIds
+     * @return array<int>
+     */
+    public static function pushableUserIds(iterable $userIds): array
+    {
+        $userIds = collect($userIds)->map(fn($id) => (int) $id)->filter()->unique()->values()->all();
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        $off = Organization::idsWithModuleOff('notification');
+
+        if (empty($off)) {
+            return $userIds;
+        }
+
+        $muted = User::query()
+            ->whereIn('id', $userIds)
+            ->whereIn('organization_id', $off)
+            ->pluck('id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+
+        return array_values(array_diff($userIds, $muted));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

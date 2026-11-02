@@ -171,9 +171,12 @@ class PushNotification extends Component
 
         $userIds = $this->recipientUserIds();
         $this->previewRecipients = $userIds->count();
-        $this->previewDevices    = $userIds->isEmpty()
+        // Schools with the Notification module off get no app push, so their
+        // phones are not counted.
+        $appUserIds              = FirebaseNotificationService::pushableUserIds($userIds);
+        $this->previewDevices    = empty($appUserIds)
             ? 0
-            : UserFcmToken::whereIn('user_id', $userIds)->count();
+            : UserFcmToken::whereIn('user_id', $appUserIds)->count();
 
         $this->confirming = true;
     }
@@ -190,8 +193,9 @@ class PushNotification extends Component
         }
 
         $userIds     = $this->recipientUserIds()->all();
-        $deviceCount = empty($userIds) ? 0 : UserFcmToken::whereIn('user_id', $userIds)->count();
-        $breakdown   = $this->deviceBreakdown($userIds);
+        $appUserIds  = FirebaseNotificationService::pushableUserIds($userIds);
+        $deviceCount = empty($appUserIds) ? 0 : UserFcmToken::whereIn('user_id', $appUserIds)->count();
+        $breakdown   = $this->deviceBreakdown($appUserIds);
         $delivered   = false;
         $webCount    = 0;
 
