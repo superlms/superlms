@@ -289,6 +289,14 @@ return [
             'icon' => 'chat-bubble-left-right',
             'prefix' => 'super-admin.messaging',
         ],
+        // The products SuperLMS sells to schools, and the invoices (with an
+        // agreement) it sends them.
+        [
+            'title' => 'Store',
+            'link' => 'super-admin.store',
+            'icon' => 'shopping-bag',
+            'prefix' => 'super-admin.store',
+        ],
         // Off the sidebar and Quick Links; the page, its route and the
         // sub-super-admin permission stay.
         [

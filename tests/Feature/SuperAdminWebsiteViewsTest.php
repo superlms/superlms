@@ -135,8 +135,8 @@ class SuperAdminWebsiteViewsTest extends TestCase
 
         $page = Livewire::test(QuickLinks::class);
 
-        // 26 screens with Ledger and Messaging (2026-11-01), on 6 columns × 5 rows.
-        $this->assertCount(26, $page->viewData('orderedLinks'));
+        // 27 screens with Ledger and Messaging (2026-11-01) and Store (2026-11-02), on 6 columns × 5 rows.
+        $this->assertCount(27, $page->viewData('orderedLinks'));
         $this->assertStringContainsString('md:grid-cols-6 md:grid-rows-5 md:auto-rows-fr', $page->html());
     }
 }

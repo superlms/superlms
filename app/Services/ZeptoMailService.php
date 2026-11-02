@@ -114,6 +114,8 @@ class ZeptoMailService
 
     /**
      * Send a raw HTML email (no template).
+     *
+     * @param  array<int,array{content:string,mime_type:string,name:string}>  $attachments  base64 content
      */
     public static function sendRaw(
         string $subject,
@@ -122,6 +124,7 @@ class ZeptoMailService
         ?string $toName = null,
         ?string $fromEmail = null,
         ?string $fromName = null,
+        array $attachments = [],
     ): array {
         $apiToken = config('services.zeptomail.api_token');
         $bounceAddress = config('services.zeptomail.bounce_address');
@@ -146,15 +149,20 @@ class ZeptoMailService
             $payload['bounce_address'] = $bounceAddress;
         }
 
+        if (!empty($attachments)) {
+            $payload['attachments'] = array_values($attachments);
+        }
+
         // Same tight timeout as sendTemplate() — never block a web request
-        // for more than 8s on an upstream Zoho hiccup.
+        // for more than 8s on an upstream Zoho hiccup. Attachments (a PDF)
+        // take longer to upload, so they get more.
         $response = Http::withHeaders([
             'Authorization' => 'Zoho-enczapikey ' . $apiToken,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ])
             ->connectTimeout(3)
-            ->timeout(5)
+            ->timeout(empty($attachments) ? 5 : 20)
             ->post(config('services.zeptomail.api_url') . '/email', $payload);
 
         if ($response->failed()) {

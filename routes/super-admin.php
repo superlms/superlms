@@ -9,6 +9,7 @@ use App\Livewire\SuperAdmin\Enquiry;
 use App\Livewire\SuperAdmin\Fees;
 use App\Livewire\SuperAdmin\Ledger;
 use App\Livewire\SuperAdmin\Messaging;
+use App\Livewire\SuperAdmin\Store;
 use App\Livewire\SuperAdmin\ForgotPassword;
 use App\Livewire\SuperAdmin\Login;
 use App\Livewire\SuperAdmin\Payroll;
@@ -61,6 +62,7 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('ledger', Ledger::class)->name('super-admin.ledger');
     Route::get('push-notification', PushNotification::class)->name('super-admin.push-notification');
     Route::get('messaging', Messaging::class)->name('super-admin.messaging');
+    Route::get('store', Store::class)->name('super-admin.store');
     Route::get('enquiries', Enquiry::class)->name('super-admin.enquiries');
     Route::get('support', Support::class)->name('super-admin.support');
     Route::get('website-data', WebsiteData::class)->name('super-admin.website-data');
@@ -112,3 +114,10 @@ Route::middleware(['auth:superadmin'])
     ->post('schools/{organization}/login', \App\Http\Controllers\SchoolLoginController::class)
     ->whereNumber('organization')
     ->name('super-admin.school-login');
+
+// Store → Invoices → Send: the invoice PDF the school opens from its email.
+// Signed, so no sign-in.
+Route::middleware(['signed', 'throttle:60,1'])
+    ->get('store/invoice/{invoice}/pdf', \App\Http\Controllers\StoreInvoicePdfController::class)
+    ->whereNumber('invoice')
+    ->name('store.invoice.pdf');
