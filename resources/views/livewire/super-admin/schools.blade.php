@@ -326,6 +326,8 @@
         'custom_fee' => 'Custom Fee',
         'biometric' => 'Biometric',
         'bank' => 'Bank Details',
+        // The school's own PhonePe merchant, and Fee Autopay on it.
+        'payment' => 'Online Payment',
         'fees' => 'Fees Analytics',
         'students' => 'Students',
         'teachers' => 'Teachers',
