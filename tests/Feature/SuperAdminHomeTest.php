@@ -266,4 +266,56 @@ class SuperAdminHomeTest extends TestCase
 
         $this->assertSame(['Support Tickets', 'School Listings'], array_column($this->helper('waitingOnYou'), 'label'));
     }
+
+    /**
+     * The charts survive the panel's auto-refresh: their canvases are kept out
+     * of Livewire's re-renders and their figures sit in an element that is
+     * re-rendered; and a narrow card's figures are whole (the staff legend
+     * keeps its labels, a KPI with no change reads 0%).
+     */
+    public function test_home_charts_are_kept_through_re_renders_and_figures_are_whole(): void
+    {
+        $this->signIn();
+        $months = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+        $zeros  = array_fill(0, 12, 0);
+
+        $html = view('livewire.super-admin.dashboard', [
+            'activeSchools' => 1, 'activeStudents' => 10, 'activeTeachers' => 2, 'newSchoolsThisMonth' => 0,
+            'superAdminFee' => [
+                'total' => 1000, 'collected' => 400, 'pending' => 600, 'pct' => 40, 'this_month' => 0, 'last_month' => 0,
+                'schools' => 1, 'schools_due' => 1, 'year' => '2026-27', 'unpaid_records' => 1,
+                'labels' => array_map(fn ($m) => $m . ' 26', $months), 'data' => array_replace($zeros, [11 => 400]), 'year_total' => 400,
+            ],
+            'staff' => [
+                'employees' => 2, 'active' => 2, 'bill' => 30000, 'month' => 'Sep 2026', 'paid_count' => 1, 'paid_amount' => 15000,
+                'paid_pct' => 50, 'unpaid_count' => 1, 'unpaid' => [['name' => 'Ravi Kumar', 'role' => 'team', 'salary' => 15000]],
+                'today' => ['present' => 1, 'absent' => 0, 'half_day' => 0, 'leave' => 1, 'holiday' => 0, 'marked' => 2, 'pct' => 50],
+            ],
+            'waiting' => [], 'latestTickets' => [], 'latestEnquiries' => [],
+            'websiteWeek' => ['visits' => 0, 'unique' => 0, 'today' => 0, 'top' => '—'],
+            'pushSummary' => ['this_month' => 0, 'total' => 0, 'latest' => null],
+            'latestReview' => null, 'activityFeed' => [],
+            'studentsBySchool' => [['label' => 'Alpha Public School', 'value' => 12, 'color' => '#7c3aed']],
+            'totalSchools' => 1, 'totalStudents' => 12, 'totalTeachers' => 2, 'avgStudentsPerSchool' => 12,
+            'topSchoolsByStudents' => [], 'topSchoolsByTeachers' => [], 'recentSchools' => [], 'recentActivities' => [],
+            'monthlyRegistrations' => ['labels' => array_map(fn ($m) => $m . ' 2026', $months), 'students' => $zeros, 'teachers' => $zeros, 'schools' => $zeros],
+            'ratingStats' => ['total_schools' => 1, 'schools_rated' => 0, 'remaining' => 1, 'avg_rating' => 0],
+            'supportStats' => ['total' => 0, 'pending' => 0, 'replied' => 0, 'this_month' => 0],
+            'enquiryStats' => ['demo_total' => 0, 'contact_total' => 0],
+            'creditStats' => [],
+        ])->render();
+
+        foreach (['homeFeeChart', 'homeRegChart'] as $id) {
+            $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="' . $id . '"/', $html);
+        }
+        // No chart is drawn from an Alpine init on its canvas any more.
+        $this->assertStringNotContainsString('<canvas x-data', $html);
+        $this->assertStringContainsString('data-sa-charts="home"', $html);
+        $this->assertStringContainsString("saCharts.define('home'", $html);
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Leave / holiday 1 · 50%', $text);
+        $this->assertStringContainsString('Ravi Kumar Team ₹15,000', $text);
+        $this->assertStringContainsString('0% vs last month', $text);
+    }
 }

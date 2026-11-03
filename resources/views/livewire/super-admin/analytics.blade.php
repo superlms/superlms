@@ -3,7 +3,7 @@
     {{-- All chart data lives in this attribute. It is part of the Livewire DOM,
          so every morph (month-window or website-range change) refreshes it and
          the script below re-reads it — charts always render with current data. --}}
-    <div id="analytics-data" data-payload="{{ json_encode($chartPayload) }}" class="hidden"></div>
+    <div id="analytics-data" data-sa-charts="analytics" data-payload="{{ json_encode($chartPayload) }}" class="hidden"></div>
 
     {{-- The dashboard look (2026-11-03), shared with Home. --}}
     @include('livewire.super-admin.partials.dash-styles')
@@ -17,6 +17,13 @@
             : 0;
         // The tabs are one page now: what each tab showed is a section below.
         $windowLabel = 'Last ' . $months . ' months';
+        $ring = ['#7c3aed', '#111827', '#a78bfa', '#38bdf8', '#f59e0b', '#10b981', '#cbd5e1'];
+        // A payment-mode split as a donut's parts.
+        $modeParts = fn (array $m) => array_map(
+            fn ($label, $value, $i) => ['label' => $label, 'value' => (float) $value, 'color' => $ring[$i % count($ring)]],
+            $m['labels'] ?? [], $m['data'] ?? [], array_keys($m['data'] ?? [])
+        );
+        $initial = fn ($name) => strtoupper(mb_substr(trim((string) $name) ?: '?', 0, 1));
     @endphp
 
     {{-- ══════════════════════════════════════════════════════════
@@ -92,7 +99,7 @@
             {{-- Registrations + schools onboarded --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div class="sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <div>
                             <h3 class="sa-card-title">Monthly Registrations</h3>
                             <p class="text-xs text-gray-400 mt-0.5">Students and teachers added · {{ $windowLabel }}</p>
@@ -102,60 +109,88 @@
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Teachers</span>
                         </div>
                     </div>
-                    <div class="h-56 relative">
+                    <div class="h-56 relative" wire:ignore wire:key="chart-overviewMonthlyChart">
                         <canvas id="overviewMonthlyChart"></canvas>
                     </div>
                 </div>
                 <div class="sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <div>
                             <h3 class="sa-card-title">Schools Onboarded</h3>
                             <p class="text-xs text-gray-400 mt-0.5">New schools · {{ $windowLabel }}</p>
                         </div>
                         <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> New schools</span>
                     </div>
-                    <div class="h-56 relative">
+                    <div class="h-56 relative" wire:ignore wire:key="chart-schoolsMonthlyChart">
                         <canvas id="schoolsMonthlyChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            {{-- School size buckets --}}
-            <div class="sa-card overflow-hidden">
-                <div class="px-5 py-3 border-b border-gray-100">
-                    <h3 class="sa-card-title">Schools by Size</h3>
+            {{-- School size: each band's schools and their share of all schools.
+                 The bands from 500 up overlap (a school of 1,600 is in 500+,
+                 1000+ and 1500+), as the figures always have. --}}
+            @php
+                $allSchools = max(1, (int) ($overviewStats['totalSchools'] ?? array_sum($schoolBuckets)));
+                $bucketTop  = max(1, (int) max($schoolBuckets ?: [0]));
+            @endphp
+            <div class="sa-card p-5">
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Schools by Size</h3>
+                        <p class="sa-card-sub">Schools by how many students they have</p>
+                    </div>
+                    <span class="sa-chip">{{ number_format($overviewStats['totalSchools'] ?? 0) }} schools</span>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-5">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     @foreach ($schoolBuckets as $label => $count)
-                        <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100">
-                            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }} students</p>
-                            <p class="text-xl font-semibold text-gray-900 mt-1.5 tabular-nums">{{ number_format($count) }}</p>
+                        <div class="rounded-xl bg-gray-50 px-4 py-3.5 min-w-0">
+                            <p class="text-xs text-gray-500 truncate">{{ $label }} students</p>
+                            <div class="mt-1 flex items-baseline justify-between gap-2">
+                                <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ number_format($count) }}</p>
+                                <span class="text-xs text-gray-400 tabular-nums">{{ round($count / $allSchools * 100) }}%</span>
+                            </div>
+                            <div class="mt-2.5 h-1.5 rounded-full bg-white">
+                                <div class="h-1.5 rounded-full" style="width: {{ round($count / $bucketTop * 100) }}%; background: {{ $count === $bucketTop ? '#7c3aed' : '#c4b5fd' }}"></div>
+                            </div>
                         </div>
                     @endforeach
                 </div>
             </div>
 
-            {{-- Top schools --}}
+            {{-- Top schools: rank, the figure with a bar against the first, the other figure under it --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                @foreach ([['Top 5 by Students', $topByStudents, 'students', 'teachers'], ['Top 5 by Teachers', $topByTeachers, 'teachers', 'students']] as [$heading, $list, $main, $other])
-                    <div class="sa-card overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-100">
+                @foreach ([
+                    ['Top 5 by Students', 'The schools with the most students', $topByStudents, 'students', 'teachers'],
+                    ['Top 5 by Teachers', 'The schools with the most teachers', $topByTeachers, 'teachers', 'students'],
+                ] as [$heading, $subline, $list, $main, $other])
+                    @php $topMax = max(1, (int) max(array_column($list, $main) ?: [0])); @endphp
+                    <div class="sa-card p-5 min-w-0">
+                        <div class="mb-4">
                             <h3 class="sa-card-title">{{ $heading }}</h3>
+                            <p class="sa-card-sub">{{ $subline }}</p>
                         </div>
                         @if (count($list))
-                            <div class="divide-y divide-gray-100">
+                            <div class="space-y-4">
                                 @foreach ($list as $s)
-                                    <div class="flex items-center gap-3 px-5 py-3">
-                                        <span class="w-7 text-xs text-gray-300 tabular-nums flex-shrink-0">{{ $s['rank'] }}</span>
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <span class="w-6 h-6 rounded-lg text-[11px] font-semibold flex items-center justify-center flex-shrink-0 tabular-nums {{ $loop->first ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500' }}">{{ $s['rank'] }}</span>
                                         @if ($s['logo'])
-                                            <img src="{{ $s['logo'] }}" alt="" class="w-9 h-9 rounded-lg object-cover border border-gray-100 flex-shrink-0">
+                                            <img src="{{ $s['logo'] }}" alt="" class="w-9 h-9 rounded-xl object-cover border border-gray-100 flex-shrink-0">
                                         @else
-                                            <span class="w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold flex-shrink-0">{{ strtoupper(mb_substr($s['name'], 0, 1)) }}</span>
+                                            <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ $initial($s['name']) }}</span>
                                         @endif
-                                        <p class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{{ $s['name'] }}</p>
-                                        <div class="text-right flex-shrink-0">
-                                            <p class="text-sm font-semibold text-gray-900 tabular-nums">{{ number_format($s[$main]) }} <span class="text-xs font-normal text-gray-400">{{ $main }}</span></p>
-                                            <p class="text-[10px] text-gray-400 tabular-nums">{{ number_format($s[$other]) }} {{ $other }}</p>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-baseline justify-between gap-3">
+                                                <p class="text-sm font-medium text-gray-800 truncate" title="{{ $s['name'] }}">{{ $s['name'] }}</p>
+                                                <p class="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ number_format($s[$main]) }} <span class="text-xs font-normal text-gray-400">{{ $main }}</span></p>
+                                            </div>
+                                            <div class="mt-1.5 flex items-center gap-3">
+                                                <div class="flex-1 h-1.5 rounded-full bg-gray-100">
+                                                    <div class="h-1.5 rounded-full" style="width: {{ round($s[$main] / $topMax * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                                                </div>
+                                                <span class="text-[11px] text-gray-400 tabular-nums whitespace-nowrap">{{ number_format($s[$other]) }} {{ $other }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 @endforeach
@@ -168,31 +203,28 @@
             </div>
 
             {{-- Gender split + rating distribution --}}
+            @php
+                $genderTotal = (int) array_sum(array_map('intval', $genderSplit ?: []));
+            @endphp
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="sa-card p-5">
-                    <h3 class="sa-card-title mb-4">Students by Gender</h3>
-                    <div class="flex items-center gap-6">
-                        <div class="h-44 w-44 relative flex-shrink-0 mx-auto sm:mx-0">
-                            <canvas id="genderSplitChart"></canvas>
-                        </div>
-                        <div class="hidden sm:block flex-1 space-y-2.5 text-sm">
-                            @foreach ([
-                                ['label' => 'Male',    'key' => 'male',    'color' => 'bg-violet-600'],
-                                ['label' => 'Female',  'key' => 'female',  'color' => 'bg-pink-400'],
-                                ['label' => 'Other',   'key' => 'other',   'color' => 'bg-amber-400'],
-                                ['label' => 'Not set', 'key' => 'unknown', 'color' => 'bg-gray-300'],
-                            ] as $row)
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-full {{ $row['color'] }} inline-block"></span>
-                                    <span class="text-gray-500">{{ $row['label'] }}</span>
-                                    <span class="font-semibold text-gray-900 ml-auto tabular-nums">{{ number_format($genderSplit[$row['key']] ?? 0) }}</span>
-                                </div>
-                            @endforeach
-                        </div>
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Students by Gender</h3>
+                        <p class="sa-card-sub">{{ number_format($genderTotal) }} students</p>
                     </div>
+                    @include('livewire.super-admin.partials.dash-donut', [
+                        'segments' => [
+                            ['label' => 'Male', 'value' => (int) ($genderSplit['male'] ?? 0), 'color' => '#7c3aed'],
+                            ['label' => 'Female', 'value' => (int) ($genderSplit['female'] ?? 0), 'color' => '#f472b6'],
+                            ['label' => 'Other', 'value' => (int) ($genderSplit['other'] ?? 0), 'color' => '#fbbf24'],
+                            ['label' => 'Not set', 'value' => (int) ($genderSplit['unknown'] ?? 0), 'color' => '#e5e7eb'],
+                        ],
+                        'center' => number_format($genderTotal), 'centerLabel' => 'Students', 'size' => 150, 'legend' => true,
+                        'format' => fn ($v) => number_format($v),
+                    ])
                 </div>
-                <div class="sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="sa-card p-5 min-w-0">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <h3 class="sa-card-title">Rating Distribution</h3>
                         <span class="text-xs text-gray-400">{{ number_format($ratingStats['total'] ?? 0) }} reviews</span>
                     </div>
@@ -204,7 +236,7 @@
                                     <div class="flex-1 bg-gray-100 rounded-full h-1.5 min-w-0">
                                         <div class="h-1.5 rounded-full {{ $star >= 4 ? 'bg-emerald-500' : ($star === 3 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $row['pct'] }}%"></div>
                                     </div>
-                                    <span class="w-20 text-right text-xs text-gray-500 flex-shrink-0 tabular-nums">{{ $row['count'] }} · {{ $row['pct'] }}%</span>
+                                    <span class="min-w-[5.5rem] text-right text-xs text-gray-500 flex-shrink-0 tabular-nums whitespace-nowrap">{{ number_format($row['count']) }} · {{ $row['pct'] }}%</span>
                                 </div>
                             @endforeach
                         </div>
@@ -253,14 +285,14 @@
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 <div class="sa-card p-5 xl:col-span-2 min-w-0">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <h3 class="sa-card-title">Visits Over Time</h3>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Visits</span>
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Unique</span>
                         </div>
                     </div>
-                    <div class="h-64 relative">
+                    <div class="h-64 relative" wire:ignore wire:key="chart-websiteVisitsChart">
                         <canvas id="websiteVisitsChart"></canvas>
                     </div>
                 </div>
@@ -301,13 +333,14 @@
             </div>
 
             <div class="sa-card overflow-hidden">
-                <div class="px-5 py-3 border-b border-gray-100">
+                <div class="px-5 pt-5 pb-3">
                     <h3 class="sa-card-title">Pages — Visits &amp; Users</h3>
+                    <p class="sa-card-sub">Every page visited in this range, most visited first</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm min-w-[560px]">
-                        <thead class="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wide">
-                            <tr>
+                        <thead class="text-gray-400 text-[11px] uppercase tracking-wide">
+                            <tr class="border-y border-gray-100 bg-gray-50/60">
                                 <th class="px-5 py-2.5 text-left font-medium">Page</th>
                                 <th class="px-4 py-2.5 text-right font-medium">Visits</th>
                                 <th class="px-4 py-2.5 text-right font-medium">Unique Users</th>
@@ -317,7 +350,7 @@
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($websitePages as $row)
                                 <tr class="hover:bg-gray-50/70">
-                                    <td class="px-5 py-2.5 font-medium text-gray-800">{{ $row['page'] }}</td>
+                                    <td class="px-5 py-2.5 font-medium text-gray-800 break-all">{{ $row['page'] }}</td>
                                     <td class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($row['visits']) }}</td>
                                     <td class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($row['uniques']) }}</td>
                                     <td class="px-5 py-2.5">
@@ -360,23 +393,28 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="lg:col-span-2 sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <div>
                             <h3 class="sa-card-title">Monthly Fee Collection</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                         </div>
                         <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Collected</span>
                     </div>
-                    <div class="h-56 relative">
+                    <div class="h-56 relative" wire:ignore wire:key="chart-feeMonthlyChart">
                         <canvas id="feeMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="sa-card p-5">
-                    <h3 class="sa-card-title mb-4">Collection by Payment Mode</h3>
-                    @if (count($feeModes['data'] ?? []) > 0)
-                        <div class="h-56 relative">
-                            <canvas id="feeModeChart"></canvas>
-                        </div>
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Collection by Payment Mode</h3>
+                        <p class="sa-card-sub">All fee collected, by how it was paid</p>
+                    </div>
+                    @if (array_sum($feeModes['data'] ?? []) > 0)
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => $modeParts($feeModes),
+                            'center' => $short(array_sum($feeModes['data'])), 'centerLabel' => 'Collected', 'size' => 148, 'legend' => true,
+                            'format' => $short,
+                        ])
                     @else
                         <p class="text-sm text-gray-400 py-8 text-center">No paid records yet</p>
                     @endif
@@ -385,14 +423,14 @@
 
             @if (count($schoolFeeList) > 0)
                 <div class="sa-card overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100">
+                    <div class="px-5 pt-5 pb-3">
                         <h3 class="sa-card-title">Schools Fee Breakdown</h3>
-                        <p class="text-xs text-gray-400 mt-0.5">Top 10 by fee{{ !empty($feeStats['year']) ? ' · ' . $feeStats['year'] : '' }}</p>
+                        <p class="sa-card-sub">Top 10 by fee{{ !empty($feeStats['year']) ? ' · ' . $feeStats['year'] : '' }}</p>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[600px]">
-                            <thead class="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wide">
-                                <tr>
+                            <thead class="text-gray-400 text-[11px] uppercase tracking-wide">
+                                <tr class="border-y border-gray-100 bg-gray-50/60">
                                     <th class="px-5 py-2.5 text-left font-medium">School</th>
                                     <th class="px-4 py-2.5 text-right font-medium">To Collect</th>
                                     <th class="px-4 py-2.5 text-right font-medium">Collected</th>
@@ -403,7 +441,9 @@
                             <tbody class="divide-y divide-gray-100">
                                 @foreach ($schoolFeeList as $row)
                                     <tr class="hover:bg-gray-50/70">
-                                        <td class="px-5 py-2.5 font-medium text-gray-800 max-w-[240px] truncate">{{ $row['name'] }}</td>
+                                        <td class="px-5 py-2.5 min-w-[180px]">
+                                            <p class="font-medium text-gray-800 leading-snug line-clamp-2 break-words" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
+                                        </td>
                                         <td class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $inr($row['toCollect']) }}</td>
                                         <td class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $inr($row['collected']) }}</td>
                                         <td class="px-4 py-2.5 text-right tabular-nums {{ $row['remaining'] > 0 ? 'text-red-500' : 'text-gray-700' }}">{{ $inr($row['remaining']) }}</td>
@@ -441,23 +481,28 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="lg:col-span-2 sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <div>
                             <h3 class="sa-card-title">Salary Paid per Month</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                         </div>
                         <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Paid out</span>
                     </div>
-                    <div class="h-56 relative">
+                    <div class="h-56 relative" wire:ignore wire:key="chart-payrollMonthlyChart">
                         <canvas id="payrollMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="sa-card p-5">
-                    <h3 class="sa-card-title mb-4">Payouts by Mode</h3>
-                    @if (count($payrollModes['data'] ?? []) > 0)
-                        <div class="h-56 relative">
-                            <canvas id="payrollModeChart"></canvas>
-                        </div>
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Payouts by Mode</h3>
+                        <p class="sa-card-sub">All salary paid, by how it was paid</p>
+                    </div>
+                    @if (array_sum($payrollModes['data'] ?? []) > 0)
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => $modeParts($payrollModes),
+                            'center' => $short(array_sum($payrollModes['data'])), 'centerLabel' => 'Paid out', 'size' => 148, 'legend' => true,
+                            'format' => $short,
+                        ])
                     @else
                         <p class="text-sm text-gray-400 py-8 text-center">No paid records yet</p>
                     @endif
@@ -465,16 +510,24 @@
             </div>
 
             @if (!empty($payrollStats['byType']))
-                <div class="sa-card overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="sa-card-title">Employees by Type</h3>
+                @php $typeTop = max(1, (int) max(array_column($payrollStats['byType'], 'count') ?: [0])); @endphp
+                <div class="sa-card p-5">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                        <div>
+                            <h3 class="sa-card-title">Employees by Type</h3>
+                            <p class="sa-card-sub">Everyone on the payroll and their monthly salary bill</p>
+                        </div>
+                        <span class="sa-chip">{{ number_format($payrollStats['totalEmployees'] ?? 0) }} employees</span>
                     </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-5">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         @foreach ($payrollStats['byType'] as $type => $row)
-                            <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100">
-                                <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $type }}</p>
-                                <p class="text-xl font-semibold text-gray-900 mt-1.5 tabular-nums">{{ $row['count'] }}</p>
-                                <p class="mt-1.5 text-xs text-gray-400">{{ $inr($row['salary']) }} bill</p>
+                            <div class="rounded-xl bg-gray-50 px-4 py-3.5 min-w-0">
+                                <p class="text-xs text-gray-500 truncate">{{ \Illuminate\Support\Str::headline((string) $type) }}</p>
+                                <p class="mt-1 text-xl font-semibold text-gray-900 tabular-nums">{{ number_format($row['count']) }}</p>
+                                <div class="mt-2 h-1.5 rounded-full bg-white">
+                                    <div class="h-1.5 rounded-full" style="width: {{ round($row['count'] / $typeTop * 100) }}%; background: {{ $row['count'] === $typeTop ? '#111827' : '#c4b5fd' }}"></div>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-400 tabular-nums break-words">{{ $inr($row['salary']) }} a month</p>
                             </div>
                         @endforeach
                     </div>
@@ -482,46 +535,52 @@
             @endif
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="sa-card overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="sa-card-title">Unpaid for {{ $payrollStats['payableMonth'] ?? '—' }}</h3>
-                        <span class="text-xs text-gray-400 tabular-nums">{{ count($payrollPending) }}</span>
+                <div class="sa-card overflow-hidden min-w-0">
+                    <div class="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Unpaid for {{ $payrollStats['payableMonth'] ?? '—' }}</h3>
+                            <p class="sa-card-sub">Active employees not paid for that month yet</p>
+                        </div>
+                        <span class="sa-chip" @if (count($payrollPending) > 0) style="background:#fef2f2;color:#b91c1c" @endif>{{ count($payrollPending) }}</span>
                     </div>
                     @if (count($payrollPending) > 0)
-                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
+                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 border-t border-gray-100">
                             @foreach ($payrollPending as $row)
-                                <div class="px-5 py-3 flex items-center justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
-                                        <p class="text-xs text-gray-400 capitalize">{{ $row['designation'] ?: $row['type'] }}</p>
+                                <div class="px-5 py-3 flex items-center gap-3">
+                                    <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ $initial($row['name']) }}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate">{{ $row['designation'] ?: \Illuminate\Support\Str::headline((string) $row['type']) }}</p>
                                     </div>
-                                    <span class="text-sm font-semibold text-gray-700 flex-shrink-0 tabular-nums">{{ $inr($row['salary']) }}</span>
+                                    <span class="text-sm font-semibold text-gray-700 whitespace-nowrap tabular-nums">{{ $inr($row['salary']) }}</span>
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <p class="text-sm text-gray-400 py-10 text-center">Everyone has been paid</p>
+                        <p class="text-sm text-gray-400 py-10 text-center border-t border-gray-100">Everyone has been paid</p>
                     @endif
                 </div>
 
-                <div class="sa-card overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100">
+                <div class="sa-card overflow-hidden min-w-0">
+                    <div class="px-5 pt-5 pb-3">
                         <h3 class="sa-card-title">Recent Payouts</h3>
+                        <p class="sa-card-sub">The latest salaries paid, whatever month they were for</p>
                     </div>
                     @if (count($payrollRecent) > 0)
-                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
+                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 border-t border-gray-100">
                             @foreach ($payrollRecent as $row)
-                                <div class="px-5 py-3 flex items-center justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
-                                        <p class="text-xs text-gray-400">{{ $row['month'] }} · {{ $row['mode'] }} · {{ $row['date'] }}</p>
+                                <div class="px-5 py-3 flex items-center gap-3">
+                                    <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ $initial($row['name']) }}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
+                                        <p class="text-xs text-gray-400 leading-snug break-words">{{ $row['month'] }} · {{ $row['mode'] }} · {{ $row['date'] }}</p>
                                     </div>
-                                    <span class="text-sm font-semibold text-emerald-600 flex-shrink-0 tabular-nums">{{ $inr($row['amount']) }}</span>
+                                    <span class="text-sm font-semibold text-emerald-600 whitespace-nowrap tabular-nums">{{ $inr($row['amount']) }}</span>
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <p class="text-sm text-gray-400 py-10 text-center">No payouts yet</p>
+                        <p class="text-sm text-gray-400 py-10 text-center border-t border-gray-100">No payouts yet</p>
                     @endif
                 </div>
             </div>
@@ -543,7 +602,7 @@
             ]])
 
             <div class="sa-card p-5">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                     <div>
                         <h3 class="sa-card-title">Monthly Enquiries</h3>
                         <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
@@ -553,7 +612,7 @@
                         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Contact</span>
                     </div>
                 </div>
-                <div class="h-56 relative">
+                <div class="h-56 relative" wire:ignore wire:key="chart-enquiryMonthlyChart">
                     <canvas id="enquiryMonthlyChart"></canvas>
                 </div>
             </div>
@@ -572,7 +631,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="lg:col-span-2 sa-card p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
                         <div>
                             <h3 class="sa-card-title">Monthly Support Tickets</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
@@ -582,7 +641,7 @@
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Replied</span>
                         </div>
                     </div>
-                    <div class="h-56 relative">
+                    <div class="h-56 relative" wire:ignore wire:key="chart-supportMonthlyChart">
                         <canvas id="supportMonthlyChart"></canvas>
                     </div>
                 </div>
@@ -605,30 +664,17 @@
 
     {{-- ══════════════════════════════════════════════════════════
          CHART SCRIPTS
-         Charts are rebuilt from #analytics-data after every refresh
-         event, so month-window and website-range changes always render.
+         The charts are drawn from #analytics-data and, after every
+         re-render (the month window, the website range, the panel's
+         auto-refresh), updated in place from it — their canvases are
+         wire:ignore'd so a re-render never blanks them.
     ══════════════════════════════════════════════════════════ --}}
+    @include('livewire.super-admin.partials.dash-charts-js')
     <script>
         (function () {
-            const registry = {};
-
             // The dashboard palette (2026-11-03): brand violet leads, ink and
-            // soft violet follow; doughnuts run on through sky and amber.
+            // soft violet follow.
             const VIOLET = '#7c3aed', INK = '#111827', SOFT = '#c4b5fd';
-            const RING   = ['#7c3aed', '#111827', '#a78bfa', '#38bdf8', '#f59e0b', '#10b981', '#cbd5e1'];
-
-            function payload() {
-                const el = document.getElementById('analytics-data');
-                if (!el || !el.dataset.payload) return null;
-                try { return JSON.parse(el.dataset.payload); } catch (e) { return null; }
-            }
-
-            function makeChart(id, config) {
-                const el = document.getElementById(id);
-                if (registry[id]) { try { registry[id].destroy(); } catch (e) {} delete registry[id]; }
-                if (!el) return;
-                registry[id] = new Chart(el, config);
-            }
 
             const inr   = v => '₹' + Number(v).toLocaleString('en-IN');
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
@@ -666,7 +712,7 @@
             // A smooth line with a soft fill fading down to the axis.
             function area(label, data, color, fill = true) {
                 return {
-                    label: label, data: data, borderColor: color, borderWidth: 2.5, tension: 0.42,
+                    label: label, data: data || [], borderColor: color, borderWidth: 2.5, tension: 0.42,
                     pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: color, pointBorderWidth: 2.5,
                     fill: fill,
                     backgroundColor: c => {
@@ -681,111 +727,60 @@
             }
 
             const bar = (label, data, color) => ({
-                label: label, data: data, backgroundColor: color, borderRadius: 6, borderSkipped: false,
+                label: label, data: data || [], backgroundColor: color, borderRadius: 6, borderSkipped: false,
                 barPercentage: 0.7, categoryPercentage: 0.6, maxBarThickness: 18
             });
 
-            function doughnut(labels, data, colors, money) {
-                return {
-                    type: 'doughnut',
-                    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0, spacing: 2, hoverOffset: 6 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '72%',
-                        plugins: {
-                            legend: money ? { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 8, boxHeight: 8, usePointStyle: true, color: '#4b5563' } } : { display: false },
-                            tooltip: { backgroundColor: INK, padding: 10, cornerRadius: 8, callbacks: { label: ctx => ctx.label + ': ' + (money ? inr(ctx.parsed) : Number(ctx.parsed).toLocaleString('en-IN')) } }
-                        }
-                    }
-                };
-            }
-
-            function initAnalyticsCharts() {
-                if (typeof Chart === 'undefined') return;
-                const p = payload();
-                if (!p) return;
-                const L = p.labels || [];
-
+            // The gender and payment-mode donuts are drawn on the server
+            // (partials.dash-donut), with their figures in the legend.
+            saCharts.define('analytics', {
                 // ── Schools ──
-                makeChart('overviewMonthlyChart', {
+                overviewMonthlyChart: p => ({
                     type: 'bar',
-                    data: { labels: L, datasets: [
-                        bar('Students', p.overview.students, VIOLET),
-                        bar('Teachers', p.overview.teachers, INK),
-                    ] },
+                    data: { labels: p.labels, datasets: [bar('Students', p.overview.students, VIOLET), bar('Teachers', p.overview.teachers, INK)] },
                     options: options()
-                });
-
-                makeChart('schoolsMonthlyChart', {
+                }),
+                schoolsMonthlyChart: p => ({
                     type: 'line',
-                    data: { labels: L, datasets: [area('Schools', p.overview.schools, VIOLET)] },
+                    data: { labels: p.labels, datasets: [area('Schools', p.overview.schools, VIOLET)] },
                     options: options()
-                });
-
-                makeChart('genderSplitChart', doughnut(
-                    ['Male', 'Female', 'Other', 'Not set'],
-                    [p.gender.male, p.gender.female, p.gender.other, p.gender.unknown],
-                    ['#7c3aed', '#f472b6', '#fbbf24', '#e5e7eb'],
-                    false
-                ));
+                }),
 
                 // ── Website ──
-                if (p.website) {
-                    makeChart('websiteVisitsChart', {
-                        type: 'line',
-                        data: { labels: p.website.labels || [], datasets: [
-                            area('Visits', p.website.visits || [], VIOLET),
-                            area('Unique', p.website.uniques || [], INK, false),
-                        ] },
-                        options: options()
-                    });
-                }
+                websiteVisitsChart: p => p.website ? {
+                    type: 'line',
+                    data: { labels: p.website.labels || [], datasets: [area('Visits', p.website.visits, VIOLET), area('Unique', p.website.uniques, INK, false)] },
+                    options: options()
+                } : null,
 
                 // ── Fee ──
-                makeChart('feeMonthlyChart', {
+                feeMonthlyChart: p => ({
                     type: 'line',
-                    data: { labels: L, datasets: [area('Collected', p.fee.collected, VIOLET)] },
+                    data: { labels: p.labels, datasets: [area('Collected', p.fee.collected, VIOLET)] },
                     options: options(true)
-                });
-                makeChart('feeModeChart', doughnut(p.fee.modes.labels || [], p.fee.modes.data || [], RING, true));
+                }),
 
                 // ── Payroll ──
-                makeChart('payrollMonthlyChart', {
+                payrollMonthlyChart: p => ({
                     type: 'bar',
-                    data: { labels: L, datasets: [bar('Salary paid', p.payroll.paid, INK)] },
+                    data: { labels: p.labels, datasets: [bar('Salary paid', p.payroll.paid, INK)] },
                     options: options(true)
-                });
-                makeChart('payrollModeChart', doughnut(p.payroll.modes.labels || [], p.payroll.modes.data || [], RING, true));
+                }),
 
                 // ── Enquiries ──
-                makeChart('enquiryMonthlyChart', {
+                enquiryMonthlyChart: p => ({
                     type: 'line',
-                    data: { labels: L, datasets: [
-                        area('Demo', p.enquiry.demo, VIOLET),
-                        area('Contact', p.enquiry.contact, INK, false),
-                    ] },
+                    data: { labels: p.labels, datasets: [area('Demo', p.enquiry.demo, VIOLET), area('Contact', p.enquiry.contact, INK, false)] },
                     options: options()
-                });
+                }),
 
                 // ── Support ──
-                makeChart('supportMonthlyChart', {
+                supportMonthlyChart: p => ({
                     type: 'bar',
-                    data: { labels: L, datasets: [
-                        bar('Total', p.support.total, SOFT),
-                        bar('Replied', p.support.replied, VIOLET),
-                    ] },
+                    data: { labels: p.labels, datasets: [bar('Total', p.support.total, SOFT), bar('Replied', p.support.replied, VIOLET)] },
                     options: options()
-                });
-            }
-
-            document.addEventListener('DOMContentLoaded', initAnalyticsCharts);
-            document.addEventListener('livewire:navigated', initAnalyticsCharts);
-            // Fired by the component after month-window / website-range changes;
-            // the small delay lets Livewire finish morphing the canvases first.
-            window.addEventListener('analytics-refresh', () => setTimeout(initAnalyticsCharts, 60));
-
-            initAnalyticsCharts();
+                }),
+            });
         })();
     </script>
 

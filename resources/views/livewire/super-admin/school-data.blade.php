@@ -98,7 +98,7 @@
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
                     'label' => 'Present Today', 'value' => $summary['presentPct'] !== null ? $summary['presentPct'] . '%' : '—', 'icon' => 'check-badge', 'color' => 'violet',
-                    'series' => $summary['attendanceWeek'], 'trend' => null,
+                    'series' => $summary['attendanceWeek'], 'trend' => null, 'flat' => false,
                     'sub' => $summary['marked'] > 0 ? number_format($summary['present']) . ' of ' . number_format($summary['marked']) . ' students marked present' : 'Attendance not marked yet today',
                 ])
             </div>

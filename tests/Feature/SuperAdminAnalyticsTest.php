@@ -49,15 +49,28 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/\bCredit\b/i', strip_tags($html));
         $this->assertStringNotContainsString('creditMonthlyChart', $html);
 
-        // Every section's charts are there at once.
-        foreach (['overviewMonthlyChart', 'schoolsMonthlyChart', 'genderSplitChart', 'websiteVisitsChart',
-                  'feeMonthlyChart', 'feeModeChart', 'payrollMonthlyChart', 'payrollModeChart',
-                  'enquiryMonthlyChart', 'supportMonthlyChart'] as $id) {
-            $this->assertStringContainsString('id="' . $id . '"', $html);
+        // Every section's charts are there at once, each canvas kept out of
+        // Livewire's re-renders (wire:ignore) so the panel's auto-refresh
+        // never blanks it.
+        foreach (['overviewMonthlyChart', 'schoolsMonthlyChart', 'websiteVisitsChart', 'feeMonthlyChart',
+                  'payrollMonthlyChart', 'enquiryMonthlyChart', 'supportMonthlyChart'] as $id) {
+            $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="' . $id . '"/', $html);
+        }
+        $this->assertStringContainsString('data-sa-charts="analytics"', $html);
+
+        // The gender and payment-mode donuts are drawn on the server, with
+        // their figures in the legend.
+        foreach (['genderSplitChart', 'feeModeChart', 'payrollModeChart'] as $id) {
+            $this->assertStringNotContainsString('id="' . $id . '"', $html);
         }
 
         // Figures from each section.
         $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Female 25 · 50%', $text);
+        $this->assertStringContainsString('Cash ₹6,000 · 100%', $text);
+        $this->assertStringContainsString('Bank Transfer ₹30,000 · 100%', $text);
+        // A payroll type and a role read as words, not as stored.
+        $this->assertStringContainsString('Team 3', $text);
         $this->assertStringContainsString('Avg / School 12.5', $text);
         $this->assertStringContainsString('Most Visited About', $text);
         $this->assertStringContainsString('Collected ₹6,000', $text);

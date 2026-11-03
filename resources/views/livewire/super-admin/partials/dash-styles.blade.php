@@ -25,4 +25,19 @@
         background: #f5f3ff; color: #6d28d9;
     }
     .sa-dot { width: .5rem; height: .5rem; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
+
+    /* A KPI card's figure: a size down on a narrow card, so it always fits whole. */
+    .sa-kpi { container-type: inline-size; }
+    .sa-kpi-value { font-size: 26px; line-height: 1; }
+    @container (max-width: 14rem) { .sa-kpi-value { font-size: 22px; } }
+
+    /* A donut and its legend: side by side when the card is wide enough for
+       both, the legend under the donut when it is not. */
+    .sa-donut { container-type: inline-size; width: 100%; }
+    .sa-donut-row { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; }
+    .sa-donut-row > ul { width: 100%; min-width: 0; }
+    @container (min-width: 20rem) {
+        .sa-donut-row { flex-direction: row; }
+        .sa-donut-row > ul { flex: 1 1 0%; width: auto; }
+    }
 </style>
