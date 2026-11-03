@@ -19,6 +19,7 @@ use App\Livewire\SuperAdmin\PrivacyPolicy;
 use App\Livewire\SuperAdmin\QuickLinks;
 use App\Livewire\SuperAdmin\Rating;
 use App\Livewire\SuperAdmin\Reports;
+use App\Livewire\SuperAdmin\SchoolData;
 use App\Livewire\SuperAdmin\Schools;
 use App\Livewire\SuperAdmin\Session;
 use App\Livewire\SuperAdmin\Student;
@@ -75,6 +76,7 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('about-app', AboutApp::class)->name('super-admin.about-app');
     Route::get('term-of-use', TermOfUse::class)->name('super-admin.term-of-use');
     Route::get('sessions', Session::class)->name('super-admin.sessions');
+    Route::get('school-data', SchoolData::class)->name('super-admin.school-data');
     Route::get('credit', Credit::class)->name('super-admin.credit');
     Route::get('profile', SuperAdminProfile::class)->name('super-admin.profile');
 

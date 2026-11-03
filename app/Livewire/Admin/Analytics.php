@@ -23,6 +23,7 @@ use App\Models\Admin\ContactAdminTeacher;
 use App\Models\SchoolWebsiteEnquiry;
 use App\Support\AcademicYear;
 use App\Support\CustomFee;
+use App\Support\SchoolFeeTotals;
 use Illuminate\Support\Facades\DB;
 use App\Support\NameOrder;
 
@@ -1322,78 +1323,8 @@ class Analytics extends Component
      */
     protected function loadFeeStatsStatic(): void
     {
-        $orgId = $this->orgId();
-
-        // A school on Custom Fee: every student's own fee (read as the academic
-        // fee), and all that has come in on it up to today.
-        if (CustomFee::enabled($orgId)) {
-            $totalFee  = CustomFee::schoolTotal($orgId);
-            $collected = CustomFee::collected($orgId, null, Carbon::today()->toDateString());
-
-            $this->feeStats = [
-                'totalFee'     => $totalFee,
-                'collected'    => $collected,
-                'remaining'    => max(0, $totalFee - $collected),
-                'transportFee' => 0.0,
-                'academicFee'  => $totalFee,
-                'lastYearDues' => 0.0,
-            ];
-            return;
-        }
-
-        $heads = FeeStructure::where('organization_id', $orgId)
-            ->where('is_active', true)->where('fee_type', 'academic')
-            ->get(['standard_id', 'section_id', 'amount'])
-            ->groupBy('standard_id');
-
-        $pairs = StudentDetail::where('organization_id', $orgId)
-            ->selectRaw('standard_id, section_id, COUNT(*) as students')
-            ->groupBy('standard_id', 'section_id')
-            ->get();
-
-        $academic = 0.0;
-        foreach ($pairs as $pair) {
-            $fee = ($heads[$pair->standard_id] ?? collect())
-                ->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $pair->section_id)
-                ->sum('amount');
-            $academic += (float) $fee * (int) $pair->students;
-        }
-
-        $lastYearDues = FeeStructure::ownTotalForSchool($orgId); // students' own Last Year Dues
-
-        $transport = 0.0;
-        $riders = DB::table('transportation_students as ts')
-            ->join('transportations as t', 'ts.transportation_id', '=', 't.id')
-            ->join('student_details as sd', 'ts.student_detail_id', '=', 'sd.id')
-            ->where('ts.organization_id', $orgId)
-            ->get(['ts.billable_months', 't.monthly_fee']);
-        foreach ($riders as $row) {
-            $transport += (float) $row->monthly_fee * $this->billableMonthCount($row->billable_months);
-        }
-
-        $from  = AcademicYear::start()->toDateString();
-        $today = Carbon::today()->toDateString();
-
-        $collected = (float) FeePayment::where('organization_id', $orgId)
-                ->whereIn('fee_type', ['academic', 'transport'])
-                ->whereDate('payment_date', '>=', $from)
-                ->whereDate('payment_date', '<=', $today)
-                ->sum('amount')
-            + (float) TransportFeePayment::where('organization_id', $orgId)
-                ->whereDate('payment_date', '>=', $from)
-                ->whereDate('payment_date', '<=', $today)
-                ->sum('amount');
-
-        $totalFee = $academic + $lastYearDues + $transport;
-
-        $this->feeStats = [
-            'totalFee'     => $totalFee,
-            'collected'    => round($collected, 2),
-            'remaining'    => max(0, $totalFee - $collected),
-            'transportFee' => $transport,
-            'academicFee'  => $academic,
-            'lastYearDues' => $lastYearDues,
-        ];
+        // The same figures Super Admin → School Data shows (App\Support\SchoolFeeTotals).
+        $this->feeStats = SchoolFeeTotals::summary($this->orgId());
     }
 
     /**

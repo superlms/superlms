@@ -405,6 +405,13 @@ return [
             'icon' => 'calendar-days',
             'prefix' => 'super-admin.sessions',
         ],
+        // One school's full data: students, teachers, staff, classes, fees.
+        [
+            'title' => 'School Data',
+            'link' => 'super-admin.school-data',
+            'icon' => 'circle-stack',
+            'prefix' => 'super-admin.school-data',
+        ],
 
     ],
 

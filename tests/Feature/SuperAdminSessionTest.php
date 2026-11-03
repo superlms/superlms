@@ -212,7 +212,9 @@ class SuperAdminSessionTest extends TestCase
         $tiles = Livewire::test(QuickLinks::class)->get('links');
         $routes = array_column($tiles, 'route');
 
-        $this->assertSame('super-admin.sessions', end($routes));
+        $this->assertSame('super-admin.sessions', $routes[array_search('super-admin.documents', $routes, true) + 1]);
+        // School Data (2026-11-03) comes last, after Session.
+        $this->assertSame('super-admin.school-data', end($routes));
         $this->assertLessThanOrEqual(30, count($tiles), 'Quick Links is a 6 × 5 grid.');
     }
 }
