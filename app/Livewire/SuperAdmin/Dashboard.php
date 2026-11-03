@@ -367,6 +367,31 @@ class Dashboard extends Component
         ] : null;
     }
 
+    /**
+     * The donut's parts: the four schools with the most students, then every
+     * other school as "Other schools" (left out when there are none).
+     *
+     * @return list<array{label: string, value: int, color: string}>
+     */
+    protected function studentsBySchool(array $topSchools, int $totalStudents): array
+    {
+        $colors = ['#7c3aed', '#111827', '#a78bfa', '#cbd5e1'];
+        $parts  = [];
+
+        foreach (array_slice($topSchools, 0, 4) as $i => $s) {
+            if ((int) $s['students_count'] > 0) {
+                $parts[] = ['label' => $s['name'], 'value' => (int) $s['students_count'], 'color' => $colors[$i]];
+            }
+        }
+
+        $rest = $totalStudents - array_sum(array_column($parts, 'value'));
+        if ($rest > 0) {
+            $parts[] = ['label' => 'Other schools', 'value' => $rest, 'color' => '#e5e7eb'];
+        }
+
+        return $parts;
+    }
+
     // ── Public Actions ────────────────────────────────────────────────────────
 
     public function loginAsSchool(int $schoolId): void
@@ -396,6 +421,7 @@ class Dashboard extends Component
         cache()->forget('sa_top_schools_students');
         cache()->forget('sa_top_schools_teachers');
         cache()->forget('sa_monthly_registrations');
+        cache()->forget('sa_monthly_registrations_v2');
 
         $this->dispatch('notify', ['message' => 'Dashboard refreshed successfully', 'type' => 'success']);
     }
@@ -521,14 +547,16 @@ class Dashboard extends Component
             ->values()
             ->toArray();
 
-        // ── Monthly Registrations (last 12 months) ───────────────────────────
-        $monthlyRegistrations = cache()->remember('sa_monthly_registrations', 600, function () {
+        // ── Monthly Registrations (last 12 months) — students, teachers and
+        //    the schools onboarded, for the bar chart and the KPI sparklines ──
+        $monthlyRegistrations = cache()->remember('sa_monthly_registrations_v2', 600, function () {
             $labels   = [];
             $students = [];
             $teachers = [];
+            $schools  = [];
 
             for ($i = 11; $i >= 0; $i--) {
-                $month     = Carbon::now()->subMonths($i);
+                $month     = Carbon::now()->startOfMonth()->subMonthsNoOverflow($i);
                 $labels[]  = $month->format('M Y');
 
                 $students[] = User::where('role', 'user')
@@ -540,9 +568,13 @@ class Dashboard extends Component
                     ->whereYear('created_at', $month->year)
                     ->whereMonth('created_at', $month->month)
                     ->count();
+
+                $schools[] = Organization::whereYear('created_at', $month->year)
+                    ->whereMonth('created_at', $month->month)
+                    ->count();
             }
 
-            return compact('labels', 'students', 'teachers');
+            return compact('labels', 'students', 'teachers', 'schools');
         });
 
         // ── Rating Stats ─────────────────────────────────────────────────────
@@ -606,6 +638,10 @@ class Dashboard extends Component
         // reads it under another name.
         $activityFeed = $recentActivities;
 
+        // Students by school for the donut: the four biggest schools and the
+        // rest together.
+        $studentsBySchool = $this->studentsBySchool($topSchoolsByStudents, (int) $totalStudents);
+
         return view('livewire.super-admin.dashboard', compact(
             'activeSchools',
             'activeStudents',
@@ -620,6 +656,7 @@ class Dashboard extends Component
             'pushSummary',
             'latestReview',
             'activityFeed',
+            'studentsBySchool',
             'totalSchools',
             'totalStudents',
             'totalTeachers',

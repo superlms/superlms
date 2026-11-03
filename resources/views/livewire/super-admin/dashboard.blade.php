@@ -1,19 +1,43 @@
 <div class="min-h-screen bg-gray-50">
+    @include('livewire.super-admin.partials.dash-styles')
 
     @php
-        // ─── The Super Admin's own figures, laid out in the school panel's look ───
-        $inr = fn ($v) => '₹' . number_format((float) $v, 0);
+        // ─── Home in the dashboard layout (2026-11-03): KPI cards with their
+        //     trend and sparkline, the fee chart beside a donut, activity, a
+        //     bar chart and a dark card, then the rest in matching cards. ───
+        $inr   = fn ($v) => '₹' . number_format((float) $v, 0);
+        $short = fn ($v) => \App\Support\DashboardChart::inrShort((float) $v);
+        $trend = fn (array $s) => \App\Support\DashboardChart::trend((float) (end($s) ?: 0), (float) ($s[count($s) - 2] ?? 0));
+
         $supportPct = ($supportStats['total'] ?? 0) > 0
             ? round(($supportStats['replied'] / $supportStats['total']) * 100, 1)
             : 0;
         $staffNotMarked = max(0, $staff['active'] - $staff['today']['marked']);
+
+        $schoolSeries  = $monthlyRegistrations['schools'] ?? [];
+        $studentSeries = $monthlyRegistrations['students'] ?? [];
+        $teacherSeries = $monthlyRegistrations['teachers'] ?? [];
+        $monthShort    = array_map(fn ($l) => explode(' ', (string) $l)[0], $monthlyRegistrations['labels'] ?? []);
+
+        $feeData = $superAdminFee['data'];
+        $feePeak = count($feeData) && max($feeData) > 0 ? array_search(max($feeData), $feeData, true) : -1;
+
+        $allUsers    = (int) $totalStudents + (int) $totalTeachers;
+        $activeUsers = (int) $activeStudents + (int) $activeTeachers;
+        $activePct   = $allUsers > 0 ? round($activeUsers / $allUsers * 100) : 0;
+
+        $activityTone = [
+            'emerald' => ['#ecfdf5', '#059669'],
+            'blue'    => ['#eff6ff', '#2563eb'],
+            'violet'  => ['#f5f3ff', '#7c3aed'],
+        ];
     @endphp
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
             <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Dashboard</h1>
+                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Overview</h1>
                 <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
             </div>
             <div class="flex items-center gap-2">
@@ -26,7 +50,7 @@
                     Refresh
                 </button>
                 <a href="{{ route('super-admin.schools') }}"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
@@ -36,516 +60,509 @@
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-8">
+    <div class="p-4 sm:p-6 space-y-5">
 
-        {{-- ══════════════════════════════════════════════════════════════════
-             OVERVIEW — the platform's counts in one flat row, then where the
-             Super Admin's own work stands.
-        ══════════════════════════════════════════════════════════════════ --}}
-        <section>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
+        {{-- ═══════════════ KPIs — figure, change vs last month, sparkline ═══════════════ --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            @include('livewire.super-admin.partials.dash-kpi', [
+                'label' => 'Total Schools', 'value' => number_format($totalSchools), 'icon' => 'building-office-2', 'color' => 'violet',
+                'series' => $schoolSeries, 'trend' => $trend($schoolSeries),
+                'sub' => number_format($activeSchools) . ' active · ' . number_format($newSchoolsThisMonth) . ' new this month',
+                'href' => route('super-admin.schools'),
+            ])
+            @include('livewire.super-admin.partials.dash-kpi', [
+                'label' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'users', 'color' => 'sky',
+                'series' => $studentSeries, 'trend' => $trend($studentSeries),
+                'sub' => number_format($activeStudents) . ' active',
+                'href' => route('super-admin.students'),
+            ])
+            @include('livewire.super-admin.partials.dash-kpi', [
+                'label' => 'Total Teachers', 'value' => number_format($totalTeachers), 'icon' => 'academic-cap', 'color' => 'emerald',
+                'series' => $teacherSeries, 'trend' => $trend($teacherSeries),
+                'sub' => number_format($activeTeachers) . ' active',
+                'href' => route('super-admin.teachers'),
+            ])
+            @include('livewire.super-admin.partials.dash-kpi', [
+                'label' => 'Fee Collected', 'value' => $short($superAdminFee['collected']), 'icon' => 'banknotes', 'color' => 'amber',
+                'series' => $feeData,
+                'trend' => \App\Support\DashboardChart::trend((float) $superAdminFee['this_month'], (float) $superAdminFee['last_month']),
+                'sub' => $superAdminFee['pct'] . '% of ' . $short($superAdminFee['total']) . ' · ' . $superAdminFee['year'],
+                'href' => route('super-admin.fees'),
+            ])
+        </div>
 
-            <div class="bg-white rounded-xl border border-gray-200 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 grid grid-cols-2 sm:grid-cols-4">
-                @php
-                    $counts = [
-                        ['Schools',  number_format($totalSchools),  $activeSchools . ' active · ' . $newSchoolsThisMonth . ' new this month', 'super-admin.schools'],
-                        ['Students', number_format($totalStudents), number_format($activeStudents) . ' active', 'super-admin.students'],
-                        ['Teachers', number_format($totalTeachers), number_format($activeTeachers) . ' active', 'super-admin.teachers'],
-                        ['Staff',    number_format($staff['employees']), number_format($staff['active']) . ' active', 'super-admin.payroll'],
-                    ];
-                @endphp
-                @foreach ($counts as [$label, $value, $sub, $route])
-                    <a href="{{ route($route) }}"
-                        class="px-5 py-4 hover:bg-gray-50/70 transition-colors first:rounded-l-xl last:rounded-r-xl">
-                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
-                        <p class="text-[26px] leading-none font-semibold text-gray-900 mt-2 tabular-nums">{{ $value }}</p>
-                        <p class="text-xs text-gray-400 mt-1.5">{{ $sub }}</p>
+        {{-- ═══════════════ Fee collection (area) + students by school (donut) ═══════════════ --}}
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div class="sa-card p-5 xl:col-span-2 min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+                    <div>
+                        <h3 class="sa-card-title">Fee Collection</h3>
+                        <p class="sa-card-sub">Super Admin fee collected month by month · last 12 months</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short($superAdminFee['year_total']) }} in 12 months</span>
+                        <span class="sa-chip" style="background:#fef2f2;color:#b91c1c">{{ $short($superAdminFee['pending']) }} pending</span>
+                    </div>
+                </div>
+                <div class="h-64 relative">
+                    <canvas x-data="{
+                        init() {
+                            const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
+                            const peak = {{ (int) $feePeak }};
+                            new Chart(this.$el.getContext('2d'), {
+                                type: 'line',
+                                data: {
+                                    labels: @js($superAdminFee['labels']),
+                                    datasets: [{
+                                        label: 'Collected', data: @js($feeData),
+                                        borderColor: '#7c3aed', borderWidth: 2.5, tension: 0.42, fill: true,
+                                        backgroundColor: c => {
+                                            const a = c.chart.chartArea;
+                                            if (!a) return 'rgba(124,58,237,0.12)';
+                                            const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+                                            g.addColorStop(0, 'rgba(124,58,237,0.28)');
+                                            g.addColorStop(1, 'rgba(124,58,237,0)');
+                                            return g;
+                                        },
+                                        pointRadius: c => c.dataIndex === peak ? 5 : 0,
+                                        pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: '#7c3aed', pointBorderWidth: 2.5,
+                                    }]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false,
+                                    interaction: { mode: 'index', intersect: false },
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: { backgroundColor: '#111827', padding: 10, cornerRadius: 8, displayColors: false,
+                                            callbacks: { label: c => '₹' + Number(c.parsed.y).toLocaleString('en-IN') } }
+                                    },
+                                    scales: {
+                                        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } },
+                                        y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(17,24,39,0.05)' },
+                                             ticks: { color: '#9ca3af', font: { size: 11 }, maxTicksLimit: 5, callback: v => '₹' + short(v) } }
+                                    }
+                                }
+                            });
+                        }
+                    }"></canvas>
+                </div>
+                <dl class="mt-5 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    @foreach ([
+                        ['Collected', $inr($superAdminFee['collected']), 'text-gray-900'],
+                        ['Pending', $inr($superAdminFee['pending']), $superAdminFee['pending'] > 0 ? 'text-rose-600' : 'text-gray-900'],
+                        ['This month', $inr($superAdminFee['this_month']), 'text-gray-900'],
+                        ['Schools with dues', number_format($superAdminFee['schools_due']) . ' / ' . number_format($superAdminFee['schools']), $superAdminFee['schools_due'] > 0 ? 'text-rose-600' : 'text-gray-900'],
+                    ] as [$label, $val, $tone])
+                        <div class="min-w-0">
+                            <dt class="text-xs text-gray-400">{{ $label }}</dt>
+                            <dd class="mt-0.5 font-semibold tabular-nums truncate {{ $tone }}">{{ $val }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </div>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-5">
+                    <div>
+                        <h3 class="sa-card-title">Students by School</h3>
+                        <p class="sa-card-sub">The biggest schools and the rest</p>
+                    </div>
+                    <a href="{{ route('super-admin.students') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">View all →</a>
+                </div>
+                @if (count($studentsBySchool))
+                    <div class="flex justify-center mb-5">
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => $studentsBySchool, 'center' => number_format($totalStudents), 'centerLabel' => 'Students',
+                            'size' => 168, 'legend' => false,
+                        ])
+                    </div>
+                    <ul class="space-y-2.5">
+                        @foreach ($studentsBySchool as $part)
+                            <li class="flex items-center gap-2 text-sm min-w-0">
+                                <span class="sa-dot" style="background: {{ $part['color'] }}"></span>
+                                <span class="truncate text-gray-600" title="{{ $part['label'] }}">{{ $part['label'] }}</span>
+                                <span class="ml-auto pl-2 font-semibold text-gray-900 tabular-nums whitespace-nowrap">
+                                    {{ $totalStudents > 0 ? round($part['value'] / $totalStudents * 100) : 0 }}%
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="py-16 text-center text-sm text-gray-400">No students yet</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- ═══════════════ Recent activity · registrations (bars) · active users (dark) ═══════════════ --}}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div class="sa-card p-5 lg:col-span-4 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Recent Activity</h3>
+                        <p class="sa-card-sub">New schools, students and teachers</p>
+                    </div>
+                </div>
+                <div class="space-y-4 overflow-y-auto max-h-[19rem] pr-1">
+                    @forelse ($activityFeed as $activity)
+                        @php [$tint, $ink] = $activityTone[$activity['color']] ?? ['#f3f4f6', '#6b7280']; @endphp
+                        <div class="flex items-start gap-3">
+                            <span class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background: {{ $tint }}; color: {{ $ink }}">
+                                <x-icon name="{{ $activity['icon'] }}" class="w-4 h-4" />
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <p class="text-sm font-medium text-gray-800 truncate">{{ $activity['title'] }}</p>
+                                    <span class="text-[11px] text-gray-400 whitespace-nowrap">{{ $activity['time'] }}</span>
+                                </div>
+                                <p class="text-xs text-gray-400 truncate mt-0.5">{{ $activity['description'] }}</p>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="py-10 text-center text-sm text-gray-400">No recent activity</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="sa-card p-5 lg:col-span-5 min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Registrations</h3>
+                        <p class="sa-card-sub">Students and teachers added · last 12 months</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Students</span>
+                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#111827"></span>Teachers</span>
+                    </div>
+                </div>
+                <div class="h-64 relative">
+                    <canvas x-data="{
+                        init() {
+                            new Chart(this.$el.getContext('2d'), {
+                                type: 'bar',
+                                data: {
+                                    labels: @js($monthShort),
+                                    datasets: [
+                                        { label: 'Students', data: @js($studentSeries), backgroundColor: '#7c3aed', borderRadius: 6, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.6, maxBarThickness: 12 },
+                                        { label: 'Teachers', data: @js($teacherSeries), backgroundColor: '#111827', borderRadius: 6, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.6, maxBarThickness: 12 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false,
+                                    interaction: { mode: 'index', intersect: false },
+                                    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#111827', padding: 10, cornerRadius: 8 } },
+                                    scales: {
+                                        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } },
+                                        y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(17,24,39,0.05)' }, ticks: { color: '#9ca3af', font: { size: 11 }, precision: 0, maxTicksLimit: 5 } }
+                                    }
+                                }
+                            });
+                        }
+                    }"></canvas>
+                </div>
+            </div>
+
+            <div class="sa-card-dark p-5 lg:col-span-3 min-w-0 flex flex-col">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-[15px] font-semibold text-white">Active Users</h3>
+                        <p class="text-xs text-white/50 mt-0.5">Students and teachers who can sign in</p>
+                    </div>
+                </div>
+                <div class="flex justify-center my-5">
+                    @include('livewire.super-admin.partials.dash-donut', [
+                        'segments' => [
+                            ['label' => 'Active students', 'value' => (int) $activeStudents, 'color' => '#a78bfa'],
+                            ['label' => 'Active teachers', 'value' => (int) $activeTeachers, 'color' => '#38bdf8'],
+                            ['label' => 'Inactive', 'value' => max(0, $allUsers - $activeUsers), 'color' => 'rgba(255,255,255,.14)'],
+                        ],
+                        'center' => $activePct . '%', 'centerLabel' => 'Active', 'size' => 140, 'legend' => false, 'dark' => true,
+                    ])
+                </div>
+                <dl class="mt-auto space-y-2.5 text-sm">
+                    <div class="flex items-center justify-between gap-2">
+                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Students</dt>
+                        <dd class="font-semibold tabular-nums">{{ number_format($activeStudents) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#38bdf8"></span>Teachers</dt>
+                        <dd class="font-semibold tabular-nums">{{ number_format($activeTeachers) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                        <dt class="text-white/60">Active schools</dt>
+                        <dd class="font-semibold tabular-nums">{{ number_format($activeSchools) }} / {{ number_format($totalSchools) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <dt class="text-white/60">Website · 7 days</dt>
+                        <dd class="font-semibold tabular-nums">{{ number_format($websiteWeek['visits']) }} visits</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        {{-- ═══════════════ Needs attention ═══════════════ --}}
+        @if (count($waiting) > 0)
+            <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-5">
+                @foreach ($waiting as $w)
+                    <a href="{{ route($w['route']) }}" class="sa-card px-4 py-4 min-w-0">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-medium text-gray-500 truncate">{{ $w['label'] }}</p>
+                            @if ($w['count'] > 0)
+                                <span class="sa-dot animate-pulse" style="background:#f43f5e"></span>
+                            @endif
+                        </div>
+                        <p class="text-2xl leading-none font-semibold mt-2.5 tabular-nums {{ $w['count'] > 0 ? 'text-rose-600' : 'text-gray-900' }}">{{ number_format($w['count']) }}</p>
+                        <p class="text-xs text-gray-400 mt-1.5 truncate">{{ $w['sub'] }}</p>
                     </a>
                 @endforeach
             </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
-                @php
-                    $statusCards = [
-                        ['Super Admin Fee', $superAdminFee['pct'] . '%', $inr($superAdminFee['collected']) . ' of ' . $inr($superAdminFee['total']) . ' collected', $superAdminFee['pct']],
-                        ['Salary · ' . $staff['month'], $staff['paid_count'] . ' / ' . $staff['active'], $inr($staff['paid_amount']) . ' paid · ' . $staff['unpaid_count'] . ' to pay', $staff['paid_pct']],
-                        ['Staff Today', $staff['today']['marked'] > 0 ? $staff['today']['pct'] . '%' : '—', $staff['today']['marked'] > 0 ? $staff['today']['present'] . ' of ' . $staff['active'] . ' present' : 'Not marked yet today', $staff['today']['pct']],
-                        ['Support Replied', $supportPct . '%', $supportStats['pending'] . ' of ' . $supportStats['total'] . ' tickets waiting', $supportPct],
-                    ];
-                @endphp
-                @foreach ($statusCards as [$label, $value, $sub, $pct])
-                    <div class="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                        <div class="flex items-baseline justify-between gap-2">
-                            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $label }}</p>
-                            <p class="text-lg font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ $value }}</p>
-                        </div>
-                        <div class="w-full bg-gray-100 rounded-full h-1 mt-3">
-                            <div class="bg-gray-800 h-1 rounded-full" style="width: {{ min(100, $pct) }}%"></div>
-                        </div>
-                        <p class="text-xs text-gray-400 mt-2 truncate">{{ $sub }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </section>
-
-        {{-- ══════════════════════════ NEEDS ATTENTION ═══════════════════════
-             What is waiting on the Super Admin, each figure opening its screen.
-        ══════════════════════════════════════════════════════════════════ --}}
-        @if (count($waiting) > 0)
-            <section>
-                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Needs Attention</h2>
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
-                    @foreach ($waiting as $w)
-                        <a href="{{ route($w['route']) }}"
-                            class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100 hover:bg-gray-50/70 transition-colors min-w-0">
-                            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $w['label'] }}</p>
-                            <p class="text-[26px] leading-none font-semibold mt-2 tabular-nums {{ $w['count'] > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ number_format($w['count']) }}</p>
-                            <p class="text-xs text-gray-400 mt-1.5">{{ $w['sub'] }}</p>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
         @endif
 
-        {{-- ══════════════════════════════════════════════════════════════════
-             FEE — the Super Admin's fee from the schools, month by month.
-        ══════════════════════════════════════════════════════════════════ --}}
-        <section>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Super Admin Fee</h2>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-                    <div class="mb-4">
-                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Collected · Last 12 months</p>
-                        <p class="text-2xl font-semibold text-gray-900 mt-1 tabular-nums">{{ $inr($superAdminFee['year_total']) }}</p>
+        {{-- ═══════════════ Schools — recently registered · top by teachers ═══════════════ --}}
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div class="sa-card xl:col-span-2 min-w-0 overflow-hidden">
+                <div class="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="sa-card-title">Recently Registered Schools</h3>
+                        <p class="sa-card-sub">The newest schools on SuperLMS</p>
                     </div>
-                    <div class="h-56" wire:ignore wire:key="sa-home-fee">
-                        <canvas x-data="{
-                            init() {
-                                new Chart(this.$el.getContext('2d'), {
-                                    type: 'bar',
-                                    data: {
-                                        labels: @js($superAdminFee['labels']),
-                                        datasets: [{ label: 'Collected', data: @js($superAdminFee['data']), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 34 }]
-                                    },
-                                    options: {
-                                        responsive: true, maintainAspectRatio: false,
-                                        plugins: {
-                                            legend: { display: false },
-                                            tooltip: { callbacks: { label: (c) => '₹' + Number(c.raw).toLocaleString('en-IN') } }
-                                        },
-                                        scales: {
-                                            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
-                                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } }
-                                        }
-                                    }
-                                });
-                            }
-                        }"></canvas>
-                    </div>
+                    <a href="{{ route('super-admin.schools') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">View all →</a>
                 </div>
-
-                <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-sm font-semibold text-gray-800">Overall</h3>
-                        <a href="{{ route('super-admin.fees') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Manage →</a>
-                    </div>
-                    <dl class="space-y-3 text-sm">
-                        <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Collected</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($superAdminFee['collected']) }}</dd>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Pending</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($superAdminFee['pending']) }}</dd>
-                        </div>
-                        <div class="flex items-baseline justify-between pt-3 border-t border-gray-100">
-                            <dt class="text-gray-500">This month</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($superAdminFee['this_month']) }}</dd>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Last month</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($superAdminFee['last_month']) }}</dd>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Schools with fee</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($superAdminFee['schools']) }}</dd>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Schools with dues</dt>
-                            <dd class="font-semibold tabular-nums {{ $superAdminFee['schools_due'] > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ number_format($superAdminFee['schools_due']) }}</dd>
-                        </div>
-                    </dl>
-                    <div class="mt-auto pt-5">
-                        <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">of {{ $inr($superAdminFee['total']) }}</span><span class="font-semibold text-gray-700">{{ $superAdminFee['pct'] }}%</span></div>
-                        <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-gray-800 h-1.5 rounded-full" style="width: {{ min(100, $superAdminFee['pct']) }}%"></div></div>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm min-w-[520px]">
+                        <thead class="text-gray-400 text-[11px] uppercase tracking-wide">
+                            <tr class="border-y border-gray-100 bg-gray-50/60">
+                                <th class="px-5 py-2.5 text-left font-medium">School</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Students</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Teachers</th>
+                                <th class="px-3 py-2.5 text-left font-medium">Joined</th>
+                                <th class="px-5 py-2.5 text-left font-medium">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($recentSchools as $school)
+                                <tr class="hover:bg-gray-50/70">
+                                    <td class="px-5 py-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            @if ($school['logo'])
+                                                <img src="{{ $school['logo'] }}" alt="" class="w-9 h-9 rounded-xl object-cover border border-gray-100 flex-shrink-0">
+                                            @else
+                                                <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
+                                            @endif
+                                            <p class="font-medium text-gray-800 truncate max-w-[240px]">{{ $school['name'] }}</p>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-3 text-right text-gray-700 tabular-nums">{{ number_format($school['students_count']) }}</td>
+                                    <td class="px-3 py-3 text-right text-gray-700 tabular-nums">{{ number_format($school['teachers_count']) }}</td>
+                                    <td class="px-3 py-3 text-gray-500 whitespace-nowrap">{{ $school['created_at'] }}</td>
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full {{ $school['status'] ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600' }}">
+                                            <span class="sa-dot" style="background: {{ $school['status'] ? '#10b981' : '#f43f5e' }}; width: .375rem; height: .375rem"></span>
+                                            {{ $school['status'] ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-400">No schools registered yet</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </section>
 
-        {{-- ══════════════════════════════════════════════════════════════════
-             SCHOOLS — registrations and new schools, the biggest schools.
-        ══════════════════════════════════════════════════════════════════ --}}
-        <section>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Schools</h2>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 space-y-5 min-w-0">
-                    {{-- Monthly registrations --}}
-                    <div class="bg-white rounded-xl border border-gray-200 p-5">
-                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                            <div>
-                                <h3 class="text-sm font-semibold text-gray-800">Monthly Registrations</h3>
-                                <p class="text-[11px] text-gray-400 mt-0.5">Students and teachers added · last 12 months</p>
-                            </div>
-                            <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Students</span>
-                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Teachers</span>
-                            </div>
-                        </div>
-                        <div class="h-56" wire:ignore wire:key="sa-home-registrations">
-                            <canvas x-data="{
-                                init() {
-                                    new Chart(this.$el.getContext('2d'), {
-                                        type: 'bar',
-                                        data: {
-                                            labels: @js($monthlyRegistrations['labels']),
-                                            datasets: [
-                                                { label: 'Students', data: @js($monthlyRegistrations['students']), backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 22 },
-                                                { label: 'Teachers', data: @js($monthlyRegistrations['teachers']), backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 22 }
-                                            ]
-                                        },
-                                        options: {
-                                            responsive: true, maintainAspectRatio: false,
-                                            plugins: { legend: { display: false } },
-                                            scales: {
-                                                x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
-                                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, precision: 0 } }
-                                            }
-                                        }
-                                    });
-                                }
-                            }"></canvas>
-                        </div>
-                    </div>
-
-                    {{-- Recently registered schools --}}
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold text-gray-800">Recently Registered Schools</h3>
-                            <a href="{{ route('super-admin.schools') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">View all →</a>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm min-w-[520px]">
-                                <thead class="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wide">
-                                    <tr>
-                                        <th class="px-5 py-2.5 text-left font-medium">School</th>
-                                        <th class="px-3 py-2.5 text-right font-medium">Students</th>
-                                        <th class="px-3 py-2.5 text-right font-medium">Teachers</th>
-                                        <th class="px-3 py-2.5 text-left font-medium">Joined</th>
-                                        <th class="px-5 py-2.5 text-left font-medium">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100">
-                                    @forelse ($recentSchools as $school)
-                                        <tr class="hover:bg-gray-50/70">
-                                            <td class="px-5 py-2.5">
-                                                <div class="flex items-center gap-3 min-w-0">
-                                                    @if ($school['logo'])
-                                                        <img src="{{ $school['logo'] }}" alt="" class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
-                                                    @else
-                                                        <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
-                                                    @endif
-                                                    <p class="font-medium text-gray-800 truncate max-w-[220px]">{{ $school['name'] }}</p>
-                                                </div>
-                                            </td>
-                                            <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['students_count']) }}</td>
-                                            <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['teachers_count']) }}</td>
-                                            <td class="px-3 py-2.5 text-gray-500 whitespace-nowrap">{{ $school['created_at'] }}</td>
-                                            <td class="px-5 py-2.5 {{ $school['status'] ? 'text-gray-700' : 'text-red-500' }}">{{ $school['status'] ? 'Active' : 'Inactive' }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-400">No schools registered yet</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Top Schools by Teachers</h3>
+                        <p class="sa-card-sub">Top 5</p>
                     </div>
                 </div>
+                @php $maxTeachers = max(1, (int) max(array_column($topSchoolsByTeachers, 'teachers_count') ?: [0])); @endphp
+                <div class="space-y-4">
+                    @forelse ($topSchoolsByTeachers as $school)
+                        <div class="min-w-0">
+                            <div class="flex items-center justify-between gap-3 text-sm">
+                                <p class="font-medium text-gray-800 truncate"><span class="text-gray-400 tabular-nums mr-1.5">{{ $school['rank'] }}</span>{{ $school['name'] }}</p>
+                                <p class="text-gray-700 tabular-nums whitespace-nowrap font-semibold">{{ number_format($school['teachers_count']) }}</p>
+                            </div>
+                            <div class="mt-1.5 h-1.5 rounded-full bg-gray-100">
+                                <div class="h-1.5 rounded-full" style="width: {{ round($school['teachers_count'] / $maxTeachers * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="py-8 text-center text-sm text-gray-400">No schools yet</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
 
-                {{-- Top schools --}}
-                <div class="space-y-5 min-w-0">
-                    @foreach ([['Top Schools by Students', $topSchoolsByStudents, 'students_count', 'students'], ['Top Schools by Teachers', $topSchoolsByTeachers, 'teachers_count', 'teachers']] as [$title, $rows, $key, $unit])
-                        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                            <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                                <h3 class="text-sm font-semibold text-gray-800">{{ $title }}</h3>
-                                <span class="text-[11px] text-gray-400">Top 5</span>
+        {{-- ═══════════════ Requests — tickets · enquiries · website ═══════════════ --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div class="sa-card min-w-0 overflow-hidden">
+                <div class="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="sa-card-title">Latest Support Tickets</h3>
+                        <p class="sa-card-sub">{{ $supportStats['this_month'] }} this month · {{ $supportStats['total'] }} in all · {{ $supportPct }}% replied</p>
+                    </div>
+                    <a href="{{ route('super-admin.support') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Open →</a>
+                </div>
+                <div class="divide-y divide-gray-100 border-t border-gray-100">
+                    @forelse ($latestTickets as $t)
+                        <div class="px-5 py-3 flex items-center gap-3">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-800 truncate">{{ $t['topic'] }}</p>
+                                <p class="text-xs text-gray-400 truncate">{{ $t['school'] }} · {{ $t['time'] }}</p>
                             </div>
-                            <div class="divide-y divide-gray-100">
-                                @forelse ($rows as $school)
-                                    <div class="px-5 py-2.5 flex items-center gap-3">
-                                        <span class="w-5 text-sm font-semibold text-gray-400 tabular-nums">{{ $school['rank'] }}</span>
-                                        @if ($school['logo'])
-                                            <img src="{{ $school['logo'] }}" alt="" class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
-                                        @else
-                                            <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
-                                        @endif
-                                        <p class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{{ $school['name'] }}</p>
-                                        <p class="text-sm text-gray-700 tabular-nums whitespace-nowrap">{{ number_format($school[$key]) }} <span class="text-xs text-gray-400">{{ $unit }}</span></p>
-                                    </div>
-                                @empty
-                                    <p class="px-5 py-8 text-center text-sm text-gray-400">No schools yet</p>
-                                @endforelse
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 {{ $t['replied'] ? 'bg-gray-100 text-gray-600' : 'bg-rose-50 text-rose-600' }}">{{ $t['replied'] ? 'Replied' : 'Pending' }}</span>
+                        </div>
+                    @empty
+                        <p class="px-5 py-8 text-center text-sm text-gray-400">No support tickets yet</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="sa-card min-w-0 overflow-hidden">
+                <div class="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="sa-card-title">Latest Enquiries</h3>
+                        <p class="sa-card-sub">{{ $enquiryStats['demo_total'] }} demo requests · {{ $enquiryStats['contact_total'] }} contact messages</p>
+                    </div>
+                    <a href="{{ route('super-admin.enquiries') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Open →</a>
+                </div>
+                <div class="divide-y divide-gray-100 border-t border-gray-100">
+                    @forelse ($latestEnquiries as $e)
+                        <div class="px-5 py-3 flex items-center gap-3">
+                            <span class="w-14 text-[11px] font-medium text-gray-400 flex-shrink-0 uppercase tracking-wide">{{ $e['kind'] }}</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-800 truncate">{{ $e['name'] ?: '—' }}</p>
+                                <p class="text-xs text-gray-400 truncate">{{ $e['school'] ?: '—' }} · {{ $e['time'] }}</p>
                             </div>
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 {{ $e['answered'] ? 'bg-gray-100 text-gray-600' : 'bg-rose-50 text-rose-600' }}">{{ $e['answered'] ? 'Answered' : 'Pending' }}</span>
+                        </div>
+                    @empty
+                        <p class="px-5 py-8 text-center text-sm text-gray-400">No enquiries yet</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Website · Last 7 Days</h3>
+                        <p class="sa-card-sub">Visits to the SuperLMS website</p>
+                    </div>
+                    <a href="{{ route('super-admin.analytics') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Analytics →</a>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    @foreach ([['Visits', number_format($websiteWeek['visits'])], ['Unique visitors', number_format($websiteWeek['unique'])], ['Today', number_format($websiteWeek['today'])]] as [$label, $val])
+                        <div class="rounded-xl bg-gray-50 px-3.5 py-3">
+                            <p class="text-xs text-gray-400">{{ $label }}</p>
+                            <p class="text-lg font-semibold text-gray-900 tabular-nums mt-0.5">{{ $val }}</p>
                         </div>
                     @endforeach
-                </div>
-            </div>
-        </section>
-
-        {{-- ══════════════════════════════════════════════════════════════════
-             REQUESTS — schools' tickets and website enquiries, the newest
-             first; the platform's own activity and website beside them.
-        ══════════════════════════════════════════════════════════════════ --}}
-        <section>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Requests</h2>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 space-y-5 min-w-0">
-                    {{-- Support tickets --}}
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                            <div>
-                                <h3 class="text-sm font-semibold text-gray-800">Latest Support Tickets</h3>
-                                <p class="text-[11px] text-gray-400 mt-0.5">{{ $supportStats['this_month'] }} this month · {{ $supportStats['total'] }} in all</p>
-                            </div>
-                            <a href="{{ route('super-admin.support') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            @forelse ($latestTickets as $t)
-                                <div class="px-5 py-3 flex items-center gap-3">
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $t['topic'] }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ $t['school'] }} · {{ $t['time'] }}</p>
-                                    </div>
-                                    <span class="text-xs flex-shrink-0 {{ $t['replied'] ? 'text-gray-500' : 'text-red-500' }}">{{ $t['replied'] ? 'Replied' : 'Pending' }}</span>
-                                </div>
-                            @empty
-                                <p class="px-5 py-8 text-center text-sm text-gray-400">No support tickets yet</p>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    {{-- Enquiries --}}
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                            <div>
-                                <h3 class="text-sm font-semibold text-gray-800">Latest Enquiries</h3>
-                                <p class="text-[11px] text-gray-400 mt-0.5">{{ $enquiryStats['demo_total'] }} demo requests · {{ $enquiryStats['contact_total'] }} contact messages</p>
-                            </div>
-                            <a href="{{ route('super-admin.enquiries') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            @forelse ($latestEnquiries as $e)
-                                <div class="px-5 py-3 flex items-center gap-3">
-                                    <span class="w-14 text-xs text-gray-400 flex-shrink-0">{{ $e['kind'] }}</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $e['name'] ?: '—' }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ $e['school'] ?: '—' }} · {{ $e['time'] }}</p>
-                                    </div>
-                                    <span class="text-xs flex-shrink-0 {{ $e['answered'] ? 'text-gray-500' : 'text-red-500' }}">{{ $e['answered'] ? 'Answered' : 'Pending' }}</span>
-                                </div>
-                            @empty
-                                <p class="px-5 py-8 text-center text-sm text-gray-400">No enquiries yet</p>
-                            @endforelse
-                        </div>
-                    </div>
-                </div>
-
-                <div class="space-y-5 min-w-0">
-                    {{-- Recent activity --}}
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div class="px-5 py-3 border-b border-gray-100">
-                            <h3 class="text-sm font-semibold text-gray-800">Recent Activity</h3>
-                        </div>
-                        <div class="divide-y divide-gray-100 overflow-y-auto max-h-[22rem]">
-                            @forelse ($activityFeed as $activity)
-                                <div class="px-5 py-3 flex items-start gap-3">
-                                    <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
-                                        <x-icon name="{{ $activity['icon'] }}" class="w-4 h-4" />
-                                    </span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-800">{{ $activity['title'] }}</p>
-                                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ $activity['description'] }}</p>
-                                        <p class="text-[11px] text-gray-400 mt-0.5">{{ $activity['time'] }}</p>
-                                    </div>
-                                </div>
-                            @empty
-                                <p class="px-5 py-8 text-center text-sm text-gray-400">No recent activity</p>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    {{-- Website, last 7 days --}}
-                    <div class="bg-white rounded-xl border border-gray-200">
-                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold text-gray-800">Website · Last 7 Days</h3>
-                            <a href="{{ route('super-admin.analytics') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Analytics →</a>
-                        </div>
-                        <dl class="p-5 space-y-2.5 text-sm">
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Visits</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($websiteWeek['visits']) }}</dd>
-                            </div>
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Unique visitors</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($websiteWeek['unique']) }}</dd>
-                            </div>
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Today</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($websiteWeek['today']) }}</dd>
-                            </div>
-                            <div class="flex justify-between items-baseline gap-3">
-                                <dt class="text-gray-500 flex-shrink-0">Most visited</dt>
-                                <dd class="font-semibold text-gray-900 truncate">{{ $websiteWeek['top'] }}</dd>
-                            </div>
-                        </dl>
+                    <div class="rounded-xl bg-violet-50 px-3.5 py-3 min-w-0">
+                        <p class="text-xs text-violet-500">Most visited</p>
+                        <p class="text-sm font-semibold text-violet-800 truncate mt-1" title="{{ $websiteWeek['top'] }}">{{ $websiteWeek['top'] }}</p>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
 
-        {{-- ══════════════════════════════════════════════════════════════════
-             TEAM & PLATFORM — the Super Admin's staff, notifications and the
-             schools' rating of the LMS.
-        ══════════════════════════════════════════════════════════════════ --}}
-        <section>
-            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Team &amp; Platform</h2>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                {{-- Salary --}}
-                <div class="bg-white rounded-xl border border-gray-200 flex flex-col">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-gray-800">Salary · {{ $staff['month'] }}</h3>
-                        <a href="{{ route('super-admin.payroll') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Payroll →</a>
+        {{-- ═══════════════ Team & platform — salary · staff today · push · rating ═══════════════ --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            <div class="sa-card p-5 min-w-0 flex flex-col">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Salary · {{ $staff['month'] }}</h3>
+                        <p class="sa-card-sub">{{ $staff['paid_count'] }} of {{ $staff['active'] }} paid</p>
                     </div>
-                    <dl class="px-5 pt-4 space-y-2.5 text-sm">
-                        <div class="flex justify-between items-baseline">
-                            <dt class="text-gray-500">Monthly bill</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($staff['bill']) }}</dd>
-                        </div>
-                        <div class="flex justify-between items-baseline">
-                            <dt class="text-gray-500">Paid</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $inr($staff['paid_amount']) }}</dd>
-                        </div>
-                    </dl>
-                    <div class="px-5 pt-4 pb-5">
-                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">To pay · {{ $staff['unpaid_count'] }}</p>
-                        @forelse ($staff['unpaid'] as $e)
-                            <div class="flex items-baseline justify-between gap-3 py-1">
-                                <p class="text-sm text-gray-700 truncate">{{ $e['name'] }} <span class="text-xs text-gray-400">{{ $e['role'] }}</span></p>
-                                <p class="text-sm text-gray-700 tabular-nums flex-shrink-0">{{ $inr($e['salary']) }}</p>
-                            </div>
-                        @empty
-                            <p class="text-sm text-gray-400">Everyone has been paid</p>
-                        @endforelse
-                    </div>
+                    <a href="{{ route('super-admin.payroll') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Payroll →</a>
                 </div>
-
-                {{-- Staff attendance today --}}
-                <div class="bg-white rounded-xl border border-gray-200">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-gray-800">Staff Today</h3>
-                        <span class="text-[11px] text-gray-400">{{ now()->format('d M') }}</span>
-                    </div>
-                    <dl class="p-5 space-y-2.5 text-sm">
-                        @foreach ([['Present', 'present', 'text-gray-900'], ['Absent', 'absent', 'text-red-500'], ['Half day', 'half_day', 'text-gray-900'], ['Leave', 'leave', 'text-gray-900'], ['Holiday', 'holiday', 'text-gray-900']] as [$label, $key, $tone])
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">{{ $label }}</dt>
-                                <dd class="font-semibold tabular-nums {{ $staff['today'][$key] > 0 ? $tone : 'text-gray-900' }}">{{ $staff['today'][$key] }}</dd>
-                            </div>
-                        @endforeach
-                        <div class="flex justify-between items-baseline pt-2.5 border-t border-gray-100">
-                            <dt class="text-gray-500">Not marked</dt>
-                            <dd class="font-semibold text-gray-900 tabular-nums">{{ $staffNotMarked }}</dd>
-                        </div>
-                    </dl>
+                <div class="flex items-baseline justify-between text-sm">
+                    <span class="text-gray-500">Paid</span>
+                    <span class="font-semibold text-gray-900 tabular-nums">{{ $inr($staff['paid_amount']) }} <span class="font-normal text-gray-400">/ {{ $inr($staff['bill']) }}</span></span>
                 </div>
-
-                {{-- Push notifications --}}
-                <div class="bg-white rounded-xl border border-gray-200">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-gray-800">Push Notifications</h3>
-                        <a href="{{ route('super-admin.push-notification') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
+                <div class="mt-2 h-1.5 rounded-full bg-gray-100"><div class="h-1.5 rounded-full bg-violet-600" style="width: {{ min(100, $staff['paid_pct']) }}%"></div></div>
+                <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mt-4 mb-1.5">To pay · {{ $staff['unpaid_count'] }}</p>
+                @forelse ($staff['unpaid'] as $e)
+                    <div class="flex items-baseline justify-between gap-3 py-1">
+                        <p class="text-sm text-gray-700 truncate">{{ $e['name'] }} <span class="text-xs text-gray-400">{{ $e['role'] }}</span></p>
+                        <p class="text-sm text-gray-700 tabular-nums flex-shrink-0">{{ $inr($e['salary']) }}</p>
                     </div>
-                    <div class="p-5">
-                        <dl class="space-y-2.5 text-sm">
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Sent this month</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $pushSummary['this_month'] }}</dd>
-                            </div>
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Sent in all</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $pushSummary['total'] }}</dd>
-                            </div>
-                        </dl>
-                        <div class="mt-4 pt-4 border-t border-gray-100">
-                            @if ($pushSummary['latest'])
-                                <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Latest</p>
-                                <p class="text-sm font-medium text-gray-800 mt-1 truncate">{{ $pushSummary['latest']['title'] }}</p>
-                                <p class="text-xs text-gray-400 mt-0.5">{{ number_format($pushSummary['latest']['recipients']) }} people · {{ $pushSummary['latest']['time'] }}</p>
-                            @else
-                                <p class="text-sm text-gray-400">Nothing sent yet</p>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
-                {{-- LMS rating --}}
-                <div class="bg-white rounded-xl border border-gray-200">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-gray-800">LMS Rating</h3>
-                        <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['avg_rating'], 1) }}<span class="text-gray-300 font-normal">/5</span></span>
-                    </div>
-                    <div class="p-5">
-                        <dl class="space-y-2.5 text-sm">
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Schools rated</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $ratingStats['schools_rated'] }}</dd>
-                            </div>
-                            <div class="flex justify-between items-baseline">
-                                <dt class="text-gray-500">Not rated yet</dt>
-                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $ratingStats['remaining'] }}</dd>
-                            </div>
-                        </dl>
-                        <div class="mt-4 pt-4 border-t border-gray-100">
-                            @if ($latestReview)
-                                <div class="flex items-center justify-between gap-2">
-                                    <div class="flex">
-                                        @for ($i = 1; $i <= 5; $i++)
-                                            <svg class="w-3.5 h-3.5 {{ $i <= $latestReview['rating'] ? 'text-yellow-400' : 'text-gray-200' }}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                                        @endfor
-                                    </div>
-                                    <span class="text-xs text-gray-400">{{ $latestReview['time'] }}</span>
-                                </div>
-                                <p class="text-sm font-medium text-gray-800 mt-1.5 truncate">{{ $latestReview['school'] }}</p>
-                                @if ($latestReview['feedback'])
-                                    <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ $latestReview['feedback'] }}</p>
-                                @endif
-                            @else
-                                <p class="text-sm text-gray-400">No reviews yet</p>
-                            @endif
-                            <a href="{{ route('super-admin.rating') }}"
-                                class="mt-4 w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition">
-                                View Ratings
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                @empty
+                    <p class="text-sm text-gray-400">Everyone has been paid</p>
+                @endforelse
             </div>
-        </section>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Staff Today</h3>
+                        <p class="sa-card-sub">{{ now()->format('d M') }} · {{ $staff['today']['marked'] > 0 ? $staff['today']['pct'] . '% present' : 'not marked yet' }}</p>
+                    </div>
+                </div>
+                @include('livewire.super-admin.partials.dash-donut', [
+                    'segments' => [
+                        ['label' => 'Present', 'value' => $staff['today']['present'], 'color' => '#7c3aed'],
+                        ['label' => 'Half day', 'value' => $staff['today']['half_day'], 'color' => '#c4b5fd'],
+                        ['label' => 'Absent', 'value' => $staff['today']['absent'], 'color' => '#f43f5e'],
+                        ['label' => 'Leave / holiday', 'value' => $staff['today']['leave'] + $staff['today']['holiday'], 'color' => '#111827'],
+                        ['label' => 'Not marked', 'value' => $staffNotMarked, 'color' => '#e5e7eb'],
+                    ],
+                    'center' => $staff['today']['present'] . '/' . $staff['active'], 'centerLabel' => 'Present', 'size' => 104, 'legend' => true,
+                    'format' => fn ($v) => (int) $v,
+                ])
+            </div>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Push Notifications</h3>
+                        <p class="sa-card-sub">{{ $pushSummary['this_month'] }} this month · {{ $pushSummary['total'] }} in all</p>
+                    </div>
+                    <a href="{{ route('super-admin.push-notification') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Open →</a>
+                </div>
+                @if ($pushSummary['latest'])
+                    <div class="rounded-xl bg-gray-50 p-3.5">
+                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Latest</p>
+                        <p class="text-sm font-medium text-gray-800 mt-1 truncate">{{ $pushSummary['latest']['title'] }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ number_format($pushSummary['latest']['recipients']) }} people · {{ $pushSummary['latest']['time'] }}</p>
+                    </div>
+                @else
+                    <p class="text-sm text-gray-400">Nothing sent yet</p>
+                @endif
+            </div>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">LMS Rating</h3>
+                        <p class="sa-card-sub">{{ $ratingStats['schools_rated'] }} schools rated · {{ $ratingStats['remaining'] }} not yet</p>
+                    </div>
+                    <span class="text-xl font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['avg_rating'], 1) }}<span class="text-sm text-gray-300 font-normal">/5</span></span>
+                </div>
+                @if ($latestReview)
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex">
+                            @for ($i = 1; $i <= 5; $i++)
+                                <svg class="w-3.5 h-3.5 {{ $i <= $latestReview['rating'] ? 'text-amber-400' : 'text-gray-200' }}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                            @endfor
+                        </div>
+                        <span class="text-xs text-gray-400">{{ $latestReview['time'] }}</span>
+                    </div>
+                    <p class="text-sm font-medium text-gray-800 mt-1.5 truncate">{{ $latestReview['school'] }}</p>
+                    @if ($latestReview['feedback'])
+                        <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ $latestReview['feedback'] }}</p>
+                    @endif
+                @else
+                    <p class="text-sm text-gray-400">No reviews yet</p>
+                @endif
+                <a href="{{ route('super-admin.rating') }}"
+                    class="mt-4 w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition">
+                    View Ratings
+                </a>
+            </div>
+        </div>
     </div>
 </div>

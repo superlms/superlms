@@ -5,8 +5,13 @@
          the script below re-reads it — charts always render with current data. --}}
     <div id="analytics-data" data-payload="{{ json_encode($chartPayload) }}" class="hidden"></div>
 
+    {{-- The dashboard look (2026-11-03), shared with Home. --}}
+    @include('livewire.super-admin.partials.dash-styles')
+
     @php
         $inr = fn ($v) => '₹' . number_format((float) $v, 0);
+        $short = fn ($v) => \App\Support\DashboardChart::inrShort((float) $v);
+        $trend = fn (array $s) => \App\Support\DashboardChart::trend((float) (end($s) ?: 0), (float) ($s[count($s) - 2] ?? 0));
         $supportReplyRate = ($supportStats['total'] ?? 0) > 0
             ? round((($supportStats['replied'] ?? 0) / $supportStats['total']) * 100, 1)
             : 0;
@@ -43,11 +48,35 @@
 
             @php
                 $growth = $overviewStats['studentGrowthPct'] ?? 0;
+                $regs   = $monthlyRegistrations;
             @endphp
-            @include('livewire.super-admin.partials.analytics-tiles', ['big' => true, 'cols' => 'grid-cols-2 xl:grid-cols-4', 'items' => [
-                ['Schools', number_format($overviewStats['totalSchools'] ?? 0), number_format($overviewStats['activeSchools'] ?? 0) . ' active · ' . number_format($overviewStats['inactiveSchools'] ?? 0) . ' inactive', 'text-gray-900'],
-                ['Students', number_format($overviewStats['totalStudents'] ?? 0), number_format($overviewStats['activeStudents'] ?? 0) . ' active', 'text-gray-900'],
-                ['Teachers', number_format($overviewStats['totalTeachers'] ?? 0), number_format($overviewStats['activeTeachers'] ?? 0) . ' active', 'text-gray-900'],
+            {{-- The four figures the page leads with: change against last month
+                 and a sparkline over the months picked in the header. --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Total Schools', 'value' => number_format($overviewStats['totalSchools'] ?? 0), 'icon' => 'building-office-2', 'color' => 'violet',
+                    'series' => $regs['schools'] ?? [], 'trend' => $trend($regs['schools'] ?? []),
+                    'sub' => number_format($overviewStats['activeSchools'] ?? 0) . ' active · ' . number_format($overviewStats['inactiveSchools'] ?? 0) . ' inactive',
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Total Students', 'value' => number_format($overviewStats['totalStudents'] ?? 0), 'icon' => 'users', 'color' => 'sky',
+                    'series' => $regs['students'] ?? [], 'trend' => $trend($regs['students'] ?? []),
+                    'sub' => number_format($overviewStats['activeStudents'] ?? 0) . ' active',
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Total Teachers', 'value' => number_format($overviewStats['totalTeachers'] ?? 0), 'icon' => 'academic-cap', 'color' => 'emerald',
+                    'series' => $regs['teachers'] ?? [], 'trend' => $trend($regs['teachers'] ?? []),
+                    'sub' => number_format($overviewStats['activeTeachers'] ?? 0) . ' active',
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Fee Collected', 'value' => $short($feeStats['totalCollected'] ?? 0), 'icon' => 'banknotes', 'color' => 'amber',
+                    'series' => $feeMonthly['collected'] ?? [],
+                    'trend' => \App\Support\DashboardChart::trend((float) ($feeStats['collectedThisMonth'] ?? 0), (float) ($feeStats['collectedLastMonth'] ?? 0)),
+                    'sub' => ($feeStats['collectionRate'] ?? 0) . '% of ' . $short($feeStats['totalFeeToCollect'] ?? 0),
+                ])
+            </div>
+
+            @include('livewire.super-admin.partials.analytics-tiles', ['cols' => 'grid-cols-2 lg:grid-cols-5', 'items' => [
                 ['Avg / School', number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1), 'students in a school', 'text-gray-900'],
                 ['New Schools', number_format($overviewStats['newSchoolsThisMonth'] ?? 0), 'this month', 'text-gray-900'],
                 ['New Students', number_format($overviewStats['studentsThisMonth'] ?? 0), ($growth > 0 ? '+' : '') . $growth . '% vs last month (' . number_format($overviewStats['studentsLastMonth'] ?? 0) . ')', 'text-violet-600'],
@@ -62,28 +91,28 @@
 
             {{-- Registrations + schools onboarded --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-800">Monthly Registrations</h3>
+                            <h3 class="sa-card-title">Monthly Registrations</h3>
                             <p class="text-xs text-gray-400 mt-0.5">Students and teachers added · {{ $windowLabel }}</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Students</span>
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Teachers</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Students</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Teachers</span>
                         </div>
                     </div>
                     <div class="h-56 relative">
                         <canvas id="overviewMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-800">Schools Onboarded</h3>
+                            <h3 class="sa-card-title">Schools Onboarded</h3>
                             <p class="text-xs text-gray-400 mt-0.5">New schools · {{ $windowLabel }}</p>
                         </div>
-                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> New schools</span>
+                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> New schools</span>
                     </div>
                     <div class="h-56 relative">
                         <canvas id="schoolsMonthlyChart"></canvas>
@@ -92,9 +121,9 @@
             </div>
 
             {{-- School size buckets --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="sa-card overflow-hidden">
                 <div class="px-5 py-3 border-b border-gray-100">
-                    <h3 class="text-sm font-semibold text-gray-800">Schools by Size</h3>
+                    <h3 class="sa-card-title">Schools by Size</h3>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-5">
                     @foreach ($schoolBuckets as $label => $count)
@@ -109,9 +138,9 @@
             {{-- Top schools --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 @foreach ([['Top 5 by Students', $topByStudents, 'students', 'teachers'], ['Top 5 by Teachers', $topByTeachers, 'teachers', 'students']] as [$heading, $list, $main, $other])
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="sa-card overflow-hidden">
                         <div class="px-5 py-3 border-b border-gray-100">
-                            <h3 class="text-sm font-semibold text-gray-800">{{ $heading }}</h3>
+                            <h3 class="sa-card-title">{{ $heading }}</h3>
                         </div>
                         @if (count($list))
                             <div class="divide-y divide-gray-100">
@@ -140,21 +169,21 @@
 
             {{-- Gender split + rating distribution --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-4">Students by Gender</h3>
+                <div class="sa-card p-5">
+                    <h3 class="sa-card-title mb-4">Students by Gender</h3>
                     <div class="flex items-center gap-6">
                         <div class="h-44 w-44 relative flex-shrink-0 mx-auto sm:mx-0">
                             <canvas id="genderSplitChart"></canvas>
                         </div>
                         <div class="hidden sm:block flex-1 space-y-2.5 text-sm">
                             @foreach ([
-                                ['label' => 'Male',    'key' => 'male',    'color' => 'bg-blue-500'],
-                                ['label' => 'Female',  'key' => 'female',  'color' => 'bg-pink-500'],
+                                ['label' => 'Male',    'key' => 'male',    'color' => 'bg-violet-600'],
+                                ['label' => 'Female',  'key' => 'female',  'color' => 'bg-pink-400'],
                                 ['label' => 'Other',   'key' => 'other',   'color' => 'bg-amber-400'],
                                 ['label' => 'Not set', 'key' => 'unknown', 'color' => 'bg-gray-300'],
                             ] as $row)
                                 <div class="flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-sm {{ $row['color'] }} inline-block"></span>
+                                    <span class="w-2.5 h-2.5 rounded-full {{ $row['color'] }} inline-block"></span>
                                     <span class="text-gray-500">{{ $row['label'] }}</span>
                                     <span class="font-semibold text-gray-900 ml-auto tabular-nums">{{ number_format($genderSplit[$row['key']] ?? 0) }}</span>
                                 </div>
@@ -162,9 +191,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-sm font-semibold text-gray-800">Rating Distribution</h3>
+                        <h3 class="sa-card-title">Rating Distribution</h3>
                         <span class="text-xs text-gray-400">{{ number_format($ratingStats['total'] ?? 0) }} reviews</span>
                     </div>
                     @if (($ratingStats['total'] ?? 0) > 0)
@@ -222,22 +251,58 @@
                 ['Most Visited', $websiteStats['topPage'] ?? '—', null, 'text-gray-900'],
             ]])
 
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-800">Visits Over Time</h3>
-                    <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Visits</span>
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Unique</span>
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                <div class="sa-card p-5 xl:col-span-2 min-w-0">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="sa-card-title">Visits Over Time</h3>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Visits</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Unique</span>
+                        </div>
+                    </div>
+                    <div class="h-64 relative">
+                        <canvas id="websiteVisitsChart"></canvas>
                     </div>
                 </div>
-                <div class="h-64 relative">
-                    <canvas id="websiteVisitsChart"></canvas>
+
+                {{-- The range's visitors, on the page's one dark card: new people
+                     against visits by people who came back. --}}
+                @php
+                    $visits  = (int) ($websiteStats['totalVisits'] ?? 0);
+                    $uniques = (int) ($websiteStats['uniqueVisitors'] ?? 0);
+                @endphp
+                <div class="sa-card-dark p-5 min-w-0 flex flex-col">
+                    <h3 class="text-[15px] font-semibold text-white">Visitors</h3>
+                    <p class="text-xs text-white/50 mt-0.5">People and their visits in this range</p>
+                    <div class="flex justify-center my-5">
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => [
+                                ['label' => 'Unique visitors', 'value' => $uniques, 'color' => '#a78bfa'],
+                                ['label' => 'Return visits', 'value' => max(0, $visits - $uniques), 'color' => '#38bdf8'],
+                            ],
+                            'center' => number_format($uniques), 'centerLabel' => 'People', 'size' => 140, 'legend' => false, 'dark' => true,
+                        ])
+                    </div>
+                    <dl class="mt-auto space-y-2.5 text-sm">
+                        <div class="flex items-center justify-between gap-2">
+                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Unique visitors</dt>
+                            <dd class="font-semibold tabular-nums">{{ number_format($uniques) }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#38bdf8"></span>Return visits</dt>
+                            <dd class="font-semibold tabular-nums">{{ number_format(max(0, $visits - $uniques)) }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
+                            <dt class="text-white/60">Visits a day</dt>
+                            <dd class="font-semibold tabular-nums">{{ number_format($websiteStats['avgPerDay'] ?? 0) }}</dd>
+                        </div>
+                    </dl>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="sa-card overflow-hidden">
                 <div class="px-5 py-3 border-b border-gray-100">
-                    <h3 class="text-sm font-semibold text-gray-800">Pages — Visits &amp; Users</h3>
+                    <h3 class="sa-card-title">Pages — Visits &amp; Users</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm min-w-[560px]">
@@ -258,7 +323,7 @@
                                     <td class="px-5 py-2.5">
                                         <div class="flex items-center gap-3">
                                             <div class="flex-1 bg-gray-100 rounded-full h-1.5 min-w-0">
-                                                <div class="h-1.5 rounded-full bg-blue-500" style="width: {{ $row['pct'] }}%"></div>
+                                                <div class="h-1.5 rounded-full bg-violet-600" style="width: {{ $row['pct'] }}%"></div>
                                             </div>
                                             <span class="w-12 text-right text-xs text-gray-500 tabular-nums">{{ $row['pct'] }}%</span>
                                         </div>
@@ -294,20 +359,20 @@
             ]])
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                <div class="lg:col-span-2 sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-800">Monthly Fee Collection</h3>
+                            <h3 class="sa-card-title">Monthly Fee Collection</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                         </div>
-                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Collected</span>
+                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Collected</span>
                     </div>
                     <div class="h-56 relative">
                         <canvas id="feeMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-4">Collection by Payment Mode</h3>
+                <div class="sa-card p-5">
+                    <h3 class="sa-card-title mb-4">Collection by Payment Mode</h3>
                     @if (count($feeModes['data'] ?? []) > 0)
                         <div class="h-56 relative">
                             <canvas id="feeModeChart"></canvas>
@@ -319,9 +384,9 @@
             </div>
 
             @if (count($schoolFeeList) > 0)
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="sa-card overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-800">Schools Fee Breakdown</h3>
+                        <h3 class="sa-card-title">Schools Fee Breakdown</h3>
                         <p class="text-xs text-gray-400 mt-0.5">Top 10 by fee{{ !empty($feeStats['year']) ? ' · ' . $feeStats['year'] : '' }}</p>
                     </div>
                     <div class="overflow-x-auto">
@@ -345,7 +410,7 @@
                                         <td class="px-5 py-2.5">
                                             <div class="flex items-center justify-end gap-3">
                                                 <div class="w-20 bg-gray-100 rounded-full h-1.5">
-                                                    <div class="h-1.5 rounded-full bg-emerald-500" style="width: {{ min(100, $row['pct']) }}%"></div>
+                                                    <div class="h-1.5 rounded-full bg-violet-600" style="width: {{ min(100, $row['pct']) }}%"></div>
                                                 </div>
                                                 <span class="w-12 text-right text-xs font-semibold text-gray-700 tabular-nums">{{ $row['pct'] }}%</span>
                                             </div>
@@ -375,20 +440,20 @@
             ]])
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                <div class="lg:col-span-2 sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-800">Salary Paid per Month</h3>
+                            <h3 class="sa-card-title">Salary Paid per Month</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                         </div>
-                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Paid out</span>
+                        <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Paid out</span>
                     </div>
                     <div class="h-56 relative">
                         <canvas id="payrollMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-4">Payouts by Mode</h3>
+                <div class="sa-card p-5">
+                    <h3 class="sa-card-title mb-4">Payouts by Mode</h3>
                     @if (count($payrollModes['data'] ?? []) > 0)
                         <div class="h-56 relative">
                             <canvas id="payrollModeChart"></canvas>
@@ -400,9 +465,9 @@
             </div>
 
             @if (!empty($payrollStats['byType']))
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="sa-card overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-800">Employees by Type</h3>
+                        <h3 class="sa-card-title">Employees by Type</h3>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-5">
                         @foreach ($payrollStats['byType'] as $type => $row)
@@ -417,9 +482,9 @@
             @endif
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="sa-card overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="text-sm font-semibold text-gray-800">Unpaid for {{ $payrollStats['payableMonth'] ?? '—' }}</h3>
+                        <h3 class="sa-card-title">Unpaid for {{ $payrollStats['payableMonth'] ?? '—' }}</h3>
                         <span class="text-xs text-gray-400 tabular-nums">{{ count($payrollPending) }}</span>
                     </div>
                     @if (count($payrollPending) > 0)
@@ -439,9 +504,9 @@
                     @endif
                 </div>
 
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="sa-card overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-800">Recent Payouts</h3>
+                        <h3 class="sa-card-title">Recent Payouts</h3>
                     </div>
                     @if (count($payrollRecent) > 0)
                         <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
@@ -477,15 +542,15 @@
                 ['Total Pending', number_format($enquiryStats['combined']['pending'] ?? 0), number_format($enquiryStats['combined']['replied'] ?? 0) . ' replied', 'text-red-500'],
             ]])
 
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="sa-card p-5">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-800">Monthly Enquiries</h3>
+                        <h3 class="sa-card-title">Monthly Enquiries</h3>
                         <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                     </div>
                     <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Demo</span>
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Contact</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Demo</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Contact</span>
                     </div>
                 </div>
                 <div class="h-56 relative">
@@ -506,28 +571,33 @@
             ]])
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                <div class="lg:col-span-2 sa-card p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-800">Monthly Support Tickets</h3>
+                            <h3 class="sa-card-title">Monthly Support Tickets</h3>
                             <p class="text-xs text-gray-400 mt-0.5">{{ $windowLabel }}</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Total</span>
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Replied</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-300 inline-block"></span> Total</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-violet-600 inline-block"></span> Replied</span>
                         </div>
                     </div>
                     <div class="h-56 relative">
                         <canvas id="supportMonthlyChart"></canvas>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-4">Reply Rate</h3>
-                    <p class="text-[26px] leading-none font-semibold text-gray-900 tabular-nums">{{ $supportReplyRate }}%</p>
-                    <div class="w-full bg-gray-100 rounded-full h-1.5 mt-4">
-                        <div class="bg-emerald-500 h-1.5 rounded-full" style="width: {{ min(100, $supportReplyRate) }}%"></div>
+                <div class="sa-card p-5 flex flex-col">
+                    <h3 class="sa-card-title mb-4">Reply Rate</h3>
+                    <div class="flex-1 flex items-center justify-center">
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => [
+                                ['label' => 'Replied', 'value' => (int) ($supportStats['replied'] ?? 0), 'color' => '#7c3aed'],
+                                ['label' => 'Pending', 'value' => (int) ($supportStats['pending'] ?? 0), 'color' => '#e5e7eb'],
+                            ],
+                            'center' => $supportReplyRate . '%', 'centerLabel' => 'Replied', 'size' => 150, 'legend' => false,
+                        ])
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">{{ number_format($supportStats['replied'] ?? 0) }} of {{ number_format($supportStats['total'] ?? 0) }} tickets replied</p>
+                    <p class="text-xs text-gray-400 mt-4 text-center">{{ number_format($supportStats['replied'] ?? 0) }} of {{ number_format($supportStats['total'] ?? 0) }} tickets replied</p>
                 </div>
             </div>
         </section>
@@ -542,6 +612,11 @@
         (function () {
             const registry = {};
 
+            // The dashboard palette (2026-11-03): brand violet leads, ink and
+            // soft violet follow; doughnuts run on through sky and amber.
+            const VIOLET = '#7c3aed', INK = '#111827', SOFT = '#c4b5fd';
+            const RING   = ['#7c3aed', '#111827', '#a78bfa', '#38bdf8', '#f59e0b', '#10b981', '#cbd5e1'];
+
             function payload() {
                 const el = document.getElementById('analytics-data');
                 if (!el || !el.dataset.payload) return null;
@@ -555,52 +630,76 @@
                 registry[id] = new Chart(el, config);
             }
 
-            const inr = v => '₹' + Number(v).toLocaleString('en-IN');
+            const inr   = v => '₹' + Number(v).toLocaleString('en-IN');
+            const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
 
-            // The school Analytics' chart look: no legend, quiet grid, small ticks.
+            // Quiet axes, no legend (each card draws its own), a dark tooltip.
             function options(money = false) {
                 return {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            backgroundColor: INK, padding: 10, cornerRadius: 8, boxPadding: 4,
                             callbacks: money ? {
                                 label: ctx => (ctx.dataset.label ? ctx.dataset.label + ': ' : '') + inr(ctx.parsed.y ?? ctx.parsed)
                             } : {}
                         }
                     },
                     scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 0, autoSkipPadding: 8 } },
                         y: {
                             beginAtZero: true,
-                            grid: { color: 'rgba(0,0,0,0.04)' },
+                            border: { display: false },
+                            grid: { color: 'rgba(17,24,39,0.05)' },
                             ticks: {
-                                font: { size: 10 }, precision: 0,
-                                callback: money ? (v => inr(v)) : (v => v)
+                                color: '#9ca3af', font: { size: 10 }, precision: 0, maxTicksLimit: 5,
+                                callback: money ? (v => '₹' + short(v)) : (v => v)
                             }
                         }
                     }
                 };
             }
 
+            // A smooth line with a soft fill fading down to the axis.
+            function area(label, data, color, fill = true) {
+                return {
+                    label: label, data: data, borderColor: color, borderWidth: 2.5, tension: 0.42,
+                    pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: color, pointBorderWidth: 2.5,
+                    fill: fill,
+                    backgroundColor: c => {
+                        const a = c.chart.chartArea;
+                        if (!fill || !a) return 'transparent';
+                        const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+                        g.addColorStop(0, color + '47');
+                        g.addColorStop(1, color + '00');
+                        return g;
+                    },
+                };
+            }
+
+            const bar = (label, data, color) => ({
+                label: label, data: data, backgroundColor: color, borderRadius: 6, borderSkipped: false,
+                barPercentage: 0.7, categoryPercentage: 0.6, maxBarThickness: 18
+            });
+
             function doughnut(labels, data, colors, money) {
                 return {
                     type: 'doughnut',
-                    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+                    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0, spacing: 2, hoverOffset: 6 }] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '70%',
+                        cutout: '72%',
                         plugins: {
-                            legend: money ? { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 10, usePointStyle: true } } : { display: false },
-                            tooltip: { callbacks: { label: ctx => ctx.label + ': ' + (money ? inr(ctx.parsed) : Number(ctx.parsed).toLocaleString('en-IN')) } }
+                            legend: money ? { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 8, boxHeight: 8, usePointStyle: true, color: '#4b5563' } } : { display: false },
+                            tooltip: { backgroundColor: INK, padding: 10, cornerRadius: 8, callbacks: { label: ctx => ctx.label + ': ' + (money ? inr(ctx.parsed) : Number(ctx.parsed).toLocaleString('en-IN')) } }
                         }
                     }
                 };
             }
-
-            const bar = (label, data, color) => ({ label: label, data: data, backgroundColor: color, borderRadius: 3, borderSkipped: false, maxBarThickness: 34 });
 
             function initAnalyticsCharts() {
                 if (typeof Chart === 'undefined') return;
@@ -612,24 +711,22 @@
                 makeChart('overviewMonthlyChart', {
                     type: 'bar',
                     data: { labels: L, datasets: [
-                        bar('Students', p.overview.students, 'rgba(59,130,246,0.7)'),
-                        bar('Teachers', p.overview.teachers, 'rgba(139,92,246,0.7)'),
+                        bar('Students', p.overview.students, VIOLET),
+                        bar('Teachers', p.overview.teachers, INK),
                     ] },
                     options: options()
                 });
 
                 makeChart('schoolsMonthlyChart', {
                     type: 'line',
-                    data: { labels: L, datasets: [
-                        { label: 'Schools', data: p.overview.schools, borderColor: 'rgb(16,185,129)', backgroundColor: 'rgba(16,185,129,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
-                    ] },
+                    data: { labels: L, datasets: [area('Schools', p.overview.schools, VIOLET)] },
                     options: options()
                 });
 
                 makeChart('genderSplitChart', doughnut(
                     ['Male', 'Female', 'Other', 'Not set'],
                     [p.gender.male, p.gender.female, p.gender.other, p.gender.unknown],
-                    ['#3b82f6', '#ec4899', '#fbbf24', '#d1d5db'],
+                    ['#7c3aed', '#f472b6', '#fbbf24', '#e5e7eb'],
                     false
                 ));
 
@@ -638,53 +735,45 @@
                     makeChart('websiteVisitsChart', {
                         type: 'line',
                         data: { labels: p.website.labels || [], datasets: [
-                            { label: 'Visits', data: p.website.visits || [], borderColor: 'rgb(59,130,246)', backgroundColor: 'rgba(59,130,246,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
-                            { label: 'Unique', data: p.website.uniques || [], borderColor: 'rgb(16,185,129)', fill: false, tension: 0.35, borderWidth: 2, pointRadius: 2 },
+                            area('Visits', p.website.visits || [], VIOLET),
+                            area('Unique', p.website.uniques || [], INK, false),
                         ] },
-                        options: Object.assign(options(), { interaction: { mode: 'index', intersect: false } })
+                        options: options()
                     });
                 }
 
                 // ── Fee ──
                 makeChart('feeMonthlyChart', {
-                    type: 'bar',
-                    data: { labels: L, datasets: [bar('Collected', p.fee.collected, 'rgba(16,185,129,0.7)')] },
+                    type: 'line',
+                    data: { labels: L, datasets: [area('Collected', p.fee.collected, VIOLET)] },
                     options: options(true)
                 });
-                makeChart('feeModeChart', doughnut(
-                    p.fee.modes.labels || [], p.fee.modes.data || [],
-                    ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6', '#6b7280'],
-                    true
-                ));
+                makeChart('feeModeChart', doughnut(p.fee.modes.labels || [], p.fee.modes.data || [], RING, true));
 
                 // ── Payroll ──
                 makeChart('payrollMonthlyChart', {
                     type: 'bar',
-                    data: { labels: L, datasets: [bar('Salary paid', p.payroll.paid, 'rgba(139,92,246,0.7)')] },
+                    data: { labels: L, datasets: [bar('Salary paid', p.payroll.paid, INK)] },
                     options: options(true)
                 });
-                makeChart('payrollModeChart', doughnut(
-                    p.payroll.modes.labels || [], p.payroll.modes.data || [],
-                    ['#8b5cf6', '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#14b8a6', '#6b7280'],
-                    true
-                ));
+                makeChart('payrollModeChart', doughnut(p.payroll.modes.labels || [], p.payroll.modes.data || [], RING, true));
 
                 // ── Enquiries ──
                 makeChart('enquiryMonthlyChart', {
                     type: 'line',
                     data: { labels: L, datasets: [
-                        { label: 'Demo', data: p.enquiry.demo, borderColor: 'rgb(59,130,246)', backgroundColor: 'rgba(59,130,246,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
-                        { label: 'Contact', data: p.enquiry.contact, borderColor: 'rgb(139,92,246)', fill: false, tension: 0.35, borderWidth: 2, pointRadius: 2 },
+                        area('Demo', p.enquiry.demo, VIOLET),
+                        area('Contact', p.enquiry.contact, INK, false),
                     ] },
-                    options: Object.assign(options(), { interaction: { mode: 'index', intersect: false } })
+                    options: options()
                 });
 
                 // ── Support ──
                 makeChart('supportMonthlyChart', {
                     type: 'bar',
                     data: { labels: L, datasets: [
-                        bar('Total', p.support.total, 'rgba(59,130,246,0.7)'),
-                        bar('Replied', p.support.replied, 'rgba(16,185,129,0.7)'),
+                        bar('Total', p.support.total, SOFT),
+                        bar('Replied', p.support.replied, VIOLET),
                     ] },
                     options: options()
                 });
