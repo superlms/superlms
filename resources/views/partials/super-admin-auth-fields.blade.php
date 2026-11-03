@@ -60,6 +60,24 @@
 
     .sa-field-error { margin: .375rem 0 0 1.375rem; font-size: .75rem; line-height: 1.35; color: #dc2626; }
 
+    /* A password's rules under its field: grey dot while unmet, green tick
+       (with a little pop) once met, red cross for the ones a try left unmet. */
+    .sa-field.is-bad input { border-color: #dc2626; }
+    .sa-field.is-bad label { color: #dc2626; }
+    .sa-rules { margin: .5rem 0 0 1.375rem; display: grid; gap: .3rem; }
+    .sa-rule { display: flex; align-items: center; gap: .5rem; font-size: .75rem; line-height: 1.25; color: #6b7280; transition: color .2s; }
+    .sa-rule-ico {
+        width: 1rem; height: 1rem; border-radius: 9999px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #f3f4f6; color: #9ca3af; transition: background-color .2s, color .2s;
+    }
+    .sa-rule.is-ok { color: #16a34a; }
+    .sa-rule.is-ok .sa-rule-ico { background: #dcfce7; color: #16a34a; animation: sa-rule-pop .3s ease-out; }
+    .sa-rule.is-bad { color: #dc2626; }
+    .sa-rule.is-bad .sa-rule-ico { background: #fee2e2; color: #dc2626; }
+    @keyframes sa-rule-pop { 0% { transform: scale(.5); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) { .sa-rule.is-ok .sa-rule-ico { animation: none; } }
+
     /* OTP boxes: the fields' 1.5px border instead of a heavy 2px one. */
     .sa-otp-box {
         border: 1.5px solid #9ca3af; background: #fff; color: #111827;

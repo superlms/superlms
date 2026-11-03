@@ -307,4 +307,25 @@ class SuperAdminOtpWhatsAppTest extends TestCase
         $test->set('password', 'abcdef1!')->set('password_confirmation', 'abcdef1?')->call('resetPassword')
             ->assertSee('This does not match the new password above.');
     }
+
+    public function test_new_password_lists_only_the_rules_it_breaks(): void
+    {
+        $test = Livewire::test(ForgotPassword::class)->set('step', 'password');
+
+        // Breaks all three: all three are named.
+        $test->set('password', 'abc')->set('password_confirmation', 'abc')->call('resetPassword')
+            ->assertSee('Too short — 3 characters. Use 8 to 16.')
+            ->assertSee('Add at least one number (0–9).')
+            ->assertSee('Add at least one special character');
+
+        // Long enough and has a number: only the special character is named.
+        $test->set('password', 'abcdefgh1')->set('password_confirmation', 'abcdefgh1')->call('resetPassword')
+            ->assertSee('Add at least one special character')
+            ->assertDontSee('Use 8 to 16')
+            ->assertDontSee('Add at least one number (0–9).');
+
+        $this->assertSame([], ForgotPassword::unmetRules('Strong@123'));
+        $this->assertSame(['Too long — 18 characters. Use 8 to 16.'], ForgotPassword::unmetRules('Strong@12345678901'));
+        $this->assertSame(['Enter a new password.'], ForgotPassword::unmetRules(''));
+    }
 }

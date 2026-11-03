@@ -160,24 +160,40 @@
             @if ($step === 'password')
                 <div class="text-center mb-8">
                     <h1 class="sa-title text-2xl md:text-3xl">Set New Password</h1>
-                    <p class="sa-sub text-gray-500 mt-2 text-sm">Create a strong password for your account</p>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Use 8–16 characters with at least one number and one special character like @, # or $</p>
                 </div>
 
+                {{-- The rules show once typing starts, each turning green as it is
+                     met. Reset Password with a rule unmet shows only the unmet
+                     ones, in red, until the password is typed in again (the
+                     server checks the same rules and names only the broken ones). --}}
                 <div class="w-full max-w-sm" x-data="{
                         password: @entangle('password'),
                         confirmation: @entangle('password_confirmation'),
                         showPass: false,
                         showConfirm: false,
-                        get hasLength() { return this.password.length >= 8 && this.password.length <= 16; },
-                        get hasNumber() { return /[0-9]/.test(this.password); },
-                        get hasSpecial() { return /[!@#$%^&*(),.?\&quot;:{}|<>]/.test(this.password); },
-                        get filled() { return this.password.trim().length > 0 && this.confirmation.trim().length > 0; }
+                        tried: false,
+                        get rules() {
+                            const p = String(this.password ?? '');
+                            return [
+                                { label: '8–16 characters', ok: p.length >= 8 && p.length <= 16 },
+                                { label: 'At least 1 number (0–9)', ok: /[0-9]/.test(p) },
+                                { label: 'At least 1 special character (! @ # $ % & *)', ok: /[!@#$%^&*(),.?\&quot;:{}|<>]/.test(p) },
+                            ];
+                        },
+                        get unmet() { return this.rules.filter(r => !r.ok); },
+                        get filled() { return String(this.password ?? '').trim().length > 0 && String(this.confirmation ?? '').trim().length > 0; },
+                        submit() {
+                            this.tried = true;
+                            if (this.unmet.length === 0) this.$wire.resetPassword();
+                        }
                     }">
                     {{-- New Password --}}
                     <div class="mb-5">
-                        <div class="sa-field has-eye" :class="{ 'is-filled': String(password ?? '') !== '' }"
+                        <div class="sa-field has-eye"
+                            :class="{ 'is-filled': String(password ?? '') !== '', 'is-bad': tried && unmet.length > 0 }"
                             @error('password') data-invalid @enderror
-                            x-on:input="$el.removeAttribute('data-invalid')">
+                            x-on:input="$el.removeAttribute('data-invalid'); tried = false">
                             <input id="sa-new-password" :type="showPass ? 'text' : 'password'" x-model="password"
                                 placeholder="Enter new password" autocomplete="new-password">
                             <label for="sa-new-password">New Password</label>
@@ -192,11 +208,29 @@
                                 </svg>
                             </button>
                         </div>
-                        @error('password') <p class="sa-field-error">{{ $message }}</p> @enderror
+                        {{-- Every rule the server found broken — only those. --}}
+                        @foreach ($errors->get('password') as $message)
+                            <p class="sa-field-error">{{ $message }}</p>
+                        @endforeach
+
+                        {{-- Live: every rule, green once met. After a try: only the unmet ones, red. --}}
+                        <div class="sa-rules" x-show="String(password ?? '') !== '' && (!tried || unmet.length > 0)"
+                            x-transition.opacity.duration.200ms style="display: none">
+                            <template x-for="rule in (tried ? unmet : rules)" :key="rule.label">
+                                <p class="sa-rule" :class="rule.ok ? 'is-ok' : (tried ? 'is-bad' : '')">
+                                    <span class="sa-rule-ico">
+                                        <svg x-show="rule.ok" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        <svg x-show="!rule.ok && tried" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        <span x-show="!rule.ok && !tried" class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                    </span>
+                                    <span x-text="rule.label"></span>
+                                </p>
+                            </template>
+                        </div>
                     </div>
 
                     {{-- Confirm Password --}}
-                    <div class="mb-4">
+                    <div class="mb-6">
                         <div class="sa-field has-eye" :class="{ 'is-filled': String(confirmation ?? '') !== '' }"
                             @error('password_confirmation') data-invalid @enderror
                             x-on:input="$el.removeAttribute('data-invalid')">
@@ -217,32 +251,7 @@
                         @error('password_confirmation') <p class="sa-field-error">{{ $message }}</p> @enderror
                     </div>
 
-                    {{-- Password Requirements (live) --}}
-                    <div class="mb-6 p-3.5 bg-slate-50 rounded-xl ring-1 ring-slate-100">
-                        <p class="text-xs font-medium text-gray-500 mb-2">Password must contain:</p>
-                        <ul class="space-y-1.5">
-                            <li class="flex items-center gap-2 text-xs transition" :class="hasLength ? 'text-green-600' : 'text-gray-400'">
-                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="hasLength ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/>
-                                </svg>
-                                8–16 characters
-                            </li>
-                            <li class="flex items-center gap-2 text-xs transition" :class="hasNumber ? 'text-green-600' : 'text-gray-400'">
-                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="hasNumber ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/>
-                                </svg>
-                                At least 1 number
-                            </li>
-                            <li class="flex items-center gap-2 text-xs transition" :class="hasSpecial ? 'text-green-600' : 'text-gray-400'">
-                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="hasSpecial ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'"/>
-                                </svg>
-                                At least 1 special character (!@#$%^&amp;*...)
-                            </li>
-                        </ul>
-                    </div>
-
-                    <button wire:click="resetPassword" wire:loading.attr="disabled"
+                    <button type="button" x-on:click="submit()" wire:loading.attr="disabled"
                         :disabled="!filled"
                         class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="resetPassword">Reset Password</span>

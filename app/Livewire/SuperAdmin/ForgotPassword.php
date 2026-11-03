@@ -230,27 +230,23 @@ class ForgotPassword extends Component
 
     public function resetPassword()
     {
-        // One message per rule, the first one broken, saying what to change.
-        $length = mb_strlen($this->password);
-        $this->validate(
-            [
-                'password'              => ['bail', 'required', 'min:8', 'max:16', 'regex:/[0-9]/',
-                    function ($attribute, $value, $fail) {
-                        if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', (string) $value)) {
-                            $fail('Add at least one special character: ! @ # $ % ^ & * ( ) , . ? " : { } | < >');
-                        }
-                    }],
-                'password_confirmation' => ['bail', 'required', 'same:password'],
-            ],
-            [
-                'password.required'              => 'Enter a new password.',
-                'password.min'                   => "Too short — {$length} characters. Use 8 to 16.",
-                'password.max'                   => "Too long — {$length} characters. Use 8 to 16.",
-                'password.regex'                 => 'Add at least one number (0–9).',
-                'password_confirmation.required' => 'Type the new password again here.',
-                'password_confirmation.same'     => 'This does not match the new password above.',
-            ]
-        );
+        // Every rule the password breaks, each saying what to change — and
+        // only those: a rule it already meets isn't listed.
+        $this->resetValidation();
+
+        foreach (self::unmetRules($this->password) as $rule) {
+            $this->addError('password', $rule);
+        }
+
+        if ($this->password_confirmation === '') {
+            $this->addError('password_confirmation', 'Type the new password again here.');
+        } elseif ($this->password_confirmation !== $this->password) {
+            $this->addError('password_confirmation', 'This does not match the new password above.');
+        }
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
 
         // Only the account whose code was verified on this page, once, within
         // 10 minutes of verifying it.
@@ -269,6 +265,36 @@ class ForgotPassword extends Component
 
         return redirect()->route('super-admin.login')
             ->with('success', 'Password reset successfully. Please login with your new password.');
+    }
+
+    /**
+     * The new password's rules it doesn't meet, in words: 8 to 16 characters,
+     * a number, a special character. Empty when it meets them all.
+     *
+     * @return list<string>
+     */
+    public static function unmetRules(string $password): array
+    {
+        if ($password === '') {
+            return ['Enter a new password.'];
+        }
+
+        $length = mb_strlen($password);
+        $unmet  = [];
+
+        if ($length < 8) {
+            $unmet[] = "Too short — {$length} characters. Use 8 to 16.";
+        } elseif ($length > 16) {
+            $unmet[] = "Too long — {$length} characters. Use 8 to 16.";
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            $unmet[] = 'Add at least one number (0–9).';
+        }
+        if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', $password)) {
+            $unmet[] = 'Add at least one special character: ! @ # $ % ^ & * ( ) , . ? " : { } | < >';
+        }
+
+        return $unmet;
     }
 
     /** The account the code was sent to on this page, while it is still a Super Admin one that may sign in. */
