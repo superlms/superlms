@@ -33,6 +33,7 @@ class IdCardExportTest extends TestCase
         Schema::create('users', function (Blueprint $t) {
             $t->id(); $t->string('name'); $t->string('email')->nullable(); $t->string('role')->nullable();
             $t->string('image')->nullable(); $t->string('mobile_number')->nullable();
+            $t->tinyInteger('is_active')->default(1);
             $t->unsignedBigInteger('organization_id')->nullable(); $t->timestamps();
         });
         Schema::create('organizations', function (Blueprint $t) {
@@ -66,6 +67,7 @@ class IdCardExportTest extends TestCase
             $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('name'); $t->string('type');
             $t->unsignedBigInteger('teacher_detail_id')->nullable(); $t->unsignedBigInteger('driver_detail_id')->nullable();
             $t->string('mobile')->nullable(); $t->string('designation')->nullable(); $t->string('photo')->nullable();
+            $t->boolean('is_active')->default(true);
             $t->timestamps();
         });
         foreach (['student_id_cards' => 'student_detail_id', 'teacher_id_cards' => 'teacher_detail_id', 'employee_id_cards' => 'admin_employee_id'] as $table => $holder) {
@@ -82,15 +84,22 @@ class IdCardExportTest extends TestCase
         $six  = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'VI', 'order' => 6]);
         $five = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'V', 'order' => 5]);
         $a    = DB::table('sections')->insertGetId(['standard_id' => $five, 'name' => 'A']);
+        // Each student signs in with a login of their own, active as new students start.
         DB::table('student_details')->insert([
-            ['organization_id' => $this->org, 'full_name' => 'Zoya Khan', 'admission_no' => 'ADM-2', 'aadhar_no' => '012345678901',
+            ['organization_id' => $this->org, 'user_id' => $this->login('Zoya Khan'), 'full_name' => 'Zoya Khan', 'admission_no' => 'ADM-2', 'aadhar_no' => '012345678901',
                 'father_name' => 'Imran Khan', 'image' => $this->photo(), 'standard_id' => $five, 'section_id' => $a],
-            ['organization_id' => $this->org, 'full_name' => 'Aarav Jain', 'admission_no' => 'ADM-1', 'aadhar_no' => null,
+            ['organization_id' => $this->org, 'user_id' => $this->login('Aarav Jain'), 'full_name' => 'Aarav Jain', 'admission_no' => 'ADM-1', 'aadhar_no' => null,
                 'father_name' => 'Rohit Jain', 'image' => null, 'standard_id' => $six, 'section_id' => null],
-            ['organization_id' => $this->org, 'full_name' => 'Another School', 'admission_no' => 'X-1', 'aadhar_no' => null,
+            ['organization_id' => $this->org, 'user_id' => $this->login('Another School'), 'full_name' => 'Another School', 'admission_no' => 'X-1', 'aadhar_no' => null,
                 'father_name' => null, 'image' => null, 'standard_id' => $five, 'section_id' => $a],
         ]);
         DB::table('student_details')->where('full_name', 'Another School')->update(['organization_id' => 99]);
+    }
+
+    /** A student's login; active unless said otherwise. */
+    private function login(string $name, bool $active = true): int
+    {
+        return DB::table('users')->insertGetId(['name' => $name, 'role' => 'user', 'organization_id' => $this->org, 'is_active' => $active ? 1 : 0]);
     }
 
     /** A small red photo, as a data: link (resolvePhoto passes those through). */
@@ -115,10 +124,12 @@ class IdCardExportTest extends TestCase
         $this->assertStringNotContainsString('wire:model.live="exportStandards"', $html);
         $this->assertStringNotContainsString('id-card/export', $html);
 
-        // Students: the class and section filters, and the card's own columns.
+        // Students: the class and section filters, and the card's own columns —
+        // the admission number, and the photo's number beside the photo.
         $page->set('exportType', 'student');
-        $this->assertSame(['sr_no', 'name', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo'],
+        $this->assertSame(['sr_no', 'name', 'admission_no', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo', 'photo_no'],
             $page->get('exportColumns'));
+        $this->assertSame('active', $page->get('exportStatus'));
         $html = $page->html();
         $this->assertStringContainsString('wire:model.live="exportStandards"', $html);
         $this->assertStringNotContainsString('Add a column', $html);
@@ -141,7 +152,7 @@ class IdCardExportTest extends TestCase
             ->call('moveExportColumn', 'class', -1);    // one place earlier
 
         $cols = $page->get('exportColumns');
-        $this->assertSame(['dob', 'class', 'name', 'father_name'], array_slice($cols, 0, 4));
+        $this->assertSame(['dob', 'name', 'class', 'admission_no'], array_slice($cols, 0, 4));
         $this->assertNotContains('sr_no', $cols);
         // Kept for the next export; Reset brings the card's columns back.
         $this->assertSame($cols, IdCardExport::savedColumns($this->org, 'student'));
@@ -252,7 +263,7 @@ class IdCardExportTest extends TestCase
         $five  = DB::table('standards')->where('name', 'V')->value('id');
         $six   = DB::table('standards')->where('name', 'VI')->value('id');
         $seven = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'VII', 'order' => 7]);
-        DB::table('student_details')->insert(['organization_id' => $this->org, 'full_name' => 'Kabir Rao', 'standard_id' => $seven]);
+        DB::table('student_details')->insert(['organization_id' => $this->org, 'user_id' => $this->login('Kabir Rao'), 'full_name' => 'Kabir Rao', 'standard_id' => $seven]);
 
         // V and VI, not VII — in class order; "5,6" means the same as [5, 6].
         $this->assertSame(['Zoya Khan', 'Aarav Jain'],
@@ -343,5 +354,89 @@ class IdCardExportTest extends TestCase
         // Sent once: the folder is cleared after.
         $this->get($job['file_url'])->assertNotFound();
         $this->postJson(str_replace($job['id'], str_repeat('a', 24), $job['step_url']))->assertNotFound();
+    }
+
+    public function test_the_sheet_has_the_admission_number_and_a_photo_number_column_reading_it(): void
+    {
+        [$path, , , $work] = IdCardExport::build($this->org, 'Delhi Public School', 'student',
+            IdCardExport::defaults('student'), null, null, 'all', 'xlsx');
+
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        $head  = $sheet->rangeToArray('A1:K1')[0];
+        $adm   = array_search('Admission No', $head, true);
+        $photo = array_search('Photo No', $head, true);
+        $this->assertNotFalse($adm);
+        $this->assertNotFalse($photo);
+        // Photo No sits right after the Photo, and reads the admission number — photo or not.
+        $this->assertSame('Photo', $head[$photo - 1]);
+        $row2 = $sheet->rangeToArray('A2:K2')[0];
+        $row3 = $sheet->rangeToArray('A3:K3')[0];
+        $this->assertSame(['Zoya Khan', 'ADM-2', 'ADM-2'], [$row2[1], $row2[$adm], $row2[$photo]]);
+        $this->assertSame(['Aarav Jain', 'ADM-1', 'ADM-1'], [$row3[1], $row3[$adm], $row3[$photo]]);
+        IdCardExport::cleanup($work);
+
+        // Teachers and staff: their employee ID.
+        DB::table('admin_employees')->insert(['organization_id' => $this->org, 'name' => 'Mohan Lal', 'type' => 'management']);
+        $staff = IdCardExport::people($this->org, 'employee');
+        $this->assertSame([['name' => 'Mohan Lal', 'photo_no' => 'EMP-' . $staff->first()->id]],
+            IdCardExport::rows($this->org, 'employee', $staff, ['name', 'photo_no']));
+    }
+
+    public function test_a_pick_saved_before_gets_admission_no_and_photo_no_once(): void
+    {
+        cache()->forever("id-card-export:v2:{$this->org}:student", ['name', 'class', 'photo']);
+        $this->assertSame(['name', 'admission_no', 'class', 'photo', 'photo_no'], IdCardExport::savedColumns($this->org, 'student'));
+
+        // Left out after that, they stay out.
+        IdCardExport::saveColumns($this->org, 'student', ['name', 'class', 'photo']);
+        $this->assertSame(['name', 'class', 'photo'], IdCardExport::savedColumns($this->org, 'student'));
+    }
+
+    public function test_active_inactive_or_both(): void
+    {
+        // Aarav's login is switched off; a student with no login is inactive too.
+        $aarav = DB::table('student_details')->where('full_name', 'Aarav Jain')->value('user_id');
+        DB::table('users')->where('id', $aarav)->update(['is_active' => 0]);
+        $five = DB::table('standards')->where('name', 'V')->value('id');
+        DB::table('student_details')->insert(['organization_id' => $this->org, 'full_name' => 'Ira Sen', 'admission_no' => 'ADM-5', 'standard_id' => $five]);
+
+        $names = fn (string $status) => IdCardExport::people($this->org, 'student', null, null, 'all', null, $status)->pluck('full_name')->sort()->values()->all();
+        $this->assertSame(['Zoya Khan'], $names('active'));
+        $this->assertSame(['Aarav Jain', 'Ira Sen'], $names('inactive'));
+        $this->assertSame(['Aarav Jain', 'Ira Sen', 'Zoya Khan'], $names('both'));
+        $this->assertSame(1, IdCardExport::count($this->org, 'student', null, null, 'all', 'active'));
+
+        // Staff by their own Active switch.
+        DB::table('admin_employees')->insert([
+            ['organization_id' => $this->org, 'name' => 'Mohan Lal', 'type' => 'management', 'is_active' => true],
+            ['organization_id' => $this->org, 'name' => 'Ramesh', 'type' => 'driver', 'is_active' => false],
+        ]);
+        $this->assertSame(['Mohan Lal'], IdCardExport::people($this->org, 'employee', status: 'active')->pluck('name')->all());
+        $this->assertSame(['Ramesh'], IdCardExport::people($this->org, 'employee', status: 'inactive')->pluck('name')->all());
+
+        // The panel: Active first; Inactive or Both changes the count and the file asked for.
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student');
+        $this->assertMatchesRegularExpression('#<strong[^>]*>1</strong> student\b#', $page->html());
+        $page->set('exportStatus', 'inactive');
+        $html = $page->html();
+        $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
+        $this->assertStringContainsString('status=inactive', $html);
+        $page->set('exportStatus', 'both');
+        $this->assertMatchesRegularExpression('#<strong[^>]*>3</strong> students#', $page->html());
+        $page->set('exportStatus', 'nonsense');
+        $this->assertSame('active', $page->get('exportStatus'));
+
+        // Over http, and the file of inactive students says so in its name.
+        $this->withoutMiddleware();
+        $job = $this->postJson(route('admin.id-card.export.start', [
+            'organization' => $this->org, 'type' => 'student', 'cols' => 'name,admission_no', 'status' => 'inactive',
+        ]))->assertOk()->json();
+        $this->assertSame(2, $job['people']);
+        $this->postJson(route('admin.id-card.export.start', ['organization' => $this->org, 'type' => 'student', 'status' => 'nobody']))
+            ->assertStatus(422);
+
+        [, $name, , $work] = IdCardExport::build($this->org, 'Delhi Public School', 'student', ['name'], null, null, 'all', 'xlsx', 0, 'inactive');
+        $this->assertSame('delhi-public-school_students_all_inactive_' . now()->format('Y-m-d') . '.xlsx', $name);
+        IdCardExport::cleanup($work);
     }
 }

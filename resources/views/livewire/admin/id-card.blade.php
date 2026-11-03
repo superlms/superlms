@@ -466,9 +466,17 @@
                                 @foreach ($exportSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                             </select>
                         @endif
+                        {{-- Active / inactive: as the Students, Teachers and Employees pages mark them. --}}
+                        <div class="inline-flex items-center rounded-md border border-gray-300 overflow-hidden text-sm" role="group" aria-label="Active or inactive">
+                            @foreach (['active' => 'Active', 'inactive' => 'Inactive', 'both' => 'Both'] as $st => $stLabel)
+                                <button type="button" wire:click="$set('exportStatus', '{{ $st }}')" wire:key="xst-{{ $st }}"
+                                    title="{{ $st === 'both' ? 'Active and inactive together' : $stLabel . ' ' . \Illuminate\Support\Str::plural($whoWord) . ' only' }}"
+                                    class="px-3 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-300' }} {{ $exportStatus === $st ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $stLabel }}</button>
+                            @endforeach
+                        </div>
                         <select wire:model.live="exportWhich"
                             class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            <option value="all">Everyone</option>
+                            <option value="all">With or without an ID card</option>
                             <option value="issued">With an ID card issued</option>
                             <option value="not_issued">Without an ID card yet</option>
                         </select>
@@ -502,6 +510,7 @@
                                     <p class="flex-1 min-w-0 text-sm text-gray-800 truncate">
                                         {{ $exportFields[$key] ?? $key }}
                                         @if ($key === 'photo')<span class="text-[11px] text-gray-400">· the picture, in its cell</span>@endif
+                                        @if ($key === 'photo_no')<span class="text-[11px] text-gray-400">· {{ $exportType === 'student' ? 'the admission number' : 'the employee ID' }}, to match each photo</span>@endif
                                         @if ($key === 'class' && $exportType === 'student')<span class="text-[11px] text-gray-400">· with the section's letter, "10 (A)"</span>@endif
                                     </p>
                                     <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">

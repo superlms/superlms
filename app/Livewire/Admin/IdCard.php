@@ -62,6 +62,8 @@ class IdCard extends Component
     /** A section, only while one class is picked. */
     public $exportSection        = '';
     public string $exportWhich   = 'all';   // all | issued | not_issued
+    /** Active, inactive or both (IdCardExport::STATUS); a card is for those still here, so Active first. */
+    public string $exportStatus  = 'active';
     public string $exportFormat  = 'xlsx';  // xlsx | zip
     /** The sheet's columns, first to last. */
     public array $exportColumns  = [];
@@ -360,6 +362,7 @@ class IdCard extends Component
         $this->exportStandards = [];
         $this->exportSection   = '';
         $this->exportWhich     = 'all';
+        $this->exportStatus    = 'active';
         $this->exportColumns   = [];
         $this->showExportPanel = true;
     }
@@ -401,6 +404,13 @@ class IdCard extends Component
     {
         if (!in_array($this->exportWhich, IdCardExport::WHICH, true)) {
             $this->exportWhich = 'all';
+        }
+    }
+
+    public function updatedExportStatus(): void
+    {
+        if (!in_array($this->exportStatus, IdCardExport::STATUS, true)) {
+            $this->exportStatus = 'active';
         }
     }
 
@@ -477,6 +487,7 @@ class IdCard extends Component
             'class'        => implode(',', $classes),
             'section'      => count($classes) === 1 ? $this->exportSection : null,
             'which'        => $this->exportWhich,
+            'status'       => $this->exportStatus,
             'format'       => $this->exportFormat,
         ], fn ($v) => $v !== null && $v !== ''));
     }
@@ -495,7 +506,7 @@ class IdCard extends Component
 
         return [
             'exportFields'   => IdCardExport::fields($this->exportType),
-            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich),
+            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich, $this->exportStatus),
             'exportSections' => $oneClass
                 ? \App\Models\Student\Section::where('standard_id', $oneClass)->orderBy('id')->get(['id', 'name'])
                 : collect(),

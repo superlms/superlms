@@ -48,6 +48,14 @@ class IdCardExport
 
     public const WHICH = ['all', 'issued', 'not_issued'];
 
+    /**
+     * Whose accounts: active, inactive, or both. A student or teacher is
+     * active as the Students and Teachers pages read it (their login's
+     * Active switch); staff by their own Active switch. One with no login
+     * at all counts as inactive, so active + inactive is always everyone.
+     */
+    public const STATUS = ['active', 'inactive', 'both'];
+
     /** Photo cell: the picture's height in px, and the row's height in points. */
     private const THUMB_PX  = 96;
     private const ROW_PT    = 78;
@@ -75,6 +83,7 @@ class IdCardExport
             'student' => [
                 'sr_no'               => 'Sr No',
                 'photo'               => 'Photo',
+                'photo_no'            => 'Photo No',
                 'name'                => 'Name',
                 'admission_no'        => 'Admission No',
                 'roll_no'             => 'Roll No',
@@ -106,6 +115,7 @@ class IdCardExport
             'teacher' => [
                 'sr_no'             => 'Sr No',
                 'photo'             => 'Photo',
+                'photo_no'          => 'Photo No',
                 'name'              => 'Name',
                 'employee_id'       => 'Employee ID',
                 'designation'       => 'Designation',
@@ -126,6 +136,7 @@ class IdCardExport
             default => [
                 'sr_no'        => 'Sr No',
                 'photo'        => 'Photo',
+                'photo_no'     => 'Photo No',
                 'name'         => 'Name',
                 'employee_id'  => 'Employee ID',
                 'designation'  => 'Designation',
@@ -141,16 +152,43 @@ class IdCardExport
 
     /**
      * The columns an export starts on (and Reset goes back to): what a card
-     * prints — for a student Sr No, Name, Class "V (A)", Father's and Mother's
-     * Name, Date of Birth, Address, Mobile and the Photo, in that order.
+     * prints — for a student Sr No, Name, Admission No, Class "V (A)", Father's
+     * and Mother's Name, Date of Birth, Address, Mobile, the Photo and its
+     * Photo No (the admission number, which the printer names the photo by),
+     * in that order.
      */
     public static function defaults(string $type): array
     {
         return match ($type) {
-            'student' => ['sr_no', 'name', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo'],
-            'teacher' => ['sr_no', 'name', 'designation', 'dob', 'address', 'phone', 'photo'],
-            default   => ['sr_no', 'name', 'designation', 'address', 'phone', 'photo'],
+            'student' => ['sr_no', 'name', 'admission_no', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo', 'photo_no'],
+            'teacher' => ['sr_no', 'name', 'designation', 'dob', 'address', 'phone', 'photo', 'photo_no'],
+            default   => ['sr_no', 'name', 'designation', 'address', 'phone', 'photo', 'photo_no'],
         };
+    }
+
+    /**
+     * Columns added to the card's own after a school may already have saved
+     * its pick (2026-11-03): Admission No after the name, Photo No after the
+     * photo. A pick saved before then gets them once; after that, what the
+     * school leaves out stays out.
+     */
+    private static function withNewColumns(string $type, array $columns): array
+    {
+        $insert = function (array $cols, string $key, string $after) {
+            if (in_array($key, $cols, true)) {
+                return $cols;
+            }
+            $at = array_search($after, $cols, true);
+            array_splice($cols, $at === false ? count($cols) : $at + 1, 0, [$key]);
+
+            return $cols;
+        };
+
+        if ($type === 'student') {
+            $columns = $insert($columns, 'admission_no', 'name');
+        }
+
+        return $insert($columns, 'photo_no', 'photo');
     }
 
     /** The kind's name as the sheet and the file name carry it. */
@@ -173,17 +211,23 @@ class IdCardExport
 
     // ── What the school picked, kept for the next export ────────────────────
 
-    private static function prefKey(int $orgId, string $type): string
+    private static function prefKey(int $orgId, string $type, int $version = 3): string
     {
         // v2: every school starts again on the card's own columns (defaults()).
-        return "id-card-export:v2:{$orgId}:{$type}";
+        // v3: a v2 pick is carried over with Admission No and Photo No added.
+        return "id-card-export:v{$version}:{$orgId}:{$type}";
     }
 
     public static function savedColumns(int $orgId, string $type): array
     {
         $saved = self::clean($type, (array) cache()->get(self::prefKey($orgId, $type), []));
+        if ($saved) {
+            return $saved;
+        }
 
-        return $saved ?: self::defaults($type);
+        $before = self::clean($type, (array) cache()->get(self::prefKey($orgId, $type, 2), []));
+
+        return $before ? self::withNewColumns($type, $before) : self::defaults($type);
     }
 
     public static function saveColumns(int $orgId, string $type, array $columns): void
@@ -215,13 +259,14 @@ class IdCardExport
      * The kind's people in the school — students of the classes picked (every
      * class when none; a section only when one class is picked) in class
      * order, A to Z within it; teachers and staff A to Z — narrowed to those
-     * holding an active ID card (issued) or holding none (not_issued).
+     * holding an active ID card (issued) or holding none (not_issued), and to
+     * active or inactive accounts (see STATUS).
      *
      * @param  int|string|int[]|null  $standards  see standardIds()
      */
-    public static function people(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null): Collection
+    public static function people(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null, string $status = 'both'): Collection
     {
-        $query = self::query($orgId, $type, $standards, $sectionId, $which);
+        $query = self::query($orgId, $type, $standards, $sectionId, $which, $status);
 
         if ($type === 'student') {
             // Class order, then section, then A to Z — worked out on the bare
@@ -247,13 +292,13 @@ class IdCardExport
     }
 
     /** How many people the export will have. */
-    public static function count(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all'): int
+    public static function count(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', string $status = 'both'): int
     {
-        return self::query($orgId, $type, $standards, $sectionId, $which)->count();
+        return self::query($orgId, $type, $standards, $sectionId, $which, $status)->count();
     }
 
-    /** The kind's people, narrowed by classes / section and by holding a card — unordered. */
-    private static function query(int $orgId, string $type, mixed $standards, ?int $sectionId, string $which)
+    /** The kind's people, narrowed by classes / section, by holding a card and by active or not — unordered. */
+    private static function query(int $orgId, string $type, mixed $standards, ?int $sectionId, string $which, string $status = 'both')
     {
         if ($type === 'student') {
             $classes = self::standardIds($standards);
@@ -275,6 +320,18 @@ class IdCardExport
             $query->whereIn('id', $cards);
         } elseif ($which === 'not_issued') {
             $query->whereNotIn('id', $cards);
+        }
+
+        if ($status === 'active' || $status === 'inactive') {
+            if ($type === 'employee') {
+                $status === 'active'
+                    ? $query->where('is_active', true)
+                    : $query->where(fn ($q) => $q->where('is_active', false)->orWhereNull('is_active'));
+            } else {
+                // Students and teachers: their login's Active switch, as their pages read it.
+                $active = fn ($q) => $q->where('is_active', 1);
+                $status === 'active' ? $query->whereHas('user', $active) : $query->whereDoesntHave('user', $active);
+            }
         }
 
         return $query;
@@ -377,6 +434,8 @@ class IdCardExport
                 $values = $common + [
                     'name'                => (string) ($p->full_name ?: ($p->user->name ?? '')),
                     'admission_no'        => (string) $p->admission_no,
+                    // The number the printer names the photo by: the admission number.
+                    'photo_no'            => (string) $p->admission_no,
                     'roll_no'             => (string) $p->roll_no,
                     // "V (A)": the class with its section's last letter, as a card prints it.
                     'class'               => self::classWithSection($class, $sec),
@@ -408,6 +467,7 @@ class IdCardExport
                 $values = $common + [
                     'name'              => (string) ($u->name ?? ''),
                     'employee_id'       => (string) $p->employee_id,
+                    'photo_no'          => (string) $p->employee_id,
                     'designation'       => 'Teacher',
                     'qualification'     => (string) $p->qualification,
                     'phone'             => (string) ($p->phone ?: ($u->mobile_number ?? '')),
@@ -426,6 +486,7 @@ class IdCardExport
                 $values = $common + [
                     'name'         => (string) $p->name,
                     'employee_id'  => 'EMP-' . $p->id,
+                    'photo_no'     => 'EMP-' . $p->id,
                     'designation'  => (string) $p->designation,
                     'staff_type'   => implode(', ', array_map('ucfirst', method_exists($p, 'types') ? $p->types() : [(string) $p->type])),
                     'phone'        => (string) $p->mobile,
@@ -449,9 +510,9 @@ class IdCardExport
      * to cleanup(). Fine for a class; the panel uses start() / step() instead,
      * so a whole school never runs into the gateway's time limit.
      */
-    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0): array
+    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0, string $status = 'both'): array
     {
-        $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format);
+        $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format, $status);
         do {
             $status = self::step($job['id'], $orgId, $userId, null);
         } while ($status && !$status['ready']);
@@ -465,13 +526,14 @@ class IdCardExport
      *
      * @return array{id: string, people: int, total: int}  total = photos to fetch
      */
-    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format): array
+    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, string $status = 'both'): array
     {
         self::clearStale();
 
         $format  = $format === 'zip' ? 'zip' : 'xlsx';
+        $status  = in_array($status, self::STATUS, true) ? $status : 'both';
         $columns = self::clean($type, $columns) ?: self::defaults($type);
-        $people  = self::people($orgId, $type, $standards, $sectionId, $which);
+        $people  = self::people($orgId, $type, $standards, $sectionId, $which, null, $status);
         $thumbs  = in_array('photo', $columns, true);
         $full    = $format === 'zip';
 
@@ -503,7 +565,9 @@ class IdCardExport
             'full'    => $full,
             'format'  => $format,
             'stem'    => Str::slug($schoolName ?: 'school') . '_' . Str::slug(self::label($type)) . '_'
-                . self::scope($orgId, $type, $standards, $sectionId) . '_' . now()->format('Y-m-d'),
+                . self::scope($orgId, $type, $standards, $sectionId)
+                // An export of inactive people says so in its name.
+                . ($status === 'inactive' ? '_inactive' : '') . '_' . now()->format('Y-m-d'),
             'next'    => 0,         // photos fetched so far
             'ready'   => false,
         ]);
