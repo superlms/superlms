@@ -6,7 +6,10 @@
 
         <!-- Left Side: dynamic illustration that follows the active step -->
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', ['variant' => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset')])
+            @include('partials.auth-illustration', [
+                'variant'  => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset'),
+                'animated' => true,
+            ])
         </div>
 
         <!-- Right Side (Form) -->
@@ -40,7 +43,7 @@
 
                     <button wire:click="submitEmail" wire:loading.attr="disabled"
                         :disabled="!email.trim()"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed mb-4">
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed mb-4">
                         <span wire:loading.remove wire:target="submitEmail">Send OTP</span>
                         <span wire:loading wire:target="submitEmail">Sending…</span>
                     </button>
@@ -57,7 +60,7 @@
             @if ($step === 'otp')
                 <div class="text-center mb-6">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code we sent you</p>
+                    <p class="text-gray-500 mt-1 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>
 
                 <div class="w-full max-w-sm">
@@ -74,16 +77,19 @@
                                     this.$refs['otp' + (index - 1)].focus();
                                 }
                             }
-                        }" class="flex justify-center gap-2 sm:gap-3 mb-4">
+                        }"
+                        @error('otp') data-invalid @enderror
+                        x-on:input="$el.removeAttribute('data-invalid')"
+                        class="sa-otp flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
                                 x-model="otp[{{ $i }}]"
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
-                                inputmode="numeric" aria-label="Digit {{ $i + 1 }}"
-                                class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
-                                       focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                                inputmode="numeric" autocomplete="one-time-code" aria-label="Digit {{ $i + 1 }}"
+                                :class="{ 'is-filled': String(otp[{{ $i }}] ?? '') !== '' }"
+                                class="sa-otp-box w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-xl"
                                 @if ($i === 0) autofocus @endif>
                         @endfor
                     </div>
@@ -95,7 +101,7 @@
                     <x-otp-lockout :until="$otpLockedUntil" />
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify OTP</span>
                         <span wire:loading wire:target="verifyOtp">Verifying…</span>
                     </button>
@@ -236,7 +242,7 @@
 
                     <button wire:click="resetPassword" wire:loading.attr="disabled"
                         :disabled="!filled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="resetPassword">Reset Password</span>
                         <span wire:loading wire:target="resetPassword">Resetting…</span>
                     </button>

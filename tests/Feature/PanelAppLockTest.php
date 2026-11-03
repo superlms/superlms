@@ -452,7 +452,7 @@ class PanelAppLockTest extends TestCase
         $app = $this->app('superadmin')->call('opened', 'closed')
             ->assertSet('step', 'otp')
             ->assertSet('otpOnWhatsApp', true)
-            ->assertSee('sent to your email and WhatsApp');
+            ->assertSee('We have sent an OTP to your email address and primary registered mobile number');
         $wa = $sentOnWhatsApp();
         $this->assertCount(1, $wa);
         $this->assertSame('918864985914', $wa[0]['to']);

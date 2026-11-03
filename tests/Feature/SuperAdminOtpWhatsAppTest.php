@@ -217,7 +217,7 @@ class SuperAdminOtpWhatsAppTest extends TestCase
             ->call('login')
             ->assertSet('step', 'otp')
             ->assertHasNoErrors()
-            ->assertSee('Enter the 6-digit code we sent you')
+            ->assertSee('We have sent an OTP to your email address and primary registered mobile number')
             ->assertDontSee('5914')
             ->assertDontSee('8050');
 

@@ -2,10 +2,13 @@
      (radius 100px), the field's name sitting on the top border, soft grey
      while empty and blue once something is typed — no extra ring while
      typing; red with its own message when that field is wrong, until it is
-     typed in again. (The OTP boxes keep their own look.)
+     typed in again. The OTP boxes carry the same thin border and colours.
+     Every button on these pages is a pill too (rounded-full).
 
      .sa-field   wrapper; .is-filled (Alpine) once it has a value,
-                 [data-invalid] (server) while its error stands --}}
+                 [data-invalid] (server) while its error stands
+     .sa-otp     the row of code boxes; [data-invalid] while the code's error
+                 stands. Each box: .sa-otp-box, .is-filled once it has a digit --}}
 <style>
     .sa-field { position: relative; margin-top: .5rem; }
     .sa-field input {
@@ -39,4 +42,13 @@
     .sa-eye:hover { color: #4b5563; }
 
     .sa-field-error { margin: .375rem 0 0 1.375rem; font-size: .75rem; line-height: 1.35; color: #dc2626; }
+
+    /* OTP boxes: the fields' 1.5px border instead of a heavy 2px one. */
+    .sa-otp-box {
+        border: 1.5px solid #9ca3af; background: #fff; color: #111827;
+        outline: none; box-shadow: none; transition: border-color .15s;
+    }
+    .sa-otp-box:focus { border-color: #2563eb; outline: none; box-shadow: none; }
+    .sa-otp-box.is-filled { border-color: #2563eb; }
+    .sa-otp[data-invalid] .sa-otp-box { border-color: #dc2626; }
 </style>

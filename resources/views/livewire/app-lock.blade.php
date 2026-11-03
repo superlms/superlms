@@ -18,9 +18,19 @@
             'focus'  => 'focus:ring-violet-500 focus:border-violet-500',
             'spin'   => 'border-violet-200 border-t-violet-600',
         ];
+
+    // The Super Admin app looks like the Super Admin login: thin code boxes,
+    // pill buttons, moving art. A super admin's code (this app, or a school's
+    // app opened on it) goes by email and to the primary mobile number.
+    $sa        = $panel === 'superadmin';
+    $superCode = $sa || $viaSuperAdmin;
 @endphp
 
 <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
+    @if ($sa)
+        @include('partials.super-admin-auth-fields')
+    @endif
+
     {{-- This page waits for a code; the layout's background refresh (a silent
          GET of the page every few seconds) has nothing to show here, and a
          request of its in flight while the code is checked could write the
@@ -68,7 +78,7 @@
 
         <!-- Left Side: illustration -->
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br {{ $c['side'] }} flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', ['variant' => 'otp', 'scheme' => $green ? 'emerald' : 'violet'])
+            @include('partials.auth-illustration', ['variant' => 'otp', 'scheme' => $green ? 'emerald' : 'violet', 'animated' => $sa])
         </div>
 
         <!-- Right Side -->
@@ -97,7 +107,11 @@
                     x-on:focus.window="look()"
                     x-on:visibilitychange.document="document.hidden || look()">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
+                    @if ($superCode)
+                        <p class="text-gray-500 mt-1 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    @else
+                        <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
+                    @endif
                     <p class="{{ $c['text'] }} text-sm font-medium mt-1">{{ $otpSentTo }}</p>
                 </div>
 
@@ -126,16 +140,25 @@
                             }
                         }"
                         x-init="$watch('otp', () => { if (!allFilled()) submitting = false; }); $nextTick(() => $refs.otp0.focus())"
-                        class="flex justify-center gap-2 sm:gap-3 mb-4">
+                        @if ($sa)
+                            @error('otp') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid')"
+                        @endif
+                        class="{{ $sa ? 'sa-otp ' : '' }}flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
                                 x-model="otp[{{ $i }}]"
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
-                                inputmode="numeric"
-                                class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
-                                       focus:outline-none focus:ring-2 {{ $c['focus'] }} transition-all"
+                                inputmode="numeric" autocomplete="one-time-code" aria-label="Digit {{ $i + 1 }}"
+                                @if ($sa)
+                                    :class="{ 'is-filled': String(otp[{{ $i }}] ?? '') !== '' }"
+                                    class="sa-otp-box w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-xl"
+                                @else
+                                    class="w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 border-slate-200 rounded-xl
+                                           focus:outline-none focus:ring-2 {{ $c['focus'] }} transition-all"
+                                @endif
                                 @if ($i === 0) autofocus @endif>
                         @endfor
                     </div>
@@ -147,7 +170,7 @@
                     <x-otp-lockout :until="$otpLockedUntil" />
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 {{ $c['button'] }} text-white font-medium rounded-xl transition duration-200 disabled:opacity-60 mb-4">
+                        class="w-full py-3 {{ $c['button'] }} text-white font-medium {{ $sa ? 'rounded-full' : 'rounded-xl' }} transition duration-200 disabled:opacity-60 mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify &amp; Open</span>
                         <span wire:loading wire:target="verifyOtp">Verifying…</span>
                     </button>
