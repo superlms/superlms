@@ -6,6 +6,7 @@ use App\Models\AcademicSession;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 
@@ -209,6 +210,13 @@ class Session extends Component
 
         $session->delete();
         $this->notification()->success('Session deleted', "{$session->name} is removed.");
+    }
+
+    /** The top bar's switcher made another session current: show it. */
+    #[On('academic-session-changed')]
+    public function sessionSwitched(): void
+    {
+        // Re-rendering is all it takes.
     }
 
     public function closePanel(): void

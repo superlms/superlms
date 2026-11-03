@@ -27,6 +27,12 @@ class AcademicSession extends Model
         return rescue(fn () => static::where('is_current', true)->first(), null, false);
     }
 
+    /** Every session, newest first — the top bar's session switcher (empty before the table is there). */
+    public static function switchable(): \Illuminate\Support\Collection
+    {
+        return rescue(fn () => static::orderByDesc('starts_on')->get(), collect(), false);
+    }
+
     /**
      * What the top bar shows: the current session's name; with none set, the
      * year it always showed — this year and the next ("2026–27").

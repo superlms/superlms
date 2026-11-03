@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Components\NavBar;
 use App\Livewire\SuperAdmin\QuickLinks;
 use App\Livewire\SuperAdmin\Session as SessionPage;
 use App\Models\AcademicSession;
@@ -164,16 +165,48 @@ class SuperAdminSessionTest extends TestCase
         $this->assertTrue(AcademicSession::sole()->is_current);
     }
 
+    public function test_the_top_bar_switches_the_current_session_for_those_allowed(): void
+    {
+        $this->migrate();
+        $first = AcademicSession::sole();
+        $this->usersTable();
+        $this->actingAs(User::forceCreate(['name' => 'Main', 'email' => 'superlms.india@gmail.com', 'role' => 'super-admin']));
+
+        // One session: the badge only, no switcher.
+        Livewire::test(NavBar::class)->assertSee($first->name)->assertDontSee('Manage sessions');
+
+        $next = AcademicSession::create(['name' => $this->label($this->year + 1), 'starts_on' => ($this->year + 1) . '-04-01', 'ends_on' => ($this->year + 2) . '-03-31']);
+
+        Livewire::test(NavBar::class)
+            ->assertSee('Manage sessions')
+            ->call('switchSession', $next->id)
+            ->assertDispatched('academic-session-changed');
+        $this->assertSame($next->name, AcademicSession::currentLabel());
+
+        // A sub super-admin without Session granted sees no switcher and can't switch.
+        $this->actingAs(User::forceCreate(['name' => 'Sub', 'email' => 'sub@example.com', 'role' => 'sub-super-admin', 'permissions' => ['super-admin.documents']]));
+        Livewire::test(NavBar::class)
+            ->assertDontSee('Manage sessions')
+            ->call('switchSession', $first->id)
+            ->assertNotDispatched('academic-session-changed');
+        $this->assertSame($next->name, AcademicSession::currentLabel());
+    }
+
+    private function usersTable(): void
+    {
+        Schema::create('users', function (Blueprint $t) {
+            $t->id(); $t->string('name'); $t->string('email')->nullable(); $t->string('role')->nullable();
+            $t->string('password')->nullable(); $t->text('permissions')->nullable(); $t->boolean('is_active')->default(true); $t->timestamps();
+        });
+    }
+
     public function test_session_comes_right_after_documents_in_the_menu_and_on_quick_links(): void
     {
         $this->migrate();
         $links = array_column(config('menu.super-admin'), 'link');
         $this->assertSame('super-admin.sessions', $links[array_search('super-admin.documents', $links, true) + 1]);
 
-        Schema::create('users', function (Blueprint $t) {
-            $t->id(); $t->string('name'); $t->string('email')->nullable(); $t->string('role')->nullable();
-            $t->string('password')->nullable(); $t->text('permissions')->nullable(); $t->timestamps();
-        });
+        $this->usersTable();
         $this->actingAs(User::forceCreate(['name' => 'Main', 'email' => 'superlms.india@gmail.com', 'role' => 'super-admin']));
 
         $tiles = Livewire::test(QuickLinks::class)->get('links');

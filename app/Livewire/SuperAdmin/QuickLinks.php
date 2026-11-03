@@ -15,7 +15,8 @@ class QuickLinks extends Component
     {
         $configLinks = config('menu.super-admin');
 
-        // One quiet look for every tile (the view's): no colour per tile.
+        // Each tile's soft tint follows its menu position ('order'), so it
+        // stays the same in either sort (the view picks it).
         $user = auth()->user();
 
         // Sub-super-admins only see tiles for the functionalities granted to

@@ -212,21 +212,6 @@
                         @foreach ($errors->get('password') as $message)
                             <p class="sa-field-error">{{ $message }}</p>
                         @endforeach
-
-                        {{-- Live: every rule, green once met. After a try: only the unmet ones, red. --}}
-                        <div class="sa-rules" x-show="String(password ?? '') !== '' && (!tried || unmet.length > 0)"
-                            x-transition.opacity.duration.200ms style="display: none">
-                            <template x-for="rule in (tried ? unmet : rules)" :key="rule.label">
-                                <p class="sa-rule" :class="rule.ok ? 'is-ok' : (tried ? 'is-bad' : '')">
-                                    <span class="sa-rule-ico">
-                                        <svg x-show="rule.ok" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                        <svg x-show="!rule.ok && tried" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        <span x-show="!rule.ok && !tried" class="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                    </span>
-                                    <span x-text="rule.label"></span>
-                                </p>
-                            </template>
-                        </div>
                     </div>
 
                     {{-- Confirm Password --}}
@@ -249,6 +234,22 @@
                             </button>
                         </div>
                         @error('password_confirmation') <p class="sa-field-error">{{ $message }}</p> @enderror
+
+                        {{-- The new password's rules, under both fields — live: every
+                             rule, green once met; after a try: only the unmet ones, red. --}}
+                        <div class="sa-rules" x-show="String(password ?? '') !== '' && (!tried || unmet.length > 0)"
+                            x-transition.opacity.duration.200ms style="display: none">
+                            <template x-for="rule in (tried ? unmet : rules)" :key="rule.label">
+                                <p class="sa-rule" :class="rule.ok ? 'is-ok' : (tried ? 'is-bad' : '')">
+                                    <span class="sa-rule-ico">
+                                        <svg x-show="rule.ok" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        <svg x-show="!rule.ok && tried" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        <span x-show="!rule.ok && !tried" class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                    </span>
+                                    <span x-text="rule.label"></span>
+                                </p>
+                            </template>
+                        </div>
                     </div>
 
                     <button type="button" x-on:click="submit()" wire:loading.attr="disabled"
