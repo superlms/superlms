@@ -9,6 +9,8 @@
             @include('partials.auth-illustration', [
                 'variant'  => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset'),
                 'animated' => true,
+                'headingClass'  => 'sa-title',
+                'subtitleClass' => 'sa-sub',
             ])
         </div>
 
@@ -24,8 +26,8 @@
             {{-- ========== STEP 1: EMAIL ========== --}}
             @if ($step === 'email')
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Forgot Password?</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Enter your email to receive an OTP</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Forgot Password?</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Enter your registered email address and we'll send you an OTP to reset your password</p>
                 </div>
 
                 <div class="w-full max-w-sm" x-data="{ email: @entangle('email') }">
@@ -50,7 +52,7 @@
 
                     <div class="text-center">
                         <a href="{{ route('super-admin.login') }}" class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
-                            ← Back to login
+                            Back to login
                         </a>
                     </div>
                 </div>
@@ -59,8 +61,8 @@
             {{-- ========== STEP 2: OTP ========== --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Verify OTP</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>
 
                 <div class="w-full max-w-sm">
@@ -148,7 +150,7 @@
                     <div class="text-center mt-3">
                         <button wire:click="changeEmail"
                             class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
-                            ← Change Email
+                            Change Email
                         </button>
                     </div>
                 </div>
@@ -157,8 +159,8 @@
             {{-- ========== STEP 3: NEW PASSWORD ========== --}}
             @if ($step === 'password')
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Set New Password</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Create a strong password for your account</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Set New Password</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Create a strong password for your account</p>
                 </div>
 
                 <div class="w-full max-w-sm" x-data="{
@@ -249,7 +251,7 @@
 
                     <div class="text-center mt-4">
                         <a href="{{ route('super-admin.login') }}" class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
-                            ← Back to login
+                            Back to login
                         </a>
                     </div>
                 </div>

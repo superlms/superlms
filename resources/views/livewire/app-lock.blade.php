@@ -78,7 +78,13 @@
 
         <!-- Left Side: illustration -->
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br {{ $c['side'] }} flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', ['variant' => 'otp', 'scheme' => $green ? 'emerald' : 'violet', 'animated' => $sa])
+            @include('partials.auth-illustration', [
+                'variant'       => 'otp',
+                'scheme'        => $green ? 'emerald' : 'violet',
+                'animated'      => $sa,
+                'headingClass'  => $sa ? 'sa-title' : '',
+                'subtitleClass' => $sa ? 'sa-sub' : '',
+            ])
         </div>
 
         <!-- Right Side -->
@@ -95,7 +101,7 @@
                 <div class="text-center" wire:key="app-lock-checking"
                     x-data x-init="window.lmsPanelOpen(@js($openNames), state => $wire.opened(state))">
                     <div class="mx-auto mb-5 h-9 w-9 rounded-full border-4 {{ $c['spin'] }} animate-spin"></div>
-                    <h1 class="text-xl font-bold text-gray-800">Opening SuperLMS…</h1>
+                    <h1 class="{{ $sa ? 'sa-title' : 'font-bold text-gray-800' }} text-xl">Opening SuperLMS…</h1>
                     <p class="text-gray-500 mt-1 text-sm">Just a moment</p>
                 </div>
             @endif
@@ -106,9 +112,9 @@
                     x-data="{ look() { window.lmsPanelOpen(@js($openNames), state => state === 'running' && $wire.recheck(state)) } }"
                     x-on:focus.window="look()"
                     x-on:visibilitychange.document="document.hidden || look()">
-                    <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
+                    <h1 class="{{ $sa ? 'sa-title md:text-3xl' : 'font-bold text-gray-800' }} text-2xl">Verify OTP</h1>
                     @if ($superCode)
-                        <p class="text-gray-500 mt-1 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                        <p class="{{ $sa ? 'sa-sub mt-2' : 'mt-1' }} text-gray-500 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                     @else
                         <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
                     @endif

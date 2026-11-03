@@ -8,8 +8,25 @@
      .sa-field   wrapper; .is-filled (Alpine) once it has a value,
                  [data-invalid] (server) while its error stands
      .sa-otp     the row of code boxes; [data-invalid] while the code's error
-                 stands. Each box: .sa-otp-box, .is-filled once it has a digit --}}
+                 stands. Each box: .sa-otp-box, .is-filled once it has a digit
+     .sa-title   a screen's heading (and the picture's caption): Plus Jakarta
+                 Sans, semibold — softer than a heavy bold
+     .sa-sub     the line under a heading: at most two lines, both about as
+                 long, with room at the sides --}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap">
 <style>
+    .sa-title {
+        font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+        font-weight: 600; letter-spacing: -0.025em; color: #1f2937;
+    }
+    .sa-sub {
+        max-width: 19rem; margin-left: auto; margin-right: auto;
+        line-height: 1.5; text-wrap: balance;
+        max-height: 3em; overflow: hidden; /* never a third line */
+    }
+
     .sa-field { position: relative; margin-top: .5rem; }
     .sa-field input {
         width: 100%; height: 3.25rem; padding: 0 1.375rem;

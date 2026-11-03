@@ -256,6 +256,8 @@
             </svg>
     @endswitch
 
-    <h2 class="mt-6 text-lg font-semibold text-gray-800">{{ $caption[0] }}</h2>
-    <p class="mt-1 text-sm text-gray-500">{{ $subtitle }}</p>
+    {{-- $headingClass / $subtitleClass: a panel's own heading font and
+         two-line subtitle (the Super Admin passes sa-title / sa-sub). --}}
+    <h2 class="mt-6 text-lg font-semibold text-gray-800 {{ $headingClass ?? '' }}">{{ $caption[0] }}</h2>
+    <p class="mt-1 text-sm text-gray-500 {{ $subtitleClass ?? '' }}">{{ $subtitle }}</p>
 </div>

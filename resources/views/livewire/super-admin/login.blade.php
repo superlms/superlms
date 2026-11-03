@@ -11,8 +11,10 @@
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
             @include('partials.auth-illustration', [
                 'variant'  => $step === 'otp' ? 'otp' : 'login',
-                'subtitle' => $step === 'otp' ? null : 'Sign in to manage your Admin panel',
+                'subtitle' => $step === 'otp' ? null : 'Sign in to manage schools, users and settings across your SuperLMS Admin panel',
                 'animated' => true,
+                'headingClass'  => 'sa-title',
+                'subtitleClass' => 'sa-sub',
             ])
         </div>
 
@@ -35,8 +37,8 @@
             {{-- ── STEP 1: Credentials ── --}}
             @if ($step === 'credentials')
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Super Admin Login</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Login to continue to your dashboard</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Super Admin Login</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Enter your registered email and password to access your SuperLMS admin panel</p>
                 </div>
 
                 <div class="w-full max-w-sm" x-data="{ email: @entangle('email'), password: @entangle('password'), showPass: false }">
@@ -97,8 +99,8 @@
             {{-- ── STEP 2: OTP Verification ── --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-1 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Verify OTP</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>
 
                 <div class="w-full max-w-sm">
@@ -196,7 +198,7 @@
                     <div class="text-center mt-3">
                         <button wire:click="backToLogin"
                             class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
-                            ← Back to login
+                            Back to login
                         </button>
                     </div>
                 </div>
