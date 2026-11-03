@@ -27,9 +27,11 @@
        instead of the browser's wide one.
      Expanded on md+, the logo sits 28px higher (up beside the menu button,
      which stays on top and clickable) and is 56px instead of 72px, so the
-     menu gets more room. --}}
+     menu gets more room; and the expanded menu is a little narrower than the
+     layout's 253px (224px), giving the page more width. --}}
 <style>
     @media (min-width: 768px) {
+        html.sidebar-expanded { --lms-sb: 224px; }
         html.sidebar-expanded .lms-sa-rail .lms-topbar { position: relative; z-index: 1; }
         html.sidebar-expanded .lms-sa-rail .lms-logo-wrap { margin-top: -1.75rem; }
         html.sidebar-expanded .lms-sa-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
