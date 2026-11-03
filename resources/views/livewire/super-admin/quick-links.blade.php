@@ -50,16 +50,18 @@
         </div>
     </div>
 
-    {{-- ─── 6 × 5 grid (up to 30 screens) — rows stretch to fill the area so it never scrolls ─── --}}
+    {{-- ─── 6 × 5 grid (up to 30 screens) — rows stretch to fill the area so it never scrolls.
+         Minimal: white tiles, one neutral icon chip for all; the brand violet
+         only on the tile under the pointer. ─── --}}
     <div class="flex-1 min-h-0 p-3 sm:p-4 flex flex-col">
         <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 md:grid-rows-5 md:auto-rows-fr gap-2.5 sm:gap-3 flex-1 min-h-0">
             @foreach ($orderedLinks as $link)
                 <a href="{{ route($link['route']) }}" wire:key="ql-{{ $link['route'] }}"
-                   class="group flex flex-col items-center justify-center text-center gap-2 p-2 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200 transition-all duration-200">
-                    <div class="w-10 h-10 rounded-lg bg-{{ $link['color'] }}-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                        <x-icon name="{{ $link['icon'] }}" class="w-5 h-5 text-{{ $link['color'] }}-600" />
+                   class="group flex flex-col items-center justify-center text-center gap-2 p-2 rounded-xl bg-white border border-gray-200/80 hover:border-violet-200 hover:shadow-[0_6px_16px_-10px_rgba(124,58,237,0.45)] hover:-translate-y-0.5 transition-all duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center group-hover:bg-violet-50 group-hover:ring-violet-100 transition-colors duration-200">
+                        <x-icon name="{{ $link['icon'] }}" class="w-5 h-5 text-gray-500 group-hover:text-violet-600 transition-colors duration-200" />
                     </div>
-                    <span class="text-xs font-semibold text-gray-700 group-hover:text-gray-900 leading-tight transition-colors">{{ $link['title'] }}</span>
+                    <span class="text-xs font-medium text-gray-600 group-hover:text-gray-900 leading-tight transition-colors">{{ $link['title'] }}</span>
                 </a>
             @endforeach
         </div>

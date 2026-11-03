@@ -38,12 +38,22 @@
                             Welcome! SuperLMS Admin
                         @endif
                     </h2>
-                    <span
-                        class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50
-                                     text-blue-600 border border-blue-100 whitespace-nowrap">
-                        @php $year = now()->year; @endphp
-                        {{ $year }}–{{ ($year + 1) % 100 }}
-                    </span>
+                    {{-- The current academic session (Super Admin → Session); a
+                         super admin who may open that page gets there from here. --}}
+                    @php
+                        $sessionLabel = \App\Models\AcademicSession::currentLabel();
+                        $sessionLink  = in_array(auth()->user()->role, ['super-admin', 'sub-super-admin'])
+                            && auth()->user()->canAccessSuperAdminRoute('super-admin.sessions');
+                    @endphp
+                    @if ($sessionLink)
+                        <a href="{{ route('super-admin.sessions') }}" title="Current session — change it on Session"
+                            class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100
+                                   whitespace-nowrap hover:bg-blue-100 hover:border-blue-200 transition-colors">{{ $sessionLabel }}</a>
+                    @else
+                        <span title="Current session"
+                            class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50
+                                         text-blue-600 border border-blue-100 whitespace-nowrap">{{ $sessionLabel }}</span>
+                    @endif
                 </div>
             </div>
 
@@ -186,37 +196,132 @@
             </div>
 
             {{-- ── RIGHT — Actions ── --}}
-            <div class="flex items-center gap-1.5 flex-shrink-0">
+            @php $saBar = in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']); @endphp
+            @if ($saBar)
+                {{-- The super admin's top-bar buttons: each its own colour,
+                     lifting with a soft glow on hover, its icon acting out what
+                     it does (the bell rings — on its own every few seconds while
+                     something is unread —, Profile hops, Logout nudges out), a
+                     label underneath, and Super Assist inside a slowly turning
+                     colour ring. Still for people who ask for reduced motion. --}}
+                <style>
+                    .sa-tb {
+                        --c: #6b7280; --bg: #f9fafb; --ring: #e5e7eb; --glow: rgba(107, 114, 128, .35);
+                        position: relative; display: inline-flex; align-items: center; justify-content: center;
+                        width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+                        background: #fff; border: 1px solid #e5e7eb; color: var(--c);
+                        transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s, background-color .2s, border-color .2s;
+                    }
+                    .sa-tb:hover { transform: translateY(-2px); background: var(--bg); border-color: var(--ring); box-shadow: 0 8px 16px -8px var(--glow); }
+                    .sa-tb:active { transform: translateY(0) scale(.94); }
+                    .sa-tb:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+                    .sa-tb-ico { width: 1.125rem; height: 1.125rem; }
+
+                    .sa-tb--bell { --c: #d97706; --bg: #fffbeb; --ring: #fcd34d; --glow: rgba(217, 119, 6, .5); }
+                    .sa-tb--user { --c: #7c3aed; --bg: #f5f3ff; --ring: #c4b5fd; --glow: rgba(124, 58, 237, .45); }
+                    .sa-tb--out  { --c: #e11d48; --bg: #fff1f2; --ring: #fda4af; --glow: rgba(225, 29, 72, .45); }
+
+                    .sa-tb--bell .sa-tb-ico { transform-origin: 50% 12%; }
+                    .sa-tb--bell:hover .sa-tb-ico { animation: sa-tb-ring 1s ease-in-out; }
+                    .sa-tb--bell.has-unread .sa-tb-ico { animation: sa-tb-ring-idle 4s ease-in-out infinite; }
+                    .sa-tb--user:hover .sa-tb-ico { animation: sa-tb-hop .6s ease; }
+                    .sa-tb--out:hover .sa-tb-ico { animation: sa-tb-nudge .9s ease-in-out infinite; }
+
+                    .sa-tb--ai { border-color: transparent; background: transparent; isolation: isolate; --glow: rgba(139, 92, 246, .5); }
+                    .sa-tb--ai::before {
+                        content: ''; position: absolute; inset: -1px; border-radius: inherit; z-index: -2;
+                        background: conic-gradient(#8b5cf6, #ec4899, #f59e0b, #22d3ee, #8b5cf6);
+                        animation: sa-tb-spin 6s linear infinite;
+                    }
+                    .sa-tb--ai::after { content: ''; position: absolute; inset: 1.5px; border-radius: inherit; background: #fff; z-index: -1; }
+                    .sa-tb--ai:hover { background: transparent; }
+                    .sa-tb--ai img { transition: transform .3s cubic-bezier(.2, .8, .2, 1); }
+                    .sa-tb--ai:hover img { transform: rotate(-12deg) scale(1.12); }
+
+                    .sa-tb-badge {
+                        position: absolute; top: -.25rem; right: -.25rem; min-width: 18px; height: 18px; padding: 0 .25rem;
+                        border-radius: 9999px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700;
+                        display: flex; align-items: center; justify-content: center; pointer-events: none;
+                        box-shadow: 0 0 0 2px #fff; z-index: 1; isolation: isolate;
+                    }
+                    .sa-tb-badge::before {
+                        content: ''; position: absolute; inset: 0; border-radius: inherit; background: #ef4444; z-index: -1;
+                        animation: sa-tb-ping 1.8s cubic-bezier(0, 0, .2, 1) infinite;
+                    }
+
+                    .sa-tip {
+                        position: absolute; top: calc(100% + 8px); left: 50%; transform: translate(-50%, -4px);
+                        padding: 3px 8px; border-radius: 6px; background: #111827; color: #fff;
+                        font-size: 11px; font-weight: 500; line-height: 1.4; white-space: nowrap;
+                        opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 70;
+                    }
+                    .sa-tb:hover .sa-tip, .sa-tb:focus-visible .sa-tip { opacity: 1; transform: translate(-50%, 0); }
+                    .sa-tip--end { left: auto; right: 0; transform: translateY(-4px); }
+                    .sa-tb:hover .sa-tip--end, .sa-tb:focus-visible .sa-tip--end { transform: translateY(0); }
+
+                    @keyframes sa-tb-spin  { to { transform: rotate(360deg); } }
+                    @keyframes sa-tb-ring  { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-14deg); } 45% { transform: rotate(10deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } }
+                    @keyframes sa-tb-ring-idle { 0%, 70%, 100% { transform: rotate(0); } 74% { transform: rotate(16deg); } 78% { transform: rotate(-14deg); } 82% { transform: rotate(10deg); } 86% { transform: rotate(-6deg); } 90% { transform: rotate(3deg); } }
+                    @keyframes sa-tb-hop   { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-3px) scale(1.1); } 70% { transform: translateY(0) scale(.96); } }
+                    @keyframes sa-tb-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+                    @keyframes sa-tb-ping  { 0% { transform: scale(1); opacity: .55; } 75%, 100% { transform: scale(2); opacity: 0; } }
+
+                    @media (prefers-reduced-motion: reduce) {
+                        .sa-tb, .sa-tb *, .sa-tb::before, .sa-tb-badge::before { animation: none !important; transition: none !important; }
+                    }
+                </style>
+            @endif
+            <div class="flex items-center {{ $saBar ? 'gap-2' : 'gap-1.5' }} flex-shrink-0">
                 {{-- LMS assistant. The panel itself lives in the global
                      components.gemini-assistant component at the end of the
                      layout; this only flips it open, via a browser event, so
                      opening it costs no server round-trip. --}}
                 @if ($assistantEnabled)
-                    <button type="button" x-on:click="$dispatch('gemini-toggle')"
-                        title="Super Assist"
-                        aria-label="Super Assist"
-                        class="h-9 w-9 rounded-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-colors">
-                        <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
-                            width="20" height="20" class="w-5 h-5 object-contain">
-                    </button>
+                    @if ($saBar)
+                        <button type="button" x-on:click="$dispatch('gemini-toggle')" aria-label="Super Assist" class="sa-tb sa-tb--ai">
+                            <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
+                                width="20" height="20" class="w-5 h-5 object-contain">
+                            <span class="sa-tip">Super Assist</span>
+                        </button>
+                    @else
+                        <button type="button" x-on:click="$dispatch('gemini-toggle')"
+                            title="Super Assist"
+                            aria-label="Super Assist"
+                            class="h-9 w-9 rounded-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-colors">
+                            <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
+                                width="20" height="20" class="w-5 h-5 object-contain">
+                        </button>
+                    @endif
                 @endif
 
                 <div class="relative inline-flex" wire:poll.60s>
-                    <x-button rounded class="h-9 w-9 bg-white" icon="bell-alert" outline
-                        wire:click="$toggle('showNotifications')" />
-                    @if (($unreadNotifications ?? 0) > 0)
-                        <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
+                    @if ($saBar)
+                        <button type="button" wire:click="$toggle('showNotifications')" aria-label="Notifications"
+                            class="sa-tb sa-tb--bell {{ ($unreadNotifications ?? 0) > 0 ? 'has-unread' : '' }}">
+                            <x-icon name="bell-alert" class="sa-tb-ico" />
+                            @if (($unreadNotifications ?? 0) > 0)
+                                <span class="sa-tb-badge">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
+                            @endif
+                            <span class="sa-tip">Notifications</span>
+                        </button>
+                    @else
+                        <x-button rounded class="h-9 w-9 bg-white" icon="bell-alert" outline
+                            wire:click="$toggle('showNotifications')" />
+                        @if (($unreadNotifications ?? 0) > 0)
+                            <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
+                        @endif
                     @endif
                 </div>
 
                 {{-- The super admin's Profile, back on the top bar just before
                      Logout (2026-11-01): OTP numbers, platform logo and details
                      live there. Admin/sub-admin reach Profile from More,
-                     accounts from the sidebar. Drawn with the same
-                     button as the bell and Logout beside it. --}}
-                @if (in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']))
-                    <x-button rounded class="h-9 w-9 bg-white" icon="user" outline
-                        href="{{ route('super-admin.profile') }}" title="Profile" aria-label="Profile" />
+                     accounts from the sidebar. --}}
+                @if ($saBar)
+                    <a href="{{ route('super-admin.profile') }}" aria-label="Profile" class="sa-tb sa-tb--user">
+                        <x-icon name="user" class="sa-tb-ico" />
+                        <span class="sa-tip">Profile</span>
+                    </a>
                 @endif
 
                 @if (in_array(auth()->user()->role, ['accounts', 'admin', 'sub-admin']))
@@ -230,8 +335,15 @@
                     </div>
                 @endif
 
-                <x-button rounded class="h-9 w-9 bg-white" icon="arrow-right-on-rectangle" outline
-                    wire:click="confirmLogout" />
+                @if ($saBar)
+                    <button type="button" wire:click="confirmLogout" aria-label="Logout" class="sa-tb sa-tb--out">
+                        <x-icon name="arrow-right-on-rectangle" class="sa-tb-ico" />
+                        <span class="sa-tip sa-tip--end">Logout</span>
+                    </button>
+                @else
+                    <x-button rounded class="h-9 w-9 bg-white" icon="arrow-right-on-rectangle" outline
+                        wire:click="confirmLogout" />
+                @endif
             </div>
 
         </div>

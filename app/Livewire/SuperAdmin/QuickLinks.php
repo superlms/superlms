@@ -15,12 +15,7 @@ class QuickLinks extends Component
     {
         $configLinks = config('menu.super-admin');
 
-        // Stable palette — colour stays tied to a tile's title regardless of sort.
-        $colors = [
-            'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose',
-            'red', 'orange', 'amber', 'lime', 'green', 'teal', 'cyan', 'sky',
-        ];
-
+        // One quiet look for every tile (the view's): no colour per tile.
         $user = auth()->user();
 
         // Sub-super-admins only see tiles for the functionalities granted to
@@ -48,7 +43,6 @@ class QuickLinks extends Component
                 'title' => $link['title'],
                 'route' => $link['link'],
                 'icon'  => $link['icon'],
-                'color' => $colors[abs(crc32((string) $link['title'])) % count($colors)],
                 'order' => $i,
             ];
         }

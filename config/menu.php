@@ -398,6 +398,13 @@ return [
             'icon' => 'document-text',
             'prefix' => 'super-admin.documents',
         ],
+        // Academic sessions (2026–27 …); the current one is on every top bar.
+        [
+            'title' => 'Session',
+            'link' => 'super-admin.sessions',
+            'icon' => 'calendar-days',
+            'prefix' => 'super-admin.sessions',
+        ],
 
     ],
 
