@@ -2,8 +2,9 @@
     Super Admin → School Website → a school. The school's own detail page's
     look: a plain header, then one card with the tabs. Pages is the Modules
     tab (a toolbar with Enable all / Disable all and what is on, a ticked list
-    with hairlines, Save at the foot); Template & Theme and Domain & Publish
-    are the same quiet bordered lists. The super admin owns only this shell —
+    with hairlines, Save at the foot); Template & Theme (a card a template,
+    each with a drawing of its home page) and Domain & Publish are the same
+    quiet bordered lists. The super admin owns only this shell —
     the school fills in the content under More → Website Data.
 --}}
 @php
@@ -95,7 +96,7 @@
                                     </label>
                                 @endforeach
                             </div>
-                            @if ($template === 'classic' && $group === 'Mandatory Disclosure')
+                            @if ($group === 'Mandatory Disclosure')
                                 {{-- The site's next menu, built from the uploads rather than ticked. --}}
                                 <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Documents</p>
                                 <p class="px-4 py-2 border-b border-gray-100 text-xs text-gray-400">
@@ -116,21 +117,36 @@
             @if ($activeTab === 'theme')
                 <div class="p-5 space-y-3">
                     <p class="text-xs text-gray-500">
-                        The site's design and colours. Every school's website is on the Classic CBSE template; pick its colours here.
+                        The site's design and colours. Every template shows the same pages, menu and Website Data — only the look changes,
+                        so a school can be moved from one to another at any time. Picking a template on its default colours gives it that template's own.
                     </p>
 
                     <div class="border border-gray-200 rounded-md">
                         <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Template</p>
-                        @foreach ($templates as $key => $tpl)
-                            <label wire:key="tpl-{{ $key }}" class="flex items-start gap-2.5 px-4 py-2.5 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
-                                <input type="radio" wire:model.live="template" value="{{ $key }}" @checked($template === $key)
-                                    class="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                                <span class="min-w-0">
-                                    <span class="block text-sm text-gray-800">{{ $tpl['label'] }}</span>
-                                    <span class="block text-xs text-gray-400">{{ $tpl['desc'] }}</span>
-                                </span>
-                            </label>
-                        @endforeach
+                        {{-- A card a template, with a small drawing of its home page in the colour picked below. --}}
+                        @php $accent = $primary ?: ($themePresets[$theme_preset]['primary'] ?? '#2B5BF5'); @endphp
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-2 pb-4 border-b border-gray-100">
+                            @foreach ($templates as $key => $tpl)
+                                <label wire:key="tpl-{{ $key }}"
+                                    class="group relative flex flex-col rounded-xl border-2 cursor-pointer overflow-hidden transition-all
+                                        {{ $template === $key ? 'border-blue-600 shadow-md shadow-blue-600/10' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm' }}">
+                                    <input type="radio" wire:model.live="template" value="{{ $key }}" @checked($template === $key) class="sr-only" />
+                                    @include('livewire.super-admin.partials.template-thumb', ['key' => $key, 'accent' => $accent])
+                                    <span class="flex items-start gap-2 px-3 py-2.5 border-t border-gray-100 bg-white flex-1">
+                                        <span class="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 {{ $template === $key ? 'border-blue-600' : 'border-gray-300' }}">
+                                            @if ($template === $key)<span class="h-2 w-2 rounded-full bg-blue-600"></span>@endif
+                                        </span>
+                                        <span class="min-w-0">
+                                            <span class="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                                                {{ $tpl['label'] }}
+                                                @if ($template === $key)<span class="rounded-full bg-blue-50 px-1.5 py-px text-[10px] font-semibold text-blue-600">Selected</span>@endif
+                                            </span>
+                                            <span class="block text-xs leading-snug text-gray-500 mt-0.5">{{ $tpl['desc'] }}</span>
+                                        </span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
                         @error('template')<p class="px-4 py-2 text-xs text-red-500 border-b border-gray-100">{{ $message }}</p>@enderror
 
                         <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Colour</p>

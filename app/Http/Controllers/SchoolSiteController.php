@@ -28,13 +28,16 @@ class SchoolSiteController extends Controller
     {
         $slug = self::MOVED[$slug] ?? ($slug ?: 'home');
         $tpl  = $site->templateKey();
-        $view = fn (string $name) => "school-site.{$tpl}.{$name}";
+        // A template's own blade, else the one in the folder it shares
+        // (SchoolWebsite::viewFolders) — Vibrant and Breeze share their inner pages.
+        $find = fn (string $name) => SchoolWebsite::viewFor($tpl, $name);
+        $view = fn (string $name) => $find($name) ?? "school-site.{$tpl}.{$name}";
 
         // One uploaded disclosure document on a page of its own (doc/3, as the
-        // Classic menu's Documents links them), when the template has such a
-        // page and the school has Mandatory Disclosures on.
+        // menu's Documents links them), when the template has such a page and
+        // the school has Mandatory Disclosures on.
         if (preg_match('#^doc/(\d+)$#', $slug, $m)
-            && view()->exists($view('document'))
+            && $find('document')
             && $site->isPageEnabled('disclosures')) {
             $doc = $site->pageDocuments('disclosures')[(int) $m[1] - 1] ?? null;
             if ($doc && trim((string) ($doc['file'] ?? '')) !== '') {
@@ -52,7 +55,7 @@ class SchoolSiteController extends Controller
         $data = $this->data($site, $slug);
         // A page the template lays out itself (Fee Structure, Rules & Regulations)
         // has a blade named after it; the rest of its kind share one.
-        $own = fn (string $shared) => view()->exists($view($slug)) ? $view($slug) : $view($shared);
+        $own = fn (string $shared) => $find($slug) ?? $view($shared);
 
         return match ($type) {
             'content' => response()->view($own('content-page'), $data + [
@@ -78,6 +81,7 @@ class SchoolSiteController extends Controller
     {
         return [
             'site'    => $site,
+            'tpl'     => $site->templateKey(),
             'c'       => $site->resolvedContent(),
             'theme'   => $site->resolvedTheme(),
             'nav'     => $this->nav($site),
@@ -89,14 +93,15 @@ class SchoolSiteController extends Controller
     /**
      * The menu: the template's groups (SchoolWebsite::menuGroups, the same
      * list the Super Admin ticks pages in) with the pages switched off taken
-     * out — a group with nothing left disappears. Classic adds a Documents
-     * group of the disclosures the school has uploaded (each its own page,
-     * doc/N) straight after Mandatory Disclosure.
+     * out — a group with nothing left disappears. A template with a page for
+     * one document (all of them) adds a Documents group of the disclosures
+     * the school has uploaded (each its own page, doc/N) straight after
+     * Mandatory Disclosure.
      */
     private function nav(SchoolWebsite $site): array
     {
-        $enabled = $site->enabledPages();
-        $classic = $site->templateKey() === 'classic';
+        $enabled  = $site->enabledPages();
+        $docsMenu = SchoolWebsite::viewFor($site->templateKey(), 'document') !== null;
 
         $nav = [];
         foreach (SchoolWebsite::menuGroups($site->templateKey()) as $group => $pages) {
@@ -105,7 +110,7 @@ class SchoolSiteController extends Controller
                 $nav[$group] = $items;
             }
 
-            if ($classic && $group === 'Mandatory Disclosure' && in_array('disclosures', $enabled, true)) {
+            if ($docsMenu && $group === 'Mandatory Disclosure' && in_array('disclosures', $enabled, true)) {
                 $docs = [];
                 foreach ($site->pageDocuments('disclosures') as $i => $doc) {
                     if (trim((string) ($doc['file'] ?? '')) !== '' && trim((string) ($doc['title'] ?? '')) !== '') {

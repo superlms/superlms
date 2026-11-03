@@ -60,24 +60,43 @@ class SchoolWebsiteBuilder extends Component
     }
 
     /**
-     * Picking Classic on the default colours moves to its red-and-green
-     * tricolour preset; a preset or colour picked on purpose is kept.
+     * Picking a template on its default colours moves to that template's own
+     * preset (Classic's red-and-green tricolour, Vibrant's and Breeze's
+     * electric blue); a preset or colour picked on purpose is kept.
      */
     public function pickTemplate(string $key): void
     {
         if (! array_key_exists($key, SchoolWebsite::templates())) {
             return;
         }
+        $this->followColours($this->template, $key);
         $this->template = $key;
-        if ($key === 'classic' && $this->theme_preset === 'sunset' && $this->primary === '') {
-            $this->theme_preset = 'tricolour';
+    }
+
+    /** The Template radio (wire:model.live): its colours follow, before the pick is set. */
+    public function updatingTemplate($key): void
+    {
+        if (is_string($key) && array_key_exists($key, SchoolWebsite::templates())) {
+            $this->followColours($this->template, $key);
         }
     }
 
-    /** The Template radio (wire:model.live) goes through the same pick. */
-    public function updatedTemplate(string $key): void
+    /** A template that does not exist is never kept. */
+    public function updatedTemplate($key): void
     {
-        $this->pickTemplate($key);
+        if (! array_key_exists((string) $key, SchoolWebsite::templates())) {
+            $this->template = SchoolWebsite::DEFAULT_TEMPLATE;
+        }
+    }
+
+    /** The colours still the old template's own (or the old default) → the new template's own. */
+    private function followColours(string $from, string $to): void
+    {
+        $preset = fn (string $tpl) => SchoolWebsite::templates()[$tpl]['preset'] ?? 'sunset';
+
+        if ($this->primary === '' && in_array($this->theme_preset, ['sunset', $preset($from)], true)) {
+            $this->theme_preset = $preset($to);
+        }
     }
 
     // Pages are ticked like the school's Modules (wire:model on the list);

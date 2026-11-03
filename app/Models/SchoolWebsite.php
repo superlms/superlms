@@ -38,16 +38,27 @@ class SchoolWebsite extends Model
 
     /**
      * The site designs a school can be given, each a folder of blades under
-     * resources/views/school-site/<key>. Classic CBSE is the only one: the
-     * Playful (kider) template was taken out on the user's ask of 2026-10-20,
-     * and every site moved to Classic.
+     * resources/views/school-site/<key>. The Playful (kider) template was
+     * taken out on the user's ask of 2026-10-20 and its sites moved to
+     * Classic; Vibrant and Breeze came on the user's ask of 2026-11-03.
+     *
+     * Every template reads the same content, pages and menu — only the look
+     * differs. `preset` is the colour a site gets when it is moved to the
+     * template on its default colours; `shares` is a folder of pages a
+     * template uses wherever it has no blade of its own (Vibrant and Breeze
+     * share their inner pages, each dressed by its own layout).
      */
     public const DEFAULT_TEMPLATE = 'classic';
 
     public static function templates(): array
     {
         return [
-            'classic' => ['label' => 'Classic CBSE', 'desc' => 'Tricolour masthead with the logo, school name and board, a photo slider and a menu of every page.'],
+            'classic' => ['label' => 'Classic CBSE', 'preset' => 'tricolour',
+                'desc' => 'Tricolour masthead with the logo, school name and board, a photo slider and a menu of every page.'],
+            'vibrant' => ['label' => 'Vibrant', 'preset' => 'electric', 'shares' => 'modern',
+                'desc' => 'Modern and colourful: a bento-card home page in bright gradients, a slider in a rounded frame, facility cards to swipe and a gradient admission card.'],
+            'breeze'  => ['label' => 'Breeze', 'preset' => 'electric', 'shares' => 'modern',
+                'desc' => 'Modern and light: soft pastel colours, airy white cards and a dashboard-style home with the calendar, classes and board results.'],
         ];
     }
 
@@ -55,6 +66,26 @@ class SchoolWebsite extends Model
     public function templateKey(): string
     {
         return array_key_exists((string) $this->template, static::templates()) ? $this->template : self::DEFAULT_TEMPLATE;
+    }
+
+    /** The view folders a template's pages are looked up in, its own first. */
+    public static function viewFolders(string $template): array
+    {
+        $shares = static::templates()[$template]['shares'] ?? null;
+
+        return array_values(array_unique(array_filter([$template, $shares])));
+    }
+
+    /** The view a page of this template is drawn with, or null when it has none. */
+    public static function viewFor(string $template, string $name): ?string
+    {
+        foreach (static::viewFolders($template) as $folder) {
+            if (view()->exists("school-site.{$folder}.{$name}")) {
+                return "school-site.{$folder}.{$name}";
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -237,6 +268,7 @@ class SchoolWebsite extends Model
             'rose'   => ['label' => 'Rose Pink',        'primary' => '#E6477F', 'light' => '#FDEEF4', 'dark' => '#2E1020'],
             'amber'  => ['label' => 'Amber Gold',       'primary' => '#E8A009', 'light' => '#FFF8E8', 'dark' => '#3A2A05'],
             'tricolour' => ['label' => 'Tricolour (Red & Green)', 'primary' => '#E8000B', 'light' => '#FFF6EA', 'dark' => '#2D6944'],
+            'electric'  => ['label' => 'Electric Blue',           'primary' => '#2B5BF5', 'light' => '#EEF2FF', 'dark' => '#0C1B4D'],
         ];
     }
 

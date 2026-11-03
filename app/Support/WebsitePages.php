@@ -413,8 +413,8 @@ class WebsitePages
 
             ['id' => 'h-photos', 'type' => 'heading', 'label' => 'Logo & photos'],
             ['id' => 'logo', 'type' => 'image', 'path' => 'logo', 'label' => 'Logo', 'help' => 'Leave empty to use the logo on your school profile.'],
-            ['id' => 'board_logo', 'type' => 'image', 'path' => 'board_logo', 'label' => "Board's logo", 'help' => "Beside your name at the top. Empty: a seal with the board's name.", 'templates' => ['classic']],
-            ['id' => 'page_banner', 'type' => 'image', 'path' => 'page_banner', 'label' => 'Page banner photo', 'help' => 'Behind the title of every inner page.', 'templates' => ['classic']],
+            ['id' => 'board_logo', 'type' => 'image', 'path' => 'board_logo', 'label' => "Board's logo", 'help' => "Beside your name at the top. Empty: a seal with the board's name."],
+            ['id' => 'page_banner', 'type' => 'image', 'path' => 'page_banner', 'label' => 'Page banner photo', 'help' => 'Behind the title of every inner page.'],
 
             ['id' => 'h-contact', 'type' => 'heading', 'label' => 'Contact'],
             ['id' => 'phone', 'type' => 'text', 'path' => 'phone', 'label' => 'Phone', 'placeholder' => 'e.g. 9876543210, 9876543211'],
@@ -526,7 +526,7 @@ class WebsitePages
 
         return match ($slug) {
             'home' => ['The first page visitors see, from top to bottom.', [
-                ['id' => 'hero_slides', 'type' => 'list', 'path' => 'hero_slides', 'label' => 'Slider', 'templates' => ['classic'],
+                ['id' => 'hero_slides', 'type' => 'list', 'path' => 'hero_slides', 'label' => 'Slider',
                     'help' => 'Photos that slide at the top, each with an optional title. A slide without a photo shows your logo.',
                     'fields' => [
                         'image'    => ['image', 'Photo'],
@@ -536,13 +536,13 @@ class WebsitePages
                     'add' => 'Add slide', 'bulk' => 'image'],
                 ['id' => 'welcome', 'type' => 'link', 'to' => 'about', 'label' => 'Welcome', 'help' => 'The about text, with your logo.'],
                 ['id' => 'features', 'type' => 'link', 'to' => 'facilities', 'label' => 'Features & Facilities', 'help' => 'The facility cards.'],
-                ['id' => 'philosophy', 'type' => 'textarea', 'rows' => 3, 'path' => 'philosophy', 'label' => 'Our Philosophy', 'templates' => ['classic'],
+                ['id' => 'philosophy', 'type' => 'textarea', 'rows' => 3, 'path' => 'philosophy', 'label' => 'Our Philosophy',
                     'help' => 'Shown in a band with your vision and mission (from About School).'],
-                ['id' => 'campus', 'type' => 'link', 'to' => 'campus-life', 'label' => 'Campus & School Life', 'help' => 'The band with a photo.', 'templates' => ['classic']],
+                ['id' => 'campus', 'type' => 'link', 'to' => 'campus-life', 'label' => 'Campus & School Life', 'help' => 'The band with a photo.'],
                 ['id' => 'cta_heading', 'type' => 'text', 'path' => 'cta_heading', 'label' => 'Admission band heading', 'placeholder' => 'e.g. Admissions Open'],
                 ['id' => 'cta_text', 'type' => 'textarea', 'rows' => 2, 'path' => 'cta_text', 'label' => 'Admission band text'],
-                ['id' => 'admission', 'type' => 'link', 'to' => 'admission', 'label' => 'Admission schedule, steps and documents', 'help' => 'Under the admission band.', 'templates' => ['classic']],
-                ['id' => 'location', 'type' => 'location', 'label' => 'Our Location', 'templates' => ['classic'],
+                ['id' => 'admission', 'type' => 'link', 'to' => 'admission', 'label' => 'Admission schedule, steps and documents', 'help' => 'Under the admission band.'],
+                ['id' => 'location', 'type' => 'location', 'label' => 'Our Location',
                     'help' => 'The map at the foot of the home page, and on Contact Us.'],
             ]],
             // The about text, vision, mission, values and goals are the School
@@ -586,16 +586,16 @@ class WebsitePages
             ]],
             // The page is the online admission form alone; the classes, fees and
             // rules have pages of their own. What is written here shows on
-            // Classic's home page, under its admission band.
+            // the home page, under its admission band (every template's).
             'admission' => ['The online admission form — classes, fees and rules have pages of their own.', [
                 $form('This page is the online admission form; its Class list is your classes'),
-                ['id' => 'h-home', 'type' => 'heading', 'label' => 'On your home page, under the admission band', 'templates' => ['classic']],
-                ['id' => 'admission_intro', 'type' => 'textarea', 'rows' => 3, 'path' => 'admission_intro', 'label' => 'Introduction', 'templates' => ['classic']],
-                ['id' => 'admission_session', 'type' => 'text', 'path' => 'admission_session', 'label' => 'Admission schedule', 'placeholder' => 'e.g. 1 April – 31 July 2026', 'templates' => ['classic']],
-                ['id' => 'admission_steps', 'type' => 'list', 'path' => 'admission_steps', 'label' => 'Steps to apply', 'templates' => ['classic'],
+                ['id' => 'h-home', 'type' => 'heading', 'label' => 'On your home page, under the admission band'],
+                ['id' => 'admission_intro', 'type' => 'textarea', 'rows' => 3, 'path' => 'admission_intro', 'label' => 'Introduction'],
+                ['id' => 'admission_session', 'type' => 'text', 'path' => 'admission_session', 'label' => 'Admission schedule', 'placeholder' => 'e.g. 1 April – 31 July 2026'],
+                ['id' => 'admission_steps', 'type' => 'list', 'path' => 'admission_steps', 'label' => 'Steps to apply',
                     'fields' => ['title' => ['text', 'Step', 'e.g. Fill the form'], 'desc' => ['text', 'Details']],
                     'add' => 'Add step'],
-                ['id' => 'documents_required', 'type' => 'list', 'path' => 'documents_required', 'label' => 'Documents required', 'templates' => ['classic'],
+                ['id' => 'documents_required', 'type' => 'list', 'path' => 'documents_required', 'label' => 'Documents required',
                     'fields' => ['text' => ['text', 'Document', 'e.g. Birth Certificate']],
                     'add' => 'Add document'],
             ]],
