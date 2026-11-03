@@ -146,7 +146,7 @@
                     </div>
 
                     <div class="text-center mt-3">
-                        <button wire:click="$set('step', 'email')"
+                        <button wire:click="changeEmail"
                             class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
                             ← Change Email
                         </button>

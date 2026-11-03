@@ -6,6 +6,7 @@ use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
 use App\Services\WhatsAppService;
+use App\Support\AuthThrottle;
 use App\Support\OtpNumbers;
 use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
@@ -17,8 +18,8 @@ class Login extends Component
 {
     public string $step = 'credentials'; // 'credentials' | 'otp'
 
-    public $email    = '';
-    public $password = '';
+    public string $email    = '';
+    public string $password = '';
 
     // OTP step — array of 6 single digits (matches accounts VerifyOtp pattern)
     public array $otp = ['', '', '', '', '', ''];
@@ -28,6 +29,15 @@ class Login extends Component
     /** This sign-in's OTP request — only its own code signs in here. */
     #[Locked]
     public ?string $otpChallenge = null;
+
+    /**
+     * The account whose password was checked on this page — the only one the
+     * code step can sign in or send a code to. Locked: the email field can be
+     * changed in the browser, this can't, so the password can't be skipped by
+     * typing another address on the code step.
+     */
+    #[Locked]
+    public ?int $pendingUserId = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -49,33 +59,32 @@ class Login extends Component
             'password.required' => 'Enter your password.',
         ]);
 
+        // Wrong passwords are counted on the server: guessing stops here.
+        if ($wait = AuthThrottle::passwordWait($this->email)) {
+            $this->addError('email', AuthThrottle::message($wait));
+            return;
+        }
+
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
+            AuthThrottle::passwordFailed($this->email);
             $this->addError('email', 'No Super Admin account uses this email address.');
             return;
         }
 
-        if (!Hash::check($this->password, $user->password)) {
+        if (!Hash::check($this->password, (string) $user->password)) {
+            AuthThrottle::passwordFailed($this->email);
             $this->addError('password', 'Wrong password for this email. Check Caps Lock, or use Forgot password.');
             return;
         }
 
-        $allowedEmails = ['superlms.india@gmail.com', 'superlmsofficial@gmail.com'];
+        AuthThrottle::passwordPassed($this->email);
 
-        // Main super-admin: must be a whitelisted email with the super-admin role.
-        $isMainSuperAdmin = $user->role === 'super-admin' && in_array($this->email, $allowedEmails);
-
-        // Sub-super-admin: created from the Users panel, identified by role.
-        $isSubSuperAdmin  = $user->role === 'sub-super-admin';
-
-        if (!$isMainSuperAdmin && !$isSubSuperAdmin) {
-            $this->addError('email', 'This email is not allowed into the Super Admin panel.');
-            return;
-        }
-
-        if ($isSubSuperAdmin && !$user->is_active) {
-            $this->addError('email', 'This account is switched off. The main super admin can switch it on in Users.');
+        if (!self::mayEnter($user, $this->email)) {
+            $this->addError('email', $user->role === 'sub-super-admin'
+                ? 'This account is switched off. The main super admin can switch it on in Users.'
+                : 'This email is not allowed into the Super Admin panel.');
             return;
         }
 
@@ -90,6 +99,14 @@ class Login extends Component
                 ->with('success', 'Login successful.');
         }
 
+        // From here on the code step works for this account only.
+        $this->pendingUserId = $user->id;
+
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('email', AuthThrottle::sendMessage($wait));
+            return;
+        }
+
         // The code goes to the address as it should read — an old save can still
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
@@ -100,6 +117,7 @@ class Login extends Component
         // outage and WhatsApp down), log the OTP so a super-admin can sign in
         // from the logs. Remove this catch once email is healthy.
         $delivery = null;
+        AuthThrottle::sent($user);
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, self::whatsAppNumbers($user), $delivery);
         } catch (OtpDeliveryException $e) {
@@ -123,6 +141,8 @@ class Login extends Component
         $this->countdown  = 120;
         $this->canResend  = false;
         $this->step       = 'otp';
+        // The password has done its job; it doesn't ride along with the page.
+        $this->password   = '';
 
         // Where the code went isn't shown — only that it went nowhere, and why.
         if (isset($notSent)) {
@@ -161,11 +181,11 @@ class Login extends Component
             return;
         }
 
-        $user = User::superPanelByEmail($this->email);
+        // The account whose password was checked here — never the email field.
+        $user = $this->pendingUser();
 
         if (!$user) {
-            $this->addError('otp', 'This sign-in has expired. Go back and log in again.');
-            $this->step = 'credentials';
+            $this->expire();
             return;
         }
 
@@ -176,6 +196,7 @@ class Login extends Component
             Auth::guard('superadmin')->login($user);
             // A login made in the installed app: from now on it opens for this account.
             PanelApp::rememberAppLogin('superadmin', $user);
+            $this->pendingUserId = null;
             return redirect()->route('super-admin.quick-links');
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
@@ -190,10 +211,23 @@ class Login extends Component
             return;
         }
 
-        $user = User::superPanelByEmail($this->email);
+        $user = $this->pendingUser();
 
         if (!$user) {
-            $this->step = 'credentials';
+            $this->expire();
+            return;
+        }
+
+        // The 2-minute wait is the server's: a page that says otherwise is
+        // only shown the time left.
+        if ($wait = OtpMailService::resendAvailableIn($user, $this->otpChallenge)) {
+            $this->countdown = $wait;
+            $this->canResend = false;
+            return;
+        }
+
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('otp', AuthThrottle::sendMessage($wait));
             return;
         }
 
@@ -202,6 +236,7 @@ class Login extends Component
         $user->email = User::cleanEmail($user->email);
 
         $delivery = null;
+        AuthThrottle::sent($user);
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge, self::whatsAppNumbers($user), $delivery);
             $this->otp       = ['', '', '', '', '', ''];
@@ -225,9 +260,48 @@ class Login extends Component
 
     public function backToLogin()
     {
-        $this->step      = 'credentials';
-        $this->otp       = ['', '', '', '', '', ''];
+        $this->step          = 'credentials';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
         $this->resetValidation();
+    }
+
+    /**
+     * Who may come in: the main super-admin (whitelisted email, super-admin
+     * role) or a sub super-admin (made in Users) that is switched on.
+     */
+    private static function mayEnter(User $user, string $email): bool
+    {
+        $allowedEmails = ['superlms.india@gmail.com', 'superlmsofficial@gmail.com'];
+
+        return match ($user->role) {
+            'super-admin'     => in_array($email, $allowedEmails, true),
+            'sub-super-admin' => (bool) $user->is_active,
+            default           => false,
+        };
+    }
+
+    /** The account this page checked the password of, while it may still come in. */
+    private function pendingUser(): ?User
+    {
+        if (!$this->pendingUserId) {
+            return null;
+        }
+
+        $user = User::whereKey($this->pendingUserId)
+            ->whereIn('role', ['super-admin', 'sub-super-admin'])
+            ->first();
+
+        return $user && self::mayEnter($user, mb_strtolower(User::cleanEmail($user->email))) ? $user : null;
+    }
+
+    /** No checked password behind the code step: back to the login. */
+    private function expire(): void
+    {
+        $this->step          = 'credentials';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
+        $this->addError('email', 'This sign-in has expired. Log in again.');
     }
 
     /** The account's primary number (Profile → OTP Numbers) — the only one the code goes to on WhatsApp. */

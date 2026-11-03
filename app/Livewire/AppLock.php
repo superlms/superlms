@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\AuthThrottle;
 use App\Support\OtpNumbers;
 use App\Support\PanelApp;
 use Illuminate\Auth\Events\Login;
@@ -78,7 +79,11 @@ class AppLock extends Component
     /** The code also reached the super admin's WhatsApp. */
     public bool $otpOnWhatsApp = false;
 
-    /** Unix timestamp (server clock) before which Resend OTP stays disabled. */
+    /**
+     * Unix timestamp (server clock) before which Resend OTP stays disabled.
+     * Locked: the page only reads it, so the wait can't be wiped from the browser.
+     */
+    #[Locked]
     public int $resendAvailableAt = 0;
 
     /** This opening's OTP request — only its own code opens the app here. */
@@ -249,6 +254,15 @@ class AppLock extends Component
         $superAdmin = $this->panel === 'superadmin' || $this->viaSuperAdmin;
         $whatsApp   = $superAdmin ? array_filter([OtpNumbers::primary($account)]) : null;
         $delivery   = null;
+
+        // At most a few codes per account in a while — reloading the page or
+        // pressing Resend over and over can't flood the inbox and WhatsApp.
+        if ($wait = AuthThrottle::sendWait($account)) {
+            $this->resendAvailableAt = now()->getTimestamp() + $wait;
+            $this->addError('otp', AuthThrottle::sendMessage($wait));
+            return;
+        }
+        AuthThrottle::sent($account);
 
         try {
             $this->otpChallenge = OtpMailService::sendOtp(

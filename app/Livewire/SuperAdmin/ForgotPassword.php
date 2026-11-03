@@ -5,8 +5,8 @@ namespace App\Livewire\SuperAdmin;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\AuthThrottle;
 use App\Support\OtpNumbers;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -22,9 +22,21 @@ class ForgotPassword extends Component
     public int   $countdown = 120;
     public bool  $canResend = false;
 
-    /** This reset's OTP request — only its own code is accepted here. */
+    /**
+     * This reset's OTP request — only its own code is accepted here, and once
+     * that code is verified, only this request lets a new password through
+     * (once, within 10 minutes).
+     */
     #[Locked]
     public ?string $otpChallenge = null;
+
+    /**
+     * The account the code was sent to — the only one whose password this page
+     * can set. Locked: the email field can be changed in the browser, this
+     * can't, so a code verified for one account never resets another.
+     */
+    #[Locked]
+    public ?int $pendingUserId = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -50,6 +62,14 @@ class ForgotPassword extends Component
              'email.email'    => 'This is not a valid email address — it should look like name@example.com.']
         );
 
+        // Look-ups are counted on the server, so the answer below can't be
+        // used to go through a list of addresses.
+        if ($wait = AuthThrottle::lookupWait()) {
+            $this->addError('email', AuthThrottle::message($wait));
+            return;
+        }
+        AuthThrottle::lookedUp();
+
         $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
@@ -63,11 +83,17 @@ class ForgotPassword extends Component
             return;
         }
 
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('email', AuthThrottle::sendMessage($wait));
+            return;
+        }
+
         // The code goes to the address as it should read — an old save can still
         // carry invisible characters the mail provider refuses. Not saved.
         $user->email = User::cleanEmail($user->email);
 
         $delivery = null;
+        AuthThrottle::sent($user);
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, array_filter([OtpNumbers::primary($user)]), $delivery);
         } catch (\Throwable $e) {
@@ -76,6 +102,7 @@ class ForgotPassword extends Component
             return;
         }
 
+        $this->pendingUserId = $user->id;
         $this->otp       = ['', '', '', '', '', ''];
         $this->countdown = 120;
         $this->canResend = false;
@@ -86,8 +113,8 @@ class ForgotPassword extends Component
 
     public function updatedOtp(): void
     {
-        $entered = implode('', $this->otp);
-        if (strlen($entered) === 6 && ctype_digit($entered)) {
+        $entered = implode('', array_map(fn($d) => is_scalar($d) ? trim((string) $d) : '', $this->otp));
+        if ($this->step === 'otp' && strlen($entered) === 6 && ctype_digit($entered)) {
             $this->verifyOtp();
         }
     }
@@ -115,16 +142,17 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::superPanelByEmail($this->email);
+        // The account the code was sent to — never the email field.
+        $user = $this->pendingUser();
 
         if (!$user) {
-            $this->addError('otp', 'No Super Admin account uses this email any more. Start again.');
-            $this->step = 'email';
+            $this->startAgain('This reset has expired, or the account is no longer a Super Admin one. Start again.');
             return;
         }
 
         try {
-            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge);
+            // Kept, marked verified, for resetPassword() to use up.
+            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge, forReset: true);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
@@ -132,8 +160,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        Cache::put('super_admin_otp_verified_' . $this->email, true, 600);
-
+        $this->otp  = ['', '', '', '', '', ''];
         $this->step = 'password';
     }
 
@@ -145,10 +172,23 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::superPanelByEmail($this->email);
+        $user = $this->pendingUser();
 
         if (!$user) {
-            $this->addError('otp', 'No Super Admin account uses this email any more. Go back and change the email.');
+            $this->startAgain('This reset has expired. Start again.');
+            return;
+        }
+
+        // The 2-minute wait is the server's: a page that says otherwise is
+        // only shown the time left.
+        if ($wait = OtpMailService::resendAvailableIn($user, $this->otpChallenge)) {
+            $this->countdown = $wait;
+            $this->canResend = false;
+            return;
+        }
+
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('otp', AuthThrottle::sendMessage($wait));
             return;
         }
 
@@ -157,6 +197,7 @@ class ForgotPassword extends Component
         $user->email = User::cleanEmail($user->email);
 
         $delivery = null;
+        AuthThrottle::sent($user);
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge, array_filter([OtpNumbers::primary($user)]), $delivery);
         } catch (\Throwable $e) {
@@ -174,6 +215,15 @@ class ForgotPassword extends Component
     public function timerFinished(): void
     {
         $this->canResend = true;
+    }
+
+    /** "← Change Email": the code step is given up. */
+    public function changeEmail(): void
+    {
+        $this->step          = 'email';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
+        $this->resetValidation();
     }
 
     // ─── Step 3: Reset Password ───────────────────────────────────────────────
@@ -202,27 +252,48 @@ class ForgotPassword extends Component
             ]
         );
 
-        if (!Cache::get('super_admin_otp_verified_' . $this->email)) {
-            $this->addError('password', 'The verified code is more than 10 minutes old. Start again from your email.');
-            $this->step = 'email';
-            return;
-        }
+        // Only the account whose code was verified on this page, once, within
+        // 10 minutes of verifying it.
+        $user = $this->pendingUser();
 
-        $user = User::superPanelByEmail($this->email);
-
-        if (!$user) {
-            $this->addError('password', 'No Super Admin account uses this email any more. Start again.');
-            $this->step = 'email';
+        if (!$user || !OtpMailService::consumeVerified($user, $this->otpChallenge)) {
+            $this->startAgain('The code was not verified here, or was verified more than 10 minutes ago. Start again from your email.');
             return;
         }
 
         $user->rememberPlainPassword($this->password);
         $user->update(['password' => Hash::make($this->password)]);
 
-        Cache::forget('super_admin_otp_verified_' . $this->email);
+        $this->pendingUserId = null;
+        $this->password = $this->password_confirmation = '';
 
         return redirect()->route('super-admin.login')
             ->with('success', 'Password reset successfully. Please login with your new password.');
+    }
+
+    /** The account the code was sent to on this page, while it is still a Super Admin one that may sign in. */
+    private function pendingUser(): ?User
+    {
+        if (!$this->pendingUserId) {
+            return null;
+        }
+
+        $user = User::whereKey($this->pendingUserId)
+            ->whereIn('role', ['super-admin', 'sub-super-admin'])
+            ->first();
+
+        return $user && ($user->role !== 'sub-super-admin' || $user->is_active) ? $user : null;
+    }
+
+    /** Back to the email step, saying why. */
+    private function startAgain(string $why): void
+    {
+        $this->step          = 'email';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
+        $this->password      = $this->password_confirmation = '';
+        $this->resetValidation();
+        $this->addError('email', $why);
     }
 
     /** Why the code didn't go: the lockout as it reads, else each channel's own reason. */
