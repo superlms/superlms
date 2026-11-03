@@ -37,7 +37,7 @@ class Teacher extends Component
     public string $filterOrganization = '';
     public string $filterGender       = '';
     public string $filterStatus       = '';
-    public int    $perPage            = 50;
+    public int    $perPage            = 100;
 
     public $organizations = [];
 

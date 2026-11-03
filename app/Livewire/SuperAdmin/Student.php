@@ -54,7 +54,7 @@ class Student extends Component
     public string $filterSection      = '';
     public string $filterGender       = '';
     public string $filterStatus       = '';
-    public int    $perPage            = 50;
+    public int    $perPage            = 100;
 
     // ─── Filter Options ───────────────────────────────────────────────────────
     public $organizations  = [];

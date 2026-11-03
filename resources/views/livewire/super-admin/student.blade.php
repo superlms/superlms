@@ -5,11 +5,11 @@
         <div class="px-4 sm:px-5 py-2">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:min-h-8">
                 <div>
-                    <h1 class="text-base font-semibold text-gray-900">Students</h1>
+                    <h1 class="text-sm font-semibold text-gray-900">Students</h1>
                 </div>
                 <div class="flex items-center gap-3">
                     {{-- Analytics (Users-style) --}}
-                    <div class="hidden lg:flex items-center text-xs text-gray-500 divide-x divide-gray-200">
+                    <div class="hidden lg:flex items-center text-[11px] text-gray-500 divide-x divide-gray-200">
                         <span class="pr-3">Schools: <strong class="font-semibold text-gray-800">{{ $totalSchools }}</strong></span>
                         <span class="px-3">Total: <strong class="font-semibold text-gray-800">{{ $totalStudents }}</strong></span>
                         <span class="px-3">Active: <strong class="font-semibold text-emerald-600">{{ $activeStudents }}</strong></span>
@@ -58,7 +58,7 @@
         {{-- Filter bar (enquiry-style sub-header) --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-5 py-2">
             <div class="flex flex-wrap items-center gap-2">
-                <div class="flex items-center gap-1 text-xs font-medium text-gray-600">
+                <div class="flex items-center gap-1 text-[11px] font-medium text-gray-600">
                     <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -124,28 +124,28 @@
 
     <div class="p-3 sm:p-4 space-y-3">
 
-        {{-- ══════════ DESKTOP TABLE (compact: small type, one line per row, more columns) ══════════ --}}
+        {{-- ══════════ DESKTOP TABLE — fixed layout: every column fits the screen (no side scroll),
+             long text is cut with … and shown in full on hover; status is the dot in Actions ══════════ --}}
         @php
-            $th = 'px-2 py-2 text-[11px] font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap';
-            $td = 'px-2 py-1.5 whitespace-nowrap';
+            $th = 'px-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide truncate';
+            $td = 'px-2 py-1.5 truncate';
         @endphp
         <div class="hidden md:block bg-white rounded-lg border border-gray-200">
             <div class="overflow-x-auto rounded-lg">
-                <table class="w-full min-w-[1000px] text-xs text-gray-700">
+                <table class="w-full min-w-[960px] table-fixed text-xs text-gray-700">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="{{ $th }} text-left w-10">#</th>
-                            <th class="{{ $th }} text-left">Student</th>
-                            <th class="{{ $th }} text-left">Admission No</th>
-                            <th class="{{ $th }} text-left">Roll</th>
-                            <th class="{{ $th }} text-left">Class</th>
-                            <th class="{{ $th }} text-left">Gender</th>
+                            <th class="{{ $th }} text-left w-11">#</th>
+                            <th class="{{ $th }} text-left w-[16%]">Student</th>
+                            <th class="{{ $th }} text-left w-[108px]">Admission No</th>
+                            <th class="{{ $th }} text-left w-14">Roll</th>
+                            <th class="{{ $th }} text-left w-[88px]">Class</th>
+                            <th class="{{ $th }} text-left w-14">Gender</th>
                             <th class="{{ $th }} text-left">Father's Name</th>
-                            <th class="{{ $th }} text-left">Mobile</th>
+                            <th class="{{ $th }} text-left w-[92px]">Mobile</th>
                             <th class="{{ $th }} text-left">Email</th>
                             <th class="{{ $th }} text-left">School</th>
-                            <th class="{{ $th }} text-left">Status</th>
-                            <th class="{{ $th }} text-right">Actions</th>
+                            <th class="{{ $th }} text-right w-[100px]">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -153,6 +153,7 @@
                             @php
                                 // Class / Section: the class, then the section's last letter (Nursery-A)
                                 $secLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1));
+                                $class     = $student->standard ? $student->standard->name . ($secLetter !== '' ? '-' . $secLetter : '') : null;
                                 $isActive  = (bool) $student->user?->is_active;
                                 $school    = $student->user?->organization?->name;
                                 $email     = $student->user?->email;
@@ -160,8 +161,8 @@
                             <tr class="hover:bg-blue-50/40 transition-colors" wire:key="sa-stu-row-{{ $student->id }}">
                                 <td class="{{ $td }} text-gray-400 tabular-nums">{{ $students->firstItem() + $index }}</td>
 
-                                <td class="{{ $td }}">
-                                    <div class="flex items-center gap-2 max-w-[170px]">
+                                <td class="{{ $td }}" title="{{ $student->full_name }}">
+                                    <div class="flex items-center gap-2">
                                         @if ($student->user?->image)
                                             <img src="{{ $student->user->image }}" loading="lazy"
                                                 class="w-6 h-6 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
@@ -170,39 +171,24 @@
                                                 {{ strtoupper(substr($student->full_name ?? 'S', 0, 1)) }}
                                             </span>
                                         @endif
-                                        <span class="font-medium text-gray-900 truncate" title="{{ $student->full_name }}">{{ $student->full_name ?: '—' }}</span>
+                                        <span class="font-medium text-gray-900 truncate">{{ $student->full_name ?: '—' }}</span>
                                     </div>
                                 </td>
 
-                                <td class="{{ $td }} tabular-nums">{{ $student->admission_no ?: '—' }}</td>
+                                <td class="{{ $td }} tabular-nums" title="{{ $student->admission_no }}">{{ $student->admission_no ?: '—' }}</td>
                                 <td class="{{ $td }} tabular-nums">{{ $student->roll_no ?: '—' }}</td>
-                                <td class="{{ $td }}">
-                                    @if ($student->standard)
-                                        {{ $student->standard->name }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
-                                    @else
-                                        <span class="text-gray-400">—</span>
-                                    @endif
-                                </td>
+                                <td class="{{ $td }}" title="{{ $class }}">{{ $class ?: '—' }}</td>
                                 <td class="{{ $td }}">{{ $student->gender ? ucfirst($student->gender) : '—' }}</td>
-                                <td class="{{ $td }}">
-                                    <span class="block truncate max-w-[120px]" title="{{ $student->father_name }}">{{ $student->father_name ?: '—' }}</span>
-                                </td>
+                                <td class="{{ $td }}" title="{{ $student->father_name }}">{{ $student->father_name ?: '—' }}</td>
                                 <td class="{{ $td }} tabular-nums">{{ $student->phone ?: '—' }}</td>
-                                <td class="{{ $td }}">
-                                    <span class="block truncate max-w-[160px] text-gray-500" title="{{ $email }}">{{ $email ?: '—' }}</span>
-                                </td>
-                                <td class="{{ $td }}">
-                                    <span class="block truncate max-w-[130px]" title="{{ $school }}">{{ $school ?: '—' }}</span>
-                                </td>
-                                <td class="{{ $td }}">
-                                    <span class="inline-flex items-center gap-1 {{ $isActive ? 'text-emerald-700' : 'text-rose-600' }}">
-                                        <span class="w-1.5 h-1.5 rounded-full {{ $isActive ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
-                                        {{ $isActive ? 'Active' : 'Inactive' }}
-                                    </span>
-                                </td>
+                                <td class="{{ $td }} text-gray-500" title="{{ $email }}">{{ $email ?: '—' }}</td>
+                                <td class="{{ $td }}" title="{{ $school }}">{{ $school ?: '—' }}</td>
 
-                                <td class="{{ $td }}">
-                                    <div class="flex items-center justify-end gap-0.5">
+                                {{-- Actions: the status dot first, then View / Edit / Delete --}}
+                                <td class="px-2 py-1.5">
+                                    <div class="flex items-center justify-end">
+                                        <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1.5 {{ $isActive ? 'bg-emerald-500' : 'bg-rose-500' }}"
+                                            title="{{ $isActive ? 'Active' : 'Inactive' }}"></span>
                                         <button wire:click="onViewStudentSuperAdmin({{ $student->user_id }})"
                                             class="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                             title="View">
@@ -232,7 +218,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="12" class="px-6 py-12 text-center">
+                                <td colspan="11" class="px-6 py-12 text-center">
                                     <p class="text-gray-500 text-sm">No students found</p>
                                     @if ($search || $filterOrganization || $filterClass || $filterGender || $filterStatus !== '')
                                         <button wire:click="clearFilters"
