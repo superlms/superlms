@@ -70,16 +70,23 @@ TXT;
         }
     }
 
-    /** SuperLMS as the invoice names it. */
+    /**
+     * SuperLMS as the invoice names it. What the Invoices settings leave
+     * blank comes from Profile → Platform Details.
+     */
     public static function seller(): array
     {
+        $company = fn (string $key) => (string) Platform::get($key);
+        $mobile  = $company('company_mobile');
+        $mobile  = strlen($mobile) === 10 ? \App\Support\OtpNumbers::format($mobile) : $mobile;
+
         return [
-            'name'    => self::setting('store_seller_name') ?: 'SuperLMS',
-            'address' => self::setting('store_seller_address'),
-            'gstin'   => self::setting('store_seller_gstin'),
-            'phone'   => self::setting('store_seller_phone'),
-            'email'   => self::setting('store_seller_email') ?: (string) config('mail.from.address'),
-            'website' => (string) parse_url((string) config('app.url'), PHP_URL_HOST),
+            'name'    => Platform::get('store_seller_name') ?? (Platform::get('company_name') ?? 'SuperLMS'),
+            'address' => self::setting('store_seller_address') ?: $company('company_address'),
+            'gstin'   => self::setting('store_seller_gstin') ?: $company('company_gstin'),
+            'phone'   => self::setting('store_seller_phone') ?: $mobile,
+            'email'   => self::setting('store_seller_email') ?: ($company('company_email') ?: (string) config('mail.from.address')),
+            'website' => (string) parse_url(Platform::get('company_website') ?? (string) config('app.url'), PHP_URL_HOST),
         ];
     }
 

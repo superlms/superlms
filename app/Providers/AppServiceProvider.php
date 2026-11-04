@@ -80,6 +80,16 @@ class AppServiceProvider extends ServiceProvider
             if ($user && \Illuminate\Support\Facades\Schema::hasColumn($user->getTable(), 'last_login_at')) {
                 $user->forceFill(['last_login_at' => now()])->saveQuietly();
             }
+
+            // Super Admin panel: who signed in, with which email, when and how
+            // (Profile → Login Activity). Never stops a sign-in.
+            if ($event->guard === 'superadmin' && $user instanceof \App\Models\User) {
+                try {
+                    \App\Support\SuperAdminLogins::record($user, (bool) $event->remember);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
         });
 
         // Per-email login throttle (6/min). Stops password brute-force

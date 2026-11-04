@@ -35,6 +35,51 @@ class Platform
         return (bool) self::get('logo_url');
     }
 
+    /** The platform's own details (Profile → Platform Details): key => label. */
+    public const DETAILS = [
+        'platform_name'   => 'Platform name',
+        'company_name'    => 'Company name',
+        'company_cin'     => 'CIN',
+        'company_gstin'   => 'GSTIN',
+        'company_email'   => 'Email',
+        'company_mobile'  => 'Mobile',
+        'company_website' => 'Website',
+        'company_address' => 'Address',
+    ];
+
+    /**
+     * The platform's details as saved. One never saved yet starts from what
+     * the site already knows: the app's name and URL, and Store → Invoices'
+     * seller.
+     */
+    public static function details(): array
+    {
+        $known = [
+            'platform_name'   => config('app.name', 'SuperLMS'),
+            'company_name'    => self::get('store_seller_name'),
+            'company_gstin'   => self::get('store_seller_gstin'),
+            'company_email'   => self::get('store_seller_email'),
+            'company_mobile'  => self::get('store_seller_phone'),
+            'company_website' => config('app.url'),
+            'company_address' => self::get('store_seller_address'),
+        ];
+
+        $out = [];
+        foreach (array_keys(self::DETAILS) as $key) {
+            $out[$key] = self::saved($key) ? (string) self::get($key) : (string) ($known[$key] ?? '');
+        }
+
+        return $out;
+    }
+
+    /** Whether a setting has been saved, even as blank. */
+    public static function saved(string $key): bool
+    {
+        self::get($key);
+
+        return array_key_exists($key, self::$settings ?? []);
+    }
+
     public static function get(string $key): ?string
     {
         if (self::$settings === null) {

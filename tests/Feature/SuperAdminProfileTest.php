@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Livewire\SuperAdmin\Profile;
 use App\Models\User;
+use App\Services\StoreInvoices;
 use App\Support\OtpNumbers;
 use App\Support\Platform;
+use App\Support\SuperAdminLogins;
 use App\Support\SvgSanitizer;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +39,12 @@ class SuperAdminProfileTest extends TestCase
         });
         (require base_path('database/migrations/2026_11_01_160000_create_user_otp_numbers_table.php'))->up();
         (require base_path('database/migrations/2026_11_01_160100_create_platform_settings_table.php'))->up();
+        (require base_path('database/migrations/2026_11_04_120000_create_super_admin_logins_table.php'))->up();
         app()->forgetInstance('otp_numbers.tracked');
+
+        // Platform keeps a request's settings in a static; a test starts clean.
+        \Illuminate\Support\Facades\Cache::forget('platform_settings');
+        \Closure::bind(fn () => Platform::$settings = null, null, Platform::class)();
 
         $this->boss = User::forceCreate([
             'name' => 'Main', 'email' => 'superlms.india@gmail.com', 'role' => 'super-admin', 'mobile_number' => '8864985914',
@@ -182,7 +190,98 @@ class SuperAdminProfileTest extends TestCase
         Livewire::test(Profile::class)
             ->assertSee('OTP Numbers')
             ->assertSee('Change Password')
+            ->assertSee('Login Activity')
             ->assertDontSee('Platform Details')
             ->assertDontSee('Platform Logo');
+    }
+
+    public function test_a_super_admin_sign_in_is_recorded_with_its_email_way_in_device_and_ip(): void
+    {
+        config(['services.otp.login_enabled' => true]);
+        request()->headers->set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36');
+        request()->server->set('REMOTE_ADDR', '203.0.113.9');
+
+        event(new Login('superadmin', $this->boss, false));
+        event(new Login('admin', $this->boss, false));   // a school's panel: not the Super Admin's
+
+        $rows = DB::table('super_admin_logins')->get();
+        $this->assertCount(1, $rows);
+        $this->assertSame('superlms.india@gmail.com', $rows[0]->email);
+        $this->assertSame('Main', $rows[0]->name);
+        $this->assertSame('otp', $rows[0]->method);
+        $this->assertSame('203.0.113.9', $rows[0]->ip);
+        $this->assertSame(['Chrome', 'Windows', false], SuperAdminLogins::device($rows[0]->user_agent));
+        $this->assertSame(['Safari', 'iPhone', true], SuperAdminLogins::device('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'));
+    }
+
+    public function test_login_activity_lists_the_last_15_days_everyone_for_the_main_and_their_own_for_a_sub(): void
+    {
+        $sub = User::forceCreate(['name' => 'Rohit', 'email' => 'rohit@superlms.in', 'role' => 'sub-super-admin']);
+        $row = fn (User $u, $at, $method = 'otp') => DB::table('super_admin_logins')->insert([
+            'user_id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'role' => $u->role,
+            'method' => $method, 'ip' => '10.0.0.1', 'user_agent' => 'Mozilla/5.0 (Linux; Android 14) Chrome/131.0 Mobile Safari/537.36', 'logged_in_at' => $at,
+        ]);
+        $row($this->boss, now()->subHours(2));
+        $row($this->boss, now()->subDays(3), 'password');
+        $row($sub, now()->subDay());
+        DB::table('super_admin_logins')->insert(['name' => 'Old', 'email' => 'old@superlms.in', 'role' => 'super-admin', 'logged_in_at' => now()->subDays(20)]);
+
+        $this->actingAs($this->boss);
+        Livewire::test(Profile::class)
+            ->assertSee('Login Activity')
+            ->assertSee('3 logins')
+            ->assertSee('rohit@superlms.in')
+            ->assertSee('Password + OTP')
+            ->assertSee('Chrome')
+            ->assertDontSee('old@superlms.in');
+
+        $this->actingAs($sub);
+        $seen = SuperAdminLogins::recent($sub);
+        $this->assertSame(1, $seen['total']);
+        $this->assertSame(['rohit@superlms.in'], array_column($seen['rows'], 'email'));
+        $this->assertCount(15, $seen['days']);
+    }
+
+    public function test_platform_details_are_checked_saved_and_fill_the_invoices_blanks(): void
+    {
+        $this->actingAs($this->boss);
+
+        Livewire::test(Profile::class)
+            ->assertSet('details.platform_name', config('app.name'))
+            ->set('details.company_cin', 'U123')
+            ->set('details.company_gstin', '09abcde1234f1z')
+            ->set('details.company_mobile', '12345')
+            ->call('saveDetails')
+            ->assertSee('A CIN is 21 letters and digits')
+            ->assertSee('A GSTIN is 15 letters and digits')
+            ->set('details.company_name', 'SuperLMS Technologies Pvt Ltd')
+            ->set('details.company_cin', 'u80301up2021ptc123456')
+            ->set('details.company_gstin', '09ABCDE1234F1Z5')
+            ->set('details.company_email', 'Hello@SuperLMS.in')
+            ->set('details.company_mobile', '+91 88649 85914')
+            ->set('details.company_website', 'superlms.in')
+            ->set('details.company_address', 'Sector 62, Noida, UP 201309')
+            ->call('saveDetails')
+            ->assertHasNoErrors()
+            ->assertSet('details.company_cin', 'U80301UP2021PTC123456')
+            ->assertSet('details.company_mobile', '+91 88649 85914')
+            ->assertSet('details.company_website', 'https://superlms.in');
+
+        $this->assertSame('hello@superlms.in', Platform::get('company_email'));
+        $this->assertSame('8864985914', Platform::get('company_mobile'));
+        $this->assertSame('SuperLMS Technologies Pvt Ltd', Platform::get('company_name'));
+
+        // Invoices: Store's own blanks come from here.
+        $seller = StoreInvoices::seller();
+        $this->assertSame('SuperLMS Technologies Pvt Ltd', $seller['name']);
+        $this->assertSame('09ABCDE1234F1Z5', $seller['gstin']);
+        $this->assertSame('Sector 62, Noida, UP 201309', $seller['address']);
+        $this->assertSame('+91 88649 85914', $seller['phone']);
+
+        // A sub super admin can't change them.
+        $sub = User::forceCreate(['name' => 'Sub', 'email' => 'sub@example.com', 'role' => 'sub-super-admin']);
+        $this->actingAs($sub);
+        Livewire::test(Profile::class)->set('details.company_name', 'Hacked')->call('saveDetails');
+        $this->assertSame('SuperLMS Technologies Pvt Ltd', Platform::get('company_name'));
     }
 }

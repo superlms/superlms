@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Support\OtpNumbers;
 use App\Support\Platform;
+use App\Support\SuperAdminLogins;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +45,27 @@ class Profile extends Component
 
     // Platform logo
     public $logo;
+
+    // Platform details (main super admin): Platform::DETAILS key => value
+    public array $details = [];
+
+    public function mount(): void
+    {
+        if ($this->isMainSuperAdmin()) {
+            $this->details = self::detailsForForm();
+        }
+    }
+
+    /** The saved details, the mobile written the way it reads: +91 88649 85914. */
+    private static function detailsForForm(): array
+    {
+        $d = Platform::details();
+        if (preg_match('/^\d{10}$/', $d['company_mobile'] ?? '')) {
+            $d['company_mobile'] = OtpNumbers::format($d['company_mobile']);
+        }
+
+        return $d;
+    }
 
     public function togglePasswordVisibility(string $field): void
     {
@@ -219,6 +241,61 @@ class Profile extends Component
         $this->notification()->success('Back to the original SuperLMS logo.');
     }
 
+    // ─── Platform details ─────────────────────────────────────────────────────
+
+    public function saveDetails(): void
+    {
+        if (!$this->isMainSuperAdmin()) {
+            return;
+        }
+
+        $d = [];
+        foreach (array_keys(Platform::DETAILS) as $key) {
+            $d[$key] = trim((string) ($this->details[$key] ?? ''));
+        }
+        $d['company_cin']   = strtoupper((string) preg_replace('/\s+/', '', $d['company_cin']));
+        $d['company_gstin'] = strtoupper((string) preg_replace('/\s+/', '', $d['company_gstin']));
+        $d['company_email'] = mb_strtolower(User::cleanEmail($d['company_email']));
+        if ($d['company_website'] !== '' && !preg_match('#^https?://#i', $d['company_website'])) {
+            $d['company_website'] = 'https://' . $d['company_website'];
+        }
+        $this->details = $d;
+
+        $this->resetValidation();
+        $this->validate([
+            'details.platform_name'   => ['required', 'string', 'max:80'],
+            'details.company_name'    => ['nullable', 'string', 'max:150'],
+            'details.company_cin'     => ['nullable', 'regex:/^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/'],
+            'details.company_gstin'   => ['nullable', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],
+            'details.company_email'   => ['nullable', 'email', 'max:150'],
+            'details.company_website' => ['nullable', 'url', 'max:150'],
+            'details.company_address' => ['nullable', 'string', 'max:500'],
+        ], [
+            'details.platform_name.required' => 'Give the platform a name.',
+            'details.company_cin.regex'      => 'A CIN is 21 letters and digits, e.g. U80301UP2021PTC123456.',
+            'details.company_gstin.regex'    => 'A GSTIN is 15 letters and digits, e.g. 09ABCDE1234F1Z5.',
+            'details.company_email.email'    => 'This is not a valid email address — it should look like name@example.com.',
+            'details.company_website.url'    => 'This is not a web address — it should look like https://superlms.in.',
+            'details.*.max'                  => 'This is too long — at most :max characters.',
+        ]);
+
+        if ($d['company_mobile'] !== '') {
+            [$digits, $error] = OtpNumbers::check($d['company_mobile']);
+            if ($error) {
+                $this->addError('details.company_mobile', $error);
+                return;
+            }
+            $d['company_mobile'] = $digits;
+        }
+
+        foreach ($d as $key => $value) {
+            Platform::set($key, $value);
+        }
+
+        $this->details = self::detailsForForm();
+        $this->notification()->success('Platform details saved.');
+    }
+
     /** A specific message for each way a logo file can be wrong. */
     private function checkLogo(): bool
     {
@@ -364,6 +441,8 @@ class Profile extends Component
             'maxNumbers'    => OtpNumbers::MAX,
             'platform'      => $isMain ? $this->platformDetails() : [],
             'websiteData'   => $isMain ? $this->websiteData() : [],
+            'logins'        => SuperAdminLogins::recent($user),
+            'detailLabels'  => Platform::DETAILS,
             'logoUrl'       => Platform::logoUrl(),
             'customLogo'    => Platform::hasCustomLogo(),
             'logoPreview'   => $logoPreview,
