@@ -7,8 +7,8 @@
         background: #fff; border: 1px solid #edf0f5; border-radius: 1rem;
         box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 32px -20px rgba(16, 24, 40, .22);
     }
-    a.sa-card { transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s, border-color .2s; }
-    a.sa-card:hover {
+    a.sa-card, button.sa-card { transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s, border-color .2s; }
+    a.sa-card:hover, button.sa-card:not(:disabled):hover {
         transform: translateY(-2px); border-color: #e2e5ee;
         box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 18px 36px -18px rgba(16, 24, 40, .3);
     }

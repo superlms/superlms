@@ -147,6 +147,64 @@ class SuperAdminReportsTest extends TestCase
         $this->assertSame('2026-04', array_key_first(Livewire::test(Reports::class)->get('monthOptions')));
     }
 
+    public function test_the_month_is_set_against_the_same_days_of_the_month_before_and_broken_down(): void
+    {
+        $this->receipt(15000, '2026-10-12');
+        $this->receipt(500, '2026-10-01', ['payment_mode' => 'upi', 'label' => 'Apr 2026', 'items' => 1]);
+        $this->receipt(4000, '2026-09-05');   // within 1–12 Sep: counted
+        $this->receipt(9000, '2026-09-20');   // after the 12th: not
+
+        $page = Livewire::test(Reports::class);
+
+        $this->assertSame('vs 1–12 Sep', $page->get('compareLabel'));
+        $this->assertEquals(4000, $page->get('prevTotals')['revenue']);
+        $this->assertEquals(15500, $page->get('totals')['revenue']);   // the 1st counts too
+
+        $b = $page->get('breakdowns');
+        $this->assertSame('ADARSH SATYADEV INTER COLLEGE', $b['revenueBySchool'][0]['name']);
+        $this->assertEquals(15500, $b['revenueBySchool'][0]['value']);
+        $this->assertSame(2, $b['revenueBySchool'][0]['count']);
+        $this->assertSame(['Cash', 'UPI'], array_column($b['revenueByMode'], 'label'));
+        $this->assertSame(2, $b['counts']['receipts']);
+
+        $stats = $page->get('monthStats');
+        $this->assertSame('2026-10-12', $stats['bestRevenue']['date']);
+        $this->assertSame(12, $stats['daysGone']);
+        $this->assertSame(2, $stats['activeDays']);
+
+        $text = strip_tags($page->html());
+        foreach (['Month at a Glance', 'Platform Revenue · Day by Day', 'Revenue by School', 'Fees by Payment Mode',
+                  'Registrations · Day by Day', 'Support Tickets', 'Website Enquiries', 'All-Time Totals', 'Day by Day'] as $part) {
+            $this->assertStringContainsString($part, $text);
+        }
+
+        // A past month is set against the whole month before it.
+        $page->call('setMonth', '2026-09');
+        $this->assertSame('vs Aug 2026', $page->get('compareLabel'));
+        $this->assertEquals(13000, $page->get('totals')['revenue']);
+    }
+
+    public function test_today_says_how_it_stands_against_yesterday(): void
+    {
+        $this->receipt(500, '2026-10-11');
+        $this->receipt(15000, '2026-10-12');
+
+        $page = Livewire::test(Reports::class);
+        $this->assertEquals(500, $page->get('yesterday')['revenue']);
+        $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('+₹14,500 vs yesterday', $text);
+        $this->assertStringContainsString('Same as yesterday', $text);
+    }
+
+    public function test_the_month_downloads_as_a_csv(): void
+    {
+        $this->receipt(15000, '2026-10-12');
+
+        Livewire::test(Reports::class)
+            ->call('exportCsv')
+            ->assertFileDownloaded('superlms-report-2026-10.csv');
+    }
+
     public function test_the_page_search_does_not_find_credit(): void
     {
         $this->signIn();

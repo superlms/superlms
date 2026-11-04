@@ -12,6 +12,14 @@ use App\Models\WebsiteDemo;
 use Carbon\Carbon;
 use Livewire\Component;
 
+/**
+ * Super Admin → Reports, in the Home's look: today against yesterday, the
+ * chosen month's figures against the month before (each with its days as a
+ * sparkline), the money and registrations day by day as charts, where the
+ * money came from (payment mode, school), support and enquiries, the
+ * all-time totals and the day-by-day table (also as a CSV). Every figure
+ * opens who or what made it up.
+ */
 class Reports extends Component
 {
     /** 'Y-m' key of the fiscal-year month currently selected. */
@@ -23,6 +31,9 @@ class Reports extends Component
     /** Today's activity, independent of whatever month is selected below. */
     public array $today = [];
 
+    /** Yesterday's, for Today's "vs yesterday". */
+    public array $yesterday = [];
+
     /** All-time totals (snapshot cards). */
     public array $snapshot = [];
 
@@ -32,8 +43,18 @@ class Reports extends Component
     /** Column totals across the selected month. */
     public array $totals = [];
 
+    /** The month before over the same days (all of it for a past month), and what it is. */
+    public array $prevTotals = [];
+    public string $compareLabel = '';
+
     /** Peak revenue/fees within the month, used to scale the inline bars. */
     public array $peaks = [];
+
+    /** Where the month's money and people came from (payment modes, schools, support, enquiries). */
+    public array $breakdowns = [];
+
+    /** The month in a few lines: active days, best days, averages. */
+    public array $monthStats = [];
 
     /** Day + metric drill-down modal. */
     public bool $detailOpen = false;
@@ -55,6 +76,9 @@ class Reports extends Component
         'support'   => 'Support Tickets',
         'enquiries' => 'Enquiries',
     ];
+
+    /** Columns that hold a date (no time): compared as dates in every database. */
+    private const DATE_ONLY = ['payment_date'];
 
     public function mount(): void
     {
@@ -104,14 +128,13 @@ class Reports extends Component
             return;
         }
 
-        $start = Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth();
-        $end   = $start->copy()->endOfMonth();
+        [$start, $end] = $this->monthRange();
         $label = $this->monthOptions[$this->selectedMonth] ?? $this->selectedMonth;
 
         $this->detailLabel = self::METRIC_LABELS[$metric] . ' — ' . $label;
         $this->detailRows  = $this->safeList(fn() => $this->fetchDetail(
             $metric,
-            fn($query, string $col) => $query->whereBetween($col, [$start, $end])->limit(self::MONTH_DETAIL_LIMIT),
+            fn($query, string $col) => $this->between($query, $col, $start, $end)->limit(self::MONTH_DETAIL_LIMIT),
         ));
         $this->detailOpen  = true;
     }
@@ -119,6 +142,25 @@ class Reports extends Component
     public function closeDetail(): void
     {
         $this->detailOpen = false;
+    }
+
+    /** The selected month's day-by-day figures as a CSV (days still to come left out). */
+    public function exportCsv()
+    {
+        $rows   = array_values(array_filter($this->rows, fn($r) => !$r['isFuture']));
+        $totals = $this->totals;
+        $name   = 'superlms-report-' . $this->selectedMonth . '.csv';
+
+        return response()->streamDownload(function () use ($rows, $totals) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // so Excel reads ₹ and names right
+            fputcsv($out, ['Date', 'Day', ...array_values(self::METRIC_LABELS)], ',', '"', '');
+            foreach ($rows as $r) {
+                fputcsv($out, [$r['date'], $r['sub'], ...array_map(fn($m) => $r[$m], self::METRICS)], ',', '"', '');
+            }
+            fputcsv($out, ['Total', '', ...array_map(fn($m) => $totals[$m] ?? 0, self::METRICS)], ',', '"', '');
+            fclose($out);
+        }, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function loadData(): void
@@ -147,6 +189,14 @@ class Reports extends Component
         return $opts ?: [$last->format('Y-m') => $last->format('M Y')];
     }
 
+    /** [first moment, last moment] of the selected month. */
+    private function monthRange(): array
+    {
+        $start = Carbon::createFromFormat('Y-m-d', $this->selectedMonth . '-01')->startOfMonth();
+
+        return [$start, $start->copy()->endOfMonth()];
+    }
+
     // ── All-time snapshot ────────────────────────────────────────────────────
     private function loadSnapshot(): void
     {
@@ -169,6 +219,8 @@ class Reports extends Component
             'label' => now()->format('l, d M Y'),
             'date'  => now()->toDateString(),
         ] + $this->dayTotals(now()->toDateString());
+
+        $this->yesterday = $this->dayTotals(now()->subDay()->toDateString());
     }
 
     /** One day's totals across every metric — shared by "Today" and the month table. */
@@ -187,11 +239,25 @@ class Reports extends Component
         ];
     }
 
+    /** Every metric's total between two moments. */
+    private function rangeTotals(Carbon $from, Carbon $to): array
+    {
+        return [
+            'students'  => $this->safe(fn() => $this->between(User::where('role', 'user'), 'created_at', $from, $to)->count()),
+            'teachers'  => $this->safe(fn() => $this->between(User::where('role', 'teacher'), 'created_at', $from, $to)->count()),
+            'schools'   => $this->safe(fn() => $this->between(Organization::query(), 'created_at', $from, $to)->count()),
+            'revenue'   => $this->safe(fn() => (float) $this->between(SuperAdminFeeReceipt::query(), 'payment_date', $from, $to)->sum('amount')),
+            'fees'      => $this->safe(fn() => (float) $this->between(FeePayment::query(), 'payment_date', $from, $to)->sum('amount')),
+            'support'   => $this->safe(fn() => $this->between(ContactSuperAdmin::query(), 'created_at', $from, $to)->count()),
+            'enquiries' => $this->safe(fn() => $this->between(WebsiteDemo::query(), 'created_at', $from, $to)->count())
+                         + $this->safe(fn() => $this->between(WebsiteContact::query(), 'created_at', $from, $to)->count()),
+        ];
+    }
+
     // ── Selected month, day by day ─────────────────────────────────────────────
     private function loadMonth(): void
     {
-        $start = Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth();
-        $end   = $start->copy()->endOfMonth();
+        [$start, $end] = $this->monthRange();
 
         $data = [
             'students'  => $this->grouped(User::where('role', 'user'),    'created_at',   'COUNT(*)', $start, $end),
@@ -225,15 +291,108 @@ class Reports extends Component
         }
 
         $this->rows = $rows;
+
+        $this->loadPrevious($start);
+        $this->loadBreakdowns($start, $end);
+    }
+
+    /**
+     * The month before, to set the chosen one against: for this month only
+     * its first as many days as have gone by, so half a month is never put
+     * against a whole one.
+     */
+    private function loadPrevious(Carbon $start): void
+    {
+        $prevStart = $start->copy()->subMonthNoOverflow()->startOfMonth();
+        $prevEnd   = $prevStart->copy()->endOfMonth();
+
+        if ($this->selectedMonth === now()->format('Y-m')) {
+            $prevEnd = $prevStart->copy()->addDays(now()->day - 1)->endOfDay()->min($prevStart->copy()->endOfMonth());
+            $this->compareLabel = 'vs ' . $prevStart->format('j') . '–' . $prevEnd->format('j M');
+        } else {
+            $this->compareLabel = 'vs ' . $prevStart->format('M Y');
+        }
+
+        $this->prevTotals = $this->rangeTotals($prevStart, $prevEnd);
+    }
+
+    /** Where the month's money and people came from. */
+    private function loadBreakdowns(Carbon $start, Carbon $end): void
+    {
+        $bySchool = fn($query, string $col, string $agg) => $this->safeList(fn() => $this->between($query, $col, $start, $end)
+            ->whereNotNull('organization_id')
+            ->selectRaw("organization_id as org, $agg as agg, COUNT(*) as n")
+            ->groupBy('organization_id')->orderByDesc('agg')->limit(6)->get()
+            ->map(fn($r) => ['org' => (int) $r->org, 'value' => (float) $r->agg, 'count' => (int) $r->n])->all());
+
+        $byMode = fn($query) => $this->safeList(fn() => $this->between($query, 'payment_date', $start, $end)
+            ->selectRaw("COALESCE(payment_mode, 'other') as mode, SUM(amount) as agg, COUNT(*) as n")
+            ->groupBy('mode')->orderByDesc('agg')->get()
+            ->map(fn($r) => ['label' => self::modeLabel($r->mode), 'value' => (float) $r->agg, 'count' => (int) $r->n])->all());
+
+        $feesBySchool     = $bySchool(FeePayment::query(), 'payment_date', 'SUM(amount)');
+        $revenueBySchool  = $bySchool(SuperAdminFeeReceipt::query(), 'payment_date', 'SUM(amount)');
+        $studentsBySchool = $bySchool(User::where('role', 'user'), 'created_at', 'COUNT(*)');
+
+        $ids   = array_unique(array_column(array_merge($feesBySchool, $revenueBySchool, $studentsBySchool), 'org'));
+        $names = $ids ? $this->safeList(fn() => Organization::whereIn('id', $ids)->pluck('name', 'id')->all()) : [];
+        $named = fn(array $list) => array_map(fn($r) => $r + ['name' => $names[$r['org']] ?? 'School #' . $r['org']], $list);
+
+        $tickets = fn() => $this->between(ContactSuperAdmin::query(), 'created_at', $start, $end);
+        $support = [
+            'total'   => $this->safe(fn() => $tickets()->count()),
+            'replied' => $this->safe(fn() => $tickets()->where('super_admin_reply', true)->count()),
+            'topics'  => $this->safeList(fn() => $tickets()->whereNotNull('topic')->where('topic', '!=', '')
+                ->selectRaw('topic, COUNT(*) as n')->groupBy('topic')->orderByDesc('n')->limit(4)->get()
+                ->map(fn($r) => ['label' => (string) $r->topic, 'count' => (int) $r->n])->all()),
+        ];
+        $support['pending'] = max(0, $support['total'] - $support['replied']);
+
+        $this->breakdowns = [
+            'feesByMode'       => $byMode(FeePayment::query()),
+            'revenueByMode'    => $byMode(SuperAdminFeeReceipt::query()),
+            'feesBySchool'     => $named($feesBySchool),
+            'revenueBySchool'  => $named($revenueBySchool),
+            'studentsBySchool' => $named($studentsBySchool),
+            'support'          => $support,
+            'enquiries'        => [
+                'demo'    => $this->safe(fn() => $this->between(WebsiteDemo::query(), 'created_at', $start, $end)->count()),
+                'contact' => $this->safe(fn() => $this->between(WebsiteContact::query(), 'created_at', $start, $end)->count()),
+            ],
+            'counts'           => [
+                'receipts' => $this->safe(fn() => $this->between(SuperAdminFeeReceipt::query(), 'payment_date', $start, $end)->count()),
+                'payments' => $this->safe(fn() => $this->between(FeePayment::query(), 'payment_date', $start, $end)->count()),
+            ],
+        ];
+    }
+
+    /** "cash" → "Cash", "bank_transfer" → "Bank Transfer", "upi" → "UPI". */
+    private static function modeLabel(?string $mode): string
+    {
+        $mode = strtolower(trim((string) $mode));
+
+        return match ($mode) {
+            '', 'other' => 'Other',
+            'upi'       => 'UPI',
+            'neft', 'rtgs', 'imps' => strtoupper($mode),
+            default     => ucwords(str_replace(['_', '-'], ' ', $mode)),
+        };
     }
 
     // ── Aggregation helpers (one grouped query each, fail-open) ───────────────
 
+    /** A date column is compared as dates, a timestamp as moments — right in MySQL and SQLite alike. */
+    private function between($query, string $col, Carbon $from, Carbon $to)
+    {
+        return in_array($col, self::DATE_ONLY, true)
+            ? $query->whereBetween($col, [$from->toDateString(), $to->toDateString()])
+            : $query->whereBetween($col, [$from, $to]);
+    }
+
     private function grouped($query, string $col, string $aggExpr, Carbon $start, Carbon $end): array
     {
         try {
-            return $query->whereNotNull($col)
-                ->whereBetween($col, [$start, $end])
+            return $this->between($query->whereNotNull($col), $col, $start, $end)
                 ->selectRaw("DATE($col) as bkt, $aggExpr as agg")
                 ->groupBy('bkt')
                 ->pluck('agg', 'bkt')
@@ -262,6 +421,40 @@ class Reports extends Component
         $this->peaks = [
             'revenue' => max(1.0, (float) max(array_column($this->rows, 'revenue') ?: [0])),
             'fees'    => max(1.0, (float) max(array_column($this->rows, 'fees') ?: [0])),
+        ];
+
+        // The month in a few lines.
+        $gone   = array_values(array_filter($this->rows, fn($r) => !$r['isFuture']));
+        $best   = function (callable $value) use ($gone) {
+            $top = null;
+            foreach ($gone as $r) {
+                if ($value($r) > 0 && ($top === null || $value($r) > $value($top))) {
+                    $top = $r;
+                }
+            }
+
+            return $top ? ['label' => $top['label'] . ' · ' . $top['sub'], 'date' => $top['date'], 'value' => $value($top)] : null;
+        };
+        $active = count(array_filter($gone, function ($r) {
+            foreach (self::METRICS as $m) {
+                if ($r[$m] > 0) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
+        $days = max(1, count($gone));
+
+        $this->monthStats = [
+            'days'        => count($this->rows),
+            'daysGone'    => count($gone),
+            'activeDays'  => $active,
+            'bestFees'    => $best(fn($r) => (float) $r['fees']),
+            'bestRevenue' => $best(fn($r) => (float) $r['revenue']),
+            'busiest'     => $best(fn($r) => (int) $r['students'] + (int) $r['teachers']),
+            'avgFees'     => round(($this->totals['fees'] ?? 0) / $days),
+            'avgStudents' => round(($this->totals['students'] ?? 0) / $days, 1),
         ];
     }
 

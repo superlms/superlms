@@ -11,7 +11,8 @@
      reads "0%", with $flat false shows no change row), $compare (what the
      change is against, default "vs last month"), $sub (the foot line, or
      null), $color ('violet' | 'sky' | 'emerald' | 'amber' | 'rose'),
-     $href (or null).
+     $href (or null), $click (a Livewire action the card runs instead, e.g.
+     "openMonthDetail('fees')" — Reports).
 
      Also used by the school admin's Home and Analytics (2026-11-04). --}}
 @php
@@ -25,10 +26,10 @@
     [$tint, $ink] = $tones[$color ?? 'violet'] ?? $tones['violet'];
     $spark = \App\Support\DashboardChart::sparkline($series ?? [], 120, 40);
     $gid   = 'spk' . substr(md5($label . json_encode($series ?? [])), 0, 10);
-    $tag   = !empty($href) ? 'a' : 'div';
+    $tag   = !empty($href) ? 'a' : (!empty($click) ? 'button' : 'div');
     $flat  = $flat ?? true;
 @endphp
-<{{ $tag }} @if (!empty($href)) href="{{ $href }}" @endif class="sa-card sa-kpi p-5 flex flex-col min-w-0">
+<{{ $tag }} @if (!empty($href)) href="{{ $href }}" @elseif (!empty($click)) type="button" wire:click="{{ $click }}" @endif class="sa-card sa-kpi p-5 flex flex-col min-w-0 {{ $tag === 'button' ? 'w-full text-left' : '' }}">
     <div class="flex items-center justify-between gap-2">
         <p class="text-sm font-medium text-gray-500 truncate" title="{{ $label }}">{{ $label }}</p>
         <span class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: {{ $tint }}; color: {{ $ink }}">
