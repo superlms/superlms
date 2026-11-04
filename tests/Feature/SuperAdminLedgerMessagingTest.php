@@ -176,6 +176,20 @@ class SuperAdminLedgerMessagingTest extends TestCase
         $page->set('sourceFilter', 'Salary');
         $this->assertStringNotContainsString('Set-up help', $this->text($page));
         $this->assertStringContainsString('Salary · Oct 2026', $this->text($page));
+
+        // The analytics sit in the header alone: Credit and Expense open their split
+        // by source, a line of it lists just those entries and the same line again
+        // shows everything; the old tiles under the header are gone.
+        $page->call('clearFilters')->call('overall');
+        $text = $this->text($page);
+        foreach (['Credit by source', 'Expense by source', 'How the balance closes', 'Opening balance'] as $seen) {
+            $this->assertStringContainsString($seen, $text);
+        }
+        $page->call('pickSource', 'expense', 'Salary')->assertSet('typeFilter', 'expense')->assertSet('sourceFilter', 'Salary');
+        $this->assertStringNotContainsString('Set-up help', $this->text($page));
+        $page->call('pickSource', 'expense', 'Salary')->assertSet('typeFilter', '')->assertSet('sourceFilter', '');
+        $this->assertStringContainsString('Set-up help', $this->text($page));
+        $page->call('pickSource', 'expense', 'Nope')->assertSet('sourceFilter', '');
     }
 
     public function test_a_wallet_is_filled_by_the_super_admin_or_by_the_school_and_spent_by_its_messages(): void

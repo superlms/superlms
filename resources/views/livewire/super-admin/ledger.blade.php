@@ -39,9 +39,39 @@
             'Manual'           => 'bg-gray-100 text-gray-600',
         ];
         $inr = fn ($v) => '₹' . number_format((float) $v, 2);
+        // The header's figures that open what they are made of (partials/ledger-figure):
+        // Credit and Expense by source — a line filters the list — and Closing from
+        // the opening balance.
+        $bySource = function (string $type, array $sources, array $by, string $color) use ($srcClass, $inr, $typeFilter, $sourceFilter) {
+            return array_map(fn ($src) => [
+                'label' => $src, 'pill' => $srcClass[$src] ?? 'bg-gray-100 text-gray-600',
+                'amount' => $inr($by[$src] ?? 0), 'amountClass' => ($by[$src] ?? 0) > 0 ? $color : 'text-gray-400',
+                'type' => $type, 'source' => $src, 'on' => $typeFilter === $type && $sourceFilter === $src,
+            ], $sources);
+        };
+        $plain = fn ($label, $amount, $class) => ['label' => $label, 'pill' => null, 'amount' => $amount, 'amountClass' => $class, 'type' => null, 'source' => null, 'on' => false];
+        $figures = [
+            'credit' => [
+                'label' => 'Credit', 'value' => $inr($periodCredit), 'valueClass' => 'text-emerald-600', 'title' => 'Credit by source',
+                'lines' => $bySource('credit', \App\Livewire\SuperAdmin\Ledger::CREDIT_SOURCES, $creditBySource, 'text-emerald-600'),
+            ],
+            'expense' => [
+                'label' => 'Expense', 'value' => $inr($periodExpense), 'valueClass' => 'text-red-600', 'title' => 'Expense by source',
+                'lines' => $bySource('expense', \App\Livewire\SuperAdmin\Ledger::EXPENSE_SOURCES, $expenseBySource, 'text-red-600'),
+            ],
+            'closing' => [
+                'label' => 'Closing', 'value' => $inr($closingBalance), 'valueClass' => 'text-blue-600', 'title' => 'How the balance closes',
+                'lines' => [
+                    $plain('Opening balance', $inr($openingBalance), $openingBalance < 0 ? 'text-red-600' : 'text-gray-800'),
+                    $plain('+ Credit', $inr($periodCredit), 'text-emerald-600'),
+                    $plain('− Expense', $inr($periodExpense), 'text-red-600'),
+                    $plain('Closing balance', $inr($closingBalance), 'text-blue-600'),
+                ],
+            ],
+        ];
     @endphp
 
-    {{-- ══════════ HEADER ══════════ --}}
+    {{-- ══════════ HEADER (analytics + actions, as the school Ledger has it) ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -50,11 +80,13 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3">
-                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1">
+                    {{-- The school Ledger's four, following the period picked below;
+                         Credit, Expense and Closing open what they are made of. --}}
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1 whitespace-nowrap">
                         <span class="pr-4">Net: <strong class="{{ $periodNet >= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $inr($periodNet) }}</strong></span>
-                        <span class="px-4">Credit: <strong class="text-emerald-600">{{ $inr($periodCredit) }}</strong></span>
-                        <span class="px-4">Expense: <strong class="text-red-600">{{ $inr($periodExpense) }}</strong></span>
-                        <span class="pl-4">Closing: <strong class="text-blue-600">{{ $inr($closingBalance) }}</strong></span>
+                        @include('livewire.super-admin.partials.ledger-figure', $figures['credit'] + ['class' => 'px-4'])
+                        @include('livewire.super-admin.partials.ledger-figure', $figures['expense'] + ['class' => 'px-4'])
+                        @include('livewire.super-admin.partials.ledger-figure', $figures['closing'] + ['class' => 'pl-4'])
                     </div>
 
                     <button type="button" @click="showExport = true"
@@ -70,11 +102,12 @@
                 </div>
             </div>
 
-            <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+            {{-- Mobile / tablet stats — inside the same block, as the school Ledger has them. --}}
+            <div class="relative flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
                 <span>Net: <strong class="{{ $periodNet >= 0 ? 'text-emerald-600' : 'text-red-600' }}">{{ $inr($periodNet) }}</strong></span>
-                <span>Credit: <strong class="text-emerald-600">{{ $inr($periodCredit) }}</strong></span>
-                <span>Expense: <strong class="text-red-600">{{ $inr($periodExpense) }}</strong></span>
-                <span>Closing: <strong class="text-blue-600">{{ $inr($closingBalance) }}</strong></span>
+                @include('livewire.super-admin.partials.ledger-figure', $figures['credit'] + ['class' => ''])
+                @include('livewire.super-admin.partials.ledger-figure', $figures['expense'] + ['class' => ''])
+                @include('livewire.super-admin.partials.ledger-figure', $figures['closing'] + ['class' => ''])
             </div>
         </div>
 
@@ -108,6 +141,8 @@
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
 
+                <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
+
                 <select wire:model.live="typeFilter" aria-label="Type"
                     class="text-xs bg-white border border-gray-200 rounded-md pl-2.5 pr-8 py-1.5 text-gray-700">
                     <option value="">Credit &amp; expense</option>
@@ -135,23 +170,8 @@
         </div>
     </div>
 
-    {{-- ══════════ BODY ══════════ --}}
-    <div class="p-4 sm:p-6 space-y-4">
-
-        {{-- Where the period's money came from and went: one tile a source. --}}
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
-                <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Opening</p>
-                <p class="mt-1 text-sm font-semibold tabular-nums {{ $openingBalance < 0 ? 'text-red-600' : 'text-gray-900' }}">{{ $inr($openingBalance) }}</p>
-            </div>
-            @foreach (\App\Livewire\SuperAdmin\Ledger::SOURCES as $src)
-                <button type="button" wire:click="$set('sourceFilter', '{{ $sourceFilter === $src ? '' : $src }}')"
-                    class="text-left bg-white border rounded-xl px-4 py-3 transition-colors {{ $sourceFilter === $src ? 'border-blue-400 ring-1 ring-blue-200' : 'border-gray-200 hover:border-gray-300' }}">
-                    <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $src }}</p>
-                    <p class="mt-1 text-sm font-semibold tabular-nums {{ in_array($src, ['Salary', 'Fee Correction'], true) ? 'text-red-600' : ($src === 'Manual' ? 'text-gray-900' : 'text-emerald-600') }}">{{ $inr($bySource[$src] ?? 0) }}</p>
-                </button>
-            @endforeach
-        </div>
+    {{-- ══════════ BODY (the list alone, as the school Ledger has it) ══════════ --}}
+    <div class="p-4 sm:p-6">
 
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table class="w-full table-fixed">
@@ -250,10 +270,6 @@
                 <div class="px-4 py-3 border-t border-gray-100">{{ $entries->links('livewire::tailwind') }}</div>
             @endif
         </div>
-
-        <p class="text-xs text-gray-400">
-            Fees received from schools (Fees) and messaging wallet recharges (Messaging) are credits, and salaries paid (Payroll) are expenses — they come in on their own and are corrected where they were made. Overall balance: <strong class="{{ $netBalance >= 0 ? 'text-gray-600' : 'text-red-600' }}">{{ $inr($netBalance) }}</strong>.
-        </p>
     </div>
 
     {{-- ══════════ ADD / EDIT SLIDE-IN ══════════ --}}

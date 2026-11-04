@@ -43,6 +43,10 @@ class Ledger extends Component
 
     public const SOURCES = ['School Fee', 'Messaging Wallet', 'Salary', 'Fee Correction', 'Manual'];
 
+    /** Where the header's Credit and its Expense come from, in the order their breakdowns list them. */
+    public const CREDIT_SOURCES  = ['School Fee', 'Messaging Wallet', 'Manual'];
+    public const EXPENSE_SOURCES = ['Salary', 'Fee Correction', 'Manual'];
+
     protected $queryString = [
         'startDate' => ['except' => '', 'history' => false],
         'endDate'   => ['except' => '', 'history' => false],
@@ -71,6 +75,19 @@ class Ledger extends Component
     {
         $this->startDate = '';
         $this->endDate   = '';
+        $this->resetPage();
+    }
+
+    /** A line of the header's Credit / Expense breakdown: list just those entries; the same line again shows everything. */
+    public function pickSource(string $type, string $source): void
+    {
+        if (!in_array($type, ['credit', 'expense'], true) || !in_array($source, self::SOURCES, true)) {
+            return;
+        }
+
+        $same = $this->typeFilter === $type && $this->sourceFilter === $source;
+        $this->typeFilter   = $same ? '' : $type;
+        $this->sourceFilter = $same ? '' : $source;
         $this->resetPage();
     }
 
@@ -245,6 +262,10 @@ class Ledger extends Component
         $periodCredit  = round($all->where('type', 'credit')->sum('amount'), 2);
         $periodExpense = round($all->where('type', 'expense')->sum('amount'), 2);
 
+        // The header's Credit and Expense split by source (a manual entry counts on its own side).
+        $split = fn (string $type) => $all->where('type', $type)->groupBy('source')
+            ->map(fn ($rows) => round($rows->sum('amount'), 2))->all();
+
         $page      = $this->getPage();
         $perPage   = 50;
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -257,13 +278,13 @@ class Ledger extends Component
 
         return view('livewire.super-admin.ledger', [
             'entries'        => $paginated,
-            'netBalance'     => SuperAdminLedgerService::netBalance(),
             'openingBalance' => $opening,
             'closingBalance' => $closing,
             'periodCredit'   => $periodCredit,
             'periodExpense'  => $periodExpense,
             'periodNet'      => round($periodCredit - $periodExpense, 2),
-            'bySource'       => $all->groupBy('source')->map(fn ($rows) => round($rows->sum('amount'), 2))->all(),
+            'creditBySource'  => $split('credit'),
+            'expenseBySource' => $split('expense'),
             'isThisMonth'    => $this->startDate === now()->startOfMonth()->toDateString()
                 && in_array($this->endDate, [now()->toDateString(), now()->endOfMonth()->toDateString()], true),
             'isOverall'      => $this->startDate === '' && $this->endDate === '',
