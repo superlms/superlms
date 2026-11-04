@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -24,10 +23,6 @@ class Profile extends Component
     /** What a logo may be, and how big. */
     private const LOGO_TYPES  = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
     private const LOGO_MAX_KB = 2048;
-
-    // A tab switch is one step for the header's Back.
-    #[Url(history: true, except: 'profile')]
-    public string $activeTab = 'profile';
 
     // Photo
     public $photo;
@@ -49,14 +44,6 @@ class Profile extends Component
 
     // Platform logo
     public $logo;
-
-    public function showTab(string $tab): void
-    {
-        if ($tab === 'platform' && !$this->isMainSuperAdmin()) {
-            return;
-        }
-        $this->activeTab = $tab;
-    }
 
     public function togglePasswordVisibility(string $field): void
     {
@@ -91,6 +78,12 @@ class Profile extends Component
 
         $this->reset('photo', 'tempPhotoUrl');
         $this->notification()->success('Profile photo updated successfully!');
+    }
+
+    public function cancelPhoto(): void
+    {
+        $this->reset('photo', 'tempPhotoUrl');
+        $this->resetValidation('photo');
     }
 
     public function updatePassword(): void
@@ -306,16 +299,16 @@ class Profile extends Component
     private function websiteData(): array
     {
         $sources = [
-            ['Blogs',                  \App\Models\Blog::class,                 'super-admin.website.blogs'],
-            ['FAQs',                   \App\Models\Faq::class,                  'super-admin.website.faqs'],
-            ['Contact enquiries',      \App\Models\WebsiteContact::class,       'super-admin.enquiries'],
-            ['Demo requests',          \App\Models\WebsiteDemo::class,          'super-admin.enquiries'],
-            ['Career applications',    \App\Models\CareerApplication::class,    'super-admin.website.careers'],
-            ['Executive applications', \App\Models\ExecutiveApplication::class, 'super-admin.website.become-executive'],
+            ['Blogs',                  \App\Models\Blog::class,                 'super-admin.website.blogs',            'newspaper'],
+            ['FAQs',                   \App\Models\Faq::class,                  'super-admin.website.faqs',             'question-mark-circle'],
+            ['Contact enquiries',      \App\Models\WebsiteContact::class,       'super-admin.enquiries',                'envelope'],
+            ['Demo requests',          \App\Models\WebsiteDemo::class,          'super-admin.enquiries',                'calendar-days'],
+            ['Career applications',    \App\Models\CareerApplication::class,    'super-admin.website.careers',          'briefcase'],
+            ['Executive applications', \App\Models\ExecutiveApplication::class, 'super-admin.website.become-executive', 'user-group'],
         ];
 
         $rows = [];
-        foreach ($sources as [$label, $model, $route]) {
+        foreach ($sources as [$label, $model, $route, $icon]) {
             $count  = '—';
             $latest = null;
             try {
@@ -327,6 +320,7 @@ class Profile extends Component
 
             $rows[] = [
                 'label'  => $label,
+                'icon'   => $icon,
                 'count'  => $count,
                 'latest' => $latest ? \Carbon\Carbon::parse($latest)->format('d M Y') : null,
                 'url'    => Route::has($route) ? route($route) : null,
@@ -351,9 +345,6 @@ class Profile extends Component
         }
 
         $isMain = $user->role === 'super-admin';
-        if ($this->activeTab === 'platform' && !$isMain) {
-            $this->activeTab = 'profile';
-        }
 
         $logoPreview = null;
         if ($this->logo && !$this->getErrorBag()->has('logo')) {
@@ -368,10 +359,11 @@ class Profile extends Component
             'user'          => $user,
             'grantedAccess' => $grantedAccess,
             'isMain'        => $isMain,
-            'numbers'       => $this->activeTab === 'numbers' ? OtpNumbers::forUser($user) : [],
+            // One page, no tabs: the platform part is the main super admin's only.
+            'numbers'       => OtpNumbers::forUser($user),
             'maxNumbers'    => OtpNumbers::MAX,
-            'platform'      => $this->activeTab === 'platform' ? $this->platformDetails() : [],
-            'websiteData'   => $this->activeTab === 'platform' ? $this->websiteData() : [],
+            'platform'      => $isMain ? $this->platformDetails() : [],
+            'websiteData'   => $isMain ? $this->websiteData() : [],
             'logoUrl'       => Platform::logoUrl(),
             'customLogo'    => Platform::hasCustomLogo(),
             'logoPreview'   => $logoPreview,

@@ -99,7 +99,6 @@ class SuperAdminProfileTest extends TestCase
         $this->actingAs($this->boss);
 
         Livewire::test(Profile::class)
-            ->call('showTab', 'numbers')
             ->assertSee('+91 88649 85914')
             ->assertSee('Primary · gets the OTP')
             ->set('newNumber', '93683')->call('addNumber')
@@ -118,7 +117,6 @@ class SuperAdminProfileTest extends TestCase
         $this->assertStringEndsWith('website-image/Group%2011525.png', str_replace(' ', '%20', Platform::logoUrl()));
 
         Livewire::test(Profile::class)
-            ->call('showTab', 'platform')
             ->set('logo', UploadedFile::fake()->image('logo.png', 120, 120))
             ->call('saveLogo')
             ->assertHasNoErrors();
@@ -140,7 +138,6 @@ class SuperAdminProfileTest extends TestCase
              . '<a href="javascript:alert(3)"><circle cx="5" cy="5" r="4" fill="#6f56fe"/></a></svg>';
 
         Livewire::test(Profile::class)
-            ->call('showTab', 'platform')
             ->set('logo', UploadedFile::fake()->createWithContent('logo.svg', $svg))
             ->call('saveLogo')
             ->assertHasNoErrors();
@@ -156,7 +153,7 @@ class SuperAdminProfileTest extends TestCase
     {
         $this->actingAs($this->boss);
 
-        Livewire::test(Profile::class)->call('showTab', 'platform')
+        Livewire::test(Profile::class)
             ->set('logo', UploadedFile::fake()->create('logo.pdf', 10))
             ->assertSee('A .pdf file can')
             ->set('logo', UploadedFile::fake()->createWithContent('logo.png', 'not a picture'))
@@ -166,11 +163,15 @@ class SuperAdminProfileTest extends TestCase
         $this->assertNull(SvgSanitizer::clean('<html><body>hi</body></html>'));
     }
 
-    public function test_platform_tab_shows_details_and_website_data_to_the_main_super_admin_only(): void
+    public function test_platform_part_shows_details_and_website_data_to_the_main_super_admin_only(): void
     {
         $this->actingAs($this->boss);
 
-        Livewire::test(Profile::class)->call('showTab', 'platform')
+        // One page, no tabs: the account, numbers, password and platform together.
+        Livewire::test(Profile::class)
+            ->assertSee('OTP Numbers')
+            ->assertSee('Change Password')
+            ->assertSee('Platform Logo')
             ->assertSee('Platform Details')
             ->assertSee('Website Data')
             ->assertSee('Contact enquiries');
@@ -178,8 +179,10 @@ class SuperAdminProfileTest extends TestCase
         $sub = User::forceCreate(['name' => 'Sub', 'email' => 'sub@example.com', 'role' => 'sub-super-admin']);
         $this->actingAs($sub);
 
-        Livewire::test(Profile::class)->call('showTab', 'platform')
-            ->assertSet('activeTab', 'profile')
-            ->assertDontSee('Platform Details');
+        Livewire::test(Profile::class)
+            ->assertSee('OTP Numbers')
+            ->assertSee('Change Password')
+            ->assertDontSee('Platform Details')
+            ->assertDontSee('Platform Logo');
     }
 }
