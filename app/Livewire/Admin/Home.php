@@ -28,6 +28,7 @@ use App\Models\Admin\TransportFeePayment;
 use App\Livewire\Concerns\CountsBillableMonths;
 use App\Support\AcademicYear;
 use App\Support\CustomFee;
+use App\Support\SchoolMonthly;
 
 class Home extends Component
 {
@@ -95,6 +96,10 @@ class Home extends Component
     // Upcoming events
     public $upcomingEvents = [];
 
+    // The KPI cards' sparklines and the Students by Class donut (App\Support\SchoolMonthly).
+    public array $monthly = [];
+    public array $studentsByClass = [];
+
     protected $routeLabels = [
         'admin.home' => 'Dashboard',
         'admin.standard' => 'Class Management',
@@ -144,6 +149,10 @@ class Home extends Component
         $this->studentQueries = ContactAdminStudent::forOrganization()->count();
         $this->websiteQueries = AdminEnquiry::forOrganization()->count();
         $this->loadLmsRatings();
+
+        $orgId = (int) FacadesAuth::user()->organization_id;
+        $this->monthly         = SchoolMonthly::forSchool($orgId);
+        $this->studentsByClass = SchoolMonthly::studentsByClass($orgId);
     }
 
     protected function loadLmsRatings()
@@ -474,23 +483,7 @@ class Home extends Component
 
         // Academic and transport, from both payment tables — or, for a school
         // on Custom Fee, what it has collected through that.
-        $byDate = [];
-        $queries = CustomFee::enabled((int) $orgId) ? [] : [
-            FeePayment::where('organization_id', $orgId)->whereIn('fee_type', ['academic', 'transport']),
-            TransportFeePayment::where('organization_id', $orgId),
-        ];
-        if (!$queries) {
-            $byDate = CustomFee::collectedByDay((int) $orgId, $start->toDateString());
-        }
-        foreach ($queries as $query) {
-            $payments = $query->whereDate('payment_date', '>=', $start->toDateString())
-                ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
-                ->groupBy('d')->pluck('total', 'd');
-
-            foreach ($payments as $d => $total) {
-                $byDate[(string) $d] = ($byDate[(string) $d] ?? 0) + (float) $total;
-            }
-        }
+        $byDate = SchoolMonthly::feeByDay((int) $orgId, $start->toDateString());
 
         // Bucket width in days: 1 (daily), 7 (weekly) or a whole month.
         $monthly = $days > 90;

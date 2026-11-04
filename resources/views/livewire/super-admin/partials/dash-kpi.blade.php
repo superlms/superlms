@@ -8,9 +8,12 @@
 
      $label, $value, $icon (heroicon), $series (numbers, oldest first),
      $trend (DashboardChart::trend() or null — null with $flat (default true)
-     reads "0%", with $flat false shows no change row), $sub (the foot line,
-     or null), $color ('violet' | 'sky' | 'emerald' | 'amber' | 'rose'),
-     $href (or null) --}}
+     reads "0%", with $flat false shows no change row), $compare (what the
+     change is against, default "vs last month"), $sub (the foot line, or
+     null), $color ('violet' | 'sky' | 'emerald' | 'amber' | 'rose'),
+     $href (or null).
+
+     Also used by the school admin's Home and Analytics (2026-11-04). --}}
 @php
     $tones = [
         'violet'  => ['#f5f3ff', '#7c3aed'],
@@ -62,7 +65,7 @@
             @else
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded-md font-semibold bg-gray-100 text-gray-500 tabular-nums">0%</span>
             @endif
-            <span class="text-gray-400">vs last month</span>
+            <span class="text-gray-400">{{ $compare ?? 'vs last month' }}</span>
         </div>
     @endif
 

@@ -89,6 +89,7 @@ class Analytics extends Component
     public $topRankers           = [];   // Student Performance: the 10 best by exam marks
     public $bottomRankers        = [];   // …and the 10 at the foot of the same ranking
     public $enquiryStats         = [];   // enquiry funnel counts
+    public array $monthly        = [];   // last 12 months: students added, fee collected (App\Support\SchoolMonthly)
 
     // Filters only — they change the URL without adding a Back step.
     protected $queryString = [
@@ -199,6 +200,9 @@ class Analytics extends Component
         $this->loadTransportFeeData();
         $this->loadEnquiryStats();
         $this->loadKpis();
+
+        // The KPI cards' sparklines and the monthly collection chart.
+        $this->monthly = \App\Support\SchoolMonthly::forSchool($this->orgId());
     }
 
     // ─── KPIs with period deltas ────────────────────────────────────────────────
