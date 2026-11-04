@@ -145,10 +145,26 @@ class AdminSidebarMoreTest extends TestCase
         $this->assertNotContains('admin.documents', $routes);
         $this->assertSame('admin.exam-copy', $routes[4]);   // where Documents was
         $this->assertSame('admin.messaging', $routes[5]);   // the messaging wallet (2026-11-01)
-        $this->assertCount(14, $routes);                     // Credit is no longer a tile (2026-10-09)
+        // Reception, Gatepass and Complaints right after it (2026-11-04).
+        $this->assertSame(['admin.reception', 'admin.gatepass', 'admin.complaints'], array_slice($routes, 6, 3));
+        $this->assertCount(17, $routes);                     // Credit is no longer a tile (2026-10-09)
         $this->assertNotContains('admin.credit', $routes);
 
         Livewire::test(More::class)->assertSee('Exam Copy')->assertSeeHtml('/exam-copy"');
+    }
+
+    public function test_reception_gatepass_and_complaints_are_only_their_pages_for_now(): void
+    {
+        $this->signIn();
+
+        foreach ([
+            'Reception'  => [\App\Livewire\Admin\Reception::class, '/reception"'],
+            'Gatepass'   => [\App\Livewire\Admin\Gatepass::class, '/gatepass"'],
+            'Complaints' => [\App\Livewire\Admin\Complaints::class, '/complaints"'],
+        ] as $title => [$component, $href]) {
+            Livewire::test($component)->assertSee($title)->assertSee('Coming soon');
+            Livewire::test(More::class)->assertSee($title)->assertSeeHtml($href);
+        }
     }
 
     public function test_a_school_without_the_exam_module_has_no_exam_copy_tile(): void
@@ -160,7 +176,7 @@ class AdminSidebarMoreTest extends TestCase
 
         $this->assertNotContains('admin.exam-copy', $routes);
         $this->assertContains('admin.profile', $routes);
-        $this->assertCount(13, $routes);
+        $this->assertCount(16, $routes);
     }
 
     public function test_a_sub_admin_sees_each_only_when_granted(): void

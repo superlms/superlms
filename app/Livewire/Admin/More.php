@@ -16,6 +16,10 @@ class More extends Component
         ['title' => 'Exam Copy',            'route' => 'admin.exam-copy',            'icon' => 'document-text'],
         // The messaging wallet, and WhatsApp / email to the school's students and teachers.
         ['title' => 'Messaging',            'route' => 'admin.messaging',            'icon' => 'chat-bubble-left-right'],
+        // Only their pages so far (2026-11-04); what they do is still to be built.
+        ['title' => 'Reception',            'route' => 'admin.reception',            'icon' => 'building-office'],
+        ['title' => 'Gatepass',             'route' => 'admin.gatepass',             'icon' => 'ticket'],
+        ['title' => 'Complaints',           'route' => 'admin.complaints',           'icon' => 'exclamation-circle'],
         // Credit is no longer a tile here (2026-10-09); its page and route stay.
         ['title' => 'Rules & Regulation',  'route' => 'admin.rules-and-regulation', 'icon' => 'clipboard'],
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
