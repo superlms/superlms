@@ -377,6 +377,15 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/conversations/delete', [ChatController::class, 'deleteConversations']);
         });
 
+        // Platform fee (student only): a school whose students pay the Per
+        // Student fee themselves shows its payment screen until it is paid
+        // (App\Support\FeeAccess, App\Http\Middleware\PlatformFeeGate).
+        Route::prefix('platform-fee')->group(function () {
+            Route::get('/', [\App\Http\Controllers\v1\PlatformFeeController::class, 'show']);
+            Route::post('/pay', [\App\Http\Controllers\v1\PlatformFeeController::class, 'pay'])->middleware('throttle:payments');
+            Route::get('/pay/{merchantOrderId}', [\App\Http\Controllers\v1\PlatformFeeController::class, 'status']);
+        });
+
         // Fees Api  (student only)
         Route::prefix('fees')->group(function () {
             Route::get('/summary',   [FeeController::class, 'summary']);

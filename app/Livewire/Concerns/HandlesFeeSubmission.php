@@ -116,6 +116,8 @@ trait HandlesFeeSubmission
             'class'        => $student->standard->name ?? '—',
             'section'      => $student->section->name ?? '—',
             'phone'        => $student->phone ?? '—',
+            // Must first pay the platform fee in the app: no fee is taken till then (FeeAccess).
+            'platform_fee_due' => \App\Support\FeeAccess::locked((int) $student->id, (int) $student->organization_id),
         ];
 
         // Load fee structures for this student's class
@@ -198,6 +200,10 @@ trait HandlesFeeSubmission
     {
         if (!$this->selectedStudentId) {
             $this->notification()->error('Select a student first.');
+            return;
+        }
+        if (\App\Support\FeeAccess::locked((int) $this->selectedStudentId)) {
+            $this->notification()->error('Platform fee not paid', \App\Support\FeeAccess::lockedMessage());
             return;
         }
         $this->submitAmount      = '';
@@ -398,6 +404,11 @@ trait HandlesFeeSubmission
      */
     protected function feeCollectionError(string $type, float $amount): ?array
     {
+        // A student who must first pay the platform fee in the app (FeeAccess).
+        if ($this->selectedStudentId && \App\Support\FeeAccess::locked((int) $this->selectedStudentId)) {
+            return ['Platform fee not paid', \App\Support\FeeAccess::lockedMessage()];
+        }
+
         $caps = $this->feeTypeCaps();
 
         if (($caps[$type] ?? 0) <= 0) {

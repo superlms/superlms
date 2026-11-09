@@ -14,6 +14,9 @@ class SuperAdminFeeStructure extends Model
         'organization_id',
         'standard_id',
         'fee_type',
+        // Per Student only: 'school' (the super admin marks it paid) or
+        // 'student' (each student pays in the app — App\Support\FeeAccess).
+        'collect_from',
         'amount',
         'total_amount',
         'installment_frequency',
@@ -29,6 +32,44 @@ class SuperAdminFeeStructure extends Model
         'period_amounts' => 'array',
         'is_active'      => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        // Who must pay is worked out from these rows; a change is read afresh.
+        static::saved(fn () => \App\Support\FeeAccess::flush());
+        static::deleted(fn () => \App\Support\FeeAccess::flush());
+    }
+
+    /**
+     * Whether the table has collect_from yet (the migration of 9 Nov 2026) —
+     * asked once a request, so a save never breaks before it has run.
+     */
+    public static function tracksCollectFrom(): bool
+    {
+        $key = 'superadmin.fee_structures.tracks_collect_from';
+        if (!app()->bound($key)) {
+            try {
+                $has = \Illuminate\Support\Facades\Schema::hasColumn((new self)->getTable(), 'collect_from');
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+            app()->instance($key, $has);
+        }
+
+        return (bool) app($key);
+    }
+
+    /** Only what the table can hold: collect_from is left out before its migration. */
+    public static function withCollectFrom(array $values, string $collectFrom): array
+    {
+        return self::tracksCollectFrom() ? $values + ['collect_from' => $collectFrom] : $values;
+    }
+
+    /** A Per Student fee each student pays in the app themselves. */
+    public function collectsFromStudents(): bool
+    {
+        return $this->fee_type === 'per_student' && $this->collect_from === 'student';
+    }
 
     /** Installments per year for this structure's frequency (one_time only). */
     public function installmentDivisor(): int

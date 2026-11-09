@@ -61,6 +61,9 @@ class Fees extends Component
     public array  $periodAmounts         = [];          // period key => amount (string) — monthly plan
     public string $perStudentAmount      = '';
     public string $perStudentLabel       = 'Annual Platform Fee';
+    // Per Student: who pays it — 'school' (marked paid here) or 'student'
+    // (each pays in the app; till then no fee or attendance — FeeAccess).
+    public string $feeCollectFrom        = 'school';
 
     // ─── Legacy per-class fee edit modal (only for old 'class_wise' rows) ─────
     public bool   $showEditModal = false;
@@ -405,12 +408,13 @@ class Fees extends Component
         // The year's months (April → March of $academicYear): money received
         // on each, as Reports counts it (SuperAdminFeeReceipt), keyed "2026-4".
         $fyFrom  = \Illuminate\Support\Carbon::create((int) explode('-', $this->academicYear)[0], 4, 1);
-        $fyChart = SuperAdminFeeReceipt::where('organization_id', $orgId)
+        $fyMonths = SuperAdminFeeReceipt::where('organization_id', $orgId)
             ->whereBetween('payment_date', [$fyFrom->toDateString(), $fyFrom->copy()->addYear()->subDay()->toDateString()])
             ->get(['payment_date', 'amount'])
-            ->groupBy(fn ($r) => $r->payment_date->year . '-' . $r->payment_date->month)
-            ->map(fn ($rows) => round((float) $rows->sum('amount'), 2))
-            ->toArray();
+            ->groupBy(fn ($r) => $r->payment_date->year . '-' . $r->payment_date->month);
+        $fyChart = $fyMonths->map(fn ($rows) => round((float) $rows->sum('amount'), 2))->toArray();
+        // How many times money came each month (a sum taken back is not one).
+        $fyCount = $fyMonths->map(fn ($rows) => $rows->where('amount', '>', 0)->count())->toArray();
 
         $this->schoolStats = [
             'total_students'   => $totalStudents,
@@ -420,6 +424,7 @@ class Fees extends Component
             'avg_per_student'  => $totalStudents > 0 ? round($expected / $totalStudents) : 0,
             'collection_pct'   => $pct,
             'fy_monthly_chart' => $fyChart,
+            'fy_monthly_count' => $fyCount,
             // Of the collected: money of deleted students nobody owed yet (SuperAdminFeeAllocator).
             'carried'          => SuperAdminFeeAllocator::carriedFor($orgId, $this->academicYear),
         ];
@@ -466,6 +471,7 @@ class Fees extends Component
         $this->periodAmounts        = $this->blankPeriodAmounts();
         $this->perStudentAmount     = '';
         $this->perStudentLabel      = 'Annual Platform Fee';
+        $this->feeCollectFrom       = 'school';
         $this->showFeePanel         = true;
     }
 
@@ -502,6 +508,7 @@ class Fees extends Component
             $this->feePlan              = 'per_student';
             $this->perStudentAmount     = (string) $existing->amount;
             $this->perStudentLabel      = $existing->fee_label ?? 'Annual Platform Fee';
+            $this->feeCollectFrom       = \App\Support\FeeAccess::collectFrom($existing);
             $this->installmentFrequency = 'monthly';
             $this->periodAmounts        = $this->blankPeriodAmounts();
             $this->oneTimeAmount        = '';
@@ -521,6 +528,7 @@ class Fees extends Component
             $this->oneTimeAmount    = '';
             $this->perStudentAmount = '';
             $this->perStudentLabel  = 'Annual Platform Fee';
+            $this->feeCollectFrom   = 'school';
         } else {
             // one_time yearly (or a legacy quarterly row) → single full-year amount.
             $this->feePlan              = 'one_time';
@@ -531,6 +539,7 @@ class Fees extends Component
             $this->periodAmounts        = $this->blankPeriodAmounts();
             $this->perStudentAmount     = '';
             $this->perStudentLabel      = 'Annual Platform Fee';
+            $this->feeCollectFrom       = 'school';
         }
 
         $this->showFeePanel = true;
@@ -554,6 +563,7 @@ class Fees extends Component
             $this->validate([
                 'perStudentAmount' => 'required|numeric|min:0.01',
                 'perStudentLabel'  => 'required|string|max:100',
+                'feeCollectFrom'   => 'required|in:school,student',
             ]);
 
             SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
@@ -567,7 +577,7 @@ class Fees extends Component
                     'academic_year'   => $this->academicYear,
                     'fee_type'        => 'per_student',
                 ],
-                [
+                SuperAdminFeeStructure::withCollectFrom([
                     'standard_id'           => null,
                     'amount'                => $this->perStudentAmount,
                     'total_amount'          => null,
@@ -575,7 +585,7 @@ class Fees extends Component
                     'period_amounts'        => null,
                     'fee_label'             => $this->perStudentLabel,
                     'is_active'             => true,
-                ]
+                ], $this->feeCollectFrom)
             );
         } else {
             // Monthly and One Time both persist as fee_type = one_time; the
@@ -632,7 +642,8 @@ class Fees extends Component
                     'academic_year'   => $this->academicYear,
                     'fee_type'        => 'one_time',
                 ],
-                [
+                // A school's monthly / yearly fee: the school pays it.
+                SuperAdminFeeStructure::withCollectFrom([
                     'standard_id'           => null,
                     'amount'                => round($total / max(1, count($amounts)), 2),
                     'total_amount'          => $total,
@@ -640,7 +651,7 @@ class Fees extends Component
                     'period_amounts'        => $amounts,
                     'fee_label'             => $this->oneTimeLabel,
                     'is_active'             => true,
-                ]
+                ], 'school')
             );
         }
 
@@ -648,6 +659,80 @@ class Fees extends Component
         $this->loadSchoolStats();
         $this->loadGlobalStats();
         $this->notification()->success('Fee structure saved successfully!');
+    }
+
+    // ─── Who pays a Per Student fee: the school, or each student in the app ───
+
+    /** Asks before switching: either way changes what the school's students can do. */
+    public function confirmCollectFrom(string $mode): void
+    {
+        $structure = $this->detailStructure();
+        if (!$structure || $structure->fee_type !== 'per_student' || !in_array($mode, ['school', 'student'], true)) {
+            return;
+        }
+        if (\App\Support\FeeAccess::collectFrom($structure) === $mode) {
+            return;
+        }
+
+        $this->dialog()->confirm($mode === 'student' ? [
+            'title'       => 'Students pay in the app?',
+            'description' => 'Every student who has not paid will see a payment screen with Pay Now when they open the app, and nothing else until they pay. Until then the school cannot submit their fee or mark their attendance.',
+            'icon'        => 'question',
+            'accept'      => ['label' => 'Yes, students pay', 'method' => 'setCollectFrom', 'params' => 'student'],
+            'reject'      => ['label' => 'Cancel'],
+        ] : [
+            'title'       => 'The school pays?',
+            'description' => 'Students no longer pay in the app: you mark the fee paid here as the school pays it. Fee submission and attendance open again for every student.',
+            'icon'        => 'question',
+            'accept'      => ['label' => 'Yes, school pays', 'method' => 'setCollectFrom', 'params' => 'school'],
+            'reject'      => ['label' => 'Cancel'],
+        ]);
+    }
+
+    public function setCollectFrom(string $mode): void
+    {
+        $structure = $this->detailStructure();
+        if (!$structure || $structure->fee_type !== 'per_student' || !in_array($mode, ['school', 'student'], true)
+            || !SuperAdminFeeStructure::tracksCollectFrom()) {
+            return;
+        }
+
+        $structure->update(['collect_from' => $mode]);
+
+        $this->loadSchoolStats();
+        $this->notification()->success($mode === 'student'
+            ? 'Students now pay the fee in the app.'
+            : 'The school now pays the fee — mark it paid here.');
+    }
+
+    /**
+     * For the school page's Who Pays card: how the Per Student fee is paid, how
+     * many students paid it themselves in the app (and how much), and how many
+     * are locked out of fee submission and attendance till they pay.
+     */
+    public function collectFacts(?SuperAdminFeeStructure $structure = null): array
+    {
+        $structure ??= $this->detailStructure();
+        $mode      = \App\Support\FeeAccess::collectFrom($structure);
+        $facts     = ['mode' => $mode, 'per_student' => $structure?->fee_type === 'per_student', 'online' => 0, 'online_amount' => 0.0, 'locked' => 0];
+        if (!$structure || $structure->fee_type !== 'per_student' || $mode !== 'student') {
+            return $facts;
+        }
+
+        try {
+            $online = \App\Models\PaymentTransaction::where('organization_id', $structure->organization_id)
+                ->where('fee_type', 'platform')
+                ->where('state', \App\Models\PaymentTransaction::STATE_COMPLETED)
+                ->where('meta->structure_id', $structure->id);
+
+            $facts['online']        = (clone $online)->distinct()->count('student_detail_id');
+            $facts['online_amount'] = round((float) (clone $online)->sum('amount'), 2);
+        } catch (\Illuminate\Database\QueryException $e) {
+            report($e);
+        }
+        $facts['locked'] = count(\App\Support\FeeAccess::lockedIds($structure->organization_id));
+
+        return $facts;
     }
 
     // ─── Legacy per-class fee edit (old 'class_wise' rows only) ───────────────

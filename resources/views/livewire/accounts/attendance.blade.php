@@ -508,7 +508,7 @@
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
             wire:key="smark-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}-{{ count($studentMark) }}"
             x-data="{
-                rows: @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
+                rows: @js(collect($studentMark)->reject(fn ($r) => !empty($r['fee_locked']))->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
                 get total() { return Object.keys(this.rows).length },
                 get marked() { return Object.values(this.rows).filter(v => v !== '').length },
                 pick(id, v) {
@@ -521,7 +521,7 @@
             {{-- Re-seeds the panel from the server after the class, section or
                  date changes, whether the morph replaced it or not. --}}
             <div class="hidden" wire:key="smark-seed-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}"
-                x-init="rows = @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+                x-init="rows = @js(collect($studentMark)->reject(fn ($r) => !empty($r['fee_locked']))->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -570,6 +570,13 @@
                 <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
             @endif
 
+            @php $feeLockedCount = collect($studentMark)->filter(fn ($r) => !empty($r['fee_locked']))->count(); @endphp
+            @if ($feeLockedCount > 0)
+                <p class="px-6 py-2 text-xs text-rose-600 bg-rose-50/60 border-b border-rose-100 flex-shrink-0">
+                    {{ $feeLockedCount }} {{ $feeLockedCount === 1 ? 'student has' : 'students have' }} not paid the platform fee in the app — they cannot be marked until they pay.
+                </p>
+            @endif
+
             {{-- Rows --}}
             <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
                 @if ($sMarkStandard && $sMarkSection)
@@ -586,6 +593,14 @@
                                 <p class="text-sm text-gray-800 truncate">{{ $s->user->name ?? $s->full_name }}</p>
                                 <p class="text-[11px] text-gray-400 truncate">{{ $s->user->email ?? '' }}</p>
                             </div>
+                            @if (!empty($studentMark[$s->id]['fee_locked']))
+                                {{-- Not paid the platform fee in the app yet (App\Support\FeeAccess). --}}
+                                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-rose-600 bg-rose-50 border border-rose-100 rounded-md px-2.5 py-1.5 flex-shrink-0"
+                                    title="This student has not paid the platform fee in the app — attendance cannot be marked until they pay.">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                    Platform fee not paid
+                                </span>
+                            @else
                             <input type="text" wire:model="studentMark.{{ $s->id }}.remark" placeholder="Remark"
                                 class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                             <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
@@ -598,6 +613,7 @@
                                     class="px-2 py-1.5 border-l border-gray-200"
                                     :class="rows[{{ $s->id }}] === '' ? 'bg-gray-100 text-gray-500' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-50'">&times;</button>
                             </div>
+                            @endif
                         </div>
                     @empty
                         <p class="py-16 text-center text-sm text-gray-400">No students in this class/section.</p>

@@ -365,9 +365,14 @@ class FeeAutopay
                 continue;
             }
             $schedule = FeeInstallments::forOrg((int) $orgId, $mandates->pluck('student_detail_id')->all());
+            // A student who must first pay the platform fee in the app has no fee taken (FeeAccess).
+            $locked   = \App\Support\FeeAccess::lockedIds((int) $orgId);
 
             foreach ($mandates as $mandate) {
                 if ($mandate->expires_at && $mandate->expires_at->lt($now)) {
+                    continue;
+                }
+                if (isset($locked[(int) $mandate->student_detail_id])) {
                     continue;
                 }
                 foreach ($schedule[$mandate->student_detail_id] ?? [] as $inst) {

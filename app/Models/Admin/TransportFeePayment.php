@@ -34,6 +34,9 @@ class TransportFeePayment extends Model
         parent::boot();
 
         static::creating(function (self $model) {
+            // A student who must first pay the platform fee in the app cannot have a fee taken (FeeAccess).
+            \App\Support\FeeAccess::guardFeeWrite($model->student_detail_id, $model->organization_id);
+
             if (empty($model->receipt_number)) {
                 $model->receipt_number = self::generateReceiptNumber((int) $model->organization_id);
             }

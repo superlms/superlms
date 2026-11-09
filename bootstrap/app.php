@@ -55,6 +55,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SecurityHeaders::class]);
         $middleware->api(append: [SecurityHeaders::class]);
 
+        // A student who pays the platform fee in the app reaches only its
+        // payment screen until it is paid (App\Support\FeeAccess).
+        $middleware->api(append: [\App\Http\Middleware\PlatformFeeGate::class]);
+
         // A download link followed by the panels' download loader tells the page
         // when its file has come (App\Http\Middleware\DownloadReady); the page's
         // script reads that cookie, so it is sent as it is, not encrypted.

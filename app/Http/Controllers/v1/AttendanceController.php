@@ -121,10 +121,14 @@ class AttendanceController extends Controller
                     ->get()
                     ->keyBy('student_detail_id');
 
-                $classStudents = $students->map(function ($student) use ($attendances, $assignment) {
+                // Not paid the platform fee in the app yet: listed, never marked (FeeAccess).
+                $locked = \App\Support\FeeAccess::lockedIds((int) $user->organization_id);
+
+                $classStudents = $students->map(function ($student) use ($attendances, $assignment, $locked) {
                     $attendance = $attendances->get($student->id);
 
                     return [
+                        'fee_locked' => isset($locked[$student->id]),
                         'student_id' => $student->id,
                         'user_id' => $student->user_id,
                         'roll_no' => $student->roll_no,
@@ -250,6 +254,20 @@ class AttendanceController extends Controller
                 return $this->responseService->errorResponse($windowError, 403);
             }
 
+            // A student who has not paid the platform fee in the app is left
+            // out (FeeAccess); the answer says how many.
+            $locked  = \App\Support\FeeAccess::lockedIds((int) $user->organization_id);
+            $skipped = collect($validated['attendances'])->filter(fn ($a) => isset($locked[(int) $a['student_detail_id']]))->count();
+            if ($skipped > 0) {
+                $validated['attendances'] = array_values(array_filter(
+                    $validated['attendances'],
+                    fn ($a) => !isset($locked[(int) $a['student_detail_id']])
+                ));
+                if (!$validated['attendances']) {
+                    return $this->responseService->errorResponse(\App\Support\FeeAccess::lockedMessage(), 403);
+                }
+            }
+
             // What was recorded before, so only a new or changed mark is pushed.
             $before = StudentAttendance::whereDate('attendance_date', $validated['attendance_date'])
                 ->whereIn('student_detail_id', collect($validated['attendances'])->pluck('student_detail_id'))
@@ -290,9 +308,12 @@ class AttendanceController extends Controller
 
             return $this->responseService->success([
                 'processed_count' => count($results),
+                'skipped_fee_locked' => $skipped,
                 'summary' => $summary,
                 'details' => $results
-            ], 'Attendance submitted successfully');
+            ], $skipped > 0
+                ? 'Attendance submitted — ' . $skipped . ' ' . ($skipped === 1 ? 'student' : 'students') . ' left out: platform fee not paid in the app.'
+                : 'Attendance submitted successfully');
         } catch (Exception $e) {
             return $this->responseService->errorResponse(
                 'An error occurred: ' . $e->getMessage(),
@@ -428,10 +449,14 @@ class AttendanceController extends Controller
                 return $this->responseService->errorResponse('You are not assigned to this class', 403);
             }
 
+            $locked   = \App\Support\FeeAccess::lockedIds((int) $user->organization_id);
             $students = StudentDetail::where('organization_id', $user->organization_id)
                 ->where('standard_id', $validated['standard_id'])
                 ->when(!empty($validated['section_id']), fn($q) => $q->where('section_id', $validated['section_id']))
-                ->get();
+                ->get()
+                // Not paid the platform fee in the app yet: not marked (FeeAccess).
+                ->reject(fn ($s) => isset($locked[$s->id]))
+                ->values();
 
             if ($students->isEmpty()) {
                 return $this->responseService->errorResponse('No students found for this class', 404);

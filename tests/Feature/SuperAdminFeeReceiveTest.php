@@ -482,10 +482,13 @@ class SuperAdminFeeReceiveTest extends TestCase
         $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
 
         $alpha = $text(Livewire::test(Fees::class)->call('selectSchool', 1));
-        foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'Overview', 'To Collect ₹2,000',
-                  'Collected ₹1,200 60% of the fee', 'Students Paid 2 / 4', '1 part paid · 1 pending',
-                  'Collected · Apr 26 – Mar 27 ₹1,200', 'Fee Structure', 'Amount ₹500 / student',
-                  'Students All Classes'] as $seen) {
+        // In the Home's look (2026-11-09): KPI cards, the year's collection,
+        // who pays, the fee, then Payments and Students.
+        foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'To Collect ₹2,000',
+                  'Collected ₹1,200', '60% of ₹2,000 · 2026-2027', 'Students Paid 2 / 4', '1 part paid · 1 pending',
+                  'Fee Collection Money received month by month · Apr 26 – Mar 27 ₹1,200 this year',
+                  'Who Pays', 'The school pays', 'Fee Structure', 'Amount ₹500 / student', 'Who pays The school',
+                  'Who the school has paid for 2 paid 1 part paid 1 pending All Classes'] as $seen) {
             $this->assertStringContainsString($seen, $alpha);
         }
         $this->assertStringNotContainsString('View Fee', $alpha);   // no tabs: one page
@@ -493,11 +496,11 @@ class SuperAdminFeeReceiveTest extends TestCase
         // Class wise by default — the order Amount Received marks students
         // paid in — with the class and the section's last letter under the
         // name (2026-10-13); A to Z on asking.
-        $this->assertStringContainsString('1 Kiran Class 1 (A) · Adm: — ₹500 ₹500 Paid Edit 2 Ravi Class 1 (A) · Adm: — ₹500 ₹500 Paid Edit 3 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Partial', $alpha);
+        $this->assertStringContainsString('1 Kiran Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 2 Ravi Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 3 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $alpha);
         $this->assertStringContainsString('4 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $alpha);
         $byName = $text(Livewire::test(Fees::class)->call('selectSchool', 1)->set('viewFeeSort', 'name'));
         $this->assertStringContainsString('1 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $byName);
-        $this->assertStringContainsString('4 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Partial', $byName);
+        $this->assertStringContainsString('4 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $byName);
 
         $beta = $text(Livewire::test(Fees::class)->call('selectSchool', 2));
         foreach (['Monthly · Annual Platform Fee · 2026-2027', 'Months Paid 0 / 2', 'Months', 'Apr 2026 ₹1,000 ₹0 Pending', 'Jun 2026 — ₹0 No fee'] as $seen) {
@@ -549,14 +552,14 @@ class SuperAdminFeeReceiveTest extends TestCase
         [$first, $second] = $this->receipts()->orderBy('id')->get()->all();
         $this->assertSame([[$row('kiran')->id, 500], [$row('ravi')->id, 500], [$row('zoya')->id, 200]], json_decode($first->allocation, true));
 
-        // The Payments card: date, amount, mode, school, remark; View and Edit.
+        // The Payments card: date, amount, mode, what it was for, remark; View and Edit.
         $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
         $page = Livewire::test(Fees::class)->call('selectSchool', 1);
         $seen = $text($page);
-        foreach (['Payments Payments · 2026-2027 2 payments · ₹1,800',
-                  'S.No Date Amount Mode School Remark Actions',
-                  '1 15 Oct 2026 ₹600 UPI Alpha School —',
-                  '2 12 Oct 2026 ₹1,200 Cash Alpha School First lot'] as $part) {
+        foreach (['Payments 2026-2027 · newest first 2 payments · ₹1,800',
+                  'S.No Date Amount Mode For Remark Actions',
+                  '1 15 Oct 2026 ₹600 UPI 2 students —',
+                  '2 12 Oct 2026 ₹1,200 Cash 3 students First lot'] as $part) {
             $this->assertStringContainsString($part, $seen);
         }
         $page->assertSeeHtml('wire:click="viewPayment(' . $second->id . ')"')

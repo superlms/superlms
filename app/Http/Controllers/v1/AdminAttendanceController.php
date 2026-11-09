@@ -543,9 +543,13 @@ class AdminAttendanceController extends ApiController
         $panel   = $this->panel($request);
         $default = $panel ? $this->defaultStatusFor($date) : 'present';
 
-        $rows = $students->map(function ($s) use ($existing, $default, $panel) {
+        // Not paid the platform fee in the app yet: listed, never marked (FeeAccess).
+        $locked = \App\Support\FeeAccess::lockedIds((int) $orgId);
+
+        $rows = $students->map(function ($s) use ($existing, $default, $panel, $locked) {
             $rec = $existing->get($s->id);
             return [
+                'fee_locked' => isset($locked[$s->id]),
                 'student_detail_id' => $s->id,
                 'user_id' => $s->user_id,
                 'name'    => $s->user->name ?? ($s->full_name ?? '—'),
@@ -587,9 +591,15 @@ class AdminAttendanceController extends ApiController
             ->whereIn('student_detail_id', collect($request->marks)->pluck('student_detail_id'))
             ->get()->keyBy('student_detail_id');
 
+        // A student who has not paid the platform fee in the app is never written (FeeAccess).
+        $locked = \App\Support\FeeAccess::lockedIds((int) $orgId);
+
         // Only the students whose attendance changed are written — and told.
-        DB::transaction(function () use ($request, $orgId, $user, $saved, &$notifyRows) {
+        DB::transaction(function () use ($request, $orgId, $user, $saved, $locked, &$notifyRows) {
             foreach ($request->marks as $row) {
+                if (isset($locked[(int) $row['student_detail_id']])) {
+                    continue;
+                }
                 if ($this->unchanged($saved->get($row['student_detail_id']), $row)) {
                     continue;
                 }
@@ -656,7 +666,9 @@ class AdminAttendanceController extends ApiController
             ->whereDate('attendance_date', $date)
             ->whereIn('student_detail_id', $students->pluck('id'))->exists();
 
-        $written = $this->persistDay(StudentAttendance::class, 'student_detail_id', $rows, $students->pluck('id')->all(), $orgId, $date, $user->id, true);
+        // A student who has not paid the platform fee in the app is never written (FeeAccess).
+        $locked  = \App\Support\FeeAccess::lockedIds((int) $orgId);
+        $written = $this->persistDay(StudentAttendance::class, 'student_detail_id', $rows, $students->pluck('id')->reject(fn ($id) => isset($locked[(int) $id]))->values()->all(), $orgId, $date, $user->id, true);
 
         try {
             app(\App\Services\AppPushNotifier::class)->attendanceMarked(collect($written)

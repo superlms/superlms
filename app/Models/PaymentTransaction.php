@@ -65,6 +65,13 @@ class PaymentTransaction extends Model
      */
     public function settle(string $state, array $raw = []): self
     {
+        // The gateway has taken this money: it is booked even for a student
+        // whose fee is otherwise locked (FeeAccess).
+        return \App\Support\FeeAccess::allowingFeeWrites(fn () => $this->settleNow($state, $raw));
+    }
+
+    private function settleNow(string $state, array $raw): self
+    {
         DB::transaction(function () use ($state, $raw) {
             /** @var self $txn */
             $txn = self::whereKey($this->getKey())->lockForUpdate()->first();
@@ -81,14 +88,18 @@ class PaymentTransaction extends Model
             }
 
             // Already settled into a payment record — nothing more to do.
-            if ($txn->fee_payment_id || !empty($meta['transport_payment_id'])) {
+            if ($txn->fee_payment_id || !empty($meta['transport_payment_id']) || !empty($meta['platform_payment_id'])) {
                 $txn->save();
                 $this->setRawAttributes($txn->getAttributes(), true);
                 return;
             }
 
             if ($state === self::STATE_COMPLETED) {
-                if ($txn->fee_type === 'transport') {
+                if ($txn->fee_type === 'platform') {
+                    // A student's own Per Student platform fee (Super Admin → Fees).
+                    $meta['platform_payment_id'] = \App\Support\PlatformFeePayments::book($txn, $meta);
+                    $txn->meta = $meta;
+                } elseif ($txn->fee_type === 'transport') {
                     // Transport online payments live in transport_fee_payments so the
                     // 12-month schedule (and admin) reflect them; oldest-first
                     // allocation in the schedule carries any excess to later months.

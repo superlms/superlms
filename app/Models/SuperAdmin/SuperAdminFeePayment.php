@@ -65,6 +65,10 @@ class SuperAdminFeePayment extends Model
         static::deleted(function (self $model) {
             SuperAdminFeeReceipt::note($model, -(float) $model->amount, $model->payment_date?->toDateString());
         });
+
+        // Who is paid up decides who may use the app (FeeAccess): read afresh.
+        static::saved(fn () => \App\Support\FeeAccess::flush());
+        static::deleted(fn () => \App\Support\FeeAccess::flush());
     }
 
     public function organization(): BelongsTo

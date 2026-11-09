@@ -97,7 +97,8 @@
 
                     {{-- Per-tab primary button --}}
                     @if ($activeTab === 'fee_submission')
-                        <button wire:click="openSubmitPanel" @disabled(!$selectedStudentId)
+                        <button wire:click="openSubmitPanel" @disabled(!$selectedStudentId || !empty($selectedStudentInfo['platform_fee_due']))
+                            @if (!empty($selectedStudentInfo['platform_fee_due'])) title="Platform fee not paid in the app — fee submission is locked" @endif
                             class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Update Fee</span>

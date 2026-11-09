@@ -455,20 +455,23 @@ class Attendance extends Component
 
         $this->studentMarkExisting = $existing->isNotEmpty();
         $default = $this->defaultStatusFor($this->sMarkDate);
+        // Not paid the platform fee in the app yet: shown, but not marked (FeeAccess).
+        $locked = \App\Support\FeeAccess::lockedIds($orgId);
 
         foreach ($students as $s) {
             $rec = $existing->get($s->id);
+            $feeLocked = isset($locked[$s->id]);
             $this->studentMark[$s->id] = [
-                'status'  => $rec ? $this->toLabel($rec->status) : $default,
+                'status'  => $rec ? $this->toLabel($rec->status) : ($feeLocked ? '' : $default),
                 'remark'  => $rec->remarks ?? '',
                 'user_id' => $s->user_id,
-            ];
+            ] + ($feeLocked ? ['fee_locked' => true] : []);
         }
     }
 
     public function setStudentStatus($studentId, string $status): void
     {
-        if (isset($this->studentMark[$studentId])) {
+        if (isset($this->studentMark[$studentId]) && empty($this->studentMark[$studentId]['fee_locked'])) {
             $this->studentMark[$studentId]['status'] = $status;
         }
     }
@@ -476,7 +479,9 @@ class Attendance extends Component
     public function markAllStudents(string $status): void
     {
         foreach ($this->studentMark as $id => $row) {
-            $this->studentMark[$id]['status'] = $status;
+            if (empty($row['fee_locked'])) {
+                $this->studentMark[$id]['status'] = $status;
+            }
         }
     }
 
@@ -497,9 +502,12 @@ class Attendance extends Component
         $markedBy = Auth::id();
         $notifyRows = [];
 
+        // A student who has not paid the platform fee in the app is never
+        // written (FeeAccess) — whatever the page sent for them.
         $valid = StudentDetail::where('organization_id', $orgId)
             ->whereIn('id', array_keys($this->studentMark))
-            ->pluck('id')->flip();
+            ->pluck('id')->flip()
+            ->diffKeys(\App\Support\FeeAccess::lockedIds($orgId));
 
         // As for teachers: rows still showing what is saved are left alone
         // (including a holiday the teacher app saved), and only the students
@@ -593,7 +601,9 @@ class Attendance extends Component
         }
 
         foreach ($this->studentMark as $id => $row) {
-            $this->studentMark[$id]['status'] = 'holiday';
+            if (empty($row['fee_locked'])) {
+                $this->studentMark[$id]['status'] = 'holiday';
+            }
         }
 
         $date = $this->sMarkDate;

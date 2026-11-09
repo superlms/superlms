@@ -8,6 +8,17 @@
      its own sticky header.
 ══════════════════════════════════════════════════════════════════ --}}
 
+{{-- A student who must first pay the platform fee in the app: no fee can be taken yet (App\Support\FeeAccess). --}}
+@if ($selectedStudentId && !empty($selectedStudentInfo['platform_fee_due']))
+    <div class="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <svg class="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-rose-700">Platform fee not paid — fee submission is locked</p>
+            <p class="text-xs text-rose-600 mt-0.5">{{ $selectedStudentInfo['name'] ?? 'This student' }} has to pay the platform fee in the SuperLMS app first. Their fee cannot be submitted and their attendance cannot be marked until then.</p>
+        </div>
+    </div>
+@endif
+
 {{-- panelsOnly: the host shows its own ledger (the admin's View & Submit Fee)
      and wants only the Collect Fee panel and the date popup from here. --}}
 @if (empty($panelsOnly))

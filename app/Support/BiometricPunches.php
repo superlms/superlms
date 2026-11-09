@@ -102,6 +102,11 @@ class BiometricPunches
 
     private static function studentDay(int $orgId, StudentDetail $student, BiometricPunch $punch): string
     {
+        // Not paid the platform fee in the app yet: the punch is kept, the day not marked (FeeAccess).
+        if (\App\Support\FeeAccess::locked((int) $student->id, $orgId)) {
+            return 'repeat';
+        }
+
         $date  = $punch->punched_at->toDateString();
         $first = self::punchesOn('student', (int) $student->id, $date)->first()->punched_at;
         $last  = Biometric::times($orgId)['student_last_time'];
