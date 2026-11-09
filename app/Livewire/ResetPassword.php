@@ -2,33 +2,52 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\OtpDeliveryException;
+use App\Livewire\Admin\Login as AdminLogin;
+use App\Livewire\SuperAdmin\ForgotPassword;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\AuthThrottle;
+use App\Support\SchoolAdminOtp;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
-use Livewire\Attributes\On;
 use Livewire\Component;
 
+/**
+ * The school admin / sub-admin Forgot password (/reset-password), in the
+ * Super Admin's look and flow: email → a code by email and on WhatsApp to the
+ * registered mobile number → a new password. The Super Admin has a page of
+ * its own (SuperAdmin\ForgotPassword); its accounts are not reset here.
+ */
 class ResetPassword extends Component
 {
-    public int $step = 1;
-    public string $email = '';
-    public $otp = ['', '', '', '', '', ''];
-    public string $password = '';
-    public string $password_confirmation = '';
-    public bool $showPassword = false;
-    public bool $showConfirmPassword = false;
+    public string $step = 'email'; // email | otp | password
 
-    /** Seconds a user must wait before a fresh OTP can be requested. */
-    private const RESEND_COOLDOWN = 120;
+    public string $email = '';
+
+    // OTP — array of 6 single digits
+    public array $otp       = ['', '', '', '', '', ''];
+    public int   $countdown = 120;
+    public bool  $canResend = false;
+
+    /** The account has a registered mobile, so the code went there too. */
+    public bool $hasMobile = false;
 
     /**
-     * Unix timestamp at which "Resend OTP" unlocks. Deliberately an absolute
-     * deadline rather than a ticking counter: the browser recomputes the
-     * remaining seconds from it, so a Livewire re-render (a wrong OTP, say)
-     * can no longer restart the countdown from the top.
+     * This reset's OTP request — only its own code is accepted here, and once
+     * that code is verified, only this request lets a new password through
+     * (once, within 10 minutes).
      */
-    public int $resendAvailableAt = 0;
+    #[Locked]
+    public ?string $otpChallenge = null;
+
+    /**
+     * The account the code was sent to — the only one whose password this page
+     * can set. Locked: the email field can be changed in the browser, this
+     * can't, so a code verified for one account never resets another.
+     */
+    #[Locked]
+    public ?int $pendingUserId = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -36,145 +55,275 @@ class ResetPassword extends Component
      */
     public int $otpLockedUntil = 0;
 
-    /** This reset's OTP request — only its own code is accepted here. */
-    #[Locked]
-    public ?string $otpChallenge = null;
+    public string $password = '';
+    public string $password_confirmation = '';
 
-    public function sendOtp(): void
+    // ─── Step 1: Email ────────────────────────────────────────────────────────
+
+    public function submitEmail(): void
     {
-        $this->validate(['email' => 'required|email']);
+        // Spaces or invisible characters that came with a pasted address.
+        $this->email = User::cleanEmail($this->email);
 
-        $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
-            ->first();
+        $this->validate(
+            ['email' => 'required|email'],
+            ['email.required' => 'Enter your email address.',
+             'email.email'    => 'This is not a valid email address — it should look like name@example.com.']
+        );
+
+        // Look-ups are counted on the server, so the answer below can't be
+        // used to go through a list of addresses.
+        if ($wait = AuthThrottle::lookupWait()) {
+            $this->addError('email', AuthThrottle::message($wait));
+            return;
+        }
+        AuthThrottle::lookedUp();
+
+        $user = AdminLogin::accountByEmail($this->email);
 
         if (!$user) {
-            $this->addError('email', 'No admin account found with this email.');
+            $this->addError('email', 'No school admin account uses this email address.');
             return;
         }
 
-        try {
-            // The code also goes on WhatsApp to the admin's number — the one
-            // the super admin entered when adding the school (kept on the
-            // admin's account), or the school's own number when it has none.
-            $this->otpChallenge = OtpMailService::sendOtp($user, 'Admin Panel', $this->otpChallenge, self::whatsAppNumber($user));
-            $this->step = 2;
-            $this->resendAvailableAt = now()->addSeconds(self::RESEND_COOLDOWN)->timestamp;
-            $this->dispatch('start-countdown', resendAt: $this->resendAvailableAt);
-        } catch (\Exception $e) {
-            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
-            $this->addError($this->step === 2 ? 'otp' : 'email', $e->getMessage());
+        // Same rules as the login: a switched-off sub-admin can't get in.
+        if ($why = AdminLogin::refusal($user)) {
+            $this->addError('email', $why);
+            return;
         }
+
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('email', AuthThrottle::sendMessage($wait));
+            return;
+        }
+
+        if (!$this->send($user, 'email')) {
+            return;
+        }
+
+        $this->pendingUserId = $user->id;
+        $this->otp       = ['', '', '', '', '', ''];
+        $this->countdown = 120;
+        $this->canResend = false;
+        $this->step      = 'otp';
     }
 
+    // ─── Step 2: OTP Verify ───────────────────────────────────────────────────
+
+    /** The last of the six digits typed verifies by itself. */
     public function updatedOtp(): void
     {
-        $enteredOtp = implode('', $this->otp);
-        if (strlen($enteredOtp) === 6 && ctype_digit($enteredOtp)) {
+        $entered = implode('', array_map(fn ($d) => is_scalar($d) ? trim((string) $d) : '', $this->otp));
+        if ($this->step === 'otp' && strlen($entered) === 6 && ctype_digit($entered)) {
             $this->verifyOtp();
         }
     }
 
-    #[On('verifyOtp')]
+    /**
+     * Set once this request has checked a code: updatedOtp() and the page's
+     * own auto-verify can both come in one request, and the second must not
+     * put its message over the first one's. Not kept between requests.
+     */
+    protected bool $checkedNow = false;
+
     public function verifyOtp(): void
     {
-        $enteredOtp = implode('', $this->otp);
+        if ($this->step !== 'otp' || $this->checkedNow) {
+            return;
+        }
+        $this->checkedNow = true;
 
-        if (strlen($enteredOtp) !== 6) {
-            $this->addError('otp', 'Please enter a valid 6-digit OTP.');
+        // Errors stay between requests: the last try's message must not stand
+        // in front of this one's.
+        $this->resetValidation('otp');
+
+        $entered = implode('', array_map(fn ($d) => is_scalar($d) ? trim((string) $d) : '', $this->otp));
+
+        if ($entered === '') {
+            $this->addError('otp', 'Enter the 6-digit code.');
             return;
         }
 
-        $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
-            ->first();
+        if (!ctype_digit($entered)) {
+            $this->addError('otp', 'The code has numbers only (0–9) — remove any letters or signs.');
+            return;
+        }
+
+        if (strlen($entered) !== 6) {
+            $this->addError('otp', 'Enter all 6 digits — only ' . strlen($entered) . ' entered.');
+            return;
+        }
+
+        // The account the code was sent to — never the email field.
+        $user = $this->pendingUser();
 
         if (!$user) {
-            $this->addError('otp', 'User not found.');
+            $this->startAgain('This reset has expired, or the account can no longer sign in. Start again.');
             return;
         }
 
         try {
-            OtpMailService::verifyOtp($user, $enteredOtp, $this->otpChallenge, forReset: true);
-            $this->step = 3;
+            // Kept, marked verified, for resetPassword() to use up.
+            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge, forReset: true);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
-        }
-    }
-
-    public function resetPassword()
-    {
-        $this->validate([
-            'password' => [
-                'required',
-                'min:8',
-                'max:16',
-                'confirmed',
-                'regex:/[0-9]/',
-                'regex:/[^a-zA-Z0-9]/',
-            ],
-        ], [
-            'password.regex' => 'Password must contain at least one number and one special character.',
-            'password.min' => 'Password must be at least 8 characters.',
-            'password.max' => 'Password must not exceed 16 characters.',
-        ]);
-
-        $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
-            ->first();
-
-        if (!$user) {
-            $this->addError('password', 'User not found.');
             return;
         }
 
-        // Only this reset's own OTP, verified, lets the password change.
-        if (!OtpMailService::consumeVerified($user, $this->otpChallenge)) {
-            $this->addError('email', 'Session expired. Please start the process again.');
-            $this->step = 1;
+        $this->otp  = ['', '', '', '', '', ''];
+        $this->step = 'password';
+    }
+
+    // ─── Resend OTP ───────────────────────────────────────────────────────────
+
+    public function resendOtp(): void
+    {
+        if (!$this->canResend) {
+            return;
+        }
+
+        $user = $this->pendingUser();
+
+        if (!$user) {
+            $this->startAgain('This reset has expired. Start again.');
+            return;
+        }
+
+        // The 2-minute wait is the server's: a page that says otherwise is
+        // only shown the time left.
+        if ($wait = OtpMailService::resendAvailableIn($user, $this->otpChallenge)) {
+            $this->countdown = $wait;
+            $this->canResend = false;
+            return;
+        }
+
+        if ($wait = AuthThrottle::sendWait($user)) {
+            $this->addError('otp', AuthThrottle::sendMessage($wait));
+            return;
+        }
+
+        if (!$this->send($user, 'otp')) {
+            return;
+        }
+
+        $this->otp       = ['', '', '', '', '', ''];
+        $this->countdown = 120;
+        $this->canResend = false;
+        $this->resetValidation('otp');
+    }
+
+    public function timerFinished(): void
+    {
+        $this->canResend = true;
+    }
+
+    /** "Change Email": the code step is given up. */
+    public function changeEmail(): void
+    {
+        $this->step          = 'email';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
+        $this->resetValidation();
+    }
+
+    // ─── Step 3: Reset Password ───────────────────────────────────────────────
+
+    public function resetPassword()
+    {
+        // Every rule the password breaks, each saying what to change — and
+        // only those: a rule it already meets isn't listed.
+        $this->resetValidation();
+
+        foreach (ForgotPassword::unmetRules($this->password) as $rule) {
+            $this->addError('password', $rule);
+        }
+
+        if ($this->password_confirmation === '') {
+            $this->addError('password_confirmation', 'Type the new password again here.');
+        } elseif ($this->password_confirmation !== $this->password) {
+            $this->addError('password_confirmation', 'This does not match the new password above.');
+        }
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
+
+        // Only the account whose code was verified on this page, once, within
+        // 10 minutes of verifying it.
+        $user = $this->pendingUser();
+
+        if (!$user || !OtpMailService::consumeVerified($user, $this->otpChallenge)) {
+            $this->startAgain('The code was not verified here, or was verified more than 10 minutes ago. Start again from your email.');
             return;
         }
 
         $user->rememberPlainPassword($this->password);
-        $user->update([
-            'password' => Hash::make($this->password),
-        ]);
+        $user->update(['password' => Hash::make($this->password)]);
 
-        session()->flash('message', 'Password reset successfully!');
-        return redirect()->route('admin.login');
+        $this->pendingUserId = null;
+        $this->password = $this->password_confirmation = '';
+
+        return redirect()->route('admin.login')
+            ->with('success', 'Password reset successfully. Please login with your new password.');
     }
 
-    public function resendOtp(): void
+    /**
+     * Send the code by email and to the registered mobile. False, with the
+     * reason on $errorField, when it reached no one or the account is locked out.
+     */
+    private function send(User $user, string $errorField): bool
     {
-        // Enforced here rather than trusting the browser's countdown.
-        if (now()->timestamp < $this->resendAvailableAt) {
-            return;
-        }
+        // The code goes to the address as it should read — an old save can still
+        // carry invisible characters the mail provider refuses. Not saved.
+        $to = clone $user;
+        $to->email = User::cleanEmail($user->email);
 
-        // A new code is on its way, so the stale one must not linger in the
-        // boxes. The view clears them on click too, so it looks instant.
-        $this->otp = ['', '', '', '', '', ''];
-        $this->resetErrorBag('otp');
+        $whatsApp        = SchoolAdminOtp::whatsAppTo($user);
+        $this->hasMobile = $whatsApp !== [];
+        $delivery        = null;
 
-        $this->sendOtp();
-    }
-
-    private static function whatsAppNumber(User $user): ?string
-    {
-        $mine = trim((string) $user->mobile_number);
-        if ($mine !== '') {
-            return $mine;
-        }
-
+        AuthThrottle::sent($user);
         try {
-            $school = trim((string) $user->organization?->mobile_number);
+            $this->otpChallenge = OtpMailService::sendOtp($to, 'School Admin', $this->otpChallenge, $whatsApp, $delivery);
         } catch (\Throwable $e) {
-            $school = '';
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            if ($e instanceof OtpDeliveryException) {
+                logger()->warning('School admin reset OTP not delivered', ['user_id' => $user->id, 'delivery' => $delivery]);
+            }
+            $this->addError($errorField, $e instanceof OtpDeliveryException && $delivery
+                ? SchoolAdminOtp::whyNotSent($delivery)
+                : $e->getMessage());
+            return false;
         }
 
-        return $school !== '' ? $school : null;
+        return true;
+    }
+
+    /** The account the code was sent to on this page, while it may still sign in. */
+    private function pendingUser(): ?User
+    {
+        if (!$this->pendingUserId) {
+            return null;
+        }
+
+        $user = User::whereKey($this->pendingUserId)
+            ->whereIn('role', ['admin', 'sub-admin'])
+            ->first();
+
+        return $user && !AdminLogin::refusal($user) ? $user : null;
+    }
+
+    /** Back to the email step, saying why. */
+    private function startAgain(string $why): void
+    {
+        $this->step          = 'email';
+        $this->otp           = ['', '', '', '', '', ''];
+        $this->pendingUserId = null;
+        $this->password      = $this->password_confirmation = '';
+        $this->resetValidation();
+        $this->addError('email', $why);
     }
 
     public function render()

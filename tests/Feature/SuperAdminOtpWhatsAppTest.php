@@ -257,8 +257,8 @@ class SuperAdminOtpWhatsAppTest extends TestCase
             ['name' => 'Desk', 'email' => 'desk@school.in', 'role' => 'sub-admin', 'mobile_number' => null, 'organization_id' => $org],
         ]);
 
-        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'head@school.in')->call('sendOtp')->assertSet('step', 2);
-        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'desk@school.in')->call('sendOtp')->assertSet('step', 2);
+        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'head@school.in')->call('submitEmail')->assertSet('step', 'otp');
+        Livewire::test(\App\Livewire\ResetPassword::class)->set('email', 'desk@school.in')->call('submitEmail')->assertSet('step', 'otp');
 
         $this->assertSame(['919876501234', '919811122233'], array_map(fn ($r) => $r['to'], $this->whatsAppRequests()));
     }

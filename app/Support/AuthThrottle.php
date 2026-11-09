@@ -6,9 +6,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
- * Limits on the way into the Super Admin panel — its login, its forgot
- * password and an installed app's code screen. They live on the server, so
- * nothing the browser sends can lift them.
+ * Limits on the way into the Super Admin and school admin panels — their
+ * logins, their forgot password pages and an installed app's code screen.
+ * They live on the server, so nothing the browser sends can lift them.
  *
  *  - Wrong passwords (or an email with no account): 5 for one email from one
  *    address (IP) in 5 minutes, and 20 from one address whatever the email in

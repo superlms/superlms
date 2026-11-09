@@ -1,227 +1,289 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
+    {{-- The Super Admin forgot password's fields, headings and pill buttons --}}
+    @include('partials.super-admin-auth-fields')
+
+    <!-- Split Screen Container -->
     <div class="flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60">
 
         <!-- Left Side: dynamic illustration that follows the active step -->
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', ['variant' => $step === 1 ? 'reset' : ($step === 2 ? 'otp' : 'newpass')])
+            @include('partials.auth-illustration', [
+                'variant'  => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset'),
+                'animated' => true,
+                'headingClass'  => 'sa-title',
+                'subtitleClass' => 'sa-sub',
+            ])
         </div>
 
+        <!-- Right Side (Form) -->
         <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-8 md:p-12">
+
+            <!-- Logo -->
             <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
                 <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
                     class="w-full h-full object-contain">
             </div>
 
-            {{-- Step Indicators --}}
-            <div class="flex items-center gap-2 mb-6">
-                @for ($s = 1; $s <= 3; $s++)
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition
-                            {{ $step >= $s ? 'bg-violet-600 text-white' : 'bg-slate-100 text-gray-400' }}">
-                            {{ $s }}
-                        </div>
-                        @if ($s < 3)
-                            <div class="w-8 h-0.5 {{ $step > $s ? 'bg-violet-600' : 'bg-slate-200' }}"></div>
-                        @endif
-                    </div>
-                @endfor
-            </div>
-
-            @if ($step === 1)
+            {{-- ========== STEP 1: EMAIL ========== --}}
+            @if ($step === 'email')
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Reset Password</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Enter your registered email to receive an OTP</p>
+                    <h1 class="sa-title text-2xl md:text-3xl">Forgot Password?</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Enter your registered email and we'll send an OTP to your email and mobile number</p>
                 </div>
 
-                <div class="w-full max-w-sm">
-                    <div class="mb-4">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">Email Address</label>
-                        <input type="email" wire:model.live="email" placeholder="Enter your registered email"
-                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition">
-                        @error('email')
-                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <button wire:click="sendOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-50">
-                        <span wire:loading.remove wire:target="sendOtp">Send OTP</span>
-                        <span wire:loading wire:target="sendOtp">Sending...</span>
-                    </button>
-                </div>
-            @elseif($step === 2)
-                <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Verify OTP</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Enter the OTP sent to
-                        {{ substr($email, 0, 3) }}***{{ substr($email, strpos($email, '@')) }}</p>
-                </div>
-
-                <div class="w-full max-w-sm" x-data="{
-                    otp: @js($otp),
-                    init() {
-                        this.$watch('otp', (newOtp) => {
-                            @this.set('otp', newOtp);
-                        });
-                    },
-                    handleInput(index) {
-                        if (this.otp[index].length === 1 && index < 5) {
-                            this.$refs[`otp${index + 1}`].focus();
-                        }
-                    },
-                    handleBackspace(index) {
-                        if (this.otp[index].length === 0 && index > 0) {
-                            this.$refs[`otp${index - 1}`].focus();
-                        }
-                    },
-                    clearOtp() {
-                        this.otp = ['', '', '', '', '', ''];
-                        this.$refs.otp0?.focus();
-                    }
-                }" @clear-otp="clearOtp()">
-                    <div class="mb-4">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">OTP Code</label>
-                        <div class="flex justify-between space-x-2">
-                            @for ($i = 0; $i < 6; $i++)
-                                <input type="text" x-model="otp[{{ $i }}]" x-ref="otp{{ $i }}"
-                                    maxlength="1"
-                                    @input="handleInput({{ $i }})"
-                                    @keydown.backspace="handleBackspace({{ $i }})"
-                                    class="w-12 h-12 text-center text-xl font-bold border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-                                    @if ($i === 0) autofocus @endif inputmode="numeric"
-                                    pattern="[0-9]*"
-                                    x-on:keypress="return ($event.charCode >= 48 && $event.charCode <= 57)">
-                            @endfor
+                <div class="w-full max-w-sm" x-data="{ email: @entangle('email') }">
+                    <div class="mb-5">
+                        <div class="sa-field" :class="{ 'is-filled': String(email ?? '').trim() !== '' }"
+                            @error('email') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid')">
+                            <input id="admin-forgot-email" type="email" x-model="email"
+                                placeholder="Enter your email address"
+                                autocomplete="username" wire:keydown.enter="submitEmail">
+                            <label for="admin-forgot-email">Email Address</label>
                         </div>
-                        @error('otp')
-                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <div class="flex items-center justify-between mb-6" x-data="{
-                            resendAt: @js($resendAvailableAt),
-                            remaining: Math.max(0, @js($resendAvailableAt) - Math.floor(Date.now() / 1000)),
-                            interval: null,
-                            init() {
-                                this.start();
-                            },
-                            destroy() {
-                                if (this.interval) clearInterval(this.interval);
-                            },
-                            sync() {
-                                this.remaining = Math.max(0, this.resendAt - Math.floor(Date.now() / 1000));
-                                if (this.remaining === 0 && this.interval) {
-                                    clearInterval(this.interval);
-                                    this.interval = null;
-                                }
-                            },
-                            start() {
-                                if (this.interval) clearInterval(this.interval);
-                                this.sync();
-                                this.interval = setInterval(() => this.sync(), 1000);
-                            },
-                            label() {
-                                if (this.remaining <= 0) return 'Resend available';
-                                const minutes = Math.floor(this.remaining / 60);
-                                const secs = this.remaining % 60;
-                                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-                            }
-                        }" @start-countdown.window="resendAt = $event.detail.resendAt; start()">
-                        <button wire:click="resendOtp" x-bind:disabled="remaining > 0"
-                            x-on:click="$dispatch('clear-otp')"
-                            class="text-sm"
-                            x-bind:class="remaining > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-violet-600 hover:text-violet-800 hover:underline cursor-pointer'">
-                            Resend OTP
-                        </button>
-                        <span class="text-sm text-gray-500" x-text="label()"></span>
+                        @error('email') <p class="sa-field-error">{{ $message }}</p> @enderror
                     </div>
 
                     <x-otp-lockout :until="$otpLockedUntil" />
 
-                    <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-50">
-                        <span wire:loading.remove wire:target="verifyOtp">Verify OTP</span>
-                        <span wire:loading wire:target="verifyOtp">Verifying...</span>
+                    <button wire:click="submitEmail" wire:loading.attr="disabled"
+                        :disabled="!String(email ?? '').trim()"
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed mb-4">
+                        <span wire:loading.remove wire:target="submitEmail">Send OTP</span>
+                        <span wire:loading wire:target="submitEmail">Sending…</span>
                     </button>
-                </div>
-            @elseif($step === 3)
-                <div class="text-center mb-8">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Set New Password</h1>
-                    <p class="text-gray-500 mt-2 text-sm">Create a strong new password</p>
-                </div>
 
-                <div class="w-full max-w-sm">
-                    <div class="mb-4">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">New Password</label>
-                        <div class="relative">
-                            <input type="{{ $showPassword ? 'text' : 'password' }}" wire:model.live="password"
-                                placeholder="Enter new password"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition pr-10">
-                            <button type="button" wire:click="$toggle('showPassword')"
-                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                @if ($showPassword)
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                                    </svg>
-                                @else
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                @endif
-                            </button>
-                        </div>
-                        @error('password')
-                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                        @enderror
+                    <div class="text-center">
+                        <a href="{{ route('admin.login') }}" class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            Back to login
+                        </a>
                     </div>
-
-                    {{-- Password Requirements --}}
-                    <div class="mb-4 text-xs text-gray-500 space-y-1">
-                        <p class="{{ strlen($password) >= 8 && strlen($password) <= 16 ? 'text-green-600' : '' }}">
-                            {{ strlen($password) >= 8 && strlen($password) <= 16 ? '✓' : '○' }} 8-16 characters
-                        </p>
-                        <p class="{{ preg_match('/[0-9]/', $password) ? 'text-green-600' : '' }}">
-                            {{ preg_match('/[0-9]/', $password) ? '✓' : '○' }} At least one number
-                        </p>
-                        <p class="{{ preg_match('/[^a-zA-Z0-9]/', $password) ? 'text-green-600' : '' }}">
-                            {{ preg_match('/[^a-zA-Z0-9]/', $password) ? '✓' : '○' }} At least one special character
-                        </p>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-gray-600 text-sm font-medium mb-1.5">Confirm Password</label>
-                        <div class="relative">
-                            <input type="{{ $showConfirmPassword ? 'text' : 'password' }}"
-                                wire:model.live="password_confirmation" placeholder="Confirm new password"
-                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition pr-10">
-                            <button type="button" wire:click="$toggle('showConfirmPassword')"
-                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                @if ($showConfirmPassword)
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                                    </svg>
-                                @else
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                @endif
-                            </button>
-                        </div>
-                    </div>
-
-                    <button wire:click="resetPassword" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-50">
-                        <span wire:loading.remove wire:target="resetPassword">Reset Password</span>
-                        <span wire:loading wire:target="resetPassword">Resetting...</span>
-                    </button>
                 </div>
             @endif
 
-            <div class="mt-6 text-center">
-                <a href="{{ route('admin.login') }}"
-                    class="text-sm text-violet-600 hover:text-violet-800 hover:underline">Back to Login</a>
-            </div>
+            {{-- ========== STEP 2: OTP ========== --}}
+            @if ($step === 'otp')
+                <div class="text-center mb-6">
+                    <h1 class="sa-title text-2xl md:text-3xl">Verify OTP</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">
+                        {{ $hasMobile
+                            ? 'We have sent an OTP to your email address and registered mobile number'
+                            : 'We have sent an OTP to your registered email address' }}
+                    </p>
+                </div>
+
+                <div class="w-full max-w-sm">
+                    {{-- 6-box OTP input --}}
+                    <div x-data="{
+                            otp: @entangle('otp'),
+                            submitting: false,
+                            allFilled() {
+                                return this.otp.every(d => String(d ?? '').trim().length === 1);
+                            },
+                            focusNext(index) {
+                                if (this.otp[index] && index < 5) {
+                                    this.$refs['otp' + (index + 1)].focus();
+                                }
+                                // Auto-verify once every box is filled (single fire).
+                                if (this.allFilled() && !this.submitting) {
+                                    this.submitting = true;
+                                    this.$wire.verifyOtp();
+                                }
+                            },
+                            focusPrev(index, event) {
+                                if (event.key === 'Backspace' && !this.otp[index] && index > 0) {
+                                    this.$refs['otp' + (index - 1)].focus();
+                                }
+                            }
+                        }"
+                        x-init="$watch('otp', () => { if (!allFilled()) submitting = false; })"
+                        @error('otp') data-invalid @enderror
+                        x-on:input="$el.removeAttribute('data-invalid')"
+                        class="sa-otp flex justify-center gap-2 sm:gap-3 mb-4">
+                        @for ($i = 0; $i < 6; $i++)
+                            <input type="text" maxlength="1"
+                                x-ref="otp{{ $i }}"
+                                x-model="otp[{{ $i }}]"
+                                x-on:input="focusNext({{ $i }})"
+                                x-on:keydown="focusPrev({{ $i }}, $event)"
+                                inputmode="numeric" autocomplete="one-time-code" aria-label="Digit {{ $i + 1 }}"
+                                :class="{ 'is-filled': String(otp[{{ $i }}] ?? '') !== '' }"
+                                class="sa-otp-box w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-xl"
+                                @if ($i === 0) autofocus @endif>
+                        @endfor
+                    </div>
+
+                    @error('otp')
+                        <p class="text-red-500 text-xs text-center mb-3">{{ $message }}</p>
+                    @enderror
+
+                    <x-otp-lockout :until="$otpLockedUntil" />
+
+                    <button wire:click="verifyOtp" wire:loading.attr="disabled"
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
+                        <span wire:loading.remove wire:target="verifyOtp">Verify OTP</span>
+                        <span wire:loading wire:target="verifyOtp">Verifying…</span>
+                    </button>
+
+                    {{-- Countdown + Resend — restarts when canResend flips back to false --}}
+                    <div class="text-center" x-data="{
+                            countdown: @entangle('countdown'),
+                            canResend: @entangle('canResend'),
+                            timer: null,
+                            startTimer() {
+                                if (this.timer) clearInterval(this.timer);
+                                this.timer = setInterval(() => {
+                                    if (this.countdown > 0) {
+                                        this.countdown--;
+                                    } else {
+                                        this.canResend = true;
+                                        clearInterval(this.timer);
+                                        this.timer = null;
+                                        $wire.timerFinished();
+                                    }
+                                }, 1000);
+                            }
+                        }" x-init="
+                            startTimer();
+                            $watch('canResend', value => {
+                                if (value === false && countdown > 0) startTimer();
+                            });
+                        ">
+                        <template x-if="!canResend">
+                            <p class="text-sm text-gray-500">
+                                Resend OTP in
+                                <span class="font-semibold text-violet-600"
+                                    x-text="Math.floor(countdown / 60) + ':' + String(countdown % 60).padStart(2, '0')"></span>
+                            </p>
+                        </template>
+                        <template x-if="canResend">
+                            <button wire:click="resendOtp"
+                                class="text-sm text-violet-600 hover:text-violet-800 font-medium hover:underline">
+                                Resend OTP
+                            </button>
+                        </template>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <button wire:click="changeEmail"
+                            class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            Change Email
+                        </button>
+                    </div>
+                </div>
+            @endif
+
+            {{-- ========== STEP 3: NEW PASSWORD ========== --}}
+            @if ($step === 'password')
+                <div class="text-center mb-8">
+                    <h1 class="sa-title text-2xl md:text-3xl">Set New Password</h1>
+                    <p class="sa-sub text-gray-500 mt-2 text-sm">Use 8–16 characters with at least one number and one special character like @, # or $</p>
+                </div>
+
+                {{-- The rules show once typing starts, each turning green as it is
+                     met. Reset Password with a rule unmet shows only the unmet
+                     ones, in red, until the password is typed in again (the
+                     server checks the same rules and names only the broken ones). --}}
+                <div class="w-full max-w-sm" x-data="{
+                        password: @entangle('password'),
+                        confirmation: @entangle('password_confirmation'),
+                        showPass: false,
+                        showConfirm: false,
+                        tried: false,
+                        get rules() {
+                            const p = String(this.password ?? '');
+                            return [
+                                { label: '8–16 characters', ok: p.length >= 8 && p.length <= 16 },
+                                { label: 'At least 1 number (0–9)', ok: /[0-9]/.test(p) },
+                                { label: 'At least 1 special character (! @ # $ % & *)', ok: /[!@#$%^&*(),.?\&quot;:{}|<>]/.test(p) },
+                            ];
+                        },
+                        get unmet() { return this.rules.filter(r => !r.ok); },
+                        get filled() { return String(this.password ?? '').trim().length > 0 && String(this.confirmation ?? '').trim().length > 0; },
+                        submit() {
+                            this.tried = true;
+                            if (this.unmet.length === 0) this.$wire.resetPassword();
+                        }
+                    }">
+                    {{-- New Password --}}
+                    <div class="mb-5">
+                        <div class="sa-field has-eye"
+                            :class="{ 'is-filled': String(password ?? '') !== '', 'is-bad': tried && unmet.length > 0 }"
+                            @error('password') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid'); tried = false">
+                            <input id="admin-new-password" :type="showPass ? 'text' : 'password'" x-model="password"
+                                placeholder="Enter new password" autocomplete="new-password">
+                            <label for="admin-new-password">New Password</label>
+                            <button type="button" @click="showPass = !showPass" class="sa-eye focus:outline-none"
+                                :title="showPass ? 'Hide password' : 'Show password'">
+                                <svg x-show="showPass" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                                <svg x-show="!showPass" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
+                        </div>
+                        {{-- Every rule the server found broken — only those. --}}
+                        @foreach ($errors->get('password') as $message)
+                            <p class="sa-field-error">{{ $message }}</p>
+                        @endforeach
+                    </div>
+
+                    {{-- Confirm Password --}}
+                    <div class="mb-6">
+                        <div class="sa-field has-eye" :class="{ 'is-filled': String(confirmation ?? '') !== '' }"
+                            @error('password_confirmation') data-invalid @enderror
+                            x-on:input="$el.removeAttribute('data-invalid')">
+                            <input id="admin-confirm-password" :type="showConfirm ? 'text' : 'password'" x-model="confirmation"
+                                placeholder="Confirm new password" autocomplete="new-password">
+                            <label for="admin-confirm-password">Confirm Password</label>
+                            <button type="button" @click="showConfirm = !showConfirm" class="sa-eye focus:outline-none"
+                                :title="showConfirm ? 'Hide password' : 'Show password'">
+                                <svg x-show="showConfirm" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                                <svg x-show="!showConfirm" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
+                        </div>
+                        @error('password_confirmation') <p class="sa-field-error">{{ $message }}</p> @enderror
+
+                        {{-- The new password's rules, under both fields — live: every
+                             rule, green once met; after a try: only the unmet ones, red. --}}
+                        <div class="sa-rules" x-show="String(password ?? '') !== '' && (!tried || unmet.length > 0)"
+                            x-transition.opacity.duration.200ms style="display: none">
+                            <template x-for="rule in (tried ? unmet : rules)" :key="rule.label">
+                                <p class="sa-rule" :class="rule.ok ? 'is-ok' : (tried ? 'is-bad' : '')">
+                                    <span class="sa-rule-ico">
+                                        <svg x-show="rule.ok" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        <svg x-show="!rule.ok && tried" class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        <span x-show="!rule.ok && !tried" class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                    </span>
+                                    <span x-text="rule.label"></span>
+                                </p>
+                            </template>
+                        </div>
+                    </div>
+
+                    <button type="button" x-on:click="submit()" wire:loading.attr="disabled"
+                        :disabled="!filled"
+                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="resetPassword">Reset Password</span>
+                        <span wire:loading wire:target="resetPassword">Resetting…</span>
+                    </button>
+
+                    <div class="text-center mt-4">
+                        <a href="{{ route('admin.login') }}" class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            Back to login
+                        </a>
+                    </div>
+                </div>
+            @endif
+
         </div>
     </div>
 </div>

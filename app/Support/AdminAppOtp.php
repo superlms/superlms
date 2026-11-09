@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Cache;
  * is verified — at the login screen and when the account is added to the
  * account switcher alike. The code, its expiry, resends and the lockout after
  * wrong entries are the web's own (OtpMailService); the panel name in the
- * email is the web's too.
+ * email is the web's too, and so is the WhatsApp copy to the registered
+ * mobile ({@see SchoolAdminOtp}).
  *
  * App builds from before this send no `otp_supported` flag; they can't show
  * the code step, so an admin is told to update the app rather than be signed
@@ -62,7 +63,8 @@ class AdminAppOtp
      */
     public static function challenge(User $user, string $purpose): array
     {
-        $otpToken = OtpMailService::sendOtp($user, self::PANEL);
+        // By email and on WhatsApp to the registered mobile, as on the web.
+        $otpToken = OtpMailService::sendOtp($user, self::PANEL, null, SchoolAdminOtp::whatsAppTo($user));
         self::remember($user, $purpose, $otpToken);
 
         return [
@@ -91,7 +93,7 @@ class AdminAppOtp
             return $wait;
         }
 
-        OtpMailService::sendOtp($user, self::PANEL, $otpToken);
+        OtpMailService::sendOtp($user, self::PANEL, $otpToken, SchoolAdminOtp::whatsAppTo($user));
         self::remember($user, $purpose, $otpToken);
 
         return null;
