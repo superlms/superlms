@@ -58,6 +58,38 @@ class ResetPassword extends Component
     public string $password = '';
     public string $password_confirmation = '';
 
+    /** This browser's reset waiting for its code, kept across a reload. */
+    private const PENDING = 'admin_reset_otp';
+
+    /**
+     * A reload (Ctrl+Shift+R) on the code step while its code is fresh: back on
+     * the code step with the same code — nothing is sent or counted again.
+     */
+    public function mount(): void
+    {
+        $kept = session(self::PENDING);
+        if (!is_array($kept)) {
+            return;
+        }
+
+        $user = User::whereKey((int) ($kept['user'] ?? 0))->whereIn('role', ['admin', 'sub-admin'])->first();
+        $wait = $user && !AdminLogin::refusal($user) ? OtpMailService::resendAvailableIn($user, $kept['challenge'] ?? null) : 0;
+
+        if ($wait <= 0) {
+            session()->forget(self::PENDING);
+            return;
+        }
+
+        $this->pendingUserId  = $user->id;
+        $this->otpChallenge   = $kept['challenge'];
+        $this->hasMobile      = (bool) ($kept['mobile'] ?? false);
+        $this->email          = (string) $user->email;
+        $this->countdown      = $wait;
+        $this->canResend      = false;
+        $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+        $this->step           = 'otp';
+    }
+
     // ─── Step 1: Email ────────────────────────────────────────────────────────
 
     public function submitEmail(): void
@@ -106,6 +138,17 @@ class ResetPassword extends Component
         $this->countdown = 120;
         $this->canResend = false;
         $this->step      = 'otp';
+        $this->keepPending();
+    }
+
+    /** Kept for a reload of the code step while this code is fresh. */
+    private function keepPending(): void
+    {
+        session()->put(self::PENDING, [
+            'user'      => (int) $this->pendingUserId,
+            'challenge' => $this->otpChallenge,
+            'mobile'    => $this->hasMobile,
+        ]);
     }
 
     // ─── Step 2: OTP Verify ───────────────────────────────────────────────────
@@ -174,6 +217,7 @@ class ResetPassword extends Component
 
         $this->otp  = ['', '', '', '', '', ''];
         $this->step = 'password';
+        session()->forget(self::PENDING);
     }
 
     // ─── Resend OTP ───────────────────────────────────────────────────────────
@@ -212,6 +256,7 @@ class ResetPassword extends Component
         $this->countdown = 120;
         $this->canResend = false;
         $this->resetValidation('otp');
+        $this->keepPending();
     }
 
     public function timerFinished(): void
@@ -225,6 +270,7 @@ class ResetPassword extends Component
         $this->step          = 'email';
         $this->otp           = ['', '', '', '', '', ''];
         $this->pendingUserId = null;
+        session()->forget(self::PENDING);
         $this->resetValidation();
     }
 
@@ -322,6 +368,7 @@ class ResetPassword extends Component
         $this->otp           = ['', '', '', '', '', ''];
         $this->pendingUserId = null;
         $this->password      = $this->password_confirmation = '';
+        session()->forget(self::PENDING);
         $this->resetValidation();
         $this->addError('email', $why);
     }

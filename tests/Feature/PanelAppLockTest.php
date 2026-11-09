@@ -508,6 +508,36 @@ class PanelAppLockTest extends TestCase
             ->assertRedirect(route('admin.home', ['organization' => 9]));
     }
 
+    public function test_a_reload_while_the_code_is_fresh_sends_and_counts_no_new_one(): void
+    {
+        $admin = $this->user('admin');
+        PanelApp::remember('admin', $admin);
+
+        $this->app('admin', 9)->call('opened', 'closed')->assertSet('step', 'otp');
+        $first = $this->mailedCode();
+
+        // Ctrl+Shift+R, over and over: the same code's screen, nothing sent or counted.
+        foreach (range(1, 6) as $i) {
+            $this->app('admin', 9)->call('opened', 'closed')
+                ->assertSet('step', 'otp')
+                ->assertHasNoErrors();
+        }
+        $this->assertSame(1, $this->mails());
+        $this->assertSame(0, \App\Support\AuthThrottle::sendWait($admin));
+
+        // The code sent first still opens the app.
+        $this->app('admin', 9)->call('opened', 'closed')
+            ->set('otp', str_split($first))
+            ->call('verifyOtp')
+            ->assertRedirect(route('admin.home', ['organization' => 9]));
+
+        // Once that code has run out, the next opening sends a new one.
+        PanelApp::signOut('admin');
+        $this->travel(121)->seconds();
+        $this->app('admin', 9)->call('opened', 'closed');
+        $this->assertSame(2, $this->mails());
+    }
+
     public function test_with_the_login_code_switched_off_the_app_opens_straight_in(): void
     {
         config(['services.otp.login_enabled' => false]);

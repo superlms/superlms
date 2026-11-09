@@ -45,6 +45,15 @@
                 }
             } catch (e) {}
 
+            // Stay under this window's own mount (App\Support\AppWindow): the
+            // opening page of another (a school's /4/~ from the app installed
+            // at /~) lies outside this app's scope, and the window would show
+            // the browser's address bar over every page after it.
+            var here = window.location.pathname.match(/^((?:\/(?:\d+|accounts|superadmin))?\/~)(?=\/|$)/);
+            if (here && url.charAt(0) === '/' && url.indexOf(here[1] + '/') !== 0) {
+                url = here[1] + url;
+            }
+
             window.location.replace(url);
         })();
     </script>

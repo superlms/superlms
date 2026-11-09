@@ -153,7 +153,12 @@ class AppLock extends Component
         }
 
         $this->step = 'otp';
-        $this->sendCode($account);
+
+        // A reload (Ctrl+Shift+R) or the app opened again while the last code
+        // is fresh: that code still stands — no new one is sent or counted.
+        if (!$this->reuseCode($account)) {
+            $this->sendCode($account);
+        }
     }
 
     public function verifyOtp()
@@ -237,6 +242,43 @@ class AppLock extends Component
         return redirect()->route($this->loginRoute(), ['password' => 1]);
     }
 
+    /** Where this app's last sent code is kept in its session, across reloads. */
+    private function codeKey(): string
+    {
+        return 'app_lock_code.' . $this->panel . '.' . ($this->school ?? 0);
+    }
+
+    /**
+     * The code sent last to this account from this app, while Resend is still
+     * waiting (2 minutes, the code's own life): shown again as it was — not
+     * sent again, and not counted against the account's codes. False when
+     * there is none, so a new one is to be sent.
+     */
+    private function reuseCode(User $account): bool
+    {
+        $kept = session($this->codeKey());
+
+        if (!is_array($kept) || (int) ($kept['account'] ?? 0) !== (int) $account->getKey()) {
+            return false;
+        }
+
+        $wait = OtpMailService::resendAvailableIn($account, $kept['challenge'] ?? null);
+        if ($wait <= 0) {
+            session()->forget($this->codeKey());
+            return false;
+        }
+
+        $this->otpChallenge      = $kept['challenge'];
+        $this->otp               = ['', '', '', '', '', ''];
+        $this->otpSentTo         = $this->masked(User::cleanEmail($account->email));
+        $this->otpOnWhatsApp     = (bool) ($kept['whatsapp'] ?? false);
+        $this->resendAvailableAt = now()->getTimestamp() + $wait;
+        $this->otpLockedUntil    = OtpMailService::lockedUntil($account);
+        $this->resetValidation('otp');
+
+        return true;
+    }
+
     private function sendCode(User $account): void
     {
         // The code goes to the address as it should read — an old save can
@@ -274,6 +316,13 @@ class AppLock extends Component
             );
             $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
             $this->otpOnWhatsApp     = in_array(true, array_column($delivery['whatsapp'] ?? [], 'ok'), true);
+
+            // Kept for a reload of this window within the code's 2 minutes.
+            session()->put($this->codeKey(), [
+                'account'   => (int) $account->getKey(),
+                'challenge' => $this->otpChallenge,
+                'whatsapp'  => $this->otpOnWhatsApp,
+            ]);
         } catch (\Throwable $e) {
             // Nothing was mailed: Resend OTP is there to try again at once.
             $this->resendAvailableAt = 0;
@@ -312,6 +361,7 @@ class AppLock extends Component
         }
 
         $guard = Auth::guard($this->panel);
+        session()->forget($this->codeKey());
         session()->put($guard->getName(), $user->getAuthIdentifier());
         $guard->setUser($user);
         event(new Login($this->panel, $user, false));

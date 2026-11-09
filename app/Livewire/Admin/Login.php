@@ -57,6 +57,9 @@ class Login extends Component
     #[Locked]
     public array $signedIn = [];
 
+    /** This browser's sign-in waiting for its code, kept across a reload. */
+    private const PENDING = 'admin_login_otp';
+
     public function mount(): void
     {
         $current = Auth::guard('admin')->user();
@@ -66,6 +69,38 @@ class Login extends Component
                 'url'  => route('admin.quick-links', ['organization' => $current->organization_id]),
             ];
         }
+
+        $this->restorePending();
+    }
+
+    /**
+     * A reload (Ctrl+Shift+R) on the code step while its code is fresh: back on
+     * the code step with the same code — nothing is sent or counted again.
+     */
+    private function restorePending(): void
+    {
+        $kept = session(self::PENDING);
+        if (!is_array($kept)) {
+            return;
+        }
+
+        $user = User::whereKey((int) ($kept['user'] ?? 0))->whereIn('role', ['admin', 'sub-admin'])->first();
+        $wait = $user && !self::refusal($user) ? OtpMailService::resendAvailableIn($user, $kept['challenge'] ?? null) : 0;
+
+        if ($wait <= 0) {
+            session()->forget(self::PENDING);
+            return;
+        }
+
+        $this->pendingUserId  = $user->id;
+        $this->otpChallenge   = $kept['challenge'];
+        $this->hasMobile      = (bool) ($kept['mobile'] ?? false);
+        $this->email          = (string) $user->email;
+        $this->otp            = ['', '', '', '', '', ''];
+        $this->countdown      = $wait;
+        $this->canResend      = false;
+        $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+        $this->step           = 'otp';
     }
 
     /**
@@ -212,6 +247,7 @@ class Login extends Component
         }
 
         $this->pendingUserId = null;
+        session()->forget(self::PENDING);
 
         // Panel-specific guard: signing in here never touches the super-admin
         // or accounts sessions in the same browser.
@@ -269,6 +305,7 @@ class Login extends Component
         $this->step          = 'credentials';
         $this->otp           = ['', '', '', '', '', ''];
         $this->pendingUserId = null;
+        session()->forget(self::PENDING);
         $this->resetValidation();
     }
 
@@ -292,6 +329,13 @@ class Login extends Component
         AuthThrottle::sent($user);
         try {
             $this->otpChallenge = OtpMailService::sendOtp($to, 'School Admin', $this->otpChallenge, $whatsApp, $delivery);
+
+            // Kept for a reload of the code step while this code is fresh.
+            session()->put(self::PENDING, [
+                'user'      => (int) $user->id,
+                'challenge' => $this->otpChallenge,
+                'mobile'    => $this->hasMobile,
+            ]);
         } catch (OtpDeliveryException $e) {
             // The request is open: Resend OTP can try again in 2 minutes.
             $this->otpChallenge = $e->challenge;
@@ -390,6 +434,7 @@ class Login extends Component
         $this->step          = 'credentials';
         $this->otp           = ['', '', '', '', '', ''];
         $this->pendingUserId = null;
+        session()->forget(self::PENDING);
         $this->addError('email', 'This sign-in has expired. Log in again.');
     }
 

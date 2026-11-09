@@ -144,21 +144,25 @@ class AppWindow
             return [$header, 'header'];
         }
 
-        if ($own) {
-            return $own;
-        }
-
+        $from = null;
         $referer = (string) $request->headers->get('referer', '');
         if ($referer !== '') {
-            $from = parse_url($referer);
-            if (is_array($from)
-                && strcasecmp((string) ($from['host'] ?? ''), $request->getHost()) === 0
-                && ($of = self::of((string) ($from['path'] ?? '/')))) {
-                return [$of[0], 'referer'];
+            $url = parse_url($referer);
+            if (is_array($url) && strcasecmp((string) ($url['host'] ?? ''), $request->getHost()) === 0) {
+                $from = self::of((string) ($url['path'] ?? '/'));
             }
         }
 
-        return [null, null];
+        if ($own) {
+            // An opening page reached from a page already under a mount (the
+            // login screen handing over, a link): that window's own mount. The
+            // opening page's — a school's /4/~ from the app installed at /~ —
+            // lies outside the window's scope, and the window would show the
+            // browser's address bar from then on.
+            return $from && $from[1] === 'path' ? [$from[0], 'referer'] : $own;
+        }
+
+        return $from ? [$from[0], 'referer'] : [null, null];
     }
 
     /** An address of the site, put under a mount (this request's, by default). */

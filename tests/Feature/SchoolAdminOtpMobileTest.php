@@ -216,6 +216,56 @@ class SchoolAdminOtpMobileTest extends TestCase
         $this->assertNull(Auth::guard('admin')->id());
     }
 
+    public function test_a_reload_on_the_code_step_keeps_it_and_sends_nothing_new(): void
+    {
+        $admin = $this->user('admin', 'head@doon.in', '9876543210');
+
+        Livewire::test(Login::class)->set('email', 'head@doon.in')->set('password', self::PASSWORD)->call('login');
+        $code = $this->lastCode();
+
+        // Ctrl+Shift+R a few times: still the code step, the same code, nothing sent.
+        foreach (range(1, 3) as $i) {
+            $page = Livewire::test(Login::class)->assertSet('step', 'otp')->assertSet('canResend', false);
+        }
+        $this->assertCount(1, $this->whatsApps());
+
+        $page->set('otp', self::digits($code))
+            ->assertRedirect(route('admin.quick-links', ['organization' => 9]));
+        $this->assertSame($admin->id, Auth::guard('admin')->id());
+
+        // Signed in: a later visit starts at the email and password.
+        Livewire::test(Login::class)->assertSet('step', 'credentials');
+    }
+
+    public function test_a_reload_after_the_code_ran_out_starts_again(): void
+    {
+        $this->user('admin', 'head@doon.in', '9876543210');
+
+        Livewire::test(Login::class)->set('email', 'head@doon.in')->set('password', self::PASSWORD)->call('login');
+        $this->travel(121)->seconds();
+
+        Livewire::test(Login::class)->assertSet('step', 'credentials');
+    }
+
+    public function test_a_reload_on_the_forgot_password_code_step_keeps_it(): void
+    {
+        $admin = $this->user('admin', 'head@doon.in', '9876543210');
+
+        Livewire::test(ResetPassword::class)->set('email', 'head@doon.in')->call('submitEmail');
+        $code = $this->lastCode();
+
+        Livewire::test(ResetPassword::class)
+            ->assertSet('step', 'otp')
+            ->set('otp', self::digits($code))
+            ->assertSet('step', 'password')
+            ->set('password', 'Fresh@2026')->set('password_confirmation', 'Fresh@2026')
+            ->call('resetPassword')
+            ->assertRedirect(route('admin.login'));
+
+        $this->assertCount(1, $this->whatsApps());
+        $this->assertTrue(Hash::check('Fresh@2026', $admin->fresh()->password));
+    }
+
     public function test_the_admin_app_login_code_goes_to_the_mobile_too(): void
     {
         $admin = $this->user('admin', 'head@doon.in', '9876543210');

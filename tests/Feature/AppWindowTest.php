@@ -77,6 +77,12 @@ class AppWindowTest extends TestCase
         $this->get('/app/admin', self::NAV)->assertRedirect('/~/app/admin');
         $this->get('/~/app/admin', self::NAV)->assertRedirect('/~/login?password=1');
 
+        // A school's opening page reached from a page of that app (its login
+        // handing over) stays in the app's own scope, and so does its login.
+        $this->get('/4/launch', self::NAV + ['Referer' => 'http://localhost/~/login'])
+            ->assertRedirect('/~/4/launch');
+        $this->get('/~/4/launch', self::NAV)->assertRedirect('/~/login?password=1');
+
         // The opening page, under the mount, sends a device nobody signed in on to the login — inside the app.
         $this->get('/accounts/~/accounts/launch', self::NAV)
             ->assertRedirect('/accounts/~/accounts?password=1');
