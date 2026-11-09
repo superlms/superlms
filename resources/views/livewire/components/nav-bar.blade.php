@@ -22,7 +22,10 @@
 
         </style>
     @endif
-    <nav class="bg-white border-b border-gray-200 px-2 sm:px-6 lg:px-8">
+    {{-- lms-navbar-row: the bar itself — on md+ shown only on Quick Links for
+         the admin and super admin panels (components.layouts.app); the
+         popups below it stay available everywhere. --}}
+    <nav class="lms-navbar-row bg-white border-b border-gray-200 px-2 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16 gap-2 sm:gap-4">
 
             {{-- ── LEFT ── --}}

@@ -199,13 +199,32 @@
             html:not(.sidebar-expanded) .lms-logo-wrap { padding-left: .25rem !important; padding-right: .25rem !important; }
             html:not(.sidebar-expanded) .lms-logo-img { width: 2.5rem !important; height: 2.5rem !important; }
             html:not(.sidebar-expanded) .lms-nav { padding-left: .5rem !important; padding-right: .5rem !important; }
+
+            /* ─── Top bar on Quick Links only (admin and super admin) ───
+               Every other page of those panels shows its own header alone: the
+               bar is gone, and the page — and every slide-in or popup anchored
+               under the bar (`top-16`) — starts at the top of the window. The
+               bar's popups (notifications, logout) stay where they are. On a
+               phone the bar stays: its menu button opens the sidebar. */
+            body.lms-no-topbar { --lms-nav-h: 0px; }
+            body.lms-no-topbar .lms-navbar-row { display: none !important; }
+            body.lms-no-topbar #main-scroll { top: 0 !important; }
+            body.lms-no-topbar #main-scroll .fixed.top-16 { top: 0 !important; }
+            body.lms-no-topbar #main-scroll [class~="h-[calc(100vh-4rem)]"] { height: 100vh !important; }
         }
     </style>
 </head>
 
 {{-- offcanvas drives the mobile sidebar drawer (the navbar hamburger flips it).
-     Kept at body level so every page inherits the same state. --}}
-<body class="bg-gray-50 h-screen w-screen overflow-hidden"
+     Kept at body level so every page inherits the same state.
+     lms-no-topbar: an admin or super admin page other than Quick Links shows
+     no top bar on md+ (see the style above). --}}
+@php
+    $lmsNoTopbar = Auth::check()
+        && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true)
+        && !request()->routeIs('admin.quick-links', 'super-admin.quick-links');
+@endphp
+<body class="bg-gray-50 h-screen w-screen overflow-hidden {{ $lmsNoTopbar ? 'lms-no-topbar' : '' }}"
       x-data="{ offcanvas: false, sidebarOpen: document.documentElement.classList.contains('sidebar-expanded') }"
       x-effect="document.body.classList.toggle('drawer-open', offcanvas);
                 document.documentElement.classList.toggle('sidebar-expanded', sidebarOpen);
