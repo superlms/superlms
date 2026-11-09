@@ -73,6 +73,9 @@ class AppWindowTest extends TestCase
         $this->get('/9/launch', self::NAV)->assertRedirect('/9/~/9/launch');
         $this->get('/accounts/launch', self::NAV)->assertRedirect('/accounts/~/accounts/launch');
         $this->get('/app/superadmin', self::NAV)->assertRedirect('/superadmin/~/app/superadmin');
+        // The School Admin app installed from the login screen stays in its own scope (/~), not the Super Admin's.
+        $this->get('/app/admin', self::NAV)->assertRedirect('/~/app/admin');
+        $this->get('/~/app/admin', self::NAV)->assertRedirect('/~/login?password=1');
 
         // The opening page, under the mount, sends a device nobody signed in on to the login — inside the app.
         $this->get('/accounts/~/accounts/launch', self::NAV)

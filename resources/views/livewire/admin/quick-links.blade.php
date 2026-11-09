@@ -1,17 +1,18 @@
 <div class="bg-gray-50">
 
-    {{-- ─── Filter bar — Quick Links heading + Sort + the day, date and time. ─── --}}
-    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+    {{-- ─── Filter bar — Quick Links heading + Sort + the day, date and time,
+         in the Super Admin's Quick Links look: one compact row. ─── --}}
+    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-1.5 sm:py-2 sticky top-0 z-30">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:min-h-8">
 
             {{-- Page heading (first item in the filter row). --}}
-            <h1 class="text-lg sm:text-xl font-bold text-gray-900 mr-1">Quick Links</h1>
+            <h1 class="text-base font-semibold text-gray-900 mr-1">Quick Links</h1>
 
             {{-- Divider --}}
-            <span class="hidden sm:block h-5 w-px bg-gray-200"></span>
+            <span class="hidden sm:block h-4 w-px bg-gray-200"></span>
 
-            <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
@@ -22,8 +23,8 @@
             <div class="flex items-center gap-1.5">
                 <span class="text-xs text-gray-500">Sort</span>
                 <select wire:model.live="sort"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="sidebar">Sidebar</option>
                     <option value="asc">A–Z</option>
                 </select>
@@ -41,7 +42,7 @@
                     }
                  }"
                  x-init="tick(); setInterval(() => tick(), 1000)"
-                 class="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-600">
+                 class="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
                 <span class="text-gray-800 font-semibold" x-text="day"></span>
                 <span class="text-gray-300">·</span>
                 <span x-text="date"></span>

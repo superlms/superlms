@@ -1,11 +1,14 @@
 <div>
-    {{-- The super admin's top bar has a few touches of its own (rounder Back,
-         a pill search, the session switcher); the school and accounts panels
-         keep theirs. The buttons on the right are everyone's blue ones. --}}
+    {{-- The super admin's top bar has a few touches of its own: a rounder Back
+         and a pill search — the school admin's and sub-admin's bar has those
+         too ($saLook) — and the session switcher and Profile (super admin
+         only, $saBar). The accounts panel keeps its own. The buttons on the
+         right are everyone's blue ones. --}}
     @php
-        $saBar = in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']);
+        $saBar  = in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']);
+        $saLook = $saBar || in_array(auth()->user()->role, ['admin', 'sub-admin']);
     @endphp
-    @if ($saBar)
+    @if ($saLook)
         <style>
             /* Search: a white pill with the login fields' border, blue once typed in. */
             .sa-search {
@@ -40,7 +43,7 @@
 
                 {{-- Back button --}}
                 <button onclick="history.back()"
-                    class="flex items-center gap-1.5 {{ $saBar ? 'px-3 py-1.5 rounded-xl' : 'px-2.5 py-1.5 rounded-lg' }} border border-gray-200
+                    class="flex items-center gap-1.5 {{ $saLook ? 'px-3 py-1.5 rounded-xl' : 'px-2.5 py-1.5 rounded-lg' }} border border-gray-200
                            text-gray-500 hover:text-gray-800 hover:bg-gray-50 text-sm transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -52,7 +55,7 @@
                     <h2 class="text-[15px] font-medium text-gray-900 leading-none">
                         @if (auth()->user()->role === 'accounts')
                             Welcome! {{ auth()->user()->organization->name }} Accounts
-                        @elseif (auth()->user()->role === 'admin')
+                        @elseif (in_array(auth()->user()->role, ['admin', 'sub-admin']))
                             Welcome! {{ auth()->user()->organization->name }}
                         @else
                             Welcome! SuperLMS Admin
@@ -132,13 +135,13 @@
                     {{-- Input --}}
                     {{-- Super admin: a white pill with the login fields' border —
                          grey while empty, blue as soon as something is typed. --}}
-                    <div class="relative {{ $saBar ? 'sa-search-wrap' : '' }}">
-                        <svg class="absolute {{ $saBar ? 'left-4' : 'left-3' }} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                    <div class="relative {{ $saLook ? 'sa-search-wrap' : '' }}">
+                        <svg class="absolute {{ $saLook ? 'left-4' : 'left-3' }} top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                         </svg>
-                        @if ($saBar)
+                        @if ($saLook)
                             <input wire:model.live.debounce.250ms="search" x-on:focus="open = true" type="text"
                                 placeholder="Search pages..." autocomplete="off"
                                 class="sa-search w-full pl-10 pr-9 py-2 text-sm placeholder-gray-400" />
@@ -152,7 +155,7 @@
 
                         @if ($search)
                             <button wire:click="$set('search', '')" x-on:click="open = true"
-                                class="absolute {{ $saBar ? 'right-3.5' : 'right-2.5' }} top-1/2 -translate-y-1/2 text-gray-400
+                                class="absolute {{ $saLook ? 'right-3.5' : 'right-2.5' }} top-1/2 -translate-y-1/2 text-gray-400
                                        hover:text-gray-600 transition-colors">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

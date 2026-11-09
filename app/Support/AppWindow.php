@@ -122,7 +122,11 @@ class AppWindow
         return match (true) {
             (bool) preg_match('#^/(\d+)/launch$#', $path, $m) => [self::launchMount('admin', $m[1]), 'launch'],
             $path === '/accounts/launch', $path === '/app/accounts' => [self::launchMount('accounts'), 'launch'],
-            $path === '/app/admin', $path === '/app/superadmin' => [self::launchMount('superadmin'), 'launch'],
+            // The School Admin app installed from the login screen (/~) — not
+            // the Super Admin's: its login, reached after a reset or a logout,
+            // must open inside its own scope, without the browser's address bar.
+            $path === '/app/admin' => [self::launchMount('admin'), 'launch'],
+            $path === '/app/superadmin' => [self::launchMount('superadmin'), 'launch'],
             default => null,
         };
     }

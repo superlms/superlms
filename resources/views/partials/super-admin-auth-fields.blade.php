@@ -17,6 +17,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap">
 <style>
+    /* Hidden until Alpine starts: on a reload the eye's "hide" icon must not
+       show beside the "show" one while the page's scripts are still loading. */
+    [x-cloak] { display: none !important; }
+
     .sa-title {
         font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
         font-weight: 600; letter-spacing: -0.025em; color: #1f2937;
