@@ -268,6 +268,63 @@
             </div>
         @endif
 
+        {{-- ═══════════════ Calendar — the signed-in person's own: today · the next 7 days · tasks still open ═══════════════
+             Left off for a sub-super-admin who was not given Calendar ($calendar null). --}}
+        @if (!empty($calendar))
+            @php
+                // The Calendar's own colours for each kind.
+                $calTone = ['meeting' => '#3b82f6', 'task' => '#f59e0b', 'event' => '#8b5cf6'];
+                $calDay  = fn (string $date) => route('super-admin.calendar', ['month' => substr($date, 0, 7), 'day' => $date]);
+                $calToday = $calendar['meetings'] + $calendar['tasks'] + $calendar['events'];
+                $calLists = [
+                    ['Today · ' . now()->format('d M'), $calToday, $calendar['today'], false, 'Nothing planned for today', $calendar['today_more']],
+                    ['Next 7 days', $calendar['upcoming_count'], $calendar['upcoming'], true, 'Nothing in the next 7 days', max(0, $calendar['upcoming_count'] - count($calendar['upcoming']))],
+                    ['Tasks still open', $calendar['overdue_count'], $calendar['overdue'], true, 'No task left open from earlier days', max(0, $calendar['overdue_count'] - count($calendar['overdue']))],
+                ];
+            @endphp
+            <div class="sa-card min-w-0 overflow-hidden" data-home-calendar>
+                <div class="px-5 pt-5 pb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h3 class="sa-card-title">Calendar</h3>
+                        <p class="sa-card-sub">Your own meetings, tasks and events</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="sa-chip" style="background:#eff6ff;color:#1d4ed8"><span class="sa-dot" style="background:#3b82f6"></span>{{ $calendar['meetings'] }} {{ $calendar['meetings'] === 1 ? 'meeting' : 'meetings' }} today</span>
+                        <span class="sa-chip" style="background:#fffbeb;color:#92400e"><span class="sa-dot" style="background:#f59e0b"></span>{{ $calendar['tasks_done'] }}/{{ $calendar['tasks'] }} tasks done</span>
+                        <span class="sa-chip"><span class="sa-dot" style="background:#8b5cf6"></span>{{ $calendar['events'] }} {{ $calendar['events'] === 1 ? 'event' : 'events' }}</span>
+                        <a href="{{ route('super-admin.calendar') }}" class="ml-1 text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Open →</a>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 border-t border-gray-100">
+                    @foreach ($calLists as [$heading, $count, $items, $withDate, $empty, $more])
+                        @php $isOverdue = $loop->last; @endphp
+                        <div class="min-w-0 pb-3 {{ !$loop->first ? 'border-t md:border-t-0 md:border-l border-gray-100' : '' }}">
+                            <div class="px-5 pt-4 pb-1.5 flex items-center justify-between gap-2">
+                                <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $heading }}</p>
+                                <span class="text-[11px] font-semibold tabular-nums px-1.5 py-px rounded-full {{ $isOverdue && $count > 0 ? 'bg-rose-50 text-rose-600' : 'bg-gray-100 text-gray-500' }}">{{ number_format($count) }}</span>
+                            </div>
+                            @forelse ($items as $e)
+                                <a href="{{ $calDay($e['date']) }}" class="flex items-start gap-3 px-5 py-2 hover:bg-gray-50/70">
+                                    <span class="mt-0.5 w-1 h-9 rounded-full flex-shrink-0" style="background: {{ $e['done'] ? '#d1d5db' : ($calTone[$e['type']] ?? '#9ca3af') }}"></span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-medium leading-snug truncate {{ $e['done'] ? 'line-through text-gray-400' : 'text-gray-800' }}" title="{{ $e['title'] }}">{{ $e['title'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate mt-0.5" title="{{ $e['with'] ? 'With ' . $e['with'] : '' }}">
+                                            @if ($withDate)<span class="{{ $isOverdue ? 'text-rose-600 font-medium' : 'text-gray-500' }}">{{ $e['day'] }}</span> · @endif{{ $e['time'] }}@if ($e['with']) · With {{ $e['with'] }}@endif
+                                        </p>
+                                    </div>
+                                </a>
+                            @empty
+                                <p class="px-5 py-5 text-sm text-gray-400">{{ $empty }}</p>
+                            @endforelse
+                            @if ($more > 0)
+                                <a href="{{ route('super-admin.calendar') }}" class="block px-5 pt-1 text-xs font-medium text-violet-600 hover:text-violet-800">+{{ $more }} more</a>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- ═══════════════ Schools — recently registered · top by teachers ═══════════════ --}}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
             <div class="sa-card xl:col-span-2 min-w-0 overflow-hidden">

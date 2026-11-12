@@ -15,6 +15,7 @@ use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminEmployee;
 use App\Models\SuperAdmin\SuperAdminSalaryPayment;
 use App\Models\SuperAdmin\SuperAdminAttendance;
+use App\Models\SuperAdmin\SuperAdminCalendarEvent;
 use App\Models\SchoolListing;
 use App\Models\CareerApplication;
 use App\Models\ExecutiveApplication;
@@ -289,6 +290,68 @@ class Dashboard extends Component
         }
 
         return $out;
+    }
+
+    /** Rows of each list on the home's Calendar card. */
+    private const CALENDAR_ROWS = 5;
+
+    /**
+     * The signed-in person's own Calendar, as Super Admin → Calendar keeps it
+     * (every row is the user's who added it — nobody else's is read): today's
+     * meetings, tasks and events, what is on the next seven days, and the
+     * tasks left open on earlier days. Null for a sub-super-admin who was not
+     * given Calendar.
+     */
+    protected function calendarSummary(): ?array
+    {
+        if (! $this->canOpen('super-admin.calendar')) {
+            return null;
+        }
+
+        $today = now()->toDateString();
+        $mine  = fn () => SuperAdminCalendarEvent::query()->ownedBy(auth()->id());
+
+        // As the Calendar lists them: timed first by their time, then the
+        // ones without a time; done tasks last.
+        $inOrder = fn ($q) => $q->orderBy('is_done')
+            ->orderByRaw('COALESCE(start_time, end_time) IS NULL')
+            ->orderByRaw('COALESCE(start_time, end_time)')
+            ->orderBy('id');
+
+        $row = fn (SuperAdminCalendarEvent $e) => [
+            'type'  => $e->type,
+            'title' => (string) $e->title,
+            'time'  => $e->timeLabel() ?? ($e->type === 'task' ? 'Any time' : 'All day'),
+            'with'  => $e->with_whom,
+            'done'  => $e->type === 'task' && $e->is_done,
+            'date'  => $e->date->toDateString(),
+            'day'   => $e->date->format('D, d M'),
+        ];
+
+        $todayAll = $inOrder($mine()->whereDate('date', $today))->get();
+        $tasks    = $todayAll->where('type', 'task');
+
+        $upcoming = fn () => $mine()
+            ->whereDate('date', '>', $today)
+            ->whereDate('date', '<=', now()->addDays(7)->toDateString());
+
+        $overdue = fn () => $mine()
+            ->where('type', 'task')
+            ->where('is_done', false)
+            ->whereDate('date', '<', $today);
+
+        return [
+            'meetings'       => $todayAll->where('type', 'meeting')->count(),
+            'tasks'          => $tasks->count(),
+            'tasks_done'     => $tasks->where('is_done', true)->count(),
+            'events'         => $todayAll->where('type', 'event')->count(),
+            'today'          => $todayAll->take(self::CALENDAR_ROWS)->map($row)->values()->all(),
+            'today_more'     => max(0, $todayAll->count() - self::CALENDAR_ROWS),
+            'upcoming'       => $inOrder($upcoming()->orderBy('date'))->take(self::CALENDAR_ROWS)->get()->map($row)->values()->all(),
+            'upcoming_count' => $upcoming()->count(),
+            'overdue'        => $overdue()->orderBy('date')->orderBy('start_time')->orderBy('id')->take(self::CALENDAR_ROWS)->get()->map($row)->values()->all(),
+            'overdue_count'  => $overdue()->count(),
+        ];
     }
 
     /** The latest support tickets from schools, newest first. */
@@ -632,6 +695,7 @@ class Dashboard extends Component
         $websiteWeek     = $this->websiteWeek();
         $pushSummary     = $this->pushSummary();
         $latestReview    = $this->latestReview();
+        $calendar        = $this->calendarSummary();
 
         // The empty public $recentActivities shadows a view variable of that
         // name (the feed always showed "No recent activity"), so the view
@@ -655,6 +719,7 @@ class Dashboard extends Component
             'websiteWeek',
             'pushSummary',
             'latestReview',
+            'calendar',
             'activityFeed',
             'studentsBySchool',
             'totalSchools',

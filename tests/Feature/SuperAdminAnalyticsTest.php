@@ -40,7 +40,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         preg_match_all('/<h2[^>]*>([^<]+)<\/h2>/', $html, $m);
         $this->assertSame(
-            ['Key Metrics', 'Schools', 'Website', 'Fee', 'Payroll', 'Enquiries', 'Support'],
+            ['Key Metrics', 'Schools', 'Website', 'Fee', 'Payroll', 'Calendar', 'Enquiries', 'Support'],
             array_map('trim', $m[1])
         );
 
@@ -53,7 +53,7 @@ class SuperAdminAnalyticsTest extends TestCase
         // Livewire's re-renders (wire:ignore) so the panel's auto-refresh
         // never blanks it.
         foreach (['overviewMonthlyChart', 'schoolsMonthlyChart', 'websiteVisitsChart', 'feeMonthlyChart',
-                  'payrollMonthlyChart', 'enquiryMonthlyChart', 'supportMonthlyChart'] as $id) {
+                  'payrollMonthlyChart', 'calendarMonthlyChart', 'enquiryMonthlyChart', 'supportMonthlyChart'] as $id) {
             $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="' . $id . '"/', $html);
         }
         $this->assertStringContainsString('data-sa-charts="analytics"', $html);
@@ -77,6 +77,14 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertStringContainsString('Monthly Bill ₹45,000', $text);
         $this->assertStringContainsString('Total Pending 5', $text);
         $this->assertStringContainsString('Reply Rate 75%', $text);
+        // The Calendar's figures and its tasks donut.
+        $this->assertStringContainsString('Meetings · Oct 2026 4 1 last month', $text);
+        $this->assertStringContainsString('Tasks · Oct 2026 5 3 done · 60%', $text);
+        $this->assertStringContainsString('Tasks Still Open 2 from earlier days, not done', $text);
+        $this->assertStringContainsString('Today 3 1 meeting · 2 tasks · 0 events', $text);
+        $this->assertStringContainsString('Done 6 · 60%', $text);
+        $this->assertStringContainsString('Overdue 2 · 20%', $text);
+        $this->assertStringContainsString('"calendar":{"meetings":[1,4]', html_entity_decode($html));
         // A fractional day count from Carbon reads as whole days.
         $this->assertStringContainsString('· 30 days', $text);
 
@@ -104,6 +112,69 @@ class SuperAdminAnalyticsTest extends TestCase
         $split = (fn () => $this->studentGenderSplit())->call(new Analytics());
 
         $this->assertSame(['male' => 2, 'female' => 1, 'other' => 2, 'unknown' => 2], $split);
+    }
+
+    /**
+     * The Calendar section counts the signed-in person's own diary only —
+     * nobody else's — and is off the page for a sub-super-admin who was not
+     * given Calendar.
+     */
+    public function test_the_calendar_section_counts_only_the_signed_in_users_own_calendar(): void
+    {
+        (require base_path('database/migrations/2026_11_12_120000_create_super_admin_calendar_events_table.php'))->up();
+
+        $add = fn (int $user, string $type, string $date, bool $done = false) => \App\Models\SuperAdmin\SuperAdminCalendarEvent::create([
+            'user_id' => $user, 'type' => $type, 'title' => ucfirst($type), 'date' => $date, 'is_done' => $done,
+        ]);
+        // Today is 11 Oct 2026; the window is the last 12 months (Nov 2025 – Oct 2026).
+        $add(901, 'meeting', '2026-10-11');
+        $add(901, 'task', '2026-10-11', true);
+        $add(901, 'task', '2026-10-05');            // overdue
+        $add(901, 'event', '2026-10-14');           // in the next 7 days
+        $add(901, 'meeting', '2026-10-25');
+        $add(901, 'meeting', '2026-09-15');         // last month
+        $add(901, 'task', '2026-09-20', true);
+        $add(901, 'task', '2025-01-01');            // overdue, before the window
+        // Someone else's: never counted.
+        $add(902, 'meeting', '2026-10-11');
+        $add(902, 'task', '2026-10-01');
+        $add(902, 'event', '2026-10-12');
+
+        $load = function () {
+            $component = new Analytics();
+            (fn () => $this->loadCalendar())->call($component);
+
+            return $component;
+        };
+
+        $c = $load();
+        $this->assertSame([
+            'month' => 'Oct 2026', 'meetings' => 2, 'meetingsLast' => 1, 'tasks' => 2, 'tasksDone' => 1, 'tasksPct' => 50.0,
+            'events' => 1, 'eventsLast' => 0, 'today' => 2, 'todayMeetings' => 1, 'todayTasks' => 1, 'todayEvents' => 0,
+            'overdue' => 2, 'next7' => 1, 'windowTotal' => 7, 'windowTasks' => 3, 'windowDone' => 2,
+            'windowOverdue' => 1, 'windowToDo' => 0, 'windowPct' => 66.7,
+        ], $c->calendarStats);
+        $this->assertCount(12, $c->calendarMonthly['meetings']);
+        $this->assertSame([1, 2], array_slice($c->calendarMonthly['meetings'], -2));
+        $this->assertSame([1, 2], array_slice($c->calendarMonthly['tasks'], -2));
+        $this->assertSame([0, 1], array_slice($c->calendarMonthly['events'], -2));
+
+        // A sub-super-admin given Calendar: their own diary alone.
+        $sub = new User(['name' => 'Sub', 'email' => 'sub@example.com']);
+        $sub->id = 902;
+        $sub->role = 'sub-super-admin';
+        $sub->permissions = ['super-admin.analytics', 'super-admin.calendar'];
+        $this->actingAs($sub);
+        $c = $load();
+        $this->assertSame(1, $c->calendarStats['meetings']);
+        $this->assertSame(1, $c->calendarStats['overdue']);
+        $this->assertSame(1, $c->calendarStats['next7']);
+        $this->assertSame(3, $c->calendarStats['windowTotal']);
+
+        // Not given Calendar: no section.
+        $sub->permissions = ['super-admin.analytics'];
+        $this->assertSame([], $load()->calendarStats);
+        $this->assertSame([], $load()->calendarMonthly);
     }
 
     public function test_the_super_admin_sidebar_scrollbar_is_a_hairline_and_page_boxes_get_the_slim_bar(): void
@@ -175,6 +246,14 @@ class AnalyticsWithFigures extends Analytics
 
         $this->supportStats = ['total' => 8, 'pending' => 2, 'replied' => 6, 'thisMonth' => 1, 'thisWeek' => 0, 'avgPerMonth' => 1.5];
         $this->supportMonthly = ['labels' => [], 'total' => [], 'replied' => []];
+
+        $this->calendarStats = [
+            'month' => 'Oct 2026', 'meetings' => 4, 'meetingsLast' => 1, 'tasks' => 5, 'tasksDone' => 3, 'tasksPct' => 60.0,
+            'events' => 1, 'eventsLast' => 0, 'today' => 3, 'todayMeetings' => 1, 'todayTasks' => 2, 'todayEvents' => 0,
+            'overdue' => 2, 'next7' => 4, 'windowTotal' => 16, 'windowTasks' => 10, 'windowDone' => 6,
+            'windowOverdue' => 2, 'windowToDo' => 2, 'windowPct' => 60.0,
+        ];
+        $this->calendarMonthly = ['meetings' => [1, 4], 'tasks' => [5, 5], 'events' => [0, 1]];
     }
 
     public function getVisitMinDateProperty(): string

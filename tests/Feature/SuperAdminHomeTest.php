@@ -268,6 +268,54 @@ class SuperAdminHomeTest extends TestCase
     }
 
     /**
+     * The home's Calendar card: the signed-in person's own today, next seven
+     * days and tasks left open — nobody else's — and no card for a
+     * sub-super-admin who was not given Calendar.
+     */
+    public function test_the_calendar_card_shows_only_the_signed_in_users_own_calendar(): void
+    {
+        $this->signIn();
+        (require base_path('database/migrations/2026_11_12_120000_create_super_admin_calendar_events_table.php'))->up();
+
+        $add = fn (int $user, string $type, string $title, string $date, array $more = []) => \App\Models\SuperAdmin\SuperAdminCalendarEvent::create(
+            ['user_id' => $user, 'type' => $type, 'title' => $title, 'date' => $date] + $more
+        );
+        // Today is 11 Oct 2026.
+        $add(900, 'task', 'Send reminders', '2026-10-11', ['is_done' => true]);
+        $add(900, 'event', 'Annual day', '2026-10-11');
+        $add(900, 'meeting', 'Fee review', '2026-10-11', ['start_time' => '15:00:00', 'end_time' => '15:30:00', 'with_whom' => 'Doon School']);
+        $add(900, 'meeting', 'Call Ravi', '2026-10-11', ['start_time' => '09:30:00']);
+        $add(900, 'meeting', 'Demo', '2026-10-15');
+        $add(900, 'event', 'Too far', '2026-10-19');
+        $add(900, 'task', 'Old task', '2026-10-02');
+        $add(900, 'task', 'Done long ago', '2026-10-01', ['is_done' => true]);
+        $add(901, 'meeting', 'Not mine', '2026-10-11');
+        $add(901, 'task', 'Not mine either', '2026-10-03');
+
+        $cal = $this->helper('calendarSummary');
+
+        $this->assertSame(['meetings' => 2, 'tasks' => 1, 'tasks_done' => 1, 'events' => 1],
+            array_intersect_key($cal, array_flip(['meetings', 'tasks', 'tasks_done', 'events'])));
+        // Timed ones by their time, then the rest; a done task last.
+        $this->assertSame(['Call Ravi', 'Fee review', 'Annual day', 'Send reminders'], array_column($cal['today'], 'title'));
+        $this->assertSame('3:00 PM – 3:30 PM', $cal['today'][1]['time']);
+        $this->assertSame('Doon School', $cal['today'][1]['with']);
+        $this->assertTrue($cal['today'][3]['done']);
+        $this->assertSame(['Demo'], array_column($cal['upcoming'], 'title'));
+        $this->assertSame(1, $cal['upcoming_count']);
+        $this->assertSame(['Old task'], array_column($cal['overdue'], 'title'));
+        $this->assertSame('Fri, 02 Oct', $cal['overdue'][0]['day']);
+        $this->assertSame(1, $cal['overdue_count']);
+
+        // A sub-super-admin with Calendar sees theirs; without it, no card.
+        $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.calendar'])->id = 901;
+        $this->assertSame(['Not mine'], array_column($this->helper('calendarSummary')['today'], 'title'));
+        $this->assertSame(['Not mine either'], array_column($this->helper('calendarSummary')['overdue'], 'title'));
+        $this->signIn('sub-super-admin', ['super-admin.dashboard']);
+        $this->assertNull($this->helper('calendarSummary'));
+    }
+
+    /**
      * The charts survive the panel's auto-refresh: their canvases are kept out
      * of Livewire's re-renders and their figures sit in an element that is
      * re-rendered; and a narrow card's figures are whole (the staff legend
@@ -303,6 +351,17 @@ class SuperAdminHomeTest extends TestCase
             'supportStats' => ['total' => 0, 'pending' => 0, 'replied' => 0, 'this_month' => 0],
             'enquiryStats' => ['demo_total' => 0, 'contact_total' => 0],
             'creditStats' => [],
+            'calendar' => [
+                'meetings' => 1, 'tasks' => 2, 'tasks_done' => 1, 'events' => 0,
+                'today' => [
+                    ['type' => 'meeting', 'title' => 'Fee review', 'time' => '3:00 PM – 3:30 PM', 'with' => 'Doon School', 'done' => false, 'date' => '2026-10-11', 'day' => 'Sun, 11 Oct'],
+                    ['type' => 'task', 'title' => 'Send reminders', 'time' => 'Any time', 'with' => null, 'done' => true, 'date' => '2026-10-11', 'day' => 'Sun, 11 Oct'],
+                ],
+                'today_more' => 1,
+                'upcoming' => [], 'upcoming_count' => 0,
+                'overdue' => [['type' => 'task', 'title' => 'Old task', 'time' => 'Any time', 'with' => null, 'done' => false, 'date' => '2026-10-02', 'day' => 'Fri, 02 Oct']],
+                'overdue_count' => 1,
+            ],
         ])->render();
 
         foreach (['homeFeeChart', 'homeRegChart'] as $id) {
@@ -317,5 +376,13 @@ class SuperAdminHomeTest extends TestCase
         $this->assertStringContainsString('Leave / holiday 1 · 50%', $text);
         $this->assertStringContainsString('Ravi Kumar Team ₹15,000', $text);
         $this->assertStringContainsString('0% vs last month', $text);
+
+        // The Calendar card: today's counts, its three lists, each row opening its day.
+        $this->assertStringContainsString('1 meeting today 1/2 tasks done 0 events Open →', $text);
+        $this->assertStringContainsString('Today · 11 Oct 3 Fee review 3:00 PM – 3:30 PM · With Doon School Send reminders Any time +1 more', $text);
+        $this->assertStringContainsString('Next 7 days 0 Nothing in the next 7 days', $text);
+        $this->assertStringContainsString('Tasks still open 1 Old task Fri, 02 Oct · Any time', $text);
+        $this->assertStringContainsString('href="' . e(route('super-admin.calendar', ['month' => '2026-10', 'day' => '2026-10-02'])) . '"', $html);
+        $this->assertStringContainsString('line-through', $html);
     }
 }

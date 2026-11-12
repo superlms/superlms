@@ -586,6 +586,72 @@
             </div>
         </section>
 
+        {{-- ═══════════════════════ CALENDAR ═══════════════════════
+             The signed-in person's own meetings, tasks and events (nobody
+             else's). Off the page for a sub-super-admin without Calendar. --}}
+        @if (!empty($calendarStats))
+            @php
+                $cal = $calendarStats;
+                $many = fn (int $n, string $word) => $n . ' ' . \Illuminate\Support\Str::plural($word, $n);
+            @endphp
+            <section class="space-y-4">
+                <x-admin.section-heading title="Calendar" />
+
+                @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
+                    ['Meetings · ' . $cal['month'], number_format($cal['meetings']), number_format($cal['meetingsLast']) . ' last month', 'text-gray-900'],
+                    ['Tasks · ' . $cal['month'], number_format($cal['tasks']), number_format($cal['tasksDone']) . ' done · ' . $cal['tasksPct'] . '%', 'text-gray-900'],
+                    ['Events · ' . $cal['month'], number_format($cal['events']), number_format($cal['eventsLast']) . ' last month', 'text-gray-900'],
+                    ['Tasks Still Open', number_format($cal['overdue']), 'from earlier days, not done', $cal['overdue'] > 0 ? 'text-red-500' : 'text-gray-900'],
+                    ['Today', number_format($cal['today']), $many($cal['todayMeetings'], 'meeting') . ' · ' . $many($cal['todayTasks'], 'task') . ' · ' . $many($cal['todayEvents'], 'event'), 'text-violet-600'],
+                    ['Next 7 Days', number_format($cal['next7']), 'coming up', 'text-gray-900'],
+                    ['Tasks Done', $cal['windowPct'] . '%', number_format($cal['windowDone']) . ' of ' . number_format($cal['windowTasks']) . ' · ' . strtolower($windowLabel), 'text-emerald-600'],
+                    ['In All', number_format($cal['windowTotal']), 'meetings, tasks and events · ' . strtolower($windowLabel), 'text-gray-900'],
+                ]])
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <div class="lg:col-span-2 sa-card p-5">
+                        <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                            <div>
+                                <h3 class="sa-card-title">Calendar by Month</h3>
+                                <p class="text-xs text-gray-400 mt-0.5">Your meetings, tasks and events · {{ $windowLabel }}</p>
+                            </div>
+                            <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:#3b82f6"></span> Meetings</span>
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:#f59e0b"></span> Tasks</span>
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:#8b5cf6"></span> Events</span>
+                            </div>
+                        </div>
+                        <div class="h-56 relative" wire:ignore wire:key="chart-calendarMonthlyChart">
+                            <canvas id="calendarMonthlyChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="sa-card p-5 min-w-0 flex flex-col">
+                        <div class="flex items-start justify-between gap-3 mb-4">
+                            <div class="min-w-0">
+                                <h3 class="sa-card-title">Tasks</h3>
+                                <p class="sa-card-sub">Done, still to do and overdue · {{ $windowLabel }}</p>
+                            </div>
+                            {{-- $calendarStats is only filled when the route is there. --}}
+                            <a href="{{ route('super-admin.calendar') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Calendar →</a>
+                        </div>
+                        @if ($cal['windowTasks'] > 0)
+                            @include('livewire.super-admin.partials.dash-donut', [
+                                'segments' => [
+                                    ['label' => 'Done', 'value' => (int) $cal['windowDone'], 'color' => '#10b981'],
+                                    ['label' => 'To do', 'value' => (int) $cal['windowToDo'], 'color' => '#f59e0b'],
+                                    ['label' => 'Overdue', 'value' => (int) $cal['windowOverdue'], 'color' => '#f43f5e'],
+                                ],
+                                'center' => $cal['windowPct'] . '%', 'centerLabel' => 'Done', 'size' => 148, 'legend' => true,
+                                'format' => fn ($v) => number_format($v),
+                            ])
+                        @else
+                            <p class="text-sm text-gray-400 py-8 text-center">No tasks in these months</p>
+                        @endif
+                    </div>
+                </div>
+            </section>
+        @endif
+
         {{-- ═══════════════════════ ENQUIRIES ═══════════════════════ --}}
         <section class="space-y-4">
             <x-admin.section-heading title="Enquiries" />
@@ -766,6 +832,17 @@
                     data: { labels: p.labels, datasets: [bar('Salary paid', p.payroll.paid, INK)] },
                     options: options(true)
                 }),
+
+                // ── Calendar (the Calendar's own colour for each kind) ──
+                calendarMonthlyChart: p => p.calendar ? {
+                    type: 'bar',
+                    data: { labels: p.labels, datasets: [
+                        bar('Meetings', p.calendar.meetings, '#3b82f6'),
+                        bar('Tasks', p.calendar.tasks, '#f59e0b'),
+                        bar('Events', p.calendar.events, '#8b5cf6'),
+                    ] },
+                    options: options()
+                } : null,
 
                 // ── Enquiries ──
                 enquiryMonthlyChart: p => ({

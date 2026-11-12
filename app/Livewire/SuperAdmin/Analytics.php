@@ -13,6 +13,7 @@ use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminEmployee;
 use App\Models\SuperAdmin\SuperAdminSalaryPayment;
+use App\Models\SuperAdmin\SuperAdminCalendarEvent;
 use App\Models\Admin\RateLms;
 use App\Models\Admin\ContactSuperAdmin;
 use App\Models\WebsiteContact;
@@ -20,6 +21,7 @@ use App\Models\WebsiteDemo;
 use App\Models\WebsiteVisit;
 use App\Support\SuperAdminFeeTotals;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Route;
 
 class Analytics extends Component
 {
@@ -58,6 +60,11 @@ class Analytics extends Component
 
     public array $supportStats   = [];
     public array $supportMonthly = [];
+
+    // The signed-in person's own Calendar; empty (and off the page) for a
+    // sub-super-admin who was not given Calendar.
+    public array $calendarStats   = [];
+    public array $calendarMonthly = [];
 
     // ── Website traffic (date range within the last 90 days) ──────────────────
     public string $visitFrom = '';
@@ -118,6 +125,7 @@ class Analytics extends Component
         $this->loadPayroll();
         $this->loadEnquiries();
         $this->loadSupport();
+        $this->loadCalendar();
         $this->loadWebsite();
     }
 
@@ -583,6 +591,88 @@ class Analytics extends Component
         ];
     }
 
+    // ─── Calendar ─────────────────────────────────────────────────────────────
+
+    /**
+     * The signed-in person's own Calendar, as Super Admin → Calendar keeps it
+     * (every row is the user's who added it — nobody else's is counted):
+     * this month's meetings, tasks and events, today, the next seven days,
+     * the tasks left open on earlier days, and month by month over the
+     * window picked in the header. Left empty for a sub-super-admin who was
+     * not given Calendar, and the section is then off the page.
+     *
+     * The window's rows are few (one person's diary), so they are read once
+     * and counted here rather than grouped in SQL.
+     */
+    private function loadCalendar(): void
+    {
+        $this->calendarStats = $this->calendarMonthly = [];
+
+        $user = auth()->user();
+        if (! $user || ! Route::has('super-admin.calendar') || ! $user->canAccessSuperAdminRoute('super-admin.calendar')) {
+            return;
+        }
+
+        $mine  = fn () => SuperAdminCalendarEvent::query()->ownedBy($user->id);
+        $today = now()->toDateString();
+
+        // The window: from the first of its first month (as monthlySeries
+        // takes it) to the end of this month.
+        $rows = $mine()
+            ->whereDate('date', '>=', now()->subMonths($this->months - 1)->startOfMonth()->toDateString())
+            ->whereDate('date', '<=', now()->endOfMonth()->toDateString())
+            ->get(['type', 'date', 'is_done']);
+
+        $ofMonth = fn (string $ym) => $rows->filter(fn ($e) => $e->date->format('Y-m') === $ym);
+        $count   = fn ($set, string $type) => $set->where('type', $type)->count();
+
+        $thisMonth = $ofMonth(now()->format('Y-m'));
+        $lastMonth = $ofMonth(now()->subMonthNoOverflow()->format('Y-m'));
+        $todayRows = $rows->filter(fn ($e) => $e->date->toDateString() === $today);
+
+        $monthTasks     = $thisMonth->where('type', 'task');
+        $monthTasksDone = $monthTasks->where('is_done', true)->count();
+
+        // Tasks over the window: done, still to do (today or later) and
+        // overdue (an earlier day, not done).
+        $windowTasks   = $rows->where('type', 'task');
+        $windowDone    = $windowTasks->where('is_done', true)->count();
+        $windowOverdue = $windowTasks->filter(fn ($e) => ! $e->is_done && $e->date->toDateString() < $today)->count();
+
+        $this->calendarStats = [
+            'month'          => now()->format('M Y'),
+            'meetings'       => $count($thisMonth, 'meeting'),
+            'meetingsLast'   => $count($lastMonth, 'meeting'),
+            'tasks'          => $monthTasks->count(),
+            'tasksDone'      => $monthTasksDone,
+            'tasksPct'       => $monthTasks->count() > 0 ? round($monthTasksDone / $monthTasks->count() * 100, 1) : 0,
+            'events'         => $count($thisMonth, 'event'),
+            'eventsLast'     => $count($lastMonth, 'event'),
+            'today'          => $todayRows->count(),
+            'todayMeetings'  => $count($todayRows, 'meeting'),
+            'todayTasks'     => $count($todayRows, 'task'),
+            'todayEvents'    => $count($todayRows, 'event'),
+            // As the Calendar's "tasks still open": any earlier day, not just the window.
+            'overdue'        => $mine()->where('type', 'task')->where('is_done', false)->whereDate('date', '<', $today)->count(),
+            'next7'          => $mine()->whereDate('date', '>', $today)->whereDate('date', '<=', now()->addDays(7)->toDateString())->count(),
+            'windowTotal'    => $rows->count(),
+            'windowTasks'    => $windowTasks->count(),
+            'windowDone'     => $windowDone,
+            'windowOverdue'  => $windowOverdue,
+            'windowToDo'     => max(0, $windowTasks->count() - $windowDone - $windowOverdue),
+            'windowPct'      => $windowTasks->count() > 0 ? round($windowDone / $windowTasks->count() * 100, 1) : 0,
+        ];
+
+        $byMonth = $rows->groupBy(fn ($e) => $e->date->format('Y-m') . '|' . $e->type)->map->count();
+        $series  = fn (string $type) => array_map(fn ($k) => (int) ($byMonth[$k . '|' . $type] ?? 0), $this->monthKeys());
+
+        $this->calendarMonthly = [
+            'meetings' => $series('meeting'),
+            'tasks'    => $series('task'),
+            'events'   => $series('event'),
+        ];
+    }
+
     // ─── Website traffic ──────────────────────────────────────────────────────
 
     private function loadWebsite(): void
@@ -702,6 +792,11 @@ class Analytics extends Component
             'support'  => [
                 'total'   => $this->supportMonthly['total'] ?? [],
                 'replied' => $this->supportMonthly['replied'] ?? [],
+            ],
+            'calendar' => [
+                'meetings' => $this->calendarMonthly['meetings'] ?? [],
+                'tasks'    => $this->calendarMonthly['tasks'] ?? [],
+                'events'   => $this->calendarMonthly['events'] ?? [],
             ],
             'website'  => [
                 'labels'  => $this->websiteDaily['labels'] ?? [],
