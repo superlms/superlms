@@ -70,10 +70,6 @@ class Student extends Component
         'gender'    => 'gender',
     ];
 
-    // ─── Selected rows: delete them together (the bar under the table) ────────
-    public array $bulkDeleteIds         = [];
-    public bool  $showBulkDeleteConfirm = false;
-
     // ─── Filter Options ───────────────────────────────────────────────────────
     public $organizations  = [];
     public $standards      = [];
@@ -349,59 +345,6 @@ class Student extends Component
         $this->sortDir = $current === $key && $this->sortDir === 'asc' ? 'desc' : 'asc';
         $this->sortBy  = $key;
         $this->resetPage();
-    }
-
-    // ─── Delete the selected rows ─────────────────────────────────────────────
-
-    /** The bar's Delete: asks first, saying how many. At most a page's worth. */
-    public function confirmBulkDelete(array $ids): void
-    {
-        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, $this->perPage);
-        if (!$ids) {
-            return;
-        }
-
-        $this->bulkDeleteIds         = $ids;
-        $this->showBulkDeleteConfirm = true;
-    }
-
-    public function cancelBulkDelete(): void
-    {
-        $this->bulkDeleteIds         = [];
-        $this->showBulkDeleteConfirm = false;
-    }
-
-    /**
-     * Each selected student goes as with Delete. Looked up through
-     * StudentDetail, so a super admin limited to one school deletes only that
-     * school's students, whatever ids the page sent.
-     */
-    public function doBulkDelete(): void
-    {
-        $deleted = 0;
-        $failed  = 0;
-
-        foreach (StudentDetail::whereIn('id', $this->bulkDeleteIds)->get() as $detail) {
-            try {
-                $this->deleteOne($detail);
-                $deleted++;
-            } catch (\Throwable $e) {
-                $failed++;
-                Log::error('Super Admin bulk delete: student not deleted', ['student_detail_id' => $detail->id, 'error' => $e->getMessage()]);
-            }
-        }
-
-        $this->cancelBulkDelete();
-        $this->loadStats();
-        $this->resetPage();
-        $this->dispatch('sa-students-deleted');
-
-        if ($deleted) {
-            $this->notification()->success($deleted . ' student' . ($deleted === 1 ? '' : 's') . ' deleted');
-        }
-        if ($failed) {
-            $this->notification()->error($failed . ' could not be deleted', 'Try those again, one at a time.');
-        }
     }
 
     public function doDeleteStudent($id): void
@@ -1107,72 +1050,23 @@ class Student extends Component
     // ─── Render ───────────────────────────────────────────────────────────────
 
     /**
-     * The three cards over the table, for the list as filtered: Total, Active
-     * and Inactive, each with its last seven days as bars (the students added
-     * each day, of that kind) and, for Total, this week against the week before.
+     * The figures in the header, as on Fees, for the list as filtered: the
+     * schools, the students, the active and inactive ones with their share,
+     * and those added over the last seven days (today included).
+     *
+     * @return list<array{0: string, 1: string, 2: string, 3: ?string}> label, figure, its colour, a note
      */
-    private function cards(): array
+    private function headerStats(): array
     {
-        $today = now()->startOfDay();
-        $days  = [];
-        for ($i = 13; $i >= 0; $i--) {
-            $days[] = $today->copy()->subDays($i);
-        }
-
-        $daily = fn ($query) => $query->toBase()
-            ->where('student_details.created_at', '>=', $days[0])
-            ->selectRaw('DATE(student_details.created_at) as d, COUNT(*) as c')
-            ->groupBy('d')
-            ->pluck('c', 'd')
-            ->map(fn ($c) => (int) $c)
-            ->all();
-
-        $all    = $daily($this->baseQuery());
-        $active = $daily($this->baseQuery()->whereHas('user', fn ($q) => $q->where('is_active', 1)));
-
-        $series = function (callable $count) use ($days) {
-            return array_map(fn ($day) => [
-                'label' => $day->format('D, d M'),
-                'count' => $count($day->toDateString()),
-            ], $days);
-        };
-
-        $allDays      = $series(fn ($d) => $all[$d] ?? 0);
-        $activeDays   = $series(fn ($d) => $active[$d] ?? 0);
-        $inactiveDays = $series(fn ($d) => max(0, ($all[$d] ?? 0) - ($active[$d] ?? 0)));
-
-        $week  = fn (array $s) => array_sum(array_column(array_slice($s, 7), 'count'));
-        $prior = fn (array $s) => array_sum(array_column(array_slice($s, 0, 7), 'count'));
-        $share = fn (int $n) => $this->totalStudents > 0 ? (int) round($n * 100 / $this->totalStudents) : 0;
+        $share = fn (int $n) => $this->totalStudents > 0 ? round($n * 100 / $this->totalStudents) . '%' : null;
+        $week  = $this->baseQuery()->where('student_details.created_at', '>=', now()->startOfDay()->subDays(6))->count();
 
         return [
-            [
-                'title' => 'Total Students',
-                'value' => $this->totalStudents,
-                'badge' => '+' . number_format($week($allDays)) . ' this week',
-                'tone'  => $week($allDays) > 0 ? 'up' : 'flat',
-                'note'  => number_format($prior($allDays)) . ' added the week before',
-                'bars'  => array_slice($allDays, 7),
-                'what'  => 'added',
-            ],
-            [
-                'title' => 'Active Students',
-                'value' => $this->activeStudents,
-                'badge' => $share($this->activeStudents) . '%',
-                'tone'  => 'up',
-                'note'  => 'Can sign in to the app',
-                'bars'  => array_slice($activeDays, 7),
-                'what'  => 'added, active',
-            ],
-            [
-                'title' => 'Inactive Students',
-                'value' => $this->inactiveStudents,
-                'badge' => $share($this->inactiveStudents) . '%',
-                'tone'  => 'down',
-                'note'  => 'Switched off — cannot sign in',
-                'bars'  => array_slice($inactiveDays, 7),
-                'what'  => 'added, inactive',
-            ],
+            ['Schools', number_format($this->totalSchools), 'text-gray-800', null],
+            ['Students', number_format($this->totalStudents), 'text-gray-800', null],
+            ['Active', number_format($this->activeStudents), 'text-emerald-600', $share($this->activeStudents)],
+            ['Inactive', number_format($this->inactiveStudents), 'text-red-500', $share($this->inactiveStudents)],
+            ['This Week', '+' . number_format($week), 'text-blue-600', null],
         ];
     }
 
@@ -1188,8 +1082,8 @@ class Student extends Component
         }
 
         $students = $query->paginate($this->perPage);
-        $cards    = $this->cards();
+        $stats    = $this->headerStats();
 
-        return view('livewire.super-admin.student', compact('students', 'cards'));
+        return view('livewire.super-admin.student', compact('students', 'stats'));
     }
 }

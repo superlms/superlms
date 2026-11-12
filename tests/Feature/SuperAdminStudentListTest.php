@@ -12,9 +12,10 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Super Admin → Students in the product-list look: three cards (Total,
- * Active, Inactive) with their last seven days as bars, the table's column
- * headers sorting it, and the ticked rows deleted together after asking.
+ * Super Admin → Students with the Fees page's header: its figures in one line
+ * beside Add (the cards are gone), the Fees filter bar, and a table with S.No
+ * in place of tick boxes, the class alone under the name, the status as a dot
+ * beside the row's ⋮, and column headers that sort it.
  */
 class SuperAdminStudentListTest extends TestCase
 {
@@ -90,23 +91,60 @@ class SuperAdminStudentListTest extends TestCase
         return array_map('trim', $m[1]);
     }
 
-    public function test_the_cards_show_each_figure_with_its_week(): void
+    public function test_the_header_carries_the_figures_in_the_fees_look(): void
     {
         $page = Livewire::test(Student::class);
-        $cards = $page->viewData('cards');
 
-        $this->assertSame(['Total Students', 'Active Students', 'Inactive Students'], array_column($cards, 'title'));
-        $this->assertSame([4, 3, 1], array_column($cards, 'value'));
-        $this->assertSame('+3 this week', $cards[0]['badge']);
-        $this->assertSame('1 added the week before', $cards[0]['note']);
-        $this->assertSame(['75%', '25%'], [$cards[1]['badge'], $cards[2]['badge']]);
+        // Schools, students, active and inactive with their share, and the
+        // ones added over the last seven days (two today, one three days ago).
+        $this->assertSame([
+            ['Schools', '1', 'text-gray-800', null],
+            ['Students', '4', 'text-gray-800', null],
+            ['Active', '3', 'text-emerald-600', '75%'],
+            ['Inactive', '1', 'text-red-500', '25%'],
+            ['This Week', '+3', 'text-blue-600', null],
+        ], $page->viewData('stats'));
 
-        // Seven bars, today last: two added today (both active), one three days ago (inactive).
-        $this->assertSame([0, 0, 0, 1, 0, 0, 2], array_column($cards[0]['bars'], 'count'));
-        $this->assertSame([0, 0, 0, 0, 0, 0, 2], array_column($cards[1]['bars'], 'count'));
-        $this->assertSame([0, 0, 0, 1, 0, 0, 0], array_column($cards[2]['bars'], 'count'));
+        $html = $page->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('<h1 class="text-lg sm:text-xl font-bold text-gray-900">Students</h1>', $html);
+        $this->assertStringContainsString('Schools: 1 Students: 4 Active: 3 (75%) Inactive: 1 (25%) This Week: +3 Add New Student', $text);
+        // The Fees filter bar, the search in it.
+        $this->assertStringContainsString('Filter by:', $text);
+        $this->assertMatchesRegularExpression('/Filter by:.*wire:model\.live\.debounce\.300ms="search"/s', $html);
+        // No cards any more.
+        $this->assertStringNotContainsString('Total Students', $text);
 
-        $page->assertSee('Add New Student')->assertSee('Class 5th-A · Roll 1');
+        // Filtered, the figures follow the list.
+        $page->set('filterStatus', '0');
+        $this->assertSame(['Students', '1'], array_slice($page->viewData('stats')[1], 0, 2));
+    }
+
+    public function test_rows_have_a_serial_number_the_class_alone_and_the_status_as_a_dot(): void
+    {
+        $html = Livewire::test(Student::class)->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        // S.No in place of tick boxes, and no ticked-rows bar.
+        $this->assertStringContainsString('>S.No</th>', $html);
+        $this->assertStringNotContainsString('type="checkbox"', $html);
+        $this->assertStringNotContainsString('Selected', $text);
+        $this->assertStringContainsString('1 A Aarav Mehta Class 5th-A', $text);
+        $this->assertStringContainsString('4 Z Zoya Khan Class 5th-A', $text);
+
+        // The class under the name, without the roll number.
+        $this->assertStringNotContainsString('Roll', $text);
+
+        // No Status column: the status is a dot right beside the ⋮.
+        $this->assertStringNotContainsString('>Status</th>', $html);
+        $this->assertSame(3, substr_count($html, 'data-status="active"'));
+        $this->assertSame(1, substr_count($html, 'data-status="inactive"'));
+        $this->assertMatchesRegularExpression('/data-status="inactive"><\/span>\s*<button type="button" x-ref="dots" title="More"/', $html);
+
+        // Bulk delete went with the tick boxes.
+        foreach (['confirmBulkDelete', 'cancelBulkDelete', 'doBulkDelete'] as $gone) {
+            $this->assertFalse(method_exists(Student::class, $gone), $gone);
+        }
     }
 
     public function test_the_headers_sort_the_list(): void
@@ -123,35 +161,5 @@ class SuperAdminStudentListTest extends TestCase
 
         // Anything not a header is ignored.
         $page->call('sort', 'password')->assertSet('sortBy', 'admission');
-    }
-
-    public function test_ticked_students_are_deleted_together_after_asking(): void
-    {
-        $page = Livewire::test(Student::class)
-            ->call('confirmBulkDelete', [1, 3, 3, 'x'])
-            ->assertSet('showBulkDeleteConfirm', true)
-            ->assertSet('bulkDeleteIds', [1, 3])
-            ->assertSee('Delete 2 students?');
-
-        $this->assertSame(4, DB::table('student_details')->count());
-
-        $page->call('doBulkDelete')
-            ->assertSet('showBulkDeleteConfirm', false)
-            ->assertDispatched('sa-students-deleted');
-
-        $this->assertSame([2, 4], DB::table('student_details')->orderBy('id')->pluck('id')->all());
-        // Their logins go with them.
-        $this->assertSame([102, 104], DB::table('users')->orderBy('id')->pluck('id')->all());
-    }
-
-    public function test_cancel_deletes_nothing(): void
-    {
-        Livewire::test(Student::class)
-            ->call('confirmBulkDelete', [1, 2])
-            ->call('cancelBulkDelete')
-            ->assertSet('showBulkDeleteConfirm', false)
-            ->assertSet('bulkDeleteIds', []);
-
-        $this->assertSame(4, DB::table('student_details')->count());
     }
 }

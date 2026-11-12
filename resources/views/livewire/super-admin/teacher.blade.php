@@ -1,65 +1,22 @@
 <div class="min-h-screen bg-gray-50">
+    @php
+        $filtered = $search || $filterOrganization || $filterGender || $filterStatus !== '';
+        // The filter bar's boxes, as on Fees.
+        $sel      = 'text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+    @endphp
 
-    {{-- ══════════ HEADER (analytics + filter) ══════════ --}}
+    {{-- ══════════ HEADER in the Fees look: the title, the figures in one line and Add,
+         then the filter bar (search, the filters, Clear and Export) — as on Students ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div class="px-4 sm:px-5 py-2">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:min-h-8">
-                <div>
-                    <h1 class="text-sm font-semibold text-gray-900">Teachers</h1>
-                </div>
-                <div class="flex items-center gap-3">
-                    {{-- Analytics (Users-style) --}}
-                    <div class="hidden lg:flex items-center text-[11px] text-gray-500 divide-x divide-gray-200">
-                        <span class="pr-3">Schools: <strong class="font-semibold text-gray-800">{{ $totalSchools }}</strong></span>
-                        <span class="px-3">Total: <strong class="font-semibold text-gray-800">{{ $totalTeachers }}</strong></span>
-                        <span class="px-3">Active: <strong class="font-semibold text-emerald-600">{{ $activeTeachers }}</strong></span>
-                        <span class="pl-3">Inactive: <strong class="font-semibold text-rose-500">{{ $inactiveTeachers }}</strong></span>
-                    </div>
+        @include('livewire.super-admin.partials.list-header', [
+            'title' => 'Teachers', 'stats' => $stats, 'addLabel' => 'Add New Teacher', 'addAction' => 'openAddPanel',
+        ])
 
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                        {{-- Export Button (first) --}}
-                        <button wire:click="exportTeachers" @disabled(!$filterOrganization)
-                            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium
-                                   rounded-md transition-colors
-                                   {{ $filterOrganization
-                                       ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
-                                       : 'bg-gray-50 text-gray-300 cursor-not-allowed border border-gray-200' }}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            <span class="hidden sm:inline">{{ $filterOrganization ? 'Export' : 'Select School to Export' }}</span>
-                            <span class="sm:hidden">Export</span>
-                        </button>
-
-                        {{-- Add Teacher Button (after Export) --}}
-                        <button wire:click="openAddPanel"
-                            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium
-                                   bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span class="hidden sm:inline">Add Teacher</span>
-                            <span class="sm:hidden">Add</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Mobile stats --}}
-            <div class="flex lg:hidden items-center gap-3 text-[11px] text-gray-500 mt-1.5 flex-wrap">
-                <span>Schools: <strong class="text-gray-800">{{ $totalSchools }}</strong></span>
-                <span>Total: <strong class="text-gray-800">{{ $totalTeachers }}</strong></span>
-                <span>Active: <strong class="text-emerald-600">{{ $activeTeachers }}</strong></span>
-                <span>Inactive: <strong class="text-rose-500">{{ $inactiveTeachers }}</strong></span>
-            </div>
-        </div>
-
-        {{-- Filter bar (enquiry-style sub-header) --}}
-        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-5 py-2">
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="flex items-center gap-1 text-[11px] font-medium text-gray-600">
-                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {{-- FILTER BAR --}}
+        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
@@ -67,75 +24,81 @@
                 </div>
 
                 <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
-                    <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                     <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, mobile, employee ID…"
-                        class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
-                <select wire:model.live="filterOrganization"
-                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select wire:model.live="filterOrganization" class="{{ $sel }}">
                     <option value="">All Schools</option>
                     @foreach ($organizations as $org)
                         <option value="{{ $org->id }}">{{ $org->name }}</option>
                     @endforeach
                 </select>
 
-                <select wire:model.live="filterGender"
-                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select wire:model.live="filterGender" class="{{ $sel }}">
                     <option value="">All Genders</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
                 </select>
 
-                <select wire:model.live="filterStatus"
-                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select wire:model.live="filterStatus" class="{{ $sel }}">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
 
-                @if ($search || $filterOrganization || $filterGender || $filterStatus !== '')
+                @if ($filtered)
                     <button wire:click="clearFilters"
-                        class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
+
+                {{-- Export: a school's teachers, so a school has to be picked first. --}}
+                <button wire:click="exportTeachers" @disabled(!$filterOrganization)
+                    title="{{ $filterOrganization ? 'Export this school\'s teachers' : 'Select a school to export' }}"
+                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors
+                           {{ $filterOrganization ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100' : 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed' }}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 13v8m0 0l-3-3m3 3l3-3M20 16.6A5 5 0 0018 7h-1.26A8 8 0 104 15.25" /></svg>
+                    {{ $filterOrganization ? 'Export' : 'Select School to Export' }}
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="p-3 sm:p-4 space-y-3">
+    <div class="p-4 sm:p-6 space-y-4">
 
-        {{-- ══════════ DESKTOP TABLE — fixed layout: every column fits the screen (no side scroll),
-             long text is cut with … and shown in full on hover; status is the dot in Actions ══════════ --}}
+        {{-- ══════════ DESKTOP TABLE in the Students look — fixed layout: every column fits the screen
+             (no side scroll on a wide screen), long text is cut with … and shown in full on hover.
+             S.No counts on from the page before; the status is the dot beside the row's ⋮. ══════════ --}}
         @php
-            $th = 'px-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide truncate';
-            $td = 'px-2 py-1.5 truncate';
+            $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
+            $td = 'px-3 py-3 truncate';
         @endphp
-        <div class="hidden md:block bg-white rounded-lg border border-gray-200">
-            <div class="overflow-x-auto rounded-lg">
-                <table class="w-full min-w-[960px] table-fixed text-xs text-gray-700">
-                    <thead class="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th class="{{ $th }} text-left w-11">#</th>
-                            <th class="{{ $th }} text-left w-[15%]">Teacher</th>
-                            <th class="{{ $th }} text-left w-20">Emp ID</th>
-                            <th class="{{ $th }} text-left w-14">Gender</th>
-                            <th class="{{ $th }} text-left">Qualification</th>
-                            <th class="{{ $th }} text-left">Subjects</th>
-                            <th class="{{ $th }} text-left w-[92px]">Mobile</th>
-                            <th class="{{ $th }} text-left">Email</th>
-                            <th class="{{ $th }} text-left w-[88px]">Joined</th>
-                            <th class="{{ $th }} text-left">School</th>
-                            <th class="{{ $th }} text-right w-[100px]">Actions</th>
+        <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="overflow-x-auto xl:overflow-visible rounded-xl">
+                <table class="w-full min-w-[1000px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
+                    <thead>
+                        <tr class="bg-gray-50/80">
+                            <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
+                            <th class="{{ $th }} w-[20%]">Teacher</th>
+                            <th class="{{ $th }} w-[100px]">Employee ID</th>
+                            <th class="{{ $th }}">Subjects</th>
+                            <th class="{{ $th }} w-[104px]">Mobile</th>
+                            <th class="{{ $th }}">Email</th>
+                            <th class="{{ $th }}">School</th>
+                            <th class="{{ $th }} w-[72px]">Gender</th>
+                            <th class="{{ $th }} w-[96px]">Joined</th>
+                            <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($teachers as $index => $teacher)
                             @php
-                                $isActive = (bool) $teacher->user?->is_active;
+                                $name     = $teacher->user?->name;
                                 $school   = $teacher->user?->organization?->name;
                                 $email    = $teacher->user?->email;
                                 $mobile   = $teacher->user?->mobile_number ?: $teacher->phone;
@@ -148,26 +111,27 @@
                                     $joined = (string) ($teacher->getAttributes()['date_of_joining'] ?? '');
                                 }
                             @endphp
-                            <tr class="hover:bg-blue-50/40 transition-colors" wire:key="sa-tch-row-{{ $teacher->id }}">
-                                <td class="{{ $td }} text-gray-400 tabular-nums">{{ $teachers->firstItem() + $index }}</td>
+                            <tr wire:key="sa-tch-row-{{ $teacher->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $teachers->firstItem() + $index }}</td>
 
-                                <td class="{{ $td }}" title="{{ $teacher->user?->name }}">
-                                    <div class="flex items-center gap-2">
+                                <td class="{{ $td }}" title="{{ $name }}{{ $teacher->qualification ? ' — ' . $teacher->qualification : '' }}">
+                                    <div class="flex items-center gap-2.5 min-w-0">
                                         @if ($teacher->user?->image)
-                                            <img src="{{ $teacher->user->image }}" loading="lazy"
-                                                class="w-6 h-6 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
+                                            <img src="{{ $teacher->user->image }}" loading="lazy" alt=""
+                                                class="w-8 h-8 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
                                         @else
-                                            <span class="w-6 h-6 rounded-full bg-purple-50 text-purple-600 text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                                                {{ strtoupper(substr($teacher->user?->name ?? 'T', 0, 1)) }}
+                                            <span class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
+                                                {{ strtoupper(substr($name ?? 'T', 0, 1)) }}
                                             </span>
                                         @endif
-                                        <span class="font-medium text-gray-900 truncate">{{ $teacher->user?->name ?: '—' }}</span>
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-gray-900 truncate leading-tight">{{ $name ?: '—' }}</p>
+                                            <p class="text-[11px] text-gray-400 truncate mt-0.5">{{ $teacher->qualification ?: '—' }}</p>
+                                        </div>
                                     </div>
                                 </td>
 
                                 <td class="{{ $td }} tabular-nums" title="{{ $teacher->employee_id }}">{{ $teacher->employee_id ?: '—' }}</td>
-                                <td class="{{ $td }}">{{ $gender ? ucfirst($gender) : '—' }}</td>
-                                <td class="{{ $td }}" title="{{ $teacher->qualification }}">{{ $teacher->qualification ?: '—' }}</td>
                                 <td class="{{ $td }}" title="{{ $subjects->implode(', ') }}">
                                     @if ($subjects->isNotEmpty())
                                         {{ $subjects->take(2)->implode(', ') }}@if ($subjects->count() > 2)<span class="text-gray-400"> +{{ $subjects->count() - 2 }}</span>@endif
@@ -177,50 +141,27 @@
                                 </td>
                                 <td class="{{ $td }} tabular-nums">{{ $mobile ?: '—' }}</td>
                                 <td class="{{ $td }} text-gray-500" title="{{ $email }}">{{ $email ?: '—' }}</td>
-                                <td class="{{ $td }} tabular-nums" title="{{ $joined }}">{{ $joined ?: '—' }}</td>
                                 <td class="{{ $td }}" title="{{ $school }}">{{ $school ?: '—' }}</td>
+                                <td class="{{ $td }}">{{ $gender ? ucfirst($gender) : '—' }}</td>
+                                <td class="{{ $td }} tabular-nums" title="{{ $joined }}">{{ $joined ?: '—' }}</td>
 
-                                {{-- Actions: the status dot first, then View / Edit / Delete --}}
-                                <td class="px-2 py-1.5">
-                                    <div class="flex items-center justify-end">
-                                        <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1.5 {{ $isActive ? 'bg-emerald-500' : 'bg-rose-500' }}"
-                                            title="{{ $isActive ? 'Active' : 'Inactive' }}"></span>
-                                        <button wire:click="viewTeacher({{ $teacher->user_id }})"
-                                            class="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                            title="View">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        <button wire:click="openEditPanel({{ $teacher->id }})"
-                                            class="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
-                                            title="Edit">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
-                                        <button wire:click="onDeleteTeacherSuperAdmin({{ $teacher->id }})"
-                                            class="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                            title="Delete">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
+                                <td class="px-2 py-3">
+                                    @include('livewire.super-admin.partials.list-row-actions', [
+                                        'active'  => (bool) $teacher->user?->is_active,
+                                        'actions' => [
+                                            ['View', 'viewTeacher(' . (int) $teacher->user_id . ')', 'view'],
+                                            ['Edit', 'openEditPanel(' . (int) $teacher->id . ')', 'edit'],
+                                            ['Delete', 'onDeleteTeacherSuperAdmin(' . (int) $teacher->id . ')', 'delete'],
+                                        ],
+                                    ])
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="px-6 py-12 text-center">
+                                <td colspan="10" class="px-6 py-14 text-center">
                                     <p class="text-gray-500 text-sm">No teachers found</p>
-                                    @if ($search || $filterOrganization || $filterGender || $filterStatus !== '')
-                                        <button wire:click="clearFilters"
-                                            class="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                            Clear filters
-                                        </button>
+                                    @if ($filtered)
+                                        <button wire:click="clearFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
                                     @endif
                                 </td>
                             </tr>
@@ -229,183 +170,76 @@
                 </table>
             </div>
 
-            {{-- Pagination Desktop --}}
-            @if ($teachers->hasPages())
-                <div
-                    class="px-4 py-2.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500">
-                        Showing <strong class="font-semibold text-gray-700">{{ $teachers->firstItem() }}</strong>
-                        to <strong class="font-semibold text-gray-700">{{ $teachers->lastItem() }}</strong>
-                        of <strong class="font-semibold text-gray-700">{{ $teachers->total() }}</strong> teachers
-                    </p>
-                    <div class="flex items-center gap-1">
-                        @if ($teachers->onFirstPage())
-                            <span
-                                class="px-2.5 py-1 text-xs text-gray-300 border border-gray-200 rounded-md cursor-not-allowed">&laquo;
-                                Prev</span>
-                        @else
-                            <button wire:click="previousPage"
-                                class="px-2.5 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                                &laquo; Prev
-                            </button>
-                        @endif
-                        @foreach ($teachers->getUrlRange(max(1, $teachers->currentPage() - 2), min($teachers->lastPage(), $teachers->currentPage() + 2)) as $page => $url)
-                            <button wire:click="gotoPage({{ $page }})"
-                                class="px-2.5 py-1 text-xs rounded-md transition-colors
-                                    {{ $page == $teachers->currentPage()
-                                        ? 'bg-blue-600 text-white border border-blue-600'
-                                        : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
-                                {{ $page }}
-                            </button>
-                        @endforeach
-                        @if ($teachers->hasMorePages())
-                            <button wire:click="nextPage"
-                                class="px-2.5 py-1 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                                Next &raquo;
-                            </button>
-                        @else
-                            <span
-                                class="px-2.5 py-1 text-xs text-gray-300 border border-gray-200 rounded-md cursor-not-allowed">Next
-                                &raquo;</span>
-                        @endif
-                    </div>
-                </div>
-            @endif
+            @include('livewire.super-admin.partials.list-pagination', ['paginator' => $teachers])
         </div>
 
         {{-- ══════════ MOBILE CARDS ══════════ --}}
         <div class="md:hidden space-y-3">
             @forelse ($teachers as $index => $teacher)
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                @php $mActive = (bool) $teacher->user?->is_active; @endphp
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="sa-tch-card-m-{{ $teacher->id }}">
                     <div class="flex items-center gap-3 p-4 border-b border-gray-100">
-                        <span class="text-xs font-bold text-gray-400 w-6 text-center">
-                            {{ $teachers->firstItem() + $index }}
-                        </span>
+                        <span class="text-xs font-semibold text-gray-400 w-6 text-center tabular-nums flex-shrink-0">{{ $teachers->firstItem() + $index }}</span>
                         @if ($teacher->user?->image)
-                            <img src="{{ $teacher->user->image }}"
+                            <img src="{{ $teacher->user->image }}" alt=""
                                 class="w-10 h-10 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
                         @else
-                            <div
-                                class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                <span class="text-sm font-semibold text-purple-600">
-                                    {{ strtoupper(substr($teacher->user?->name ?? 'T', 0, 1)) }}
-                                </span>
+                            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <span class="text-sm font-semibold text-gray-600">{{ strtoupper(substr($teacher->user?->name ?? 'T', 0, 1)) }}</span>
                             </div>
                         @endif
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $teacher->user?->name ?? '—' }}
-                            </p>
-                            <p class="text-xs text-gray-400 truncate">
-                                {{ $teacher->user?->organization?->name ?? '—' }}</p>
+                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $teacher->user?->name ?? '—' }}</p>
+                            <p class="text-xs text-gray-400 truncate">{{ $teacher->user?->organization?->name ?? '—' }}</p>
                         </div>
-                        @if ($teacher->user?->is_active)
-                            <span
-                                class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                bg-green-50 text-green-700 rounded-full font-medium border border-green-100">
-                                <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active
-                            </span>
-                        @else
-                            <span
-                                class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                bg-red-50 text-red-600 rounded-full font-medium border border-red-100">
-                                <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Inactive
-                            </span>
-                        @endif
+                        <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $mActive ? 'bg-emerald-500' : 'bg-rose-500' }}"
+                            title="{{ $mActive ? 'Active' : 'Inactive' }}" role="img" aria-label="{{ $mActive ? 'Active' : 'Inactive' }}"></span>
                     </div>
 
-                    <div class="px-4 py-3 space-y-2">
-                        <div class="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-400">Mobile</p>
-                                <p class="text-gray-700 font-medium">{{ $teacher->user?->mobile_number ?? '—' }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-400">Employee ID</p>
-                                <p class="text-gray-700 font-mono text-xs font-medium">
-                                    {{ $teacher->employee_id ?? '—' }}</p>
-                            </div>
+                    <div class="px-4 py-3 grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <p class="text-xs text-gray-400">Mobile</p>
+                            <p class="text-gray-700 font-medium">{{ $teacher->user?->mobile_number ?: ($teacher->phone ?: '—') }}</p>
                         </div>
-                        @if ($teacher->assignedSubjects->count())
-                            <div class="flex flex-wrap gap-1">
-                                @foreach ($teacher->assignedSubjects->take(3) as $as)
-                                    <span
-                                        class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">
-                                        {{ $as->subject?->name ?? '—' }}
-                                    </span>
-                                @endforeach
-                                @if ($teacher->assignedSubjects->count() > 3)
-                                    <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                                        +{{ $teacher->assignedSubjects->count() - 3 }}
-                                    </span>
-                                @endif
-                            </div>
-                        @endif
+                        <div>
+                            <p class="text-xs text-gray-400">Employee ID</p>
+                            <p class="text-gray-700 font-medium tabular-nums">{{ $teacher->employee_id ?: '—' }}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <p class="text-xs text-gray-400">Subjects</p>
+                            <p class="text-gray-700 truncate">{{ $teacher->assignedSubjects->map(fn ($a) => $a->subject?->name)->filter()->unique()->implode(', ') ?: '—' }}</p>
+                        </div>
                     </div>
 
                     <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
                         <button wire:click="viewTeacher({{ $teacher->user_id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-blue-600 hover:bg-blue-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
-                        </button>
+                            class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">View</button>
                         <button wire:click="openEditPanel({{ $teacher->id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-amber-600 hover:bg-amber-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                        </button>
+                            class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Edit</button>
                         <button wire:click="onDeleteTeacherSuperAdmin({{ $teacher->id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-red-600 hover:bg-red-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete
-                        </button>
+                            class="flex-1 py-2.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Delete</button>
                     </div>
                 </div>
             @empty
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                    </div>
+                <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
                     <p class="text-gray-500 text-sm">No teachers found</p>
-                    @if ($search || $filterOrganization || $filterGender || $filterStatus !== '')
-                        <button wire:click="clearFilters"
-                            class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">Clear filters</button>
+                    @if ($filtered)
+                        <button wire:click="clearFilters" class="mt-3 text-sm text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
                     @endif
                 </div>
             @endforelse
 
             {{-- Pagination Mobile --}}
             @if ($teachers->hasPages())
-                <div
-                    class="flex items-center justify-between bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                    <p class="text-xs text-gray-500">
-                        {{ $teachers->firstItem() }}–{{ $teachers->lastItem() }} of {{ $teachers->total() }}
-                    </p>
-                    <div class="flex items-center gap-1">
+                <div class="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                    <p class="text-xs text-gray-500">{{ $teachers->firstItem() }}–{{ $teachers->lastItem() }} of {{ number_format($teachers->total()) }}</p>
+                    <div class="flex items-center gap-1.5">
                         @if (!$teachers->onFirstPage())
-                            <button wire:click="previousPage"
-                                class="px-2.5 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Prev</button>
+                            <button wire:click="previousPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Previous</button>
                         @endif
-                        <span class="px-2.5 py-1 text-xs bg-blue-600 text-white rounded-lg">
-                            {{ $teachers->currentPage() }}
-                        </span>
+                        <span class="inline-flex items-center justify-center min-w-8 h-8 px-2 text-xs bg-gray-900 text-white rounded-lg">{{ $teachers->currentPage() }}</span>
                         @if ($teachers->hasMorePages())
-                            <button wire:click="nextPage"
-                                class="px-2.5 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Next</button>
+                            <button wire:click="nextPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Next</button>
                         @endif
                     </div>
                 </div>

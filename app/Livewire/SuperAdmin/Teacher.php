@@ -623,9 +623,32 @@ class Teacher extends Component
         $this->notification()->success('Teacher Added!', $this->addName . ' added to ' . $org->name . '.');
     }
 
+    /**
+     * The figures in the header, as on Fees and Students, for the list as
+     * filtered: the schools, the teachers, the active and inactive ones with
+     * their share, and those added over the last seven days (today included).
+     *
+     * @return list<array{0: string, 1: string, 2: string, 3: ?string}> label, figure, its colour, a note
+     */
+    private function headerStats(): array
+    {
+        $share = fn (int $n) => $this->totalTeachers > 0 ? round($n * 100 / $this->totalTeachers) . '%' : null;
+        $week  = $this->baseQuery()->where('teacher_details.created_at', '>=', now()->startOfDay()->subDays(6))->count();
+
+        return [
+            ['Schools', number_format($this->totalSchools), 'text-gray-800', null],
+            ['Teachers', number_format($this->totalTeachers), 'text-gray-800', null],
+            ['Active', number_format($this->activeTeachers), 'text-emerald-600', $share($this->activeTeachers)],
+            ['Inactive', number_format($this->inactiveTeachers), 'text-red-500', $share($this->inactiveTeachers)],
+            ['This Week', '+' . number_format($week), 'text-blue-600', null],
+        ];
+    }
+
     public function render()
     {
         $teachers = $this->baseQuery()->tap(fn ($q) => NameOrder::teachers($q))->paginate($this->perPage);
-        return view('livewire.super-admin.teacher', compact('teachers'));
+        $stats    = $this->headerStats();
+
+        return view('livewire.super-admin.teacher', compact('teachers', 'stats'));
     }
 }
