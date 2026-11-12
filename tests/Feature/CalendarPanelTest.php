@@ -84,7 +84,8 @@ class CalendarPanelTest extends TestCase
             $this->assertStringStartsWith('<div class="min-h-screen bg-gray-50">', $blade);
         }
         $layout = file_get_contents(resource_path('views/components/layouts/app.blade.php'));
-        $this->assertStringContainsString("if (header.hasAttribute('data-lms-pin')) return 0;", $layout);
+        // A pinned header stays whole (since 22088b8, so does every Super Admin header: PIN_ALL).
+        $this->assertStringContainsString("if (PIN_ALL || header.hasAttribute('data-lms-pin')) return 0;", $layout);
     }
 
     public function test_an_events_details_are_one_column_of_label_and_value_rows(): void

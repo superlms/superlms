@@ -5,12 +5,13 @@ namespace Tests\Feature;
 use Tests\TestCase;
 
 /**
- * The Super Admin panel's own touches (partials.super-admin-ui), on every page
- * of it and nowhere else: form fields in the login page's look (the name in
- * the border), a file dropped on any picker, and a spinner on the button that
- * asked the server — and the forms without their needless notes.
+ * The panels' own touches (partials.panel-ui): on the Super Admin's and the
+ * school admin's panels, form fields in the login page's look (the name in
+ * the border) and a spinner on the button that asked the server, with a
+ * press on every button; on the Super Admin's, a file dropped on any picker —
+ * and the Super Admin's forms without their needless notes.
  */
-class SuperAdminUiTest extends TestCase
+class PanelUiTest extends TestCase
 {
     private function layout(): string
     {
@@ -19,43 +20,50 @@ class SuperAdminUiTest extends TestCase
 
     private function partial(): string
     {
-        return file_get_contents(resource_path('views/partials/super-admin-ui.blade.php'));
+        return view('partials.panel-ui')->render();
     }
 
-    public function test_it_is_on_the_super_admin_panel_only(): void
+    public function test_it_is_on_the_super_admin_and_school_admin_panels(): void
     {
         $layout = $this->layout();
 
         $this->assertStringContainsString("\$lmsSuperAdmin = Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true);", $layout);
-        $this->assertStringContainsString("{{ \$lmsSuperAdmin ? 'lms-sa' : '' }}", $layout);
-        $this->assertMatchesRegularExpression("/@if \(\\\$lmsSuperAdmin\)\s*@include\('partials\.super-admin-ui'\)\s*@endif/", $layout);
+        $this->assertStringContainsString("\$lmsPanelUi    = \$lmsSuperAdmin || (Auth::check() && in_array(Auth::user()->role, ['admin', 'sub-admin'], true));", $layout);
+        $this->assertStringContainsString("{{ \$lmsPanelUi ? 'lms-ui' : '' }} {{ \$lmsSuperAdmin ? 'lms-sa' : '' }}", $layout);
+        $this->assertMatchesRegularExpression("/@if \(\\\$lmsPanelUi\)\s*@include\('partials\.panel-ui'\)\s*@endif/", $layout);
 
-        // Every rule and listener of it waits for body.lms-sa or #main-scroll.
+        // Fields and buttons wait for body.lms-ui; dropping a file for the Super Admin's body.lms-sa.
         preg_match_all('/^\s*(body[^{]*)\{/m', $this->partial(), $rules);
         $this->assertNotEmpty($rules[1]);
         foreach ($rules[1] as $selector) {
-            $this->assertStringStartsWith('body.lms-sa', trim($selector));
+            $this->assertMatchesRegularExpression('/^body\.lms-(ui|sa)\b/', trim($selector));
         }
+        $this->assertStringContainsString('body.lms-sa .sa-drop-over', $this->partial());
+        $this->assertStringContainsString("if (document.body.classList.contains('lms-sa')) {", $this->partial());
     }
 
-    public function test_fields_take_the_login_look(): void
+    public function test_fields_take_the_login_look_but_filter_bars_and_rows_keep_theirs(): void
     {
         $css = $this->partial();
 
-        // Any label right before a text box, dropdown or text area (not only a
-        // form's first) sits on its top edge: the box is pulled up under it.
-        $this->assertStringContainsString('body.lms-sa #main-scroll label:has(+ :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"]', $css);
+        $name = 'label:not(.sr-only):not(:is(.flex, .inline-flex, .grid):not(.flex-col) > *):not(.sticky *)';
+        $box  = ':is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"], [type="submit"], [type="button"]), select, textarea)'
+              . ':not(.text-xs, [class~="py-1"], [class~="py-0.5"], [class~="h-7"], [class~="h-8"])';
+
+        // Any name right before its box (not only a form's first) sits on its top edge: the box is pulled up under it.
+        $this->assertStringContainsString("body.lms-ui #main-scroll $name:has(+ $box) {", $css);
         $this->assertStringContainsString('margin-bottom: -.45rem !important; margin-left: .875rem !important;', $css);
-        $this->assertStringContainsString('position: relative; z-index: 2;', $css);
-        $this->assertStringNotContainsString('label:first-child', $css);
-        // …of a rounded box with the login page's border, blue while typed in, red on an error.
+        // …a rounded box with the login page's border, blue while typed in, red on an error.
+        $this->assertStringContainsString("body.lms-ui #main-scroll $name + $box {", $css);
         $this->assertStringContainsString('border: 1.5px solid #9ca3af !important;', $css);
         $this->assertStringContainsString('border-radius: 9999px !important;', $css);
-        $this->assertStringContainsString(':focus) { color: #2563eb !important; }', $css);
-        $this->assertStringContainsString('[class*="border-red"]) { color: #dc2626 !important; }', $css);
+        $this->assertStringContainsString("$name:has(+ $box:focus) { color: #2563eb !important; }", $css);
+        $this->assertStringContainsString("$name:has(+ $box" . '[class*="border-red"]) { color: #dc2626 !important; }', $css);
+        // A text area is a rounded rectangle, not a pill.
+        $this->assertMatchesRegularExpression('/' . preg_quote("$name + $box:is(textarea) {", '/') . '\s*border-radius: 1rem !important;/', $css);
     }
 
-    public function test_a_file_can_be_dropped_on_a_picker_and_buttons_show_a_spinner(): void
+    public function test_buttons_press_and_show_a_spinner_and_a_file_can_be_dropped(): void
     {
         $js = $this->partial();
 
@@ -63,18 +71,18 @@ class SuperAdminUiTest extends TestCase
         $this->assertStringContainsString("const pickers = () => [...document.querySelectorAll('#main-scroll input[type=\"file\"]:not([disabled])')];", $js);
         $this->assertStringContainsString('h.input.files = dt.files;', $js);
         $this->assertStringContainsString("h.input.dispatchEvent(new Event('change', { bubbles: true }));", $js);
-        $this->assertStringContainsString("(h.input.multiple ? files : files.slice(0, 1))", $js);
-        // A drop area of a page's own is left to itself.
+        $this->assertStringContainsString('(h.input.multiple ? files : files.slice(0, 1))', $js);
         $this->assertStringContainsString('if (e.defaultPrevented) { setOver(null); return; }', $js);
 
         // The spinner comes with a request the button started and goes with its answer.
         $this->assertStringContainsString("window.Livewire.hook('commit', ({ succeed, fail }) => {", $js);
         $this->assertStringContainsString('succeed(() => idle(el));', $js);
         $this->assertStringContainsString("el.innerHTML.includes('wire:loading')", $js);
-        $this->assertStringContainsString('body.lms-sa :is(button, a[wire\:click]):not(:disabled):active { scale: .96; }', $js);
+        $this->assertStringContainsString('body.lms-ui :is(button, a[wire\:click]):not(:disabled):active { scale: .96; }', $js);
+        $this->assertStringContainsString('body.lms-ui [data-sa-busy]::after {', $js);
     }
 
-    public function test_the_forms_have_no_needless_notes(): void
+    public function test_the_super_admin_forms_have_no_needless_notes(): void
     {
         $views = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(resource_path('views/livewire/super-admin')));
         foreach ($views as $file) {
