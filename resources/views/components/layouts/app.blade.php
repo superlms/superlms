@@ -323,7 +323,7 @@
         @include('partials.school-login-sync')
     @endif
 
-    {{-- ─── A notification coming in while the admin / super-admin works: a toast and a voice ─── --}}
+    {{-- ─── A notification coming in while the admin / super-admin works: a toast and a chime ─── --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin'], true) && Auth::user()->organization_id && Route::has('admin.notification.live'))
         @include('partials.live-notify', ['liveUrl' => route('admin.notification.live', ['organization' => Auth::user()->organization_id])])
     @elseif (Auth::user() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true) && Route::has('super-admin.notification.live'))
@@ -409,7 +409,8 @@
 
     {{-- ─── Page header offset ───
          Measures the header rows above the filter bar into `--lms-hdr-top` so
-         the CSS above can slide them out of view on scroll. Re-measured when the
+         the CSS above can slide them out of view on scroll (not for the super
+         admin, whose headers stay whole at the top). Re-measured when the
          header changes size (tab switch, wrapping row) and after Livewire
          re-renders; there is no per-scroll state to get wrong. --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin']))
@@ -417,6 +418,10 @@
             (function () {
                 if (window.__lmsHdr) return;
                 window.__lmsHdr = 1;
+
+                // The super admin's page headers stay whole at the top while
+                // the page scrolls under them: nothing slides away.
+                var PIN_ALL = {{ in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true) ? 'true' : 'false' }};
 
                 function getHeader() {
                     var c = document.getElementById('main-scroll');
@@ -428,8 +433,9 @@
                 // Filter bar first (it IS the header) → pin it as is; no filter
                 // bar at all → let the whole header scroll away, as it used to.
                 function offsetFor(header) {
-                    // A header marked to stay whole (the Calendar's) never slides.
-                    if (header.hasAttribute('data-lms-pin')) return 0;
+                    // A header marked to stay whole (the Calendar's), and every
+                    // super admin header, never slides.
+                    if (PIN_ALL || header.hasAttribute('data-lms-pin')) return 0;
                     var kids = header.children, filterIdx = -1;
                     for (var i = kids.length - 1; i >= 0; i--) {
                         if (kids[i].classList.contains('bg-gray-50')) { filterIdx = i; break; }

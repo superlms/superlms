@@ -1,10 +1,11 @@
 {{-- A notification that comes in while the school admin or the super-admin is
      working on the panel pops up at the top right — the same card as the
-     page's own "Payment approved" (WireUI's notification) — and is read out.
+     page's own "Payment approved" (WireUI's notification) — with a short chime.
+     It is not read out.
 
      Only while they are working: this tab is in front and they have clicked,
      typed or scrolled in the last 90 seconds. Otherwise nothing pops up or
-     speaks, and coming back starts from then — what came in meanwhile is in
+     chimes, and coming back starts from then — what came in meanwhile is in
      the bell, as every notification always is (they all stay unread there).
 
      Every 20 seconds the tab in front asks LiveNotificationController for what
@@ -68,23 +69,6 @@
                 } catch (e) {}
             }
 
-            function speak(items) {
-                if (!('speechSynthesis' in window) || !items.length) return;
-                var first = items[0];
-                var text  = (items.length > 1 ? items.length + ' new notifications. ' : 'New notification. ')
-                    + first.title + (first.body ? '. ' + first.body : '');
-                try {
-                    var say    = new SpeechSynthesisUtterance(text.slice(0, 240));
-                    var voices = window.speechSynthesis.getVoices() || [];
-                    var voice  = voices.find(function (v) { return /en[-_]IN/i.test(v.lang); })
-                        || voices.find(function (v) { return /^en/i.test(v.lang); });
-                    if (voice) { say.voice = voice; say.lang = voice.lang; } else { say.lang = 'en-IN'; }
-                    say.rate = 1;
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(say);
-                } catch (e) {}
-            }
-
             function show(item) {
                 var icon = /(reject|fail|absent|overdue|delete|remov|alert|due)/i.test(item.type + ' ' + item.title)
                     ? 'warning' : 'success';
@@ -127,15 +111,11 @@
                         if (news.length && working()) {
                             news.slice(0, 3).forEach(show);
                             chime();
-                            setTimeout(function () { speak(news); }, 450);
                         }
                     })
                     .catch(function () {})
                     .finally(function () { busy = false; });
             }
-
-            // Voices load late in Chrome; asking once makes them ready.
-            try { if ('speechSynthesis' in window) window.speechSynthesis.getVoices(); } catch (e) {}
 
             setInterval(ask, EVERY_MS);
             document.addEventListener('visibilitychange', function () {

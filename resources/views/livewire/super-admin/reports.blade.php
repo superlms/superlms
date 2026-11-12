@@ -86,7 +86,7 @@
     <div class="hidden" data-sa-charts="reports" data-payload="{{ json_encode($reportCharts) }}"></div>
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
             <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
                 <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Reports</h1>

@@ -19,9 +19,9 @@
         html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -2.25rem; padding-top: 0; }
     }
     /* A short, very faint line between two menu items. */
-    .lms-sb-divider { height: 1px; margin: 1px .875rem; background: rgba(17, 24, 39, .045); }
+    .lms-sb-divider { height: 1px; margin: 1px 1.75rem; background: rgba(17, 24, 39, .028); }
     @media (min-width: 768px) {
-        html:not(.sidebar-expanded) .lms-sb-divider { margin-left: .625rem; margin-right: .625rem; }
+        html:not(.sidebar-expanded) .lms-sb-divider { margin-left: .875rem; margin-right: .875rem; }
     }
 
     #sidebar-nav::-webkit-scrollbar { width: 3px; }
