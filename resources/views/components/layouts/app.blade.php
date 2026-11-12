@@ -278,9 +278,12 @@
             </div>
 
             {{-- Slot content --}}
-            <div class="relative z-10">
+            <div class="relative z-10 lms-slot">
                 {{ $slot }}
             </div>
+            {{-- A list's skeleton, shown in place of the page from the moment its
+                 link is clicked until the page arrives (partials.panel-ui). --}}
+            <div class="relative z-10 lms-skeleton" hidden></div>
         </div>
 
     </div>
@@ -323,6 +326,10 @@
     {{-- ─── Super Admin and school admin: login-style fields, button spinners; Super Admin: drop a file on any picker ─── --}}
     @if ($lmsPanelUi)
         @include('partials.panel-ui')
+    @endif
+    {{-- ─── Super Admin: the lists' skeletons, shown while their page loads ─── --}}
+    @if ($lmsSuperAdmin)
+        @include('livewire.super-admin.partials.list-skeletons')
     @endif
 
     {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}

@@ -84,4 +84,40 @@ class SuperAdminSchoolOnlinePaymentTest extends TestCase
             ->set('pgAutopay', false)->call('savePaymentSettings');
         $this->assertFalse($setting->fresh()->autopay_enabled);
     }
+
+    /**
+     * Schools in the Students list's look: the figures in the header, the
+     * smaller filter bar, S.No, the school with its email under the name,
+     * the status as a dot beside the ⋮ — View, Login as school, Edit and
+     * Delete in its menu, Delete set apart — skeleton rows while the list
+     * reloads, and the shared foot.
+     */
+    public function test_the_list_is_in_the_students_look(): void
+    {
+        DB::table('organizations')->where('id', 1)->update(['email' => 'office@adarsh.in', 'school_code' => 'ASIC', 'status' => false]);
+        DB::table('organizations')->insert(['id' => 2, 'name' => 'Green Valley', 'status' => true]);
+
+        $html = Livewire::test(Schools::class)->html();
+        $text = html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($html)), ENT_QUOTES);
+
+        $this->assertStringContainsString('<h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>', $html);
+        $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
+        $this->assertStringContainsString('>S.No</th>', $html);
+        $this->assertStringContainsString('1 A Adarsh Satyadev Inter College office@adarsh.in', $text);
+        $this->assertStringContainsString('2 G Green Valley —', $text);
+
+        // The dot beside the ⋮, and the menu.
+        $this->assertSame(1, substr_count($html, 'data-status="inactive"'));
+        $this->assertSame(1, substr_count($html, 'data-status="active"'));
+        $this->assertStringContainsString('wire:click="viewSchoolDetail(1)"', $html);
+        $this->assertStringContainsString('x-on:click="open = false; lmsLoginAsSchool(1)"', $html);
+        $this->assertStringContainsString('wire:click="onEdit(1)"', $html);
+        // (Livewire marks its @if blocks with <!--[if BLOCK]--> comments.)
+        $this->assertMatchesRegularExpression('/role="separator"><\/div>(\s*<!--\[if (END)?BLOCK\]><!\[endif\]-->)*\s*<button type="button" role="menuitem" wire:click="onDelete\(1\)"/', $html);
+
+        // Skeleton rows stand in while a filter, the sort or another page loads.
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="search,statusFilter,mediumFilter,boardFilter,sortBy,sortDir,gotoPage,nextPage,previousPage,clearFilters">', $html);
+        $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
+        $this->assertStringContainsString('Showing 1–2 of 2 entries', $text);
+    }
 }

@@ -92,6 +92,10 @@
         @php
             $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
             $td = 'px-3 py-3 truncate';
+            // What reloads the list: while one of these takes longer than a
+            // moment, skeleton rows stand in for the rows (the panel's
+            // auto-refresh is not one of them, so it never flickers).
+            $reloads = 'search,filterOrganization,filterClass,filterSection,filterGender,filterStatus,sort,gotoPage,nextPage,previousPage,clearFilters';
             $sortIcon = function (string $key) use ($sortKey, $sortDir) {
                 $on = $sortKey === $key;
                 $up = $on && $sortDir === 'asc';
@@ -127,7 +131,10 @@
                             <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                        @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::STUDENTS, 'rows' => 10])
+                    </tbody>
+                    <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
                         @forelse ($students as $index => $student)
                             @php
                                 // Class / Section: the class, then the section's last letter (Nursery-A)
@@ -191,8 +198,11 @@
             @include('livewire.super-admin.partials.list-pagination', ['paginator' => $students])
         </div>
 
-        {{-- ══════════ MOBILE CARDS ══════════ --}}
-        <div class="md:hidden space-y-3">
+        {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
+        <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+            @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
+        </div>
+        <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
             @forelse ($students as $index => $student)
                 @php
                     $mSecLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1));
@@ -397,19 +407,18 @@
                                     <label class="{{ $saLb }}">Class <span class="text-red-500">*</span></label>
                                     <select wire:model.live="{{ $p }}StandardId" @disabled(!$orgId)
                                         class="{{ $saIn }} disabled:opacity-50 @error($p . 'StandardId') border-red-400 @enderror">
-                                        <option value="">Select Class</option>
+                                        <option value="">{{ $orgId ? 'Select Class' : 'Select the school first' }}</option>
                                         @foreach ($stds as $std)
                                             <option value="{{ $std->id }}">{{ $std->name }}</option>
                                         @endforeach
                                     </select>
                                     @error($p . 'StandardId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                    <p class="mt-1 text-[11px] text-gray-400">Board: {{ $board ?: '—' }}</p>
                                 </div>
                                 <div>
                                     <label class="{{ $saLb }}">Section <span class="text-red-500">*</span></label>
                                     <select wire:model.defer="{{ $p }}SectionId" @disabled(!$stdId)
                                         class="{{ $saIn }} disabled:opacity-50 @error($p . 'SectionId') border-red-400 @enderror">
-                                        <option value="">Select Section</option>
+                                        <option value="">{{ $stdId ? 'Select Section' : ($orgId ? 'Select the class first' : 'Select the school first') }}</option>
                                         @foreach ($secs as $sec)
                                             <option value="{{ $sec->id }}">{{ $sec->name }}</option>
                                         @endforeach
@@ -497,15 +506,17 @@
                                 @if ($needsBus)
                                     <div>
                                         <label class="{{ $saLb }}">Select Route <span class="text-red-500">*</span></label>
-                                        <select wire:model.live="{{ $p }}Route"
-                                            class="{{ $saIn }} @error($p . 'Route') border-red-400 @enderror">
-                                            <option value="">Select Route</option>
+                                        <select wire:model.live="{{ $p }}Route" @disabled(!$orgId)
+                                            class="{{ $saIn }} disabled:opacity-50 @error($p . 'Route') border-red-400 @enderror">
+                                            <option value="">{{ $orgId ? 'Select Route' : 'Select the school first' }}</option>
                                             @foreach ($routes as $route)
                                                 <option value="{{ $route->id }}">{{ $route->route_name }} — ₹{{ number_format($route->monthly_fee, 0) }}/mo</option>
                                             @endforeach
                                         </select>
                                         @error($p . 'Route')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                        @if (count($routes) === 0)
+                                        @if (!$orgId)
+                                            <p class="text-amber-600 text-xs mt-1">First select the school.</p>
+                                        @elseif (count($routes) === 0)
                                             <p class="text-amber-600 text-xs mt-1">No active routes for this school.</p>
                                         @endif
 

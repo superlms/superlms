@@ -52,40 +52,40 @@
                 </div>
             </div>
 
-            {{-- FILTER BAR --}}
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {{-- FILTER BAR — as on Students --}}
+            @php
+                $sel = 'text-xs min-w-0 max-w-[11rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+            @endphp
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1 text-xs font-semibold text-gray-600">
+                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
                         Filter by:
                     </div>
 
-                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
-                        <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-52">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search schools by name or code..."
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
-                    <select wire:model.live="filterOrganization"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select wire:model.live="filterOrganization" class="{{ $sel }}">
                         <option value="">All Schools</option>
                         @foreach ($organizations as $org)
                             <option value="{{ $org->id }}">{{ $org->name }}</option>
                         @endforeach
                     </select>
 
-                    <select wire:model.live="filterFeeType"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select wire:model.live="filterFeeType" class="{{ $sel }}">
                         <option value="">All Fee Types</option>
                         <option value="per_student">Per Student</option>
                         <option value="one_time">One Time</option>
                     </select>
 
-                    <select wire:model.live="filterBoard"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select wire:model.live="filterBoard" class="{{ $sel }}">
                         <option value="">All Boards</option>
                         @foreach ($boards as $board)
                             <option value="{{ $board }}">{{ $board }}</option>
@@ -94,7 +94,7 @@
 
                     @if ($search || $filterOrganization || $filterFeeType || $filterBoard)
                         <button wire:click="clearFilters"
-                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -103,118 +103,134 @@
             </div>
         </div>
 
+        @php
+            $filtered = $search || $filterOrganization || $filterFeeType || $filterBoard;
+            // What reloads the list: while one of these takes longer than a
+            // moment, skeleton rows stand in for the rows.
+            $reloads  = 'search,filterOrganization,filterFeeType,filterBoard,gotoPage,nextPage,previousPage,clearFilters';
+            $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
+            $td = 'px-3 py-3 truncate';
+            // Each school's fee for the year, worked out once for the table
+            // and the phone cards: the structure, what is to be collected,
+            // what has been, and the share.
+            $feeOf = $schools->getCollection()->mapWithKeys(function ($school) use ($academicYear) {
+                $structure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
+                    ->where('academic_year', $academicYear)
+                    ->whereIn('fee_type', ['one_time', 'per_student'])
+                    ->active()
+                    ->first();
+
+                if ($structure && $structure->fee_type === 'one_time') {
+                    $expected = !empty($structure->period_amounts)
+                        ? (float) array_sum($structure->period_amounts)
+                        : (float) ($structure->total_amount ?? ($structure->amount * $school->total_students));
+                } elseif ($structure) {
+                    $expected = (float) $structure->amount * $school->total_students;
+                } else {
+                    $expected = 0;
+                }
+
+                $collected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)->forYear($academicYear)->sum('amount');
+
+                return [$school->id => [$structure, $expected, $collected, $expected > 0 ? round($collected / $expected * 100) : 0]];
+            });
+        @endphp
+
         <div class="p-4 sm:p-6 space-y-4">
 
-            {{-- ══════════ DESKTOP TABLE ══════════ --}}
-            <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div class="overflow-x-auto rounded-xl">
-                    <table class="w-full min-w-[860px]">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+            {{-- ══════════ DESKTOP TABLE — the Students list's table: S.No, the school (its logo, the
+                 code under the name), Board, Fee Type, Amount, Students, Collection; the school's status
+                 is the dot beside the row's ⋮ (Manage Fee / Set up Fee). ══════════ --}}
+            <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="overflow-x-auto xl:overflow-visible rounded-xl">
+                    <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
+                        <thead>
+                            <tr class="bg-gray-50/80">
+                                <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
+                                <th class="{{ $th }} w-[26%]">School</th>
+                                <th class="{{ $th }}">Board</th>
+                                <th class="{{ $th }} w-[110px]">Fee Type</th>
+                                <th class="{{ $th }} w-[130px]">Amount</th>
+                                <th class="{{ $th }} w-[80px]">Students</th>
+                                <th class="{{ $th }} w-[22%]">Collection</th>
+                                <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($schools as $school)
+                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                            @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::FEES, 'rows' => 10])
+                        </tbody>
+                        <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                            @forelse ($schools as $index => $school)
                                 @php
-                                    $orgStructure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
-                                        ->where('academic_year', $academicYear)
-                                        ->whereIn('fee_type', ['one_time', 'per_student'])
-                                        ->active()
-                                        ->first();
-
-                                    if ($orgStructure && $orgStructure->fee_type === 'one_time') {
-                                        $orgExpected = !empty($orgStructure->period_amounts)
-                                            ? (float) array_sum($orgStructure->period_amounts)
-                                            : (float) ($orgStructure->total_amount ?? ($orgStructure->amount * $school->total_students));
-                                    } elseif ($orgStructure) {
-                                        $orgExpected = (float) $orgStructure->amount * $school->total_students;
-                                    } else {
-                                        $orgExpected = 0;
-                                    }
-
-                                    $orgCollected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)
-                                        ->forYear($academicYear)
-                                        ->sum('amount');
-                                    $orgPct = $orgExpected > 0 ? round(($orgCollected / $orgExpected) * 100) : 0;
+                                    [$orgStructure, $orgExpected, $orgCollected, $orgPct] = $feeOf[$school->id];
+                                    $board = \App\Support\BoardName::short($school->education_board);
                                 @endphp
-                                <tr class="hover:bg-gray-50/70 transition-colors">
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
+                                <tr wire:key="sa-fee-row-{{ $school->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $schools->firstItem() + $index }}</td>
+
+                                    <td class="{{ $td }}" title="{{ $school->name }}">
+                                        <div class="flex items-center gap-2.5 min-w-0">
                                             @if ($school->logo)
-                                                <img src="{{ $school->logo }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                <img src="{{ $school->logo }}" loading="lazy" alt=""
+                                                    class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                             @else
-                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
-                                                </div>
+                                                <span class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
+                                                    {{ strtoupper(substr($school->name, 0, 1)) }}
+                                                </span>
                                             @endif
                                             <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
-                                                <p class="text-xs text-gray-400 truncate">Code: {{ $school->school_code ?? '—' }}</p>
+                                                <p class="font-medium text-gray-900 truncate leading-tight">{{ $school->name }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">Code: {{ $school->school_code ?? '—' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ \App\Support\BoardName::short($school->education_board) ?: '—' }}</td>
+
+                                    <td class="{{ $td }}" title="{{ $board }}">{{ $board ?: '—' }}</td>
                                     {{-- Fee Type as plain text: the plan as it was set (Monthly / One Time / Per Student). --}}
-                                    <td class="px-4 py-3 text-sm whitespace-nowrap {{ $orgStructure ? 'text-gray-700' : 'text-gray-400' }}">
-                                        {{ \App\Support\SuperAdminFeeTotals::planName($orgStructure) }}
-                                    </td>
+                                    <td class="{{ $td }} {{ $orgStructure ? '' : 'text-gray-400' }}">{{ \App\Support\SuperAdminFeeTotals::planName($orgStructure) }}</td>
                                     {{-- Amount on one line: the figure, then what it is for. --}}
-                                    <td class="px-4 py-3 whitespace-nowrap">
+                                    <td class="{{ $td }} tabular-nums">
                                         @if ($orgStructure?->fee_type === 'one_time')
                                             @php $rowAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
-                                            <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $rowAmt, 0) }}</span>
+                                            <span class="font-semibold text-gray-800">₹{{ number_format((float) $rowAmt, 0) }}</span>
                                             <span class="text-xs text-gray-400">/ year</span>
                                         @elseif ($orgStructure?->fee_type === 'per_student')
-                                            <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $orgStructure->amount, 0) }}</span>
+                                            <span class="font-semibold text-gray-800">₹{{ number_format((float) $orgStructure->amount, 0) }}</span>
                                             <span class="text-xs text-gray-400">/ student</span>
                                         @else
-                                            <span class="text-sm text-gray-400">—</span>
+                                            <span class="text-gray-400">—</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $school->total_students }}</td>
-                                    <td class="px-4 py-3 min-w-[160px]">
+                                    <td class="{{ $td }} tabular-nums">{{ number_format($school->total_students) }}</td>
+                                    <td class="px-3 py-3">
                                         @if ($orgExpected > 0)
-                                            <div class="flex items-center justify-between text-xs mb-1">
-                                                <span class="text-gray-500">₹{{ number_format($orgCollected, 0) }} / ₹{{ number_format($orgExpected, 0) }}</span>
-                                                <span class="font-semibold {{ $orgPct >= 100 ? 'text-emerald-600' : 'text-gray-600' }}">{{ $orgPct }}%</span>
+                                            <div class="flex items-center justify-between text-xs mb-1 gap-2">
+                                                <span class="text-gray-500 truncate tabular-nums">₹{{ number_format($orgCollected, 0) }} / ₹{{ number_format($orgExpected, 0) }}</span>
+                                                <span class="font-semibold tabular-nums {{ $orgPct >= 100 ? 'text-emerald-600' : 'text-gray-600' }}">{{ $orgPct }}%</span>
                                             </div>
                                             <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                <div class="h-full rounded-full transition-all {{ $orgPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}"
-                                                    style="width: {{ min(100, $orgPct) }}%"></div>
+                                                <div class="h-full rounded-full {{ $orgPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ min(100, $orgPct) }}%"></div>
                                             </div>
                                         @else
                                             <span class="text-xs text-gray-400">No fee structure set</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <button wire:click="selectSchool({{ $school->id }})"
-                                            title="{{ $orgStructure ? 'Edit fee & manage payments' : 'Set up fee' }}"
-                                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                            </svg>
-                                        </button>
+
+                                    <td class="px-2 py-3">
+                                        @include('livewire.super-admin.partials.list-row-actions', [
+                                            'active'  => (bool) $school->status,
+                                            'actions' => [
+                                                [$orgStructure ? 'Manage Fee' : 'Set up Fee', 'selectSchool(' . (int) $school->id . ')', 'fee'],
+                                            ],
+                                        ])
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-6 py-16 text-center">
-                                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
-                                            </svg>
-                                        </div>
+                                    <td colspan="8" class="px-6 py-14 text-center">
                                         <p class="text-gray-500 text-sm">No schools found</p>
-                                        @if ($search || $filterOrganization || $filterFeeType || $filterBoard)
-                                            <button wire:click="clearFilters" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">Clear filters</button>
+                                        @if ($filtered)
+                                            <button wire:click="clearFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -223,74 +239,35 @@
                     </table>
                 </div>
 
-                @if ($schools->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <p class="text-sm text-gray-500">
-                            Showing <strong class="text-gray-700">{{ $schools->firstItem() }}</strong>
-                            to <strong class="text-gray-700">{{ $schools->lastItem() }}</strong>
-                            of <strong class="text-gray-700">{{ $schools->total() }}</strong> schools
-                        </p>
-                        <div class="flex items-center gap-1">
-                            @if ($schools->onFirstPage())
-                                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">&laquo; Prev</span>
-                            @else
-                                <button wire:click="previousPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">&laquo; Prev</button>
-                            @endif
-
-                            @foreach ($schools->getUrlRange(max(1, $schools->currentPage() - 2), min($schools->lastPage(), $schools->currentPage() + 2)) as $page => $url)
-                                <button wire:click="gotoPage({{ $page }})"
-                                    class="px-3 py-1.5 text-sm rounded-lg transition-colors
-                                        {{ $page == $schools->currentPage() ? 'bg-blue-600 text-white border border-blue-600' : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
-                                    {{ $page }}
-                                </button>
-                            @endforeach
-
-                            @if ($schools->hasMorePages())
-                                <button wire:click="nextPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Next &raquo;</button>
-                            @else
-                                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next &raquo;</span>
-                            @endif
-                        </div>
-                    </div>
-                @endif
+                @include('livewire.super-admin.partials.list-pagination', ['paginator' => $schools])
             </div>
 
-            {{-- ══════════ MOBILE CARDS ══════════ --}}
-            <div class="md:hidden space-y-3">
-                @forelse ($schools as $school)
+            {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
+            <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
+            </div>
+            <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                @forelse ($schools as $index => $school)
                     @php
-                        $orgStructure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
-                            ->where('academic_year', $academicYear)
-                            ->whereIn('fee_type', ['one_time', 'per_student'])
-                            ->active()
-                            ->first();
-
-                        if ($orgStructure && $orgStructure->fee_type === 'one_time') {
-                            $orgExpected = !empty($orgStructure->period_amounts)
-                                ? (float) array_sum($orgStructure->period_amounts)
-                                : (float) ($orgStructure->total_amount ?? ($orgStructure->amount * $school->total_students));
-                        } elseif ($orgStructure) {
-                            $orgExpected = (float) $orgStructure->amount * $school->total_students;
-                        } else {
-                            $orgExpected = 0;
-                        }
-
-                        $orgCollected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)->forYear($academicYear)->sum('amount');
-                        $orgPct = $orgExpected > 0 ? round(($orgCollected / $orgExpected) * 100) : 0;
+                        [$orgStructure, $orgExpected, $orgCollected, $orgPct] = $feeOf[$school->id];
+                        $mActive = (bool) $school->status;
                     @endphp
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" wire:click="selectSchool({{ $school->id }})">
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="sa-fee-card-m-{{ $school->id }}">
                         <div class="flex items-center gap-3 p-4 border-b border-gray-100">
+                            <span class="text-xs font-semibold text-gray-400 w-6 text-center tabular-nums flex-shrink-0">{{ $schools->firstItem() + $index }}</span>
                             @if ($school->logo)
-                                <img src="{{ $school->logo }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                <img src="{{ $school->logo }}" alt="" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
                             @else
-                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-sm font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-sm font-semibold text-gray-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
                                 </div>
                             @endif
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
-                                <p class="text-xs text-gray-400 truncate">{{ \App\Support\BoardName::short($school->education_board) ?: 'Code: ' . ($school->school_code ?? '—') }}</p>
+                                <p class="text-xs text-gray-400 truncate">Code: {{ $school->school_code ?? '—' }}</p>
                             </div>
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $mActive ? 'bg-emerald-500' : 'bg-rose-500' }}"
+                                title="{{ $mActive ? 'Active' : 'Inactive' }}" role="img" aria-label="{{ $mActive ? 'Active' : 'Inactive' }}"></span>
                         </div>
                         <div class="px-4 py-3 space-y-2">
                             <div class="grid grid-cols-2 gap-2 text-sm">
@@ -299,19 +276,8 @@
                                     <p class="{{ $orgStructure ? 'text-gray-700' : 'text-gray-400' }}">{{ \App\Support\SuperAdminFeeTotals::planName($orgStructure) }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-400">Amount</p>
-                                    @if ($orgStructure?->fee_type === 'one_time')
-                                        @php $mAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
-                                        <p class="text-gray-700 font-medium whitespace-nowrap">₹{{ number_format((float) $mAmt, 0) }} <span class="text-xs font-normal text-gray-400">/ year</span></p>
-                                    @elseif ($orgStructure?->fee_type === 'per_student')
-                                        <p class="text-gray-700 font-medium whitespace-nowrap">₹{{ number_format((float) $orgStructure->amount, 0) }} <span class="text-xs font-normal text-gray-400">/ student</span></p>
-                                    @else
-                                        <p class="text-gray-400">—</p>
-                                    @endif
-                                </div>
-                                <div>
                                     <p class="text-xs text-gray-400">Students</p>
-                                    <p class="text-gray-700 font-medium">{{ $school->total_students }}</p>
+                                    <p class="text-gray-700 font-medium">{{ number_format($school->total_students) }}</p>
                                 </div>
                             </div>
                             @if ($orgExpected > 0)
@@ -325,26 +291,37 @@
                                     </div>
                                 </div>
                             @else
-                                <p class="text-xs text-center text-gray-400 py-1">No fee structure set</p>
+                                <p class="text-xs text-gray-400">No fee structure set</p>
                             @endif
                         </div>
                         <div class="border-t border-gray-100">
-                            <button class="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1">
-                                {{ $orgStructure ? 'Edit fee & payments' : 'Set up fee' }}
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                </svg>
+                            <button wire:click="selectSchool({{ $school->id }})" class="w-full py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                {{ $orgStructure ? 'Manage Fee' : 'Set up Fee' }}
                             </button>
                         </div>
                     </div>
                 @empty
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+                    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
                         <p class="text-gray-500 text-sm">No schools found</p>
+                        @if ($filtered)
+                            <button wire:click="clearFilters" class="mt-3 text-sm text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
+                        @endif
                     </div>
                 @endforelse
 
                 @if ($schools->hasPages())
-                    <div class="px-2">{{ $schools->links() }}</div>
+                    <div class="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                        <p class="text-xs text-gray-500">{{ $schools->firstItem() }}–{{ $schools->lastItem() }} of {{ number_format($schools->total()) }}</p>
+                        <div class="flex items-center gap-1.5">
+                            @if (!$schools->onFirstPage())
+                                <button wire:click="previousPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Previous</button>
+                            @endif
+                            <span class="inline-flex items-center justify-center min-w-8 h-8 px-2 text-xs bg-gray-900 text-white rounded-lg">{{ $schools->currentPage() }}</span>
+                            @if ($schools->hasMorePages())
+                                <button wire:click="nextPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Next</button>
+                            @endif
+                        </div>
+                    </div>
                 @endif
             </div>
         </div>

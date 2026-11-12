@@ -1,104 +1,86 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════ LIST VIEW ══════════ --}}
+    {{-- ══════════ LIST VIEW — in the Students list's look ══════════ --}}
     @if ($activeView === 'list')
+        @php
+            $filtered = $search || $statusFilter || $mediumFilter || $boardFilter;
+            // The filter bar's boxes, as on Students.
+            $sel   = 'text-xs min-w-0 max-w-[11rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+            $share = fn (int $n) => $totalSchools > 0 ? round($n * 100 / $totalSchools) . '%' : null;
+            $stats = [
+                ['Schools', number_format($totalSchools), 'text-gray-800', null],
+                ['Active', number_format($activeSchools), 'text-emerald-600', $share($activeSchools)],
+                ['Inactive', number_format($inactiveSchools), 'text-red-500', $share($inactiveSchools)],
+                ['Students', number_format($totalStudents), 'text-gray-800', null],
+                ['Teachers', number_format($totalTeachers), 'text-gray-800', null],
+            ];
+            // What reloads the list: while one of these takes longer than a
+            // moment, skeleton rows stand in for the rows.
+            $reloads = 'search,statusFilter,mediumFilter,boardFilter,sortBy,sortDir,gotoPage,nextPage,previousPage,clearFilters';
+            $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
+            $td = 'px-3 py-3 truncate';
+        @endphp
 
-        {{-- ── HEADER (analytics + filter) ── --}}
+        {{-- ── HEADER: the title, the figures in one line and Add, then the filter bar ── --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
-            <div class="px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
-                    <div>
-                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        {{-- Analytics (enquiries-style) --}}
-                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                            <span class="pr-4">Total: <strong class="text-gray-800">{{ number_format($totalSchools) }}</strong></span>
-                            <span class="px-4">Active: <strong class="text-emerald-600">{{ number_format($activeSchools) }}</strong></span>
-                            <span class="px-4">Inactive: <strong class="text-amber-500">{{ number_format($inactiveSchools) }}</strong></span>
-                            <span class="px-4">Students: <strong class="text-gray-800">{{ number_format($totalStudents) }}</strong></span>
-                            <span class="pl-4">Teachers: <strong class="text-gray-800">{{ number_format($totalTeachers) }}</strong></span>
-                        </div>
-                        <button wire:click="openModal"
-                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
-                                   text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span class="hidden sm:inline">Add School</span>
-                        </button>
-                    </div>
-                </div>
+            @include('livewire.super-admin.partials.list-header', [
+                'title' => 'Schools', 'stats' => $stats, 'addLabel' => 'Add School', 'addAction' => 'openModal',
+            ])
 
-                {{-- Mobile/Tablet stats --}}
-                <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-                    <span>Total: <strong class="text-gray-800">{{ number_format($totalSchools) }}</strong></span>
-                    <span>Active: <strong class="text-emerald-600">{{ number_format($activeSchools) }}</strong></span>
-                    <span>Inactive: <strong class="text-amber-500">{{ number_format($inactiveSchools) }}</strong></span>
-                    <span>Students: <strong class="text-gray-800">{{ number_format($totalStudents) }}</strong></span>
-                    <span>Teachers: <strong class="text-gray-800">{{ number_format($totalTeachers) }}</strong></span>
-                </div>
-            </div>
-
-            {{-- Filter bar (enquiry-style sub-header) --}}
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+            {{-- FILTER BAR — as on Students --}}
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar>
                 <div class="flex flex-wrap items-center gap-2">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="flex items-center gap-1 text-xs font-semibold text-gray-600">
+                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
                         Filter by:
                     </div>
 
-                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
-                        <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-52">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, code…"
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
-                    <select wire:model.live="statusFilter"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All statuses</option>
+                    <select wire:model.live="statusFilter" class="{{ $sel }}">
+                        <option value="">All Status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
 
-                    <select wire:model.live="mediumFilter"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All mediums</option>
+                    <select wire:model.live="mediumFilter" class="{{ $sel }}">
+                        <option value="">All Mediums</option>
                         <option value="english">English Medium</option>
                         <option value="hindi">Hindi Medium</option>
                         <option value="both">Hindi &amp; English</option>
                     </select>
 
-                    <select wire:model.live="boardFilter"
-                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All boards</option>
+                    <select wire:model.live="boardFilter" class="{{ $sel }}">
+                        <option value="">All Boards</option>
                         @foreach ($boards as $board)
                             <option value="{{ $board }}">{{ $board }}</option>
                         @endforeach
                     </select>
 
                     {{-- Sorting --}}
-                    <div class="flex items-center gap-1.5 ml-1">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h12M3 12h9m-9 5h6m6 0l3 3m0 0l3-3m-3 3V8"/></svg>
-                        <select wire:model.live="sortBy"
-                            class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h12M3 12h9m-9 5h6m6 0l3 3m0 0l3-3m-3 3V8"/></svg>
+                        <select wire:model.live="sortBy" class="{{ $sel }}">
                             <option value="name">Name (A–Z)</option>
                             <option value="created_at">Registered Date</option>
                             <option value="students">No. of Students</option>
                         </select>
-                        <select wire:model.live="sortDir"
-                            class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select wire:model.live="sortDir" class="{{ $sel }}">
                             <option value="asc">Ascending</option>
                             <option value="desc">Descending</option>
                         </select>
                     </div>
 
-                    @if ($search || $statusFilter || $mediumFilter || $boardFilter || $sortBy !== 'name' || $sortDir !== 'asc')
+                    @if ($filtered || $sortBy !== 'name' || $sortDir !== 'asc')
                         <button wire:click="clearFilters"
-                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -107,100 +89,76 @@
             </div>
         </div>
 
-        <div class="p-4 sm:p-6 space-y-5">
+        <div class="p-4 sm:p-6 space-y-4">
 
-            {{-- ══════════ DESKTOP TABLE (student-style) ══════════ --}}
-            <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div class="overflow-x-auto rounded-xl">
-                    <table class="w-full table-fixed">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Mobile</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Board</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">School Code</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Students</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Teachers</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Actions</th>
+            {{-- ══════════ DESKTOP TABLE — the Students list's table: S.No, the school (its logo, the
+                 email under the name), Mobile, Board, School Code, Students, Teachers; the status is the
+                 dot beside the row's ⋮ (View, Login as school, Edit, Delete). ══════════ --}}
+            <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="overflow-x-auto xl:overflow-visible rounded-xl">
+                    <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
+                        <thead>
+                            <tr class="bg-gray-50/80">
+                                <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
+                                <th class="{{ $th }} w-[28%]">School</th>
+                                <th class="{{ $th }} w-[120px]">Mobile</th>
+                                <th class="{{ $th }}">Board</th>
+                                <th class="{{ $th }} w-[110px]">School Code</th>
+                                <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Students</th>
+                                <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Teachers</th>
+                                <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                            @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::SCHOOLS, 'rows' => 10])
+                        </tbody>
+                        <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
                             @forelse ($schools as $index => $school)
-                                <tr class="hover:bg-gray-50/70 transition-colors">
-                                    {{-- S.No --}}
-                                    <td class="px-4 py-3">
-                                        <span class="text-sm text-gray-500 font-medium">{{ $schools->firstItem() + $index }}</span>
-                                    </td>
-                                    {{-- School --}}
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
+                                @php $board = \App\Support\BoardName::short($school->education_board); @endphp
+                                <tr wire:key="sa-sch-row-{{ $school->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $schools->firstItem() + $index }}</td>
+
+                                    <td class="{{ $td }}" title="{{ $school->name }}{{ $school->email ? ' — ' . $school->email : '' }}">
+                                        <div class="flex items-center gap-2.5 min-w-0">
                                             @if ($school->logo)
-                                                <img src="{{ $school->logo }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                <img src="{{ $school->logo }}" loading="lazy" alt=""
+                                                    class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                             @else
-                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
-                                                </div>
+                                                <span class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
+                                                    {{ strtoupper(substr($school->name, 0, 1)) }}
+                                                </span>
                                             @endif
                                             <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-gray-900 truncate max-w-[220px]">{{ $school->name }}</p>
-                                                <p class="text-xs text-gray-400 truncate max-w-[220px]">{{ $school->email ?? '—' }}</p>
+                                                <p class="font-medium text-gray-900 truncate leading-tight">{{ $school->name }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">{{ $school->email ?: '—' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    {{-- Mobile --}}
-                                    <td class="px-4 py-3">
-                                        <span class="text-sm text-gray-700 whitespace-nowrap">{{ $school->mobile_number ?? '—' }}</span>
-                                    </td>
-                                    {{-- Board: the board alone (no medium), cut with … when it is too long. --}}
-                                    <td class="px-4 py-3">
-                                        <div class="min-w-0">
-                                            <p class="text-sm text-gray-700 truncate" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) ?: '—' }}</p>
-                                        </div>
-                                    </td>
-                                    {{-- School Code: every school has its own --}}
-                                    <td class="px-4 py-3">
-                                        <p class="text-sm text-gray-700 truncate" title="{{ $school->school_code }}">{{ $school->school_code ?: '—' }}</p>
-                                    </td>
-                                    {{-- Students --}}
-                                    <td class="px-4 py-3 text-right">
-                                        <span class="text-sm font-semibold text-gray-800">{{ number_format($school->total_students) }}</span>
-                                    </td>
-                                    {{-- Teachers --}}
-                                    <td class="px-4 py-3 text-right">
-                                        <span class="text-sm font-semibold text-gray-800">{{ number_format($school->total_teachers) }}</span>
-                                    </td>
-                                    {{-- Actions --}}
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-center gap-1">
-                                            <button wire:click="viewSchoolDetail({{ $school->id }})" title="View"
-                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                            </button>
-                                            <button type="button" x-on:click="lmsLoginAsSchool({{ $school->id }})" title="Login as school"
-                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                                            </button>
-                                            <button wire:click="onEdit({{ $school->id }})" title="Edit"
-                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                            </button>
-                                            <button wire:click="onDelete({{ $school->id }})" title="Delete"
-                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                            </button>
-                                        </div>
+
+                                    <td class="{{ $td }} tabular-nums">{{ $school->mobile_number ?: '—' }}</td>
+                                    <td class="{{ $td }}" title="{{ $board }}">{{ $board ?: '—' }}</td>
+                                    <td class="{{ $td }}" title="{{ $school->school_code }}">{{ $school->school_code ?: '—' }}</td>
+                                    <td class="{{ $td }} text-right tabular-nums">{{ number_format($school->total_students) }}</td>
+                                    <td class="{{ $td }} text-right tabular-nums">{{ number_format($school->total_teachers) }}</td>
+
+                                    <td class="px-2 py-3">
+                                        @include('livewire.super-admin.partials.list-row-actions', [
+                                            'active'  => (bool) $school->status,
+                                            'actions' => [
+                                                ['View', 'viewSchoolDetail(' . (int) $school->id . ')', 'view'],
+                                                ['Login as school', 'lmsLoginAsSchool(' . (int) $school->id . ')', 'login', true],
+                                                ['Edit', 'onEdit(' . (int) $school->id . ')', 'edit'],
+                                                ['Delete', 'onDelete(' . (int) $school->id . ')', 'delete'],
+                                            ],
+                                        ])
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-6 py-16 text-center">
-                                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                        </div>
+                                    <td colspan="8" class="px-6 py-14 text-center">
                                         <p class="text-gray-500 text-sm">No schools found</p>
-                                        @if ($search || $statusFilter || $mediumFilter || $boardFilter)
-                                            <button wire:click="clearFilters" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">Clear filters</button>
+                                        @if ($filtered)
+                                            <button wire:click="clearFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -208,49 +166,83 @@
                         </tbody>
                     </table>
                 </div>
-                @if ($schools->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-100">{{ $schools->links() }}</div>
-                @endif
+
+                @include('livewire.super-admin.partials.list-pagination', ['paginator' => $schools])
             </div>
 
-            {{-- ══════════ MOBILE CARDS ══════════ --}}
-            <div class="md:hidden space-y-3">
+            {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
+            <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
+            </div>
+            <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
                 @forelse ($schools as $index => $school)
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                        <div class="flex items-start gap-3">
+                    @php $mActive = (bool) $school->status; @endphp
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="sa-sch-card-m-{{ $school->id }}">
+                        <div class="flex items-center gap-3 p-4 border-b border-gray-100">
+                            <span class="text-xs font-semibold text-gray-400 w-6 text-center tabular-nums flex-shrink-0">{{ $schools->firstItem() + $index }}</span>
                             @if ($school->logo)
-                                <img src="{{ $school->logo }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                <img src="{{ $school->logo }}" alt="" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
                             @else
-                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-sm font-bold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-sm font-semibold text-gray-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
                                 </div>
                             @endif
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-bold text-gray-900 truncate">{{ $school->name }}</p>
-                                <p class="text-xs text-gray-400 truncate">{{ $school->email ?? '—' }}</p>
-                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-500">
-                                    <span>{{ $school->mobile_number ?? '—' }}</span>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">{{ number_format($school->total_students) }} students</span>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 text-[11px] font-medium">{{ number_format($school->total_teachers) }} teachers</span>
-                                    @if ($school->education_board)<span class="truncate max-w-[120px]" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) }}</span>@endif
-                                    @if ($school->school_code)<span>Code {{ $school->school_code }}</span>@endif
-                                </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
+                                <p class="text-xs text-gray-400 truncate">{{ $school->email ?: '—' }}</p>
+                            </div>
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $mActive ? 'bg-emerald-500' : 'bg-rose-500' }}"
+                                title="{{ $mActive ? 'Active' : 'Inactive' }}" role="img" aria-label="{{ $mActive ? 'Active' : 'Inactive' }}"></span>
+                        </div>
+
+                        <div class="px-4 py-3 grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                                <p class="text-xs text-gray-400">Mobile</p>
+                                <p class="text-gray-700 font-medium">{{ $school->mobile_number ?: '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">School Code</p>
+                                <p class="text-gray-700 font-medium truncate">{{ $school->school_code ?: '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Students · Teachers</p>
+                                <p class="text-gray-700 tabular-nums">{{ number_format($school->total_students) }} · {{ number_format($school->total_teachers) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Board</p>
+                                <p class="text-gray-700 truncate">{{ \App\Support\BoardName::short($school->education_board) ?: '—' }}</p>
                             </div>
                         </div>
-                        <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100 mt-3 pt-1 -mb-1">
-                            <button wire:click="viewSchoolDetail({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">View</button>
-                            <button type="button" x-on:click="lmsLoginAsSchool({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">Login</button>
-                            <button wire:click="onEdit({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">Edit</button>
-                            <button wire:click="onDelete({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
+
+                        <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
+                            <button wire:click="viewSchoolDetail({{ $school->id }})" class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">View</button>
+                            <button type="button" x-on:click="lmsLoginAsSchool({{ $school->id }})" class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Login</button>
+                            <button wire:click="onEdit({{ $school->id }})" class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Edit</button>
+                            <button wire:click="onDelete({{ $school->id }})" class="flex-1 py-2.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Delete</button>
                         </div>
                     </div>
                 @empty
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center text-gray-400">
-                        No schools found
+                    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                        <p class="text-gray-500 text-sm">No schools found</p>
+                        @if ($filtered)
+                            <button wire:click="clearFilters" class="mt-3 text-sm text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
+                        @endif
                     </div>
                 @endforelse
+
                 @if ($schools->hasPages())
-                    <div class="mt-4">{{ $schools->links() }}</div>
+                    <div class="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                        <p class="text-xs text-gray-500">{{ $schools->firstItem() }}–{{ $schools->lastItem() }} of {{ number_format($schools->total()) }}</p>
+                        <div class="flex items-center gap-1.5">
+                            @if (!$schools->onFirstPage())
+                                <button wire:click="previousPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Previous</button>
+                            @endif
+                            <span class="inline-flex items-center justify-center min-w-8 h-8 px-2 text-xs bg-gray-900 text-white rounded-lg">{{ $schools->currentPage() }}</span>
+                            @if ($schools->hasMorePages())
+                                <button wire:click="nextPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Next</button>
+                            @endif
+                        </div>
+                    </div>
                 @endif
             </div>
         </div>

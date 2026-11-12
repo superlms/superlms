@@ -80,6 +80,40 @@ class PanelUiTest extends TestCase
         $this->assertStringContainsString("el.innerHTML.includes('wire:loading')", $js);
         $this->assertStringContainsString('body.lms-ui :is(button, a[wire\:click]):not(:disabled):active { scale: .96; }', $js);
         $this->assertStringContainsString('body.lms-ui [data-sa-busy]::after {', $js);
+        // Only a slow answer turns the button into a spinner: for the first .4s it stays as it is.
+        $this->assertStringContainsString('transition: color 0s .4s !important;', $js);
+        $this->assertStringContainsString('opacity: 0; animation: sa-spin .6s linear infinite, sa-show .12s ease .4s forwards;', $js);
+    }
+
+    public function test_a_lists_skeleton_shows_the_moment_its_link_is_clicked(): void
+    {
+        $layout = $this->layout();
+        $js     = $this->partial();
+
+        // The page and, beside it, a place for the skeleton.
+        $this->assertStringContainsString('<div class="relative z-10 lms-slot">', $layout);
+        $this->assertStringContainsString('<div class="relative z-10 lms-skeleton" hidden></div>', $layout);
+        $this->assertMatchesRegularExpression("/@if \(\\\$lmsSuperAdmin\)\s*@include\('livewire\.super-admin\.partials\.list-skeletons'\)\s*@endif/", $layout);
+
+        // A plain click on a link to such a page shows its skeleton in the page's place; back shows the page.
+        $this->assertStringContainsString("if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;", $js);
+        $this->assertStringContainsString("const tpl = document.querySelector('template[data-skeleton-for=\"' + CSS.escape(url.pathname) + '\"]');", $js);
+        $this->assertStringContainsString("window.addEventListener('pageshow', e => { if (e.persisted) restore(); });", $js);
+        $this->assertStringContainsString('.sa-skel {', $js);
+
+        // The Students and Teachers skeletons: their real column names over skeleton rows.
+        $html = view('livewire.super-admin.partials.list-skeletons')->render();
+        foreach (['super-admin.students' => ['Students', 'Admission No', 'Father&#039;s Name'], 'super-admin.teachers' => ['Teachers', 'Username', 'Class Teacher']] as $route => $words) {
+            $path = parse_url(route($route), PHP_URL_PATH);
+            $start = strpos($html, '<template data-skeleton-for="' . $path . '">');
+            $this->assertNotFalse($start, $route);
+            $tpl = substr($html, $start, strpos($html, '</template>', $start) - $start);
+            foreach ($words as $word) {
+                $this->assertStringContainsString($word, $tpl, "$route: $word");
+            }
+            $this->assertSame(10, substr_count($tpl, 'data-skeleton-row'), $route);
+            $this->assertSame(4, substr_count($tpl, 'data-skeleton-card'), $route);
+        }
     }
 
     public function test_the_super_admin_forms_have_no_needless_notes(): void

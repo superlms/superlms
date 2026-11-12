@@ -78,6 +78,10 @@
         @php
             $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
             $td = 'px-3 py-3 truncate';
+            // What reloads the list: while one of these takes longer than a
+            // moment, skeleton rows stand in for the rows (the panel's
+            // auto-refresh is not one of them, so it never flickers).
+            $reloads = 'search,filterOrganization,filterGender,filterStatus,gotoPage,nextPage,previousPage,clearFilters';
         @endphp
         <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
             <div class="overflow-x-auto xl:overflow-visible rounded-xl">
@@ -95,7 +99,10 @@
                             <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
+                    <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                        @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::TEACHERS, 'rows' => 10])
+                    </tbody>
+                    <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
                         @forelse ($teachers as $index => $teacher)
                             @php
                                 $name     = $teacher->user?->name;
@@ -162,8 +169,11 @@
             @include('livewire.super-admin.partials.list-pagination', ['paginator' => $teachers])
         </div>
 
-        {{-- ══════════ MOBILE CARDS ══════════ --}}
-        <div class="md:hidden space-y-3">
+        {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
+        <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+            @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
+        </div>
+        <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
             @forelse ($teachers as $index => $teacher)
                 @php $mActive = (bool) $teacher->user?->is_active; @endphp
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="sa-tch-card-m-{{ $teacher->id }}">

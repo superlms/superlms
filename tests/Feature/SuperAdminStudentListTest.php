@@ -127,6 +127,46 @@ class SuperAdminStudentListTest extends TestCase
         $this->assertSame(['Students', '1'], array_slice($page->viewData('stats')[1], 0, 2));
     }
 
+    public function test_the_add_form_asks_for_the_school_first_and_shows_no_board_line(): void
+    {
+        Schema::create('transportations', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id')->nullable(); $t->string('route_name')->nullable();
+            $t->decimal('monthly_fee', 10, 2)->default(0); $t->boolean('is_active')->default(true); $t->timestamps();
+        });
+
+        $page = Livewire::test(Student::class)->call('openAddPanel')->set('addTransportation', '1');
+        $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+
+        // No school yet: Class, Section and Route say so.
+        $this->assertStringContainsString('Class * Select the school first', $text);
+        $this->assertStringContainsString('Section * Select the school first', $text);
+        $this->assertStringContainsString('Select Route * Select the school first First select the school.', $text);
+        $this->assertStringNotContainsString('No active routes for this school', $text);
+        $this->assertStringNotContainsString('Board:', $text);
+
+        // With a school: the classes, then the section waits for a class; no routes is said as such.
+        $text = preg_replace('/\s+/', ' ', strip_tags($page->set('addOrgId', '9')->html()));
+        $this->assertStringContainsString('Class * Select Class 5th', $text);
+        $this->assertStringContainsString('Section * Select the class first', $text);
+        $this->assertStringContainsString('No active routes for this school.', $text);
+        $this->assertStringNotContainsString('First select the school.', $text);
+    }
+
+    public function test_skeleton_rows_stand_in_while_the_list_reloads(): void
+    {
+        $html = Livewire::test(Student::class)->html();
+        $targets = 'search,filterOrganization,filterClass,filterSection,filterGender,filterStatus,sort,gotoPage,nextPage,previousPage,clearFilters';
+
+        // Hidden at first; shown — and the rows hidden — only once a reload takes longer than a moment.
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="' . $targets . '">', $html);
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="' . $targets . '">', $html);
+        // Ten rows shaped as the real ones: S.No, photo and name, the other columns, the dot and ⋮.
+        $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
+        $this->assertSame(10 * 2, substr_count($html, 'sa-skel w-8 h-8 rounded-full') + substr_count($html, 'sa-skel w-2 h-2 rounded-full') - 4);
+        // On a phone, skeleton cards the same way.
+        $this->assertSame(4, substr_count($html, 'data-skeleton-card'));
+    }
+
     public function test_email_comes_before_gender_then_school(): void
     {
         $html = Livewire::test(Student::class)->html();

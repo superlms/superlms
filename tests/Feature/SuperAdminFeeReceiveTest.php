@@ -518,9 +518,33 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->signIn();
         DB::table('organizations')->where('id', 1)->update(['education_board' => 'UP BOARD (HINDI & ENGLISH MEDIUM)']);
         $html = Livewire::test(Fees::class)->html();
-        // The list cell; the Board filter keeps the saved values it matches on.
-        $this->assertMatchesRegularExpression('/whitespace-nowrap">UP BOARD<\/td>/', $html);
+        // The list cell (the Students list's look: cut with … and shown whole on hover);
+        // the Board filter keeps the saved values it matches on.
+        $this->assertMatchesRegularExpression('/<td class="[^"]*truncate" title="UP BOARD">UP BOARD<\/td>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<td[^>]*>[^<]*ENGLISH MEDIUM/', $html);
+    }
+
+    /**
+     * Fees in the Students list's look: the smaller filter bar, S.No, the
+     * school with its code under the name, the status as a dot beside the ⋮
+     * whose menu opens the school's fee, skeleton rows while the list
+     * reloads, and the shared foot.
+     */
+    public function test_the_list_is_in_the_students_look(): void
+    {
+        $this->signIn();
+        $html = Livewire::test(Fees::class)->html();
+        $text = html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($html)), ENT_QUOTES);
+
+        $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
+        preg_match_all('/<th\b[^>]*>([^<]*)/', substr($html, strpos($html, '>S.No</th>') - 120), $th);
+        $this->assertSame(['S.No', 'School', 'Board', 'Fee Type', 'Amount', 'Students', 'Collection'],
+            array_slice(array_values(array_filter(array_map('trim', $th[1]))), 0, 7));
+        $this->assertMatchesRegularExpression('/1 \S+ .+ Code: /', $text);
+        $this->assertMatchesRegularExpression('/role="menuitem" wire:click="selectSchool\(1\)"/', $html);
+        $this->assertMatchesRegularExpression('/(Manage|Set up) Fee/', $text);
+        $this->assertMatchesRegularExpression('/wire:loading\.delay\.long\.class\.remove="hidden" wire:target="search,filterOrganization,filterFeeType,filterBoard,gotoPage,nextPage,previousPage,clearFilters"/', $html);
+        $this->assertMatchesRegularExpression('/Showing 1–\d+ of \d+ entries/', $text);
     }
 
     // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────

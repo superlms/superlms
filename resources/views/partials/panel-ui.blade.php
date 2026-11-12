@@ -68,7 +68,10 @@
     body.lms-sa .sa-drop-over { outline: 2px dashed #2563eb; outline-offset: 3px; border-radius: .75rem; background-color: rgb(37 99 235 / .04); }
     body.lms-sa .sa-drop-bad { outline: 2px dashed #dc2626; outline-offset: 3px; border-radius: .75rem; }
 
-    /* ─── 3. Buttons: a press, and a spinner while the server answers ─── */
+    /* ─── 3. Buttons: a press, and a spinner only while a slow answer is awaited ───
+       The button stays as it is for the first .4s; a quick answer shows the
+       screen straight away, and only a slower one turns the button into a
+       spinner. */
     @keyframes sa-spin { to { transform: rotate(360deg); } }
     @keyframes sa-show { to { opacity: 1; } }
     body.lms-ui :is(button, a[wire\:click]):not(:disabled) {
@@ -79,14 +82,25 @@
     body.lms-ui [data-sa-busy] {
         pointer-events: none; cursor: progress;
         color: transparent !important;
-        transition: color 0s .15s !important;
+        transition: color 0s .4s !important;
     }
-    body.lms-ui [data-sa-busy] > * { visibility: hidden; transition: visibility 0s .15s; }
+    body.lms-ui [data-sa-busy] > * { visibility: hidden; transition: visibility 0s .4s; }
     body.lms-ui [data-sa-busy]::after {
         content: ''; position: absolute; left: 50%; top: 50%;
         width: 1rem; height: 1rem; margin: -.5rem 0 0 -.5rem;
         border-radius: 9999px; border: 2px solid var(--sa-spin, #6b7280); border-right-color: transparent;
-        opacity: 0; animation: sa-spin .6s linear infinite, sa-show .12s ease .15s forwards;
+        opacity: 0; animation: sa-spin .6s linear infinite, sa-show .12s ease .4s forwards;
+    }
+
+    /* ─── 4. Skeletons: grey shapes of a list's rows, shimmering, while it loads ─── */
+    @keyframes sa-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+    /* The shape's defaults sit in Tailwind's base layer, under its utilities,
+       so a shape's own classes (block, rounded-full, rounded-lg …) win. */
+    @layer base { .sa-skel { display: inline-block; border-radius: .375rem; } }
+    .sa-skel {
+        background: linear-gradient(90deg, #eef0f3 25%, #e2e5ea 37%, #eef0f3 63%);
+        background-size: 400% 100%;
+        animation: sa-shimmer 1.4s ease infinite;
     }
 </style>
 <script>
@@ -168,6 +182,33 @@
                 // As if picked by hand: wire:model and the pickers' own handlers hear it.
                 h.input.dispatchEvent(new Event('change', { bubbles: true }));
             });
+        }
+
+        // ─── 4. A list's skeleton while its page loads (Super Admin) ──────────
+        // A link to a page that has a skeleton (template[data-skeleton-for],
+        // partials.list-skeletons) shows it at once in place of the page, until
+        // the browser has the new page. Back to this page from the history
+        // shows the page again.
+        const slot = document.querySelector('#main-scroll .lms-slot');
+        const skel = document.querySelector('#main-scroll .lms-skeleton');
+        if (slot && skel && document.body.classList.contains('lms-sa')) {
+            const restore = () => { skel.hidden = true; skel.replaceChildren(); slot.hidden = false; };
+            document.addEventListener('click', e => {
+                if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                const a = e.target.closest('a[href]');
+                if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+                const url = new URL(a.href, location.href);
+                if (url.origin !== location.origin || (url.pathname === location.pathname && url.search === location.search)) return;
+                const tpl = document.querySelector('template[data-skeleton-for="' + CSS.escape(url.pathname) + '"]');
+                if (!tpl) return;
+                skel.replaceChildren(tpl.content.cloneNode(true));
+                slot.hidden = true;
+                skel.hidden = false;
+                document.getElementById('main-scroll').scrollTop = 0;
+                clearTimeout(window.__saSkelTimer);
+                window.__saSkelTimer = setTimeout(restore, 20000);
+            });
+            window.addEventListener('pageshow', e => { if (e.persisted) restore(); });
         }
 
         // ─── 3. A spinner on the button that asked the server ─────────────────
