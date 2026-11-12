@@ -1024,12 +1024,6 @@
                             <option value="one_time">One Time</option>
                             <option value="per_student">Per Student</option>
                         </select>
-                        <p class="mt-1 text-xs text-gray-400">
-                            @if ($feePlan === 'monthly') Enter a fee for each month (April → March).
-                            @elseif ($feePlan === 'one_time') Enter one fee for the complete year.
-                            @else Enter one student's fee — it applies to every student.
-                            @endif
-                        </p>
                     </div>
 
                     {{-- ── MONTHLY FIELDS (April → March) ── --}}
@@ -1292,7 +1286,7 @@
                                         @error('receiveDate') <p class="{{ $upErr }}">{{ $message }}</p> @enderror
                                     </div>
                                     <div>
-                                        <label class="{{ $upLb }}">Remark <span class="text-gray-400 font-normal">(Optional)</span></label>
+                                        <label class="{{ $upLb }}">Remark</label>
                                         <input wire:model="receiveRemark" type="text" placeholder="Optional remark" class="{{ $upIn }} @error('receiveRemark') border-red-400 @enderror" />
                                         @error('receiveRemark') <p class="{{ $upErr }}">{{ $message }}</p> @enderror
                                     </div>
@@ -1658,7 +1652,7 @@
                                         @error('editPayDate') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
                                     </div>
                                     <div>
-                                        <label class="{{ $epLb }}">Remark <span class="text-gray-400 font-normal">(Optional)</span></label>
+                                        <label class="{{ $epLb }}">Remark</label>
                                         <input wire:model="editPayRemark" type="text" placeholder="Optional remark" class="{{ $epIn }} @error('editPayRemark') border-red-400 @enderror" />
                                         @error('editPayRemark') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
                                     </div>
@@ -1833,7 +1827,7 @@
                                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Remark</label>
                             <input wire:model.defer="payRemark" type="text" placeholder="Optional remark"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
                                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />

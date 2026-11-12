@@ -250,7 +250,6 @@
                         </div>
                         <input type="text" wire:model="newCategory" placeholder="Type a new category (e.g. Payments)"
                             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                        <p class="text-xs text-gray-400 mt-1">If you type a new category, it will be created automatically.</p>
                         @error('category') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 

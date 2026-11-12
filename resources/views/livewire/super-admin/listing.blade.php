@@ -213,7 +213,6 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Location <span class="text-rose-500">*</span></label>
                         <input type="text" wire:model="location" placeholder="e.g. Jaipur, Rajasthan"
                             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                        <p class="text-xs text-gray-400 mt-1">Used to group and filter schools in the listing.</p>
                         @error('location') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
@@ -234,7 +233,6 @@
                                 <input type="file" wire:model="logo" accept="image/*"
                                     class="block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-medium hover:file:bg-indigo-100" />
                                 <div wire:loading wire:target="logo" class="text-xs text-gray-400 mt-1">Uploading…</div>
-                                <p class="text-xs text-gray-400 mt-1">JPG / PNG, up to 2 MB.</p>
                                 @error('logo') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>
@@ -424,7 +422,6 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark <span class="text-red-500">*</span></label>
                                 <textarea wire:model="remarkText" rows="4" placeholder="Reason / note about this school…" class="{{ $lvIn }} resize-y"></textarea>
-                                <p class="mt-1 text-xs text-gray-400">This remark shows in the list's status column.</p>
                                 @error('remarkText')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         @endif

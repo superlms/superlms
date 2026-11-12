@@ -135,12 +135,11 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">
-                            Deep link screen <span class="font-normal text-gray-400">(optional)</span>
+                            Deep link screen
                         </label>
                         <input type="text" wire:model="screen" maxlength="100" placeholder="e.g. announcements"
                             class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
                                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <p class="text-[11px] text-gray-400 mt-1">If set, tapping the notification opens this screen in the app.</p>
                         @error('screen') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 

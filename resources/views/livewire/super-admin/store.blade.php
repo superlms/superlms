@@ -567,7 +567,7 @@
                                             <td class="px-3 py-2 min-w-[14rem]">
                                                 <input wire:model="iItems.{{ $i }}.title" type="text" placeholder="Item" class="{{ $inSm }}">
                                                 @error('iItems.' . $i . '.title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                                <input wire:model="iItems.{{ $i }}.description" type="text" placeholder="Detail (optional)" class="mt-1.5 w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                                <input wire:model="iItems.{{ $i }}.description" type="text" placeholder="Detail" class="mt-1.5 w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                                 @if (!empty($line['product_id']))
                                                     <p class="mt-1 text-[11px] text-blue-600">From the Store</p>
                                                 @endif
@@ -658,7 +658,7 @@
                                     @error('iAgreementBody')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="{{ $lb }}">Agreement document <span class="font-normal text-gray-400">(optional)</span></label>
+                                    <label class="{{ $lb }}">Agreement document</label>
                                     @if ($iAgreementFile)
                                         <div class="flex items-center gap-2 text-sm">
                                             <span class="px-2.5 py-1.5 bg-blue-50 text-blue-700 rounded-md truncate max-w-xs">{{ $iAgreementFile->getClientOriginalName() }}</span>
@@ -672,7 +672,6 @@
                                     @else
                                         <input type="file" wire:model="iAgreementFile" accept=".pdf,.doc,.docx,image/jpeg,image/png"
                                             class="block w-full text-sm text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 file:text-sm file:font-medium hover:file:bg-gray-200">
-                                        <p class="mt-1 text-xs text-gray-400" wire:loading.remove wire:target="iAgreementFile">PDF, Word or an image, up to 10 MB. It is attached to the email.</p>
                                         <p class="mt-1 text-xs text-blue-600" wire:loading wire:target="iAgreementFile">Uploading…</p>
                                     @endif
                                     @error('iAgreementFile')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -872,7 +871,6 @@
                         <div>
                             <label class="{{ $lb }}">GSTIN</label>
                             <input wire:model="settings.store_seller_gstin" type="text" maxlength="15" placeholder="09ABCDE1234F1Z5" class="{{ $in }} uppercase">
-                            <p class="mt-1 text-xs text-gray-400">With a GSTIN the PDF reads "Tax Invoice".</p>
                             @error('settings.store_seller_gstin')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -902,18 +900,16 @@
                     <div>
                         <label class="{{ $lb }}">How to pay</label>
                         <textarea wire:model="settings.store_payment_details" rows="3" placeholder="Bank, account number, IFSC, UPI id…" class="{{ $in }}"></textarea>
-                        <p class="mt-1 text-xs text-gray-400">On every invoice and in its email.</p>
                         @error('settings.store_payment_details')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="{{ $lb }}">Terms</label>
                         <textarea wire:model="settings.store_invoice_terms" rows="3" class="{{ $in }}"></textarea>
-                        <p class="mt-1 text-xs text-gray-400">Printed at the foot of every invoice.</p>
                         @error('settings.store_invoice_terms')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div class="border-t border-gray-200 pt-4">
                         <p class="text-sm font-semibold text-gray-900">Default agreement</p>
-                        <p class="text-xs text-gray-500 mt-0.5 mb-3">Filled in when an invoice's agreement is turned on — and changed there for that invoice if needed.</p>
+                        <div class="mb-3"></div>
                         <label class="{{ $lb }}">Title</label>
                         <input wire:model="settings.store_agreement_title" type="text" class="{{ $in }}">
                         @error('settings.store_agreement_title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -943,9 +939,8 @@
                 <p class="text-xs text-gray-500 mt-0.5">The PDF goes attached{{ ($sendInvoice = \App\Models\Store\StoreInvoice::find($sendId))?->hasAgreement() ? ', with the agreement' : '' }}, and a link to open it.</p>
                 <label class="block text-xs font-medium text-gray-700 mt-4 mb-1">To</label>
                 <input wire:model="sendTo" type="text" placeholder="school@example.com, principal@example.com" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                <p class="mt-1 text-[11px] text-gray-400">Separate several with commas.</p>
                 @error('sendTo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                <label class="block text-xs font-medium text-gray-700 mt-3 mb-1">Message <span class="font-normal text-gray-400">(optional)</span></label>
+                <label class="block text-xs font-medium text-gray-700 mt-3 mb-1">Message</label>
                 <textarea wire:model="sendMessage" rows="3" placeholder="Leave empty for the usual note" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                 @error('sendMessage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 <div class="mt-4 flex items-center gap-2">
@@ -980,7 +975,7 @@
                         </select>
                     </div>
                 </div>
-                <label class="block text-xs font-medium text-gray-700 mt-3 mb-1">Reference <span class="font-normal text-gray-400">(optional)</span></label>
+                <label class="block text-xs font-medium text-gray-700 mt-3 mb-1">Reference</label>
                 <input wire:model="paidReference" type="text" placeholder="UTR / cheque no." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
                 @error('paidReference')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 <div class="mt-4 flex items-center gap-2">

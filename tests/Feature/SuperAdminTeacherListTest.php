@@ -13,9 +13,11 @@ use Tests\TestCase;
 
 /**
  * Super Admin → Teachers in the Students list's look: the Fees page's header
- * with its figures in one line beside Add, the Fees filter bar, and a table
- * with S.No, the qualification under the name and the status as a dot
- * beside the row's ⋮ (View, Edit, Delete).
+ * with its figures in one line beside Add, the Fees filter bar (a size
+ * smaller; Export filled grey once a school is picked), and a table of S.No,
+ * the teacher with the qualification under the name, Username, Mobile, Email,
+ * Gender, Class Teacher and School — no Employee ID or Subjects — and the
+ * status as a dot beside the row's ⋮ (View, Edit, Delete).
  */
 class SuperAdminTeacherListTest extends TestCase
 {
@@ -31,8 +33,18 @@ class SuperAdminTeacherListTest extends TestCase
         Schema::create('users', function (Blueprint $t) {
             $t->id(); $t->string('name')->nullable(); $t->string('email')->nullable(); $t->string('role')->nullable();
             $t->unsignedBigInteger('organization_id')->nullable(); $t->boolean('is_active')->default(true);
-            $t->string('mobile_number')->nullable(); $t->string('gender')->nullable();
+            $t->string('mobile_number')->nullable(); $t->string('gender')->nullable(); $t->string('username')->nullable();
             $t->string('image')->nullable(); $t->text('permissions')->nullable(); $t->timestamps();
+        });
+        Schema::create('standards', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id')->nullable(); $t->string('name')->nullable(); $t->timestamps();
+        });
+        Schema::create('sections', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('standard_id')->nullable(); $t->string('name')->nullable(); $t->timestamps();
+        });
+        Schema::create('assign_teacher_standards', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id')->nullable(); $t->unsignedBigInteger('teacher_detail_id')->nullable();
+            $t->unsignedBigInteger('standard_id')->nullable(); $t->unsignedBigInteger('section_id')->nullable(); $t->timestamps();
         });
         Schema::create('teacher_details', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('user_id')->nullable(); $t->unsignedBigInteger('organization_id')->nullable();
@@ -49,6 +61,15 @@ class SuperAdminTeacherListTest extends TestCase
         $this->teacher(1, 'Neha Sharma', 'M.Sc, B.Ed', true, '2026-11-10 09:00:00');
         $this->teacher(2, 'Arjun Rao', 'B.A', false, '2026-11-12 08:00:00');
         $this->teacher(3, 'Kavita Joshi', null, true, '2026-10-12 09:00:00');
+
+        // Arjun is class teacher of 5th A and B; Neha of 8th A.
+        DB::table('standards')->insert([['id' => 5, 'organization_id' => 9, 'name' => 'Class 5th'], ['id' => 8, 'organization_id' => 9, 'name' => 'Class 8th']]);
+        DB::table('sections')->insert([['id' => 51, 'standard_id' => 5, 'name' => 'A'], ['id' => 52, 'standard_id' => 5, 'name' => 'B'], ['id' => 81, 'standard_id' => 8, 'name' => 'A']]);
+        DB::table('assign_teacher_standards')->insert([
+            ['organization_id' => 9, 'teacher_detail_id' => 2, 'standard_id' => 5, 'section_id' => 51],
+            ['organization_id' => 9, 'teacher_detail_id' => 2, 'standard_id' => 5, 'section_id' => 52],
+            ['organization_id' => 9, 'teacher_detail_id' => 1, 'standard_id' => 8, 'section_id' => 81],
+        ]);
 
         $user = new User(['name' => 'Super', 'email' => 'super@example.com']);
         $user->id = 900;
@@ -67,7 +88,7 @@ class SuperAdminTeacherListTest extends TestCase
     {
         DB::table('users')->insert(['id' => 200 + $id, 'name' => $name, 'email' => "t{$id}@doon.in", 'role' => 'teacher',
             'organization_id' => 9, 'is_active' => $active, 'mobile_number' => '91234567' . $id . '0', 'gender' => 'female',
-            'created_at' => $at, 'updated_at' => $at]);
+            'username' => strtolower(str_replace(' ', '.', $name)), 'created_at' => $at, 'updated_at' => $at]);
         DB::table('teacher_details')->insert(['id' => $id, 'user_id' => 200 + $id, 'organization_id' => 9, 'employee_id' => 'EMP-' . $id,
             'qualification' => $qualification, 'date_of_joining' => '2026-04-01', 'created_at' => $at, 'updated_at' => $at]);
     }
@@ -89,21 +110,40 @@ class SuperAdminTeacherListTest extends TestCase
         $this->assertStringContainsString('<h1 class="text-lg sm:text-xl font-bold text-gray-900">Teachers</h1>', $html);
         $this->assertStringContainsString('Schools: 2 Teachers: 3 Active: 2 (67%) Inactive: 1 (33%) This Week: +2 Add New Teacher', $text);
         $this->assertMatchesRegularExpression('/Filter by:.*wire:model\.live\.debounce\.300ms="search"/s', $html);
-        $this->assertStringContainsString('wire:click="exportTeachers"', $html);
+        // The filter bar a size smaller than Fees'.
+        $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
+
+        // Export waits for a school, then is filled grey.
+        $this->assertMatchesRegularExpression('/wire:click="exportTeachers" disabled[^>]*bg-gray-50 text-gray-300/s', $html);
+        $page->set('filterOrganization', '9');
+        $this->assertMatchesRegularExpression('/wire:click="exportTeachers"[^>]*bg-gray-600 text-white/s', $page->html());
+
+        // A teacher is found by username too.
+        $page->set('filterOrganization', '')->set('search', 'neha.sh');
+        $this->assertSame(['Teachers', '1'], array_slice($page->viewData('stats')[1], 0, 2));
     }
 
     public function test_rows_are_in_the_students_look(): void
     {
         $html = Livewire::test(Teacher::class)->html();
-        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $text = html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($html)), ENT_QUOTES);
 
-        // A–Z by name, each with its serial number and the qualification under the name.
+        // The columns: S.No, Teacher, Username, Mobile, Email, Gender, Class Teacher, School.
+        preg_match_all('/<th\b[^>]*>(?:<button[^>]*>)?([^<]+)/', $html, $th);
+        $this->assertSame(['S.No', 'Teacher', 'Username', 'Mobile', 'Email', 'Gender', 'Class Teacher', 'School'],
+            array_values(array_filter(array_map('trim', $th[1]))));
+
+        // A–Z by name, each row in that order, the qualification under the name.
         preg_match_all('/<p class="font-medium text-gray-900 truncate leading-tight">([^<]+)<\/p>/', $html, $m);
         $this->assertSame(['Arjun Rao', 'Kavita Joshi', 'Neha Sharma'], array_map('trim', $m[1]));
-        $this->assertStringContainsString('>S.No</th>', $html);
-        $this->assertStringContainsString('1 A Arjun Rao B.A EMP-2', $text);
-        $this->assertStringContainsString('3 N Neha Sharma M.Sc, B.Ed EMP-1', $text);
-        $this->assertStringContainsString('01 Apr 2026', $text);
+        $this->assertStringContainsString('1 A Arjun Rao B.A arjun.rao 9123456720 t2@doon.in Female Class 5th A & B Doon School', $text);
+        $this->assertStringContainsString('2 K Kavita Joshi — kavita.joshi 9123456730 t3@doon.in Female — Doon School', $text);
+        $this->assertStringContainsString('3 N Neha Sharma M.Sc, B.Ed neha.sharma 9123456710 t1@doon.in Female Class 8th-A Doon School', $text);
+
+        // No Employee ID, Subjects or Joined any more.
+        foreach (['EMP-1', 'Employee ID', 'Subjects', '01 Apr 2026'] as $gone) {
+            $this->assertStringNotContainsString($gone, $text, $gone);
+        }
 
         // The status is a dot beside the ⋮; View, Edit and Delete are in its menu.
         $this->assertSame(2, substr_count($html, 'data-status="active"'));

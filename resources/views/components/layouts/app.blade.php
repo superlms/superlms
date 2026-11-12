@@ -223,8 +223,10 @@
     $lmsNoTopbar = Auth::check()
         && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true)
         && !request()->routeIs('admin.quick-links', 'super-admin.quick-links');
+    // The Super Admin panel's own touches (partials.super-admin-ui).
+    $lmsSuperAdmin = Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true);
 @endphp
-<body class="bg-gray-50 h-screen w-screen overflow-hidden {{ $lmsNoTopbar ? 'lms-no-topbar' : '' }}"
+<body class="bg-gray-50 h-screen w-screen overflow-hidden {{ $lmsNoTopbar ? 'lms-no-topbar' : '' }} {{ $lmsSuperAdmin ? 'lms-sa' : '' }}"
       x-data="{ offcanvas: false, sidebarOpen: document.documentElement.classList.contains('sidebar-expanded') }"
       x-effect="document.body.classList.toggle('drawer-open', offcanvas);
                 document.documentElement.classList.toggle('sidebar-expanded', sidebarOpen);
@@ -314,6 +316,11 @@
 
     {{-- ─── One loader for every download: exports, PDFs, documents ─── --}}
     @include('partials.download-loader')
+
+    {{-- ─── Super Admin: login-style fields, drop a file on any picker, button spinners ─── --}}
+    @if ($lmsSuperAdmin)
+        @include('partials.super-admin-ui')
+    @endif
 
     {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}
     @include('partials.panel-app-open')

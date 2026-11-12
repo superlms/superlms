@@ -109,13 +109,14 @@ class Teacher extends Component
 
     private function baseQuery()
     {
-        return TeacherDetail::with(['user', 'user.organization', 'assignedSubjects.subject'])
+        return TeacherDetail::with(['user', 'user.organization', 'assignedSubjects.subject', 'assignedClasses'])
             ->when($this->filterOrganization, fn($q) => $q->whereHas('user', fn($q) => $q->where('organization_id', $this->filterOrganization)))
             ->when($this->search, fn($q) => $q->where(fn($q) => $q
                 ->where('employee_id', 'like', "%{$this->search}%")
                 ->orWhere('qualification', 'like', "%{$this->search}%")
                 ->orWhereHas('user', fn($q) => $q
                     ->where('name', 'like', "%{$this->search}%")
+                    ->orWhere('username', 'like', "%{$this->search}%")
                     ->orWhere('email', 'like', "%{$this->search}%")
                     ->orWhere('mobile_number', 'like', "%{$this->search}%")
                 )

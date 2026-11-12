@@ -251,7 +251,6 @@
                                 <input type="file" wire:model="coverImage" accept="image/*"
                                     class="block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-medium hover:file:bg-indigo-100" />
                                 <div wire:loading wire:target="coverImage" class="text-xs text-gray-400 mt-1">Uploading…</div>
-                                <p class="text-xs text-gray-400 mt-1">JPG / PNG, up to 4 MB.</p>
                                 @error('coverImage') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>

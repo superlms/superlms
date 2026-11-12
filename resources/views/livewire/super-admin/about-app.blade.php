@@ -795,7 +795,7 @@
                         {{-- Photo (single inline row, as on Students) --}}
                         <div>
                             <label class="{{ $aaLb }}">
-                                Profile Photo <span class="text-gray-400 font-normal">(Optional, max 2 MB{{ $editTeamIndex !== null ? ' · leave empty to keep the current one' : '' }})</span>
+                                Profile Photo
                             </label>
                             <div class="flex items-center gap-3">
                                 @if ($teamNew || $teamOld)
@@ -883,7 +883,7 @@
                              platform's own logo. --}}
                         <div>
                             <label class="{{ $aaLb }}">
-                                Custom Icon <span class="text-gray-400 font-normal">(Optional, max 1 MB — overrides the platform's logo)</span>
+                                Custom Icon
                             </label>
                             <div class="flex items-center gap-3">
                                 <div class="w-12 h-12 rounded-full border border-gray-200 bg-white p-2.5 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -980,7 +980,7 @@
                         <div>
                             <label class="{{ $aaLb }}">
                                 File @if ($editDocumentIndex === null)<span class="text-red-500">*</span>@endif
-                                <span class="text-gray-400 font-normal">(PDF, DOC, DOCX — max 2 MB{{ $docOld ? ' · leave empty to keep the current one' : '' }})</span>
+
                             </label>
                             <div class="flex items-center gap-3">
                                 <div class="w-12 h-12 rounded-lg bg-gray-100 text-gray-500 flex flex-col items-center justify-center flex-shrink-0">

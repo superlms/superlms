@@ -1,8 +1,8 @@
 <div class="min-h-screen bg-gray-50">
     @php
         $filtered = $search || $filterOrganization || $filterGender || $filterStatus !== '';
-        // The filter bar's boxes, as on Fees.
-        $sel      = 'text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+        // The filter bar's boxes, as on Fees, a size smaller.
+        $sel      = 'text-xs min-w-0 max-w-[11rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
     @endphp
 
     {{-- ══════════ HEADER in the Fees look: the title, the figures in one line and Add,
@@ -12,21 +12,21 @@
             'title' => 'Teachers', 'stats' => $stats, 'addLabel' => 'Add New Teacher', 'addAction' => 'openAddPanel',
         ])
 
-        {{-- FILTER BAR --}}
-        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {{-- FILTER BAR — the Fees bar, a little smaller --}}
+        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar>
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-1 text-xs font-semibold text-gray-600">
+                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
                     Filter by:
                 </div>
 
-                <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
-                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, mobile, employee ID…"
-                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div class="relative flex-[1_1_8rem] min-w-0 max-w-52">
+                    <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, username, email, mobile…"
+                        class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
                 <select wire:model.live="filterOrganization" class="{{ $sel }}">
@@ -51,17 +51,17 @@
 
                 @if ($filtered)
                     <button wire:click="clearFilters"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
 
-                {{-- Export: a school's teachers, so a school has to be picked first. --}}
+                {{-- Export: a school's teachers, so a school has to be picked first; then it is filled grey. --}}
                 <button wire:click="exportTeachers" @disabled(!$filterOrganization)
                     title="{{ $filterOrganization ? 'Export this school\'s teachers' : 'Select a school to export' }}"
-                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors
-                           {{ $filterOrganization ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-100' : 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed' }}">
+                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors
+                           {{ $filterOrganization ? 'border-gray-600 bg-gray-600 text-white hover:bg-gray-700 hover:border-gray-700' : 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed' }}">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 13v8m0 0l-3-3m3 3l3-3M20 16.6A5 5 0 0018 7h-1.26A8 8 0 104 15.25" /></svg>
                     {{ $filterOrganization ? 'Export' : 'Select School to Export' }}
                 </button>
@@ -73,25 +73,25 @@
 
         {{-- ══════════ DESKTOP TABLE in the Students look — fixed layout: every column fits the screen
              (no side scroll on a wide screen), long text is cut with … and shown in full on hover.
-             S.No counts on from the page before; the status is the dot beside the row's ⋮. ══════════ --}}
+             S.No, the teacher (qualification under the name), Username, Mobile, Email, Gender,
+             Class Teacher and School; the status is the dot beside the row's ⋮. ══════════ --}}
         @php
             $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
             $td = 'px-3 py-3 truncate';
         @endphp
         <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
             <div class="overflow-x-auto xl:overflow-visible rounded-xl">
-                <table class="w-full min-w-[1000px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
+                <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
                     <thead>
                         <tr class="bg-gray-50/80">
                             <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
                             <th class="{{ $th }} w-[20%]">Teacher</th>
-                            <th class="{{ $th }} w-[100px]">Employee ID</th>
-                            <th class="{{ $th }}">Subjects</th>
+                            <th class="{{ $th }} w-[120px]">Username</th>
                             <th class="{{ $th }} w-[104px]">Mobile</th>
                             <th class="{{ $th }}">Email</th>
-                            <th class="{{ $th }}">School</th>
                             <th class="{{ $th }} w-[72px]">Gender</th>
-                            <th class="{{ $th }} w-[96px]">Joined</th>
+                            <th class="{{ $th }} w-[120px]">Class Teacher</th>
+                            <th class="{{ $th }}">School</th>
                             <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                         </tr>
                     </thead>
@@ -99,17 +99,13 @@
                         @forelse ($teachers as $index => $teacher)
                             @php
                                 $name     = $teacher->user?->name;
+                                $username = $teacher->user?->username;
                                 $school   = $teacher->user?->organization?->name;
                                 $email    = $teacher->user?->email;
                                 $mobile   = $teacher->user?->mobile_number ?: $teacher->phone;
                                 $gender   = $teacher->user?->gender;
-                                $subjects = $teacher->assignedSubjects->map(fn ($a) => $a->subject?->name)->filter()->unique()->values();
-                                // An odd joining date that can't be read as a date is shown as stored.
-                                try {
-                                    $joined = $teacher->date_of_joining?->format('d M Y');
-                                } catch (\Throwable $e) {
-                                    $joined = (string) ($teacher->getAttributes()['date_of_joining'] ?? '');
-                                }
+                                // As the school panel shows it: Class 8-A, or Class 6 A & B.
+                                $classOf  = implode(', ', \App\Support\SectionNames::classLines($teacher->assignedClasses));
                             @endphp
                             <tr wire:key="sa-tch-row-{{ $teacher->id }}" class="hover:bg-gray-50/70 transition-colors">
                                 <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $teachers->firstItem() + $index }}</td>
@@ -131,19 +127,12 @@
                                     </div>
                                 </td>
 
-                                <td class="{{ $td }} tabular-nums" title="{{ $teacher->employee_id }}">{{ $teacher->employee_id ?: '—' }}</td>
-                                <td class="{{ $td }}" title="{{ $subjects->implode(', ') }}">
-                                    @if ($subjects->isNotEmpty())
-                                        {{ $subjects->take(2)->implode(', ') }}@if ($subjects->count() > 2)<span class="text-gray-400"> +{{ $subjects->count() - 2 }}</span>@endif
-                                    @else
-                                        <span class="text-gray-400">—</span>
-                                    @endif
-                                </td>
+                                <td class="{{ $td }}" title="{{ $username }}">{{ $username ?: '—' }}</td>
                                 <td class="{{ $td }} tabular-nums">{{ $mobile ?: '—' }}</td>
                                 <td class="{{ $td }} text-gray-500" title="{{ $email }}">{{ $email ?: '—' }}</td>
-                                <td class="{{ $td }}" title="{{ $school }}">{{ $school ?: '—' }}</td>
                                 <td class="{{ $td }}">{{ $gender ? ucfirst($gender) : '—' }}</td>
-                                <td class="{{ $td }} tabular-nums" title="{{ $joined }}">{{ $joined ?: '—' }}</td>
+                                <td class="{{ $td }} {{ $classOf !== '' ? '' : 'text-gray-400' }}" title="{{ $classOf }}">{{ $classOf !== '' ? $classOf : '—' }}</td>
+                                <td class="{{ $td }}" title="{{ $school }}">{{ $school ?: '—' }}</td>
 
                                 <td class="px-2 py-3">
                                     @include('livewire.super-admin.partials.list-row-actions', [
@@ -158,7 +147,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="px-6 py-14 text-center">
+                                <td colspan="9" class="px-6 py-14 text-center">
                                     <p class="text-gray-500 text-sm">No teachers found</p>
                                     @if ($filtered)
                                         <button wire:click="clearFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
@@ -202,12 +191,12 @@
                             <p class="text-gray-700 font-medium">{{ $teacher->user?->mobile_number ?: ($teacher->phone ?: '—') }}</p>
                         </div>
                         <div>
-                            <p class="text-xs text-gray-400">Employee ID</p>
-                            <p class="text-gray-700 font-medium tabular-nums">{{ $teacher->employee_id ?: '—' }}</p>
+                            <p class="text-xs text-gray-400">Username</p>
+                            <p class="text-gray-700 font-medium truncate">{{ $teacher->user?->username ?: '—' }}</p>
                         </div>
                         <div class="col-span-2">
-                            <p class="text-xs text-gray-400">Subjects</p>
-                            <p class="text-gray-700 truncate">{{ $teacher->assignedSubjects->map(fn ($a) => $a->subject?->name)->filter()->unique()->implode(', ') ?: '—' }}</p>
+                            <p class="text-xs text-gray-400">Class Teacher</p>
+                            <p class="text-gray-700 truncate">{{ implode(', ', \App\Support\SectionNames::classLines($teacher->assignedClasses)) ?: '—' }}</p>
                         </div>
                     </div>
 
@@ -301,7 +290,7 @@
 
                         {{-- Profile image --}}
                         <div>
-                            <label class="{{ $saLb }}">Teacher Profile Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
+                            <label class="{{ $saLb }}">Teacher Profile Image</label>
                             <div class="flex items-center gap-3">
                                 @if ($image)
                                     <img src="{{ $image->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">

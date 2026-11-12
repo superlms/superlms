@@ -428,13 +428,11 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp — a message (₹)</label>
                         <input wire:model="setWhatsappRate" type="number" step="0.01" min="0" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <p class="mt-1 text-xs text-gray-400">Absent alert, Fee received, Send Credentials and Notice. The welcome stays free.</p>
                         @error('setWhatsappRate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Email — an email (₹)</label>
                         <input wire:model="setEmailRate" type="number" step="0.01" min="0" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <p class="mt-1 text-xs text-gray-400">Each email a school sends from More → Messaging.</p>
                         @error('setEmailRate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -450,7 +448,6 @@
                 <div class="p-5">
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Where schools pay</label>
                     <textarea wire:model="setPaymentDetails" rows="4" placeholder="UPI: superlms@bank&#10;A/c 1234567890 · IFSC ABCD0001234 · SuperLMS" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    <p class="mt-1 text-xs text-gray-400">Shown to a school on Add funds. It pays here, then asks for the money to be put in its wallet; you approve it in Requests.</p>
                     @error('setPaymentDetails')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div class="px-5 py-3 flex justify-end">

@@ -200,7 +200,7 @@
                     <div class="px-6 py-6 space-y-5 {{ $step === 1 ? '' : 'hidden' }}">
                         {{-- Profile photo, one row --}}
                         <div>
-                            <label class="{{ $saLb }}">Profile Photo <span class="text-gray-400 font-normal">(Optional)</span></label>
+                            <label class="{{ $saLb }}">Profile Photo</label>
                             <div class="flex items-center gap-3">
                                 @if ($image)
                                     <img src="{{ $image->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0" alt="">
@@ -239,7 +239,7 @@
                                 @error('mobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="{{ $saLb }}">Alternative Mobile <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <label class="{{ $saLb }}">Alternative Mobile</label>
                                 <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"
                                     class="{{ $saIn }} @error('alternativeMobile') border-red-400 @enderror">
                                 @error('alternativeMobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -262,19 +262,19 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="{{ $saLb }}">Date of Birth <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <label class="{{ $saLb }}">Date of Birth</label>
                                 <input type="date" wire:model="dob" class="{{ $saIn }} @error('dob') border-red-400 @enderror">
                                 @error('dob')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="{{ $saLb }}">Date of Joining <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <label class="{{ $saLb }}">Date of Joining</label>
                                 <input type="date" wire:model="dateOfJoining" class="{{ $saIn }} @error('dateOfJoining') border-red-400 @enderror">
                                 @error('dateOfJoining')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         </div>
 
                         <div>
-                            <label class="{{ $saLb }}">Address <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                            <label class="{{ $saLb }}">Address</label>
                             <input type="text" wire:model="address" placeholder="Address"
                                 class="{{ $saIn }} @error('address') border-red-400 @enderror">
                             @error('address')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -291,9 +291,6 @@
                                     <option value="{{ $org->id }}">{{ $org->name }}</option>
                                 @endforeach
                             </select>
-                            <p class="mt-1 text-xs text-gray-400">
-                                {{ $allowedOrgId ? 'This user uses the granted screens for the selected school only.' : 'This user uses the granted screens for every school.' }}
-                            </p>
                             @error('allowedOrgId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
 

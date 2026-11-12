@@ -329,7 +329,7 @@
 
                     {{-- Reply attachment --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Attachment <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Attachment</label>
 
                         @if ($existingReplyAttachment && !$replyAttachment)
                             @php
@@ -344,7 +344,6 @@
                         <input type="file" wire:model="replyAttachment" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                             class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 file:text-xs file:font-medium hover:file:bg-gray-200" />
                         <div wire:loading wire:target="replyAttachment" class="text-xs text-gray-400 mt-1">Uploading…</div>
-                        <p class="text-xs text-gray-400 mt-1">Images, PDF or Word — up to 5&nbsp;MB. The school admin will see this with your reply.</p>
                         @error('replyAttachment')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>

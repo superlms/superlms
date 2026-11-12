@@ -37,7 +37,8 @@ class SuperAdminStudentListTest extends TestCase
             $t->string('image')->nullable(); $t->text('permissions')->nullable(); $t->timestamps();
         });
         Schema::create('standards', function (Blueprint $t) {
-            $t->id(); $t->unsignedBigInteger('organization_id')->nullable(); $t->string('name')->nullable(); $t->timestamps();
+            $t->id(); $t->unsignedBigInteger('organization_id')->nullable(); $t->string('name')->nullable();
+            $t->integer('order')->nullable(); $t->timestamps();
         });
         Schema::create('sections', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('standard_id')->nullable(); $t->string('name')->nullable(); $t->timestamps();
@@ -115,9 +116,25 @@ class SuperAdminStudentListTest extends TestCase
         // No cards any more.
         $this->assertStringNotContainsString('Total Students', $text);
 
+        // The filter bar a size smaller than Fees'; Export waits for a school, then is filled grey.
+        $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
+        $this->assertMatchesRegularExpression('/wire:click="exportStudents" disabled[^>]*bg-gray-50 text-gray-300/s', $html);
+        $page->set('filterOrganization', '9');
+        $this->assertMatchesRegularExpression('/wire:click="exportStudents"[^>]*bg-gray-600 text-white/s', $page->html());
+
         // Filtered, the figures follow the list.
-        $page->set('filterStatus', '0');
+        $page->set('filterOrganization', '')->set('filterStatus', '0');
         $this->assertSame(['Students', '1'], array_slice($page->viewData('stats')[1], 0, 2));
+    }
+
+    public function test_email_comes_before_gender_then_school(): void
+    {
+        $html = Livewire::test(Student::class)->html();
+
+        preg_match_all('/<th\b[^>]*>(?:\s*<button[^>]*>)?([^<]+)/', $html, $th);
+        $this->assertSame(['S.No', 'Student', 'Admission No', 'Father\'s Name', 'Mobile', 'Email', 'Gender', 'School'],
+            array_values(array_filter(array_map(fn ($h) => html_entity_decode(trim($h), ENT_QUOTES), $th[1]))));
+        $this->assertStringContainsString('s1@doon.in Male Doon School', preg_replace('/\s+/', ' ', strip_tags($html)));
     }
 
     public function test_rows_have_a_serial_number_the_class_alone_and_the_status_as_a_dot(): void

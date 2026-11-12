@@ -1229,7 +1229,7 @@
                             {{-- Logo --}}
                             <div>
                                 <label class="{{ $scLb }}">
-                                    School Logo <span class="text-gray-400 font-normal">(Optional, max 2 MB)</span>
+                                    School Logo
                                 </label>
                                 <div class="flex items-center gap-3">
                                     @if ($logoPreview)
@@ -1312,13 +1312,13 @@
                                     @error('serialNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="{{ $scLb }}">Affiliation No <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                    <label class="{{ $scLb }}">Affiliation No</label>
                                     <input wire:model.defer="affiliationNo" type="text" placeholder="Enter affiliation number"
                                         class="{{ $scIn }} @error('affiliationNo') border-red-400 @enderror">
                                     @error('affiliationNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="{{ $scLb }}">UDISE Number <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                    <label class="{{ $scLb }}">UDISE Number</label>
                                     <input wire:model.defer="udiseNumber" type="text" placeholder="Enter UDISE number"
                                         class="{{ $scIn }} @error('udiseNumber') border-red-400 @enderror">
                                     @error('udiseNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror

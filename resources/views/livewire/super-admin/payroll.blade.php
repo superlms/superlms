@@ -873,7 +873,6 @@
                             <label class="text-sm font-medium text-gray-700">Photo</label>
                             <input type="file" wire:model="empPhoto" accept="image/*" class="mt-1 block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:text-xs file:font-medium hover:file:bg-blue-100" />
                             <div wire:loading wire:target="empPhoto" class="text-xs text-gray-400 mt-1">Uploading…</div>
-                            <p class="text-[11px] text-gray-400 mt-0.5">JPG/PNG · max 1 MB</p>
                             @error('empPhoto')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -886,7 +885,7 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input type="email" wire:model.defer="empEmail" placeholder="email@example.com" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             @error('empEmail')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                         </div>
@@ -917,7 +916,7 @@
                             @error('empSalary')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Joining Date <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Joining Date</label>
                             <input type="date" wire:model.defer="empJoiningDate" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
@@ -1039,7 +1038,7 @@
 
                 <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-4">
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Amount (₹) * <span class="text-gray-400 font-normal">(attendance-adjusted)</span></label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Amount (₹) *</label>
                         <input type="number" wire:model.defer="payAmount" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
                         @error('payAmount')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
                     </div>
@@ -1079,7 +1078,7 @@
                     @endif
 
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Remark</label>
                         <input type="text" wire:model.defer="payRemark" placeholder="Optional note" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
                     </div>
                 </div>

@@ -770,7 +770,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Reference Link (optional)
+                            Reference Link
                         </label>
                         <input wire:model="policyLink" type="url" placeholder="https://..."
                             class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"/>
@@ -779,7 +779,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Image (optional)
+                                Image
                             </label>
                             <input wire:model="policyImage" type="file" accept="image/*"
                                 class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
@@ -789,7 +789,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Document PDF (optional)
+                                Document PDF
                             </label>
                             <input wire:model="policyDocument" type="file" accept=".pdf,.doc,.docx"
                                 class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg
