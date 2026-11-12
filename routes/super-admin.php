@@ -2,6 +2,7 @@
 
 use App\Livewire\SuperAdmin\AboutApp;
 use App\Livewire\SuperAdmin\Analytics;
+use App\Livewire\SuperAdmin\Calendar;
 use App\Livewire\SuperAdmin\Credit;
 use App\Livewire\SuperAdmin\Dashboard;
 use App\Livewire\SuperAdmin\Documents;
@@ -55,6 +56,8 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('students', Student::class)->name('super-admin.students');
     Route::get('teachers', Teacher::class)->name('super-admin.teachers');
     Route::get('fees', Fees::class)->name('super-admin.fees');
+    // Each person's own meetings, tasks and events (a sub-super-admin's are theirs alone).
+    Route::get('calendar', Calendar::class)->name('super-admin.calendar');
     Route::get('users', Users::class)->name('super-admin.users');
     Route::get('listing', Listing::class)->name('super-admin.listing');
     Route::get('more', More::class)->name('super-admin.more');

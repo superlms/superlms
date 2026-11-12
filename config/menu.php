@@ -250,6 +250,14 @@ return [
             'icon' => 'banknotes',
             'prefix' => 'super-admin.fees',
         ],
+        // Each person's own meetings, tasks and events: a sub-super-admin given
+        // Calendar gets a calendar of their own, never the super admin's.
+        [
+            'title' => 'Calendar',
+            'link' => 'super-admin.calendar',
+            'icon' => 'calendar',
+            'prefix' => 'super-admin.calendar',
+        ],
         [
             'title' => 'Users',
             'link' => 'super-admin.users',
