@@ -62,7 +62,10 @@ class SuperAdminPagesLookTest extends TestCase
         $html = Livewire::test(Reports::class)->html();
 
         preg_match_all('/<h2[^>]*>([^<]+)<\/h2>/', $html, $m);
-        $this->assertSame(['Today', 'Oct 2026', 'All-Time Totals', 'Day by Day'], array_map('trim', $m[1]));
+        $this->assertSame(['Today', 'Oct 2026', 'All-Time Totals'], array_map('trim', $m[1]));
+        // Since Reports took the Home's look (8a9dd51), Day by Day is a card
+        // of its own — its title a card title, with the month as a CSV.
+        $this->assertMatchesRegularExpression('/<h3 class="sa-card-title">Day by Day<\/h3>.*?wire:click="exportCsv" title="Download this month as a CSV"/s', $html);
         foreach (['New Students', 'Platform Revenue', 'Fees Collected', 'Support Tickets', 'Enquiries'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
