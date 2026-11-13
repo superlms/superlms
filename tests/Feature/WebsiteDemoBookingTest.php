@@ -371,6 +371,34 @@ class WebsiteDemoBookingTest extends TestCase
         $this->assertSame(['2026-11-13' => ['15:00', '16:00'], '2026-11-20' => ['15:00', '16:00']], DemoBooking::slots($demo));
     }
 
+    public function test_a_whatsapp_button_url_typed_a_little_off_in_meta_still_opens_the_booking_page(): void
+    {
+        $demo  = $this->demo();
+        $token = $demo->booking_token;
+        $page  = '/web/demo/book/' . $token;
+
+        $this->get($page)->assertOk()->assertSee('Doon Public School');
+        $this->get($page . '/')->assertOk()->assertSee('Doon Public School');
+
+        // Meta adds {{1}} after the URL typed into the template itself.
+        foreach ([
+            '/web/demo/book/%7B%7B1%7D%7D' . $token,   // typed with its own {{1}}
+            '/web/demo/book/abc123' . $token,          // the sample typed as the URL
+            '/web/demo/book' . $token,                 // without the last "/"
+            '/web/demo/' . $token,                     // without "book"
+            '/' . $token,                              // just the domain
+        ] as $url) {
+            $this->get($url)->assertRedirect($page);
+        }
+
+        // Anything without a real token is still not found.
+        $this->get('/web/demo/book/' . str_repeat('a', 40))->assertNotFound();
+        $this->get('/web/demo/book' . str_repeat('b', 40))->assertNotFound();
+        $this->get('/' . str_repeat('c', 40))->assertNotFound();
+        $this->get('/web/demo/book/short')->assertNotFound();
+        $this->get('/web/demo')->assertOk();
+    }
+
     public function test_a_sub_super_admin_without_website_enquiries_does_not_get_the_queries_tab(): void
     {
         $sub = User::forceCreate(['name' => 'Sub', 'email' => 'sub@superlms.in', 'role' => 'sub-super-admin', 'permissions' => ['super-admin.calendar']]);

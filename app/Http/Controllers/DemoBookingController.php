@@ -19,7 +19,10 @@ class DemoBookingController extends Controller
 {
     public function show(string $token)
     {
-        $demo = $this->demo($token);
+        $demo = $this->find($token);
+        if (!$demo) {
+            return $this->toBookingPage($token);
+        }
 
         return view('website.demo-booking', [
             'demo'     => $demo,
@@ -61,11 +64,42 @@ class DemoBookingController extends Controller
         return redirect()->route('website.demo.book', $token)->with('demo_booked', $moved ? 'moved' : 'booked');
     }
 
+    /**
+     * A link that carries a booking token, but not as /web/demo/book/{token}.
+     * Meta's dynamic URL button puts {{1}} after the URL typed into the
+     * template itself, so a URL typed with its own {{1}}, without its last
+     * "/", without "book", or as just the domain opens the WhatsApp button at
+     * /web/demo/book/%7B%7B1%7D%7D{token}, /web/demo/book{token},
+     * /web/demo/{token} or /{token}. The token is the link's last 40 letters
+     * and digits (DemoBooking tokens are Str::random(40)); on to its page.
+     */
+    public function loose(string $path)
+    {
+        return $this->toBookingPage($path);
+    }
+
+    private function toBookingPage(string $path)
+    {
+        abort_unless(preg_match('/([A-Za-z0-9]{40})\/*$/', rawurldecode($path), $m), 404);
+
+        $demo = WebsiteDemo::where('booking_token', $m[1])->first();
+        abort_unless($demo, 404);
+
+        return redirect()->route('website.demo.book', $demo->booking_token);
+    }
+
+    private function find(string $token): ?WebsiteDemo
+    {
+        if (!preg_match('/^[A-Za-z0-9]{20,64}$/', $token)) {
+            return null;
+        }
+
+        return WebsiteDemo::where('booking_token', $token)->first();
+    }
+
     private function demo(string $token): WebsiteDemo
     {
-        abort_unless(preg_match('/^[A-Za-z0-9]{20,64}$/', $token), 404);
-
-        return WebsiteDemo::where('booking_token', $token)->firstOrFail();
+        return $this->find($token) ?? abort(404);
     }
 
     /** A time can be picked while nothing is booked, or the booked demo is still ahead. */

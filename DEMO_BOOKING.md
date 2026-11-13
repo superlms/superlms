@@ -57,6 +57,11 @@ footer must be plain **Text** with no variable (no image/video header), and the 
 (first) button. The wording itself can be changed in Meta freely as long as those stay the same. The demo's
 length is not in the text on purpose — it is set in Booking Settings (15–60 min).
 
+**Button URL:** with URL type **Dynamic**, type only `https://superlms.in/web/demo/book/` (ending in `/`) —
+Meta puts `{{1}}` after it itself. The site also forwards the usual slips to the right page (a URL typed with its
+own `{{1}}`, without the last `/`, without `book`, or just the domain), so a template already approved that way
+still works: `DemoBookingController::loose`.
+
 ### `demo_request_thanks`
 
 Header (Text): `Your SuperLMS demo request`
@@ -79,8 +84,8 @@ Samples: `{{1}}` Rahul · `{{2}}` Doon Public School
 
 Footer: `This booking link is only for you. Please don't share it.`
 
-Button: **Visit website** → text `Pick a time` → URL type **Dynamic** → `https://superlms.in/web/demo/book/{{1}}`
-(sample: `https://superlms.in/web/demo/book/abc123`)
+Button: **Visit website** → text `Pick a time` → URL type **Dynamic** → Website URL `https://superlms.in/web/demo/book/`
+(Meta adds `{{1}}`; sample URL: `https://superlms.in/web/demo/book/abc123`)
 
 ### `demo_meeting_confirmed`
 
@@ -110,8 +115,8 @@ Samples: `{{1}}` Rahul · `{{2}}` Mon, 16 Nov 2026 at 11:00 AM (IST) · `{{3}}` 
 
 Footer: `Reply to this message if you need any help.`
 
-Button: **Visit website** → text `Change time` → URL type **Dynamic** → `https://superlms.in/web/demo/book/{{1}}`
-(sample: `https://superlms.in/web/demo/book/abc123`)
+Button: **Visit website** → text `Change time` → URL type **Dynamic** → Website URL `https://superlms.in/web/demo/book/`
+(Meta adds `{{1}}`; sample URL: `https://superlms.in/web/demo/book/abc123`)
 
 ## Emails
 

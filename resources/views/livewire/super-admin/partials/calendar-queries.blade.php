@@ -457,7 +457,9 @@
                                 </div>
                                 <p><span class="text-gray-400">Samples:</span> @foreach ($t['samples'] as $i => $sample)<span class="font-mono">{{ str_repeat('{', 2) . ($i + 1) . str_repeat('}', 2) }}</span> {{ $sample }}@if (!$loop->last) · @endif @endforeach</p>
                                 <p><span class="text-gray-400">Footer:</span> {{ $t['footer'] }}</p>
-                                <p class="break-all"><span class="text-gray-400">Button:</span> Visit website · “{{ $t['button'][0] }}” · Dynamic URL <span class="font-mono">{{ $t['button'][1] }}</span></p>
+                                <p class="break-all"><span class="text-gray-400">Button:</span> Visit website · “{{ $t['button'][0] }}” · URL type Dynamic</p>
+                                <p class="break-all"><span class="text-gray-400">Website URL (type only this — Meta adds {{ str_repeat('{', 2) }}1{{ str_repeat('}', 2) }} after it):</span> <span class="font-mono">{{ $t['button'][1] }}</span></p>
+                                <p class="break-all"><span class="text-gray-400">Sample URL:</span> <span class="font-mono">{{ $t['button'][2] }}</span></p>
                             </div>
                         </div>
                     @endforeach

@@ -42,10 +42,13 @@ class DemoBooking
      * plain text (no variables: the send carries none for them), the body's
      * variables are the ones DemoMessages sends, in that order, and the only
      * button is a dynamic "Visit website" URL whose {{1}} is the booking token.
+     * Meta adds that {{1}} after the URL typed into the template itself, so
+     * 'button' gives the text, the URL to type (ending in "/") and a sample.
      */
     public static function whatsAppTemplates(): array
     {
-        $base = rtrim((string) config('app.url'), '/') . '/web/demo/book/{{1}}';
+        $book = rtrim((string) config('app.url'), '/') . '/web/demo/book/';
+        $base = [$book, $book . 'abc123'];
 
         return [
             [
@@ -61,7 +64,7 @@ class DemoBooking
                             . "Team SuperLMS",
                 'samples'  => ['Rahul', 'Doon Public School'],
                 'footer'   => "This booking link is only for you. Please don't share it.",
-                'button'   => ['Pick a time', $base],
+                'button'   => ['Pick a time', ...$base],
             ],
             [
                 'name'     => (string) config('services.whatsapp.templates.demo_confirmed'),
@@ -80,7 +83,7 @@ class DemoBooking
                             . "Team SuperLMS",
                 'samples'  => ['Rahul', 'Mon, 16 Nov 2026 at 11:00 AM (IST)', 'https://meet.google.com/abc-defg-hij'],
                 'footer'   => 'Reply to this message if you need any help.',
-                'button'   => ['Change time', $base],
+                'button'   => ['Change time', ...$base],
             ],
         ];
     }

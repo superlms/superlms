@@ -89,4 +89,13 @@ Route::prefix('web')->group(function () {
     Route::post('/demo/book/{token}', [\App\Http\Controllers\DemoBookingController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('website.demo.book.store');
+    // The same link as a WhatsApp button opens it when the Meta template's URL
+    // was typed a little off (/web/demo/book{token}, /web/demo/{token} …):
+    // sent on to the page above (DemoBookingController::loose).
+    Route::get('/demo/{path}', [\App\Http\Controllers\DemoBookingController::class, 'loose'])
+        ->where('path', '.+')
+        ->middleware('throttle:30,1');
 });
+Route::get('/{path}', [\App\Http\Controllers\DemoBookingController::class, 'loose'])
+    ->where('path', '[A-Za-z0-9]{40}')
+    ->middleware('throttle:30,1');
