@@ -43,16 +43,10 @@ class TransportFeePayment extends Model
         });
     }
 
+    /** The school's next TRCT- number this year: one past the highest in use (never a count — see ReceiptNumber). */
     public static function generateReceiptNumber(int $orgId): string
     {
-        $year = date('Y');
-        $count = self::where('organization_id', $orgId)
-            ->whereYear('created_at', $year)
-            ->lockForUpdate()
-            ->count();
-
-        $sequence = str_pad($count + 1, 5, '0', STR_PAD_LEFT);
-        return "TRCT-{$orgId}-{$year}-{$sequence}";
+        return \App\Support\ReceiptNumber::next("TRCT-{$orgId}-" . date('Y') . '-', [(new self)->getTable()]);
     }
 
     public function organization()

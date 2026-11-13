@@ -51,16 +51,17 @@ class FeePayment extends Model
         });
     }
 
+    /**
+     * The school's next RCT- number this year: one past the highest in use,
+     * here or on a transport payment that kept its RCT- number when it moved
+     * out of this table (never a count — see ReceiptNumber).
+     */
     public static function generateReceiptNumber(int $orgId): string
     {
-        $year = date('Y');
-        $lastReceipt = self::where('organization_id', $orgId)
-            ->whereYear('created_at', $year)
-            ->lockForUpdate()
-            ->count();
-
-        $sequence = str_pad($lastReceipt + 1, 5, '0', STR_PAD_LEFT);
-        return "RCT-{$orgId}-{$year}-{$sequence}";
+        return \App\Support\ReceiptNumber::next(
+            "RCT-{$orgId}-" . date('Y') . '-',
+            [(new self)->getTable(), (new \App\Models\Admin\TransportFeePayment)->getTable()]
+        );
     }
 
     public function organization(): BelongsTo
