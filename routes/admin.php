@@ -129,6 +129,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/more', More::class)->name('admin.more');
         // The school's messaging wallet, and its WhatsApp / email to many (More → Messaging).
         Route::get('/messaging', \App\Livewire\Admin\Messaging::class)->name('admin.messaging');
+        // The school's own push notifications to its students and teachers (More → Push Notification).
+        Route::get('/push-notification', \App\Livewire\Admin\PushNotification::class)->name('admin.push-notification');
         // More → Reception, Gatepass and Complaints: only their pages for now.
         Route::get('/reception', \App\Livewire\Admin\Reception::class)->name('admin.reception');
         Route::get('/gatepass', \App\Livewire\Admin\Gatepass::class)->name('admin.gatepass');

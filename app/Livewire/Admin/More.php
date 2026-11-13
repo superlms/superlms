@@ -16,6 +16,8 @@ class More extends Component
         ['title' => 'Exam Copy',            'route' => 'admin.exam-copy',            'icon' => 'document-text'],
         // The messaging wallet, and WhatsApp / email to the school's students and teachers.
         ['title' => 'Messaging',            'route' => 'admin.messaging',            'icon' => 'chat-bubble-left-right'],
+        // A push notification to the school's students and teachers (2026-11-13; the Notification module's).
+        ['title' => 'Push Notification',    'route' => 'admin.push-notification',    'icon' => 'megaphone'],
         // Only their pages so far (2026-11-04); what they do is still to be built.
         ['title' => 'Reception',            'route' => 'admin.reception',            'icon' => 'building-office'],
         ['title' => 'Gatepass',             'route' => 'admin.gatepass',             'icon' => 'ticket'],

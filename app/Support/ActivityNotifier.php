@@ -100,6 +100,7 @@ class ActivityNotifier
         'DriverDetail'         => 'Driver',
         'AdmitCard'            => 'Admit Card',
         'TeacherArrangement'   => 'Teacher Arrangement',
+        'SchoolPushNotification' => 'Push Notification',
     ];
 
     protected static array $roleLabels = [
