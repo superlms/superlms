@@ -448,13 +448,15 @@
                                 <svg class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                             </button>
                             <div x-show="open" x-cloak class="border-t border-gray-100 px-3 py-2.5 space-y-2 text-[11px] text-gray-600">
-                                <p><span class="text-gray-400">Category:</span> {{ $t['category'] }} · <span class="text-gray-400">Language:</span> English</p>
+                                <p><span class="text-gray-400">Category:</span> {{ $t['category'] }} · <span class="text-gray-400">Language:</span> English (en) · <span class="text-gray-400">Variables:</span> Number</p>
+                                <p><span class="text-gray-400">Header (Text):</span> {{ $t['header'] }}</p>
                                 <div>
                                     <div class="flex items-center justify-between"><span class="text-gray-400">Body</span>
                                         <button type="button" x-on:click="navigator.clipboard && navigator.clipboard.writeText(@js($t['body']))" class="text-blue-600 hover:underline">Copy</button></div>
                                     <pre class="mt-1 whitespace-pre-wrap font-sans text-xs text-gray-800 bg-gray-50 rounded-md px-2.5 py-2">{{ $t['body'] }}</pre>
                                 </div>
                                 <p><span class="text-gray-400">Samples:</span> @foreach ($t['samples'] as $i => $sample)<span class="font-mono">{{ str_repeat('{', 2) . ($i + 1) . str_repeat('}', 2) }}</span> {{ $sample }}@if (!$loop->last) · @endif @endforeach</p>
+                                <p><span class="text-gray-400">Footer:</span> {{ $t['footer'] }}</p>
                                 <p class="break-all"><span class="text-gray-400">Button:</span> Visit website · “{{ $t['button'][0] }}” · Dynamic URL <span class="font-mono">{{ $t['button'][1] }}</span></p>
                             </div>
                         </div>

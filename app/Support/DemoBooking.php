@@ -38,8 +38,10 @@ class DemoBooking
     /**
      * The two WhatsApp templates the demo messages use, as they are to be made
      * in Meta (WhatsApp Manager → Message templates), language English: shown
-     * under Booking settings and in DEMO_BOOKING.md. The button is a
-     * dynamic "Visit website" URL whose {{1}} is the request's booking token.
+     * under Booking settings and in DEMO_BOOKING.md. The header and footer are
+     * plain text (no variables: the send carries none for them), the body's
+     * variables are the ones DemoMessages sends, in that order, and the only
+     * button is a dynamic "Visit website" URL whose {{1}} is the booking token.
      */
     public static function whatsAppTemplates(): array
     {
@@ -50,19 +52,34 @@ class DemoBooking
                 'name'     => (string) config('services.whatsapp.templates.demo_thanks'),
                 'when'     => 'Sent right after someone requests a demo on the website',
                 'category' => 'Utility',
-                'body'     => "Hi {{1}}, thank you for requesting a SuperLMS demo for {{2}}!\n\n"
-                            . "Please pick a date and time that suits you for your 30-minute live demo. Your meeting link is sent to you the moment you confirm.",
+                'header'   => 'Your SuperLMS demo request',
+                'body'     => "Hi {{1}},\n\n"
+                            . "Thank you for requesting a live demo of SuperLMS for {{2}}. We have received your request.\n\n"
+                            . "Next step: tap \"Pick a time\" below and choose a date and time that suits you. Your meeting link will be sent to you on WhatsApp and email as soon as you confirm.\n\n"
+                            . "In the demo, our team will walk you through SuperLMS and answer your questions about your school's needs.\n\n"
+                            . "If you have any questions before then, simply reply to this message.\n\n"
+                            . "Team SuperLMS",
                 'samples'  => ['Rahul', 'Doon Public School'],
+                'footer'   => "This booking link is only for you. Please don't share it.",
                 'button'   => ['Pick a time', $base],
             ],
             [
                 'name'     => (string) config('services.whatsapp.templates.demo_confirmed'),
                 'when'     => 'Sent the moment a time is picked on the booking page',
                 'category' => 'Utility',
-                'body'     => "Hi {{1}}, your SuperLMS demo is booked for {{2}}.\n\n"
-                            . "Join the meeting here: {{3}}\n\n"
-                            . "Please join a minute early from a laptop or phone. See you there!",
+                'header'   => 'Your SuperLMS demo is confirmed',
+                'body'     => "Hi {{1}},\n\n"
+                            . "Your SuperLMS live demo is confirmed.\n\n"
+                            . "📅 Date & time: {{2}}\n"
+                            . "🔗 Meeting link: {{3}}\n\n"
+                            . "Before the meeting:\n"
+                            . "• Please join 2–3 minutes early from a laptop or phone with a stable internet connection.\n"
+                            . "• Keep your questions ready: admissions, fees, attendance, exams, or anything else your school needs.\n\n"
+                            . "Need a different time? Tap \"Change time\" below and pick a new slot. You will get the updated details right away.\n\n"
+                            . "See you there!\n"
+                            . "Team SuperLMS",
                 'samples'  => ['Rahul', 'Mon, 16 Nov 2026 at 11:00 AM (IST)', 'https://meet.google.com/abc-defg-hij'],
+                'footer'   => 'Reply to this message if you need any help.',
                 'button'   => ['Change time', $base],
             ],
         ];

@@ -24,11 +24,17 @@ Without any setup each booked demo gets a **Jitsi Meet** link (`https://meet.jit
 
 For **Google Meet** links (the demo is also put on that Google Calendar and Google sends the visitor an invite):
 
-1. Google Cloud Console → a project → **APIs & Services → Library** → enable **Google Calendar API**.
-2. **OAuth consent screen** → External, app name SuperLMS, add your Google account as a test user
-   (or publish the app), scopes `openid`, `email`, `.../auth/calendar.events`.
-3. **Credentials → Create credentials → OAuth client ID** → Web application →
-   Authorized redirect URI: `https://superlms.in/calendar/google/callback`.
+1. Google Cloud Console (console.cloud.google.com) → create a project (e.g. `SuperLMS`) →
+   **APIs & Services → Library** → enable **Google Calendar API**.
+2. **Google Auth Platform** (APIs & Services → OAuth consent screen) → **Get started**: app name SuperLMS,
+   support email, audience **External** (or **Internal** if the account is Google Workspace), contact email.
+   - **Data Access → Add or remove scopes**: `openid`, `.../auth/userinfo.email`, `.../auth/calendar.events`.
+   - **Audience → Publish app** (status **In production**). Left in *Testing*, Google expires the refresh
+     token after 7 days and Meet links quietly fall back to Jitsi. Unverified is fine: only the owner
+     connects, through Google's "app isn't verified" screen (Advanced → Go to SuperLMS).
+3. **Clients → Create client** → Web application → Authorized redirect URI:
+   `https://superlms.in/calendar/google/callback`. Copy the Client ID and Client secret (or download the
+   JSON) at once — the secret is not shown again later.
 4. On the server, add to `/opt/superlms/infra/lite/.env` and recreate web/worker/scheduler:
    ```
    GOOGLE_CLIENT_ID=...apps.googleusercontent.com
@@ -42,36 +48,70 @@ the booking still goes through with a Jitsi link.
 
 ## WhatsApp templates (Meta → WhatsApp Manager → Message templates)
 
-Create both in **English** (`en`), category **Utility**. Until Meta approves them, only the emails go
-(the Queries → View panel shows the WhatsApp error). Names can be changed with
-`WHATSAPP_TEMPLATE_DEMO_THANKS` / `WHATSAPP_TEMPLATE_DEMO_CONFIRMED`.
+Create both in **English** (`en`, not English (US)), category **Utility**, variable type **Number**. Until
+Meta approves them, only the emails go (the Queries → View panel shows the WhatsApp error). Names can be
+changed with `WHATSAPP_TEMPLATE_DEMO_THANKS` / `WHATSAPP_TEMPLATE_DEMO_CONFIRMED`.
+
+The send carries only the body variables (in the order below) and the button's `{{1}}`, so: the header and
+footer must be plain **Text** with no variable (no image/video header), and the dynamic URL must be the only
+(first) button. The wording itself can be changed in Meta freely as long as those stay the same. The demo's
+length is not in the text on purpose — it is set in Booking Settings (15–60 min).
 
 ### `demo_request_thanks`
 
+Header (Text): `Your SuperLMS demo request`
+
 Body:
 ```
-Hi {{1}}, thank you for requesting a SuperLMS demo for {{2}}!
+Hi {{1}},
 
-Please pick a date and time that suits you for your 30-minute live demo. Your meeting link is sent to you the moment you confirm.
+Thank you for requesting a live demo of SuperLMS for {{2}}. We have received your request.
+
+Next step: tap "Pick a time" below and choose a date and time that suits you. Your meeting link will be sent to you on WhatsApp and email as soon as you confirm.
+
+In the demo, our team will walk you through SuperLMS and answer your questions about your school's needs.
+
+If you have any questions before then, simply reply to this message.
+
+Team SuperLMS
 ```
 Samples: `{{1}}` Rahul · `{{2}}` Doon Public School
+
+Footer: `This booking link is only for you. Please don't share it.`
 
 Button: **Visit website** → text `Pick a time` → URL type **Dynamic** → `https://superlms.in/web/demo/book/{{1}}`
 (sample: `https://superlms.in/web/demo/book/abc123`)
 
 ### `demo_meeting_confirmed`
 
+Sent when a time is booked, and again when it is changed.
+
+Header (Text): `Your SuperLMS demo is confirmed`
+
 Body:
 ```
-Hi {{1}}, your SuperLMS demo is booked for {{2}}.
+Hi {{1}},
 
-Join the meeting here: {{3}}
+Your SuperLMS live demo is confirmed.
 
-Please join a minute early from a laptop or phone. See you there!
+📅 Date & time: {{2}}
+🔗 Meeting link: {{3}}
+
+Before the meeting:
+• Please join 2–3 minutes early from a laptop or phone with a stable internet connection.
+• Keep your questions ready: admissions, fees, attendance, exams, or anything else your school needs.
+
+Need a different time? Tap "Change time" below and pick a new slot. You will get the updated details right away.
+
+See you there!
+Team SuperLMS
 ```
 Samples: `{{1}}` Rahul · `{{2}}` Mon, 16 Nov 2026 at 11:00 AM (IST) · `{{3}}` https://meet.google.com/abc-defg-hij
 
+Footer: `Reply to this message if you need any help.`
+
 Button: **Visit website** → text `Change time` → URL type **Dynamic** → `https://superlms.in/web/demo/book/{{1}}`
+(sample: `https://superlms.in/web/demo/book/abc123`)
 
 ## Emails
 
