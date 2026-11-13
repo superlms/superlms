@@ -426,12 +426,42 @@
                             {{-- Rows --}}
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                                 @foreach ($shownModules as $key => $def)
-                                    <label wire:key="module-{{ $key }}"
-                                        class="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
-                                        <input type="checkbox" wire:model="moduleStates.{{ $key }}"
-                                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                                        <span class="text-sm text-gray-700 truncate">{{ $def['label'] ?? $key }}</span>
-                                    </label>
+                                    @if ($key === 'fees')
+                                        {{-- Fees, with its ▾ options: "Fee submitted date = fee date"
+                                             (App\Support\FeeSubmittedDate), saved with the modules. --}}
+                                        <div wire:key="module-{{ $key }}-{{ $detailSchool->id }}"
+                                            x-data="{ open: @js($feeSubmittedAsPaymentDate) }"
+                                            class="border-b border-gray-100">
+                                            <div class="flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50">
+                                                <label class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+                                                    <input type="checkbox" wire:model="moduleStates.{{ $key }}"
+                                                        class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                                    <span class="text-sm text-gray-700 truncate">{{ $def['label'] ?? $key }}</span>
+                                                </label>
+                                                <button type="button" x-on:click="open = !open" x-bind:aria-expanded="open"
+                                                    title="Fee options"
+                                                    class="-mr-1 p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                                                    <svg class="w-4 h-4 transition-transform" x-bind:class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                </button>
+                                            </div>
+                                            <label x-show="open"
+                                                class="flex items-start gap-2 pl-10 pr-4 pb-2.5 cursor-pointer">
+                                                <input type="checkbox" wire:model="feeSubmittedAsPaymentDate"
+                                                    class="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                                <span class="text-xs leading-snug text-gray-700">
+                                                    Fee submitted date = fee date
+                                                    <span class="block text-gray-400">The receipt's Fee Submitted shows the date picked for the fee, not the day it was entered.</span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    @else
+                                        <label wire:key="module-{{ $key }}"
+                                            class="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                                            <input type="checkbox" wire:model="moduleStates.{{ $key }}"
+                                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                            <span class="text-sm text-gray-700 truncate">{{ $def['label'] ?? $key }}</span>
+                                        </label>
+                                    @endif
                                 @endforeach
                             </div>
 

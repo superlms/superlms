@@ -68,6 +68,9 @@ class Schools extends Component
     // ── Per-school module toggles (module_key => bool) ─────────────────────────
     public array $moduleStates = [];
 
+    // Fees → "Fee submitted date = fee date" (App\Support\FeeSubmittedDate).
+    public bool $feeSubmittedAsPaymentDate = false;
+
     public bool $showModal   = false;
     public      $editId      = null;
     public      $adminUserId = null;
@@ -633,13 +636,16 @@ class Schools extends Component
     private function loadModuleStates(): void
     {
         if (!$this->detailSchool) {
-            $this->moduleStates = [];
+            $this->moduleStates              = [];
+            $this->feeSubmittedAsPaymentDate = false;
             return;
         }
 
         $saved = \App\Models\OrganizationModule::where('organization_id', $this->detailSchool->id)
             ->pluck('enabled', 'module_key')
             ->toArray();
+
+        $this->feeSubmittedAsPaymentDate = (bool) ($saved[\App\Support\FeeSubmittedDate::KEY] ?? false);
 
         $states = [];
         foreach (config('modules', []) as $key => $def) {
@@ -679,6 +685,8 @@ class Schools extends Component
                 ['enabled' => $enabled],
             );
         }
+
+        \App\Support\FeeSubmittedDate::setEnabled((int) $this->detailSchool->id, $this->feeSubmittedAsPaymentDate);
 
         $this->notification()->success('Module access updated successfully!');
     }

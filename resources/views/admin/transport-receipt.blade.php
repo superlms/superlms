@@ -59,15 +59,7 @@
             <td class="k">Roll No.</td>
             <td class="v">{{ $student->roll_no ?: '—' }}</td>
         </tr>
-        <tr>
-            <td class="k">Fee Submitted</td>
-            <td class="v" colspan="3">
-                {{ optional($payment->created_at)->format('d M Y') ?? '—' }}
-                @if ($payment->created_at)
-                    <span style="font-weight:normal; color:#6b7280;">· {{ $payment->created_at->format('h:i A') }}</span>
-                @endif
-            </td>
-        </tr>
+        @include('admin.partials.receipt-submitted')
     </table>
 
     {{-- ══════════ THIS PAYMENT ══════════ --}}
