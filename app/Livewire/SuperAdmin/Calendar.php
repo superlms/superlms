@@ -3,22 +3,42 @@
 namespace App\Livewire\SuperAdmin;
 
 use App\Models\SuperAdmin\SuperAdminCalendarEvent;
+use App\Models\User;
+use App\Models\WebsiteDemo;
+use App\Services\DemoMessages;
+use App\Services\MeetLink;
+use App\Support\DemoBooking;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
- * Super Admin → Calendar: the signed-in person's own meetings (when, with
- * whom, where), tasks (ticked off when done) and events. A month on the left,
- * Today's list — and the day picked on the month — on the right, with the
- * tasks left open from earlier days.
+ * Super Admin → Calendar, in two tabs.
  *
- * Every row is the signed-in user's own (user_id): the super admin and each
- * sub-super-admin given Calendar see, add, change and delete only theirs.
+ * Calendar: the signed-in person's own meetings (when, with whom, where),
+ * tasks (ticked off when done) and events. The month fits the window, with
+ * its previous / next / Today on the card itself; Today's list — and the day
+ * picked on the month — on the right, with the tasks left open from earlier
+ * days. Every row is the signed-in user's own (user_id): the super admin and
+ * each sub-super-admin given Calendar see, add, change and delete only theirs.
+ *
+ * Queries: the website's demo requests (WebsiteDemo) with when they came and
+ * their status — Pending until a time is picked on the request's own booking
+ * link, then Booked (with its Meet link, and on the calendar of the person
+ * set in Booking settings), Completed or Cancelled. Shown to whoever may open
+ * Website Enquiries (the main super admin, or a sub-super-admin given it).
  */
 class Calendar extends Component
 {
+    use WithPagination;
+
+    public const TABS = ['calendar', 'queries'];
+
+    #[Url(as: 'tab', except: 'calendar')]
+    public string $tab = 'calendar';
+
     /** The month shown: "2026-11". */
     #[Url(as: 'month')]
     public string $month = '';
@@ -27,9 +47,29 @@ class Calendar extends Component
     #[Url(as: 'day')]
     public string $day = '';
 
+    // ─── Calendar filters ──────────────────────────────────────────────────
     /** '' (everything) | meeting | task | event */
     #[Url(as: 'type')]
     public string $typeFilter = '';
+
+    #[Url(as: 'q', except: '')]
+    public string $search = '';
+
+    /** '' | open | done */
+    #[Url(as: 'status', except: '')]
+    public string $statusFilter = '';
+
+    // ─── Queries filters ───────────────────────────────────────────────────
+    #[Url(as: 'qs', except: '')]
+    public string $qSearch = '';
+
+    /** '' | pending | booked | completed | cancelled */
+    #[Url(as: 'qstatus', except: '')]
+    public string $qStatus = '';
+
+    /** '' (all time) | 7 | 30 | 90 days */
+    #[Url(as: 'qdays', except: '')]
+    public string $qDays = '';
 
     // ─── Add / edit slide-in ────────────────────────────────────────────────
     public bool   $showPanel = false;
@@ -46,6 +86,23 @@ class Calendar extends Component
     // ─── Delete confirmation ───────────────────────────────────────────────
     public ?int $deleteId = null;
 
+    // ─── Queries: a request's slide-in, its delete ─────────────────────────
+    public ?int $viewQueryId   = null;
+    public ?int $deleteQueryId = null;
+
+    // ─── Booking settings slide-in ─────────────────────────────────────────
+    public bool   $showSettings = false;
+    public array  $sDays        = [];
+    public string $sStart       = '10:00';
+    public string $sEnd         = '18:00';
+    public string $sMinutes     = '30';
+    public string $sDaysAhead   = '14';
+    public string $sNotice      = '3';
+    public string $sOwner       = '';
+
+    /** thanks | confirmed: the email shown in a preview over the settings. */
+    public ?string $previewEmail = null;
+
     public function mount(): void
     {
         $today = Carbon::today();
@@ -56,6 +113,50 @@ class Calendar extends Component
         if (!array_key_exists($this->typeFilter, SuperAdminCalendarEvent::TYPES)) {
             $this->typeFilter = '';
         }
+        if (!in_array($this->tab, self::TABS, true) || ($this->tab === 'queries' && !$this->canSeeQueries())) {
+            $this->tab = 'calendar';
+        }
+    }
+
+    // ─── Tabs and filters ──────────────────────────────────────────────────
+    public function switchTab(string $tab): void
+    {
+        if (!in_array($tab, self::TABS, true) || ($tab === 'queries' && !$this->canSeeQueries())) {
+            return;
+        }
+
+        $this->tab = $tab;
+        $this->resetPage();
+        $this->closePanel();
+        $this->closeQuery();
+        $this->showSettings = false;
+    }
+
+    public function updatedQSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedQStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedQDays(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        if ($this->tab === 'queries') {
+            $this->qSearch = $this->qStatus = $this->qDays = '';
+            $this->resetPage();
+
+            return;
+        }
+
+        $this->search = $this->statusFilter = $this->typeFilter = '';
     }
 
     // ─── Moving around ─────────────────────────────────────────────────────
@@ -90,6 +191,11 @@ class Calendar extends Component
     public function setType(string $type): void
     {
         $this->typeFilter = array_key_exists($type, SuperAdminCalendarEvent::TYPES) ? $type : '';
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->setType($this->typeFilter);
     }
 
     // ─── Add / edit ────────────────────────────────────────────────────────
@@ -220,7 +326,8 @@ class Calendar extends Component
 
     public function cancelDelete(): void
     {
-        $this->deleteId = null;
+        $this->deleteId      = null;
+        $this->deleteQueryId = null;
     }
 
     public function delete(): void
@@ -235,15 +342,209 @@ class Calendar extends Component
         $this->deleteId = null;
     }
 
+    // ─── Queries ───────────────────────────────────────────────────────────
+    public function viewQuery(int $id): void
+    {
+        if (!$this->canSeeQueries() || !WebsiteDemo::whereKey($id)->exists()) {
+            return;
+        }
+
+        $this->viewQueryId = $id;
+    }
+
+    public function closeQuery(): void
+    {
+        $this->viewQueryId = null;
+    }
+
+    /** The request's booking link to the clipboard (made the first time). */
+    public function copyBookingLink(int $id): void
+    {
+        $demo = $this->query($id);
+        if (!$demo) {
+            return;
+        }
+
+        $this->dispatch('copy-text', text: $demo->bookingUrl());
+        $this->dispatch('notify', ['type' => 'success', 'message' => 'Booking link copied.']);
+    }
+
+    /** The thank-you with the booking link, sent again by email and WhatsApp. */
+    public function resendBookingLink(int $id): void
+    {
+        $demo = $this->query($id);
+        if (!$demo) {
+            return;
+        }
+        if (in_array($demo->statusKey(), ['completed', 'cancelled'], true)) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Reopen the request first.']);
+            return;
+        }
+
+        $result = DemoMessages::thanks($demo);
+        $sent   = array_keys(array_filter(['email' => $result['email'] === 'ok', 'WhatsApp' => $result['whatsapp'] === 'ok']));
+
+        $this->dispatch('notify', $sent
+            ? ['type' => 'success', 'message' => 'Booking link sent by ' . implode(' and ', $sent) . '.']
+            : ['type' => 'error', 'message' => 'Not sent: ' . $result['email']]);
+    }
+
+    /** complete | cancel | reopen */
+    public function setQueryStatus(int $id, string $action): void
+    {
+        $demo = $this->query($id);
+        if (!$demo) {
+            return;
+        }
+
+        $status = $demo->statusKey();
+        if ($action === 'complete' && $status !== 'completed') {
+            $demo->update(['status' => 'completed']);
+            $message = 'Marked as completed.';
+        } elseif ($action === 'cancel' && in_array($status, ['pending', 'booked'], true)) {
+            DemoBooking::cancel($demo);
+            $message = 'Demo cancelled' . ($status === 'booked' ? ' and taken off the calendar.' : '.');
+        } elseif ($action === 'reopen' && in_array($status, ['completed', 'cancelled'], true)) {
+            DemoBooking::reopen($demo);
+            $message = 'Reopened — the booking link works again.';
+        } else {
+            return;
+        }
+
+        $this->dispatch('notify', ['type' => 'success', 'message' => $message]);
+    }
+
+    public function confirmDeleteQuery(int $id): void
+    {
+        $this->deleteQueryId = $this->query($id)?->id;
+    }
+
+    public function deleteQuery(): void
+    {
+        $demo = $this->deleteQueryId ? $this->query($this->deleteQueryId) : null;
+        if ($demo) {
+            if ($demo->statusKey() === 'booked') {
+                DemoBooking::cancel($demo);
+            }
+            $demo->delete();
+            if ($this->viewQueryId === $demo->id) {
+                $this->closeQuery();
+            }
+            $this->dispatch('notify', ['type' => 'success', 'message' => 'Query deleted.']);
+        }
+        $this->deleteQueryId = null;
+    }
+
+    // ─── Booking settings ──────────────────────────────────────────────────
+    public function openSettings(): void
+    {
+        if (!$this->canSeeQueries()) {
+            return;
+        }
+
+        $s = DemoBooking::settings();
+        $this->sDays      = array_map('strval', $s['days']);
+        $this->sStart     = $s['start'];
+        $this->sEnd       = $s['end'];
+        $this->sMinutes   = (string) $s['minutes'];
+        $this->sDaysAhead = (string) $s['days_ahead'];
+        $this->sNotice    = (string) $s['notice'];
+        $this->sOwner     = (string) (DemoBooking::ownerId() ?? '');
+        $this->resetValidation();
+        $this->closeQuery();
+        $this->showSettings = true;
+    }
+
+    public function saveSettings(): void
+    {
+        if (!$this->canSeeQueries()) {
+            return;
+        }
+
+        $this->validate([
+            'sDays'      => 'required|array|min:1',
+            'sDays.*'    => 'in:0,1,2,3,4,5,6',
+            'sStart'     => 'required|date_format:H:i',
+            'sEnd'       => 'required|date_format:H:i|after:sStart',
+            'sMinutes'   => 'required|in:' . implode(',', DemoBooking::LENGTHS),
+            'sDaysAhead' => 'required|integer|min:1|max:60',
+            'sNotice'    => 'required|integer|min:0|max:72',
+            'sOwner'     => 'nullable|integer',
+        ], [
+            'sDays.required' => 'Pick at least one day.',
+            'sDays.min'      => 'Pick at least one day.',
+            'sEnd.after'     => 'The last time must be after the first.',
+        ]);
+
+        $owner = $this->sOwner !== '' && $this->ownerChoices()->has((int) $this->sOwner) ? (int) $this->sOwner : null;
+
+        DemoBooking::save([
+            'days'       => array_map('intval', $this->sDays),
+            'start'      => $this->sStart,
+            'end'        => $this->sEnd,
+            'minutes'    => (int) $this->sMinutes,
+            'days_ahead' => (int) $this->sDaysAhead,
+            'notice'     => (int) $this->sNotice,
+            'owner_id'   => $owner,
+        ]);
+
+        $this->showSettings = false;
+        $this->dispatch('notify', ['type' => 'success', 'message' => 'Booking settings saved.']);
+    }
+
+    public function closeSettings(): void
+    {
+        $this->showSettings = false;
+        $this->resetValidation();
+    }
+
+    public function showEmailPreview(string $which): void
+    {
+        $this->previewEmail = in_array($which, ['thanks', 'confirmed'], true) && $this->canSeeQueries() ? $which : null;
+    }
+
+    public function closePreview(): void
+    {
+        $this->previewEmail = null;
+    }
+
+    public function disconnectGoogle(): void
+    {
+        if (Auth::user()?->role !== 'super-admin') {
+            return;
+        }
+
+        MeetLink::disconnect();
+        $this->dispatch('notify', ['type' => 'success', 'message' => 'Google disconnected — new demos get a Jitsi Meet link.']);
+    }
+
     // ─── Rendering ─────────────────────────────────────────────────────────
     public function render()
+    {
+        $canSeeQueries = $this->canSeeQueries();
+        if ($this->tab === 'queries' && !$canSeeQueries) {
+            $this->tab = 'calendar';
+        }
+
+        $data = [
+            'types'         => SuperAdminCalendarEvent::TYPES,
+            'canSeeQueries' => $canSeeQueries,
+            'queryCounts'   => $canSeeQueries ? $this->queryCounts() : null,
+            'deleting'      => $this->deleteId ? $this->mine()->whereKey($this->deleteId)->first() : null,
+            'deletingQuery' => $this->deleteQueryId && $canSeeQueries ? WebsiteDemo::find($this->deleteQueryId) : null,
+        ];
+
+        return view('livewire.super-admin.calendar', $data + ($this->tab === 'queries' ? $this->queriesData() : $this->calendarData()));
+    }
+
+    private function calendarData(): array
     {
         $today      = Carbon::today();
         $monthStart = $this->monthStart();
         $gridStart  = $monthStart->clone()->startOfWeek(Carbon::SUNDAY);
         $gridEnd    = $monthStart->clone()->endOfMonth()->endOfWeek(Carbon::SATURDAY)->startOfDay();
 
-        // The month's grid, with what is on each day (the type filter applies).
+        // The month's grid, with what is on each day (the filters apply).
         $onGrid = $this->filtered($this->mine())
             ->whereDate('date', '>=', $gridStart->toDateString())
             ->whereDate('date', '<=', $gridEnd->toDateString())
@@ -283,9 +584,13 @@ class Calendar extends Component
             'tasks'     => $todayAll->where('type', 'task')->count(),
             'tasksDone' => $todayAll->where('type', 'task')->where('is_done', true)->count(),
             'events'    => $todayAll->where('type', 'event')->count(),
+            'month'     => $this->mine()
+                ->whereDate('date', '>=', $monthStart->toDateString())
+                ->whereDate('date', '<=', $monthStart->clone()->endOfMonth()->toDateString())
+                ->count(),
         ];
 
-        return view('livewire.super-admin.calendar', [
+        return [
             'today'       => $today,
             'monthStart'  => $monthStart,
             'weeks'       => $weeks,
@@ -294,9 +599,63 @@ class Calendar extends Component
             'pickedItems' => $pickedItems,
             'overdue'     => $overdue,
             'stats'       => $stats,
-            'types'       => SuperAdminCalendarEvent::TYPES,
-            'deleting'    => $this->deleteId ? $this->mine()->whereKey($this->deleteId)->first() : null,
-        ]);
+            'filtered'    => $this->search !== '' || $this->statusFilter !== '' || $this->typeFilter !== '',
+        ];
+    }
+
+    private function queriesData(): array
+    {
+        $term = trim($this->qSearch);
+
+        $queries = WebsiteDemo::query()
+            ->when($term !== '', function ($q) use ($term) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term) . '%';
+                $q->where(fn ($w) => $w->where('full_name', 'like', $like)
+                    ->orWhere('school_name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone', 'like', $like)
+                    ->orWhere('city', 'like', $like));
+            })
+            ->when($this->qStatus === 'pending', fn ($q) => $q->where(fn ($w) => $w->where('status', 'pending')->orWhereNull('status')))
+            ->when(in_array($this->qStatus, ['booked', 'completed', 'cancelled'], true), fn ($q) => $q->where('status', $this->qStatus))
+            ->when(in_array($this->qDays, ['7', '30', '90'], true), fn ($q) => $q->where('created_at', '>=', Carbon::now()->subDays((int) $this->qDays)))
+            ->latest()
+            ->latest('id')
+            ->paginate(15);
+
+        $viewing = $this->viewQueryId ? WebsiteDemo::find($this->viewQueryId) : null;
+        if ($viewing) {
+            $viewing->ensureToken();
+        }
+
+        return [
+            'queries'        => $queries,
+            'viewing'        => $viewing,
+            'filtered'       => $term !== '' || $this->qStatus !== '' || $this->qDays !== '',
+            'settings'       => DemoBooking::settings(),
+            'ownerChoices'   => $this->showSettings ? $this->ownerChoices() : collect(),
+            'googleReady'    => MeetLink::googleReady(),
+            'googleSetUp'    => MeetLink::googleConfigured(),
+            'googleEmail'    => MeetLink::googleEmail(),
+            'isMainAdmin'    => Auth::user()?->role === 'super-admin',
+            'templates'      => $this->showSettings ? DemoBooking::whatsAppTemplates() : [],
+            'previewHtml'    => $this->previewEmail ? DemoMessages::preview($this->previewEmail) : null,
+        ];
+    }
+
+    /** The Queries tab's figures (and its count on the tab). */
+    private function queryCounts(): array
+    {
+        $by = WebsiteDemo::query()->selectRaw("COALESCE(status, 'pending') as s, COUNT(*) as n")->groupBy('s')->pluck('n', 's');
+
+        return [
+            'total'     => (int) $by->sum(),
+            'pending'   => (int) ($by['pending'] ?? 0),
+            'booked'    => (int) ($by['booked'] ?? 0),
+            'completed' => (int) ($by['completed'] ?? 0),
+            'upcoming'  => WebsiteDemo::where('status', 'booked')->where('meeting_at', '>=', Carbon::now())->count(),
+            'month'     => WebsiteDemo::where('created_at', '>=', Carbon::now()->startOfMonth())->count(),
+        ];
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────
@@ -306,9 +665,41 @@ class Calendar extends Component
         return SuperAdminCalendarEvent::query()->ownedBy(Auth::id());
     }
 
+    /** Website demo requests are seen by whoever may open Website Enquiries. */
+    private function canSeeQueries(): bool
+    {
+        return (bool) Auth::user()?->canAccessSuperAdminRoute('super-admin.enquiries');
+    }
+
+    private function query(int $id): ?WebsiteDemo
+    {
+        return $this->canSeeQueries() ? WebsiteDemo::find($id) : null;
+    }
+
+    /** Whose calendar a booked demo may go on: the super admin, and sub-super-admins given Calendar. */
+    private function ownerChoices()
+    {
+        return User::whereIn('role', ['super-admin', 'sub-super-admin'])->orderByRaw("role = 'super-admin' desc")->orderBy('name')
+            ->get(['id', 'name', 'email', 'role', 'permissions'])
+            ->filter(fn (User $u) => $u->canAccessSuperAdminRoute('super-admin.calendar'))
+            ->keyBy('id');
+    }
+
     private function filtered($query)
     {
-        return $this->typeFilter !== '' ? $query->where('type', $this->typeFilter) : $query;
+        $term = trim($this->search);
+
+        return $query
+            ->when($this->typeFilter !== '', fn ($q) => $q->where('type', $this->typeFilter))
+            ->when($this->statusFilter === 'open', fn ($q) => $q->where('is_done', false))
+            ->when($this->statusFilter === 'done', fn ($q) => $q->where('type', 'task')->where('is_done', true))
+            ->when($term !== '', function ($q) use ($term) {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $term) . '%';
+                $q->where(fn ($w) => $w->where('title', 'like', $like)
+                    ->orWhere('with_whom', 'like', $like)
+                    ->orWhere('location', 'like', $like)
+                    ->orWhere('notes', 'like', $like));
+            });
     }
 
     private function dayItems(string $date)

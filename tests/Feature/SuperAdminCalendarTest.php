@@ -36,6 +36,16 @@ class SuperAdminCalendarTest extends TestCase
             $t->unsignedBigInteger('allowed_organization_id')->nullable(); $t->timestamps();
         });
         (require base_path('database/migrations/2026_11_12_120000_create_super_admin_calendar_events_table.php'))->up();
+        // The Queries tab (website demo requests) and its booking settings.
+        foreach ([
+            '2026_03_07_200536_create_website_demos_table.php',
+            '2026_06_29_000002_add_schedule_call_fields_to_website_demos_table.php',
+            '2026_11_13_100000_add_booking_fields_to_website_demos_table.php',
+            '2026_11_01_160100_create_platform_settings_table.php',
+        ] as $migration) {
+            (require base_path('database/migrations/' . $migration))->up();
+        }
+        (new \ReflectionProperty(\App\Support\Platform::class, 'settings'))->setValue(null, null);
 
         $this->main = User::forceCreate(['name' => 'Main', 'email' => 'main@example.com', 'role' => 'super-admin']);
         $this->sub  = User::forceCreate([

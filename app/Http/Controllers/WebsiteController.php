@@ -291,11 +291,21 @@ class WebsiteController extends Controller
             ]);
         }
 
-        WebsiteDemo::create($validated);
+        // Thanked at once by email and WhatsApp with their own link to pick the
+        // demo's date and time (App\Services\DemoMessages, DemoBookingController);
+        // the page gets that link too, to offer it straight away.
+        $demo = WebsiteDemo::create($validated + ['status' => 'pending']);
+        $demo->ensureToken();
+        $demo->save();
+
+        dispatch(function () use ($demo) {
+            \App\Services\DemoMessages::thanks($demo->fresh());
+        })->afterResponse();
 
         return response()->json([
-            'success' => true,
-            'message' => 'Demo request received! Our team will contact you within 3 business days.',
+            'success'     => true,
+            'message'     => 'Thank you! Pick a date and time for your demo — we have also sent the link to your email and WhatsApp.',
+            'booking_url' => $demo->bookingUrl(),
         ]);
     }
 

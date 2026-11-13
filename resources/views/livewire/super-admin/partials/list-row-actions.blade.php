@@ -7,8 +7,10 @@
      or Esc closes it.
 
      $active (bool); $actions = [[label, call, icon, js?], …] — icon one of
-     view | edit | delete | login | fee; the call is a wire:click, or with js
-     true an Alpine expression (Login as school). --}}
+     view | edit | delete | login | fee | link | send | check | cancel | reopen;
+     the call is a wire:click, or with js true an Alpine expression (Login as
+     school). $dot (optional, true): false leaves the status dot out (a list
+     that shows its status in a column of its own, as Calendar → Queries). --}}
 @php
     $icons = [
         'view'   => 'M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
@@ -16,6 +18,11 @@
         'delete' => 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
         'login'  => 'M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1',
         'fee'    => 'M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z',
+        'link'   => 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+        'send'   => 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8',
+        'check'  => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        'cancel' => 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
+        'reopen' => 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
     ];
     $statusWord = $active ? 'Active' : 'Inactive';
 @endphp
@@ -23,7 +30,7 @@
     x-data="{ open: false, up: false, y: 0, right: 0 }"
     x-init="$el.closest('#main-scroll')?.addEventListener('scroll', () => open = false, { passive: true })"
     x-on:keydown.escape.window="open = false" x-on:resize.window="open = false">
-    <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }}"
+    <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }} {{ ($dot ?? true) ? '' : 'hidden' }}"
         title="{{ $statusWord }}" role="img" aria-label="{{ $statusWord }}" data-status="{{ strtolower($statusWord) }}"></span>
     <button type="button" x-ref="dots" title="More" aria-haspopup="menu" :aria-expanded="open"
         x-on:click="const r = $refs.dots.getBoundingClientRect(); up = r.bottom + {{ count($actions) * 44 + 24 }} > window.innerHeight; y = up ? window.innerHeight - r.top + 4 : r.bottom + 4; right = window.innerWidth - r.right; open = !open"

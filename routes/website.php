@@ -79,3 +79,14 @@ Route::prefix('web')->group(function () {
 });
 
 }); // track.website
+
+// A demo request's own link (sent in its thank-you): pick a free date and
+// time; the meeting's link is made and sent the moment one is picked. Private
+// to the one who asked, so not counted in the website's visits.
+Route::prefix('web')->group(function () {
+    Route::get('/demo/book/{token}', [\App\Http\Controllers\DemoBookingController::class, 'show'])
+        ->name('website.demo.book');
+    Route::post('/demo/book/{token}', [\App\Http\Controllers\DemoBookingController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('website.demo.book.store');
+});

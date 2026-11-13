@@ -1133,6 +1133,11 @@
                     form.reset();
                     if (isSchedule) toggleScheduleMode(); // reset back to demo mode
                     showToast(json.message || 'Request received!', true);
+                    // A demo request: straight on to its own page to pick the
+                    // date and time (the same link went by email and WhatsApp).
+                    if (json.booking_url) {
+                        setTimeout(() => { window.location.href = json.booking_url; }, 1200);
+                    }
                 } else {
                     showToast(Object.values(json.errors || {}).flat()[0] || 'Something went wrong.', false);
                 }

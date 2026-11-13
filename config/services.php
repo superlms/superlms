@@ -62,6 +62,17 @@ return [
         'webhook_password' => env('PHONEPE_WEBHOOK_PASSWORD'),
     ],
 
+    // Google Calendar, for a booked website demo's Google Meet link
+    // (App\Services\MeetLink). The OAuth client from Google Cloud Console
+    // (redirect URI https://<site>/calendar/google/callback); the account is
+    // connected from Super Admin → Calendar → Queries → Booking settings, or
+    // given here as a refresh token. Without it a demo gets a Jitsi Meet link.
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'refresh_token' => env('GOOGLE_CALENDAR_REFRESH_TOKEN'),
+    ],
+
     // WhatsApp Cloud API (Meta) — the welcome message a new student or
     // teacher gets beside the email. Off until the token and number are set.
     'whatsapp' => [
@@ -81,6 +92,13 @@ return [
             // The super admin's sign-in code, beside the email (App\Services\OtpMailService):
             // an Authentication template with a Copy code button, {{1}} the code.
             'otp'     => env('WHATSAPP_TEMPLATE_OTP', 'login_otp'),
+            // A website demo request (App\Services\DemoMessages, DEMO_BOOKING.md):
+            // the thank-you — {{1}} name, {{2}} school, a "Pick a time" URL button
+            // …/web/demo/book/{{1}} = the booking token — and, once a time is
+            // picked, the confirmation — {{1}} name, {{2}} when, {{3}} the Meet link,
+            // a "Change time" URL button …/web/demo/book/{{1}}.
+            'demo_thanks'    => env('WHATSAPP_TEMPLATE_DEMO_THANKS', 'demo_request_thanks'),
+            'demo_confirmed' => env('WHATSAPP_TEMPLATE_DEMO_CONFIRMED', 'demo_meeting_confirmed'),
         ],
         // Meta's status webhook (/api/whatsapp/webhook): the token Meta echoes
         // when the callback is set up, and the app secret its posts are signed with.

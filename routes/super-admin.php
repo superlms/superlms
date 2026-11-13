@@ -58,6 +58,9 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('fees', Fees::class)->name('super-admin.fees');
     // Each person's own meetings, tasks and events (a sub-super-admin's are theirs alone).
     Route::get('calendar', Calendar::class)->name('super-admin.calendar');
+    // Calendar → Queries → Booking settings: the Google account for booked demos' Meet links (main super admin only).
+    Route::get('calendar/google/connect', [\App\Http\Controllers\SuperAdmin\GoogleCalendarController::class, 'connect'])->name('super-admin.google.connect');
+    Route::get('calendar/google/callback', [\App\Http\Controllers\SuperAdmin\GoogleCalendarController::class, 'callback'])->name('super-admin.google.callback');
     Route::get('users', Users::class)->name('super-admin.users');
     Route::get('listing', Listing::class)->name('super-admin.listing');
     Route::get('more', More::class)->name('super-admin.more');
