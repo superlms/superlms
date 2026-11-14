@@ -25,6 +25,21 @@
             <p class="text-xs text-gray-400 mt-1">Pick a class — and a section, if you want — from the filter above.</p>
         </div>
     @else
+        {{-- All Sections heads and a section's own both apply to that section's
+             students: say what they pay in all, so neither card reads as the whole fee. --}}
+        @if (!empty($structureOverlap))
+            <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                <p>
+                    <strong>{{ $structureOverlap['class'] }}</strong> has All Sections heads
+                    (₹{{ number_format($structureOverlap['shared'], 2) }}) as well as a section's own — every student is charged both.
+                    @foreach ($structureOverlap['sections'] as $o)
+                        {{ $o['section'] }} pays <strong>₹{{ number_format($o['total'], 2) }}</strong>{{ $loop->last ? '.' : ',' }}
+                    @endforeach
+                </p>
+                <p class="mt-1 text-amber-700">If the All Sections heads are left over from an earlier structure, delete that card.</p>
+            </div>
+        @endif
+
         {{-- Two to a row on a laptop and wider (2026-10-14): a class with one
              section shows its card in the left half, a class with two shows
              both side by side the moment it is picked; more wrap two a row. --}}
@@ -45,6 +60,9 @@
                                 {{ $g['class'] }} <span class="text-gray-400 font-normal">· {{ $g['section'] }}</span>
                             </h3>
                             <p class="text-[11px] text-gray-400 mt-0.5">{{ $g['year'] }} · {{ count($g['rows']) }} fee head{{ count($g['rows']) === 1 ? '' : 's' }}</p>
+                            @if (!empty($structureOverlap) && $g['section_id'] === null)
+                                <p class="text-[11px] text-amber-700 mt-0.5">Charged to every section, on top of its own</p>
+                            @endif
                         </div>
                         <div class="flex items-center gap-0.5 flex-shrink-0">
                             <button wire:click="viewGroup({{ $g['standard_id'] }}, {{ $g['section_id'] ?? 'null' }})" title="View"

@@ -537,7 +537,12 @@ trait HandlesFeeStructures
                 ->where('organization_id', $orgId)
                 ->where('fee_type', 'academic')
                 ->where('standard_id', $this->filterStructureStandard)
-                ->when($this->filterStructureSection, fn ($q) => $q->where('section_id', $this->filterStructureSection))
+                // A section picked (by hand, or by itself when the class has
+                // only one) still shows the class's All Sections heads: a
+                // student of that section is charged them too. Filtering them
+                // out hid fees the ledger was charging.
+                ->when($this->filterStructureSection, fn ($q) => $q->where(fn ($s) => $s
+                    ->where('section_id', $this->filterStructureSection)->orWhereNull('section_id')))
                 ->when($this->search, fn ($q) => $q->where('fee_name', 'like', "%{$this->search}%"))
                 ->orderBy('section_id')->orderBy('id')
                 ->get();
@@ -556,6 +561,23 @@ trait HandlesFeeStructures
                 ->values();
         }
 
+        // A class with All Sections heads AND a section's own: each student of
+        // the section pays both, so say what that comes to — otherwise the
+        // section's card reads as the whole fee.
+        $structureOverlap = null;
+        $shared   = $structureGroups->first(fn ($g) => $g['section_id'] === null);
+        $sections = $structureGroups->filter(fn ($g) => $g['section_id'] !== null);
+        if ($shared && $sections->isNotEmpty() && !$this->search) {
+            $structureOverlap = [
+                'class'    => $shared['class'],
+                'shared'   => $shared['total'],
+                'sections' => $sections->map(fn ($g) => [
+                    'section' => $g['section'],
+                    'total'   => $shared['total'] + $g['total'],
+                ])->values()->all(),
+            ];
+        }
+
         $routes = Transportation::where('organization_id', $orgId)
             ->orderBy('route_name')->get();
 
@@ -569,6 +591,7 @@ trait HandlesFeeStructures
             'filterSections'  => $filterSections,
             'formSections'    => $formSections,
             'structureGroups' => $structureGroups,
+            'structureOverlap' => $structureOverlap,
             'routes'          => $routes,
             'selectedRoute'   => $selectedRoute,
             'routeMonthRows'  => $this->routeMonthRows($selectedRoute),

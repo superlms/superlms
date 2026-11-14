@@ -556,4 +556,44 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('grid grid-cols-1 lg:grid-cols-2 gap-4 items-start', $html);
         $this->assertSame(2, preg_match_all('/wire:key="grp-\d+-\d+"/', $html));
     }
+
+    /**
+     * A class whose only section is picked by itself (the filter bar's sole
+     * section) still shows its All Sections heads: the ledger charges them to
+     * that section's students, so hiding them made Fee Structure read 14,600
+     * while Submit Fee asked for 20,100.
+     */
+    public function test_a_picked_section_still_shows_the_all_sections_heads_it_is_charged(): void
+    {
+        $s = $this->school();   // All Sections: Tuition 1,000
+        DB::table('fee_structures')->insert([
+            ['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $s['sec'], 'fee_name' => 'Admission', 'fee_type' => 'academic', 'amount' => 2500],
+            ['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $s['sec'], 'fee_name' => 'Annual', 'fee_type' => 'academic', 'amount' => 2500],
+        ]);
+
+        $page = Livewire::test(FeeStructure::class)
+            ->set('filterStructureStandard', (string) $s['std'])
+            ->set('filterStructureSection', (string) $s['sec']);
+        $html = $page->html();
+
+        // Both cards: the All Sections one (with the dues rows kept out) and section A's.
+        $this->assertSame(2, preg_match_all('/wire:key="grp-\d+-\d+"/', $html));
+        $this->assertStringContainsString('wire:key="grp-' . $s['std'] . '-0"', $html);
+        $this->assertStringContainsString('All Sections', $html);
+        $this->assertStringNotContainsString('Last Year Dues', $html);
+        $this->assertStringContainsString('Charged to every section, on top of its own', $html);
+        // …and what section A pays in all is what its ledger charges.
+        $this->assertMatchesRegularExpression('/A pays <strong>₹6,000\.00<\/strong>/', $html);
+
+        $sv = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['sita'])
+            ->get('studentFeeView');
+        $this->assertSame(6000.0, (float) $sv['academic']['gross']);
+
+        // A section with no All Sections heads beside it reads as before: no note.
+        DB::table('fee_structures')->whereNull('section_id')->whereNull('student_detail_id')->delete();
+        $html = $page->call('$refresh')->html();
+        $this->assertSame(1, preg_match_all('/wire:key="grp-\d+-\d+"/', $html));
+        $this->assertStringNotContainsString('on top of its own', $html);
+    }
 }

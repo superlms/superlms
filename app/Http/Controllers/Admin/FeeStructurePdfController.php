@@ -32,7 +32,11 @@ class FeeStructurePdfController extends Controller
             ->where('organization_id', $orgId)
             ->where('fee_type', 'academic')
             ->when($request->filled('standard'), fn ($q) => $q->where('standard_id', $request->standard))
-            ->when($request->filled('section'), fn ($q) => $q->where('section_id', $request->section))
+            // A section's print carries the class's All Sections heads too — its
+            // students are charged them — so the grand total is what they pay.
+            ->when($request->filled('section'), fn ($q) => $request->filled('standard')
+                ? $q->where(fn ($s) => $s->where('section_id', $request->section)->orWhereNull('section_id'))
+                : $q->where('section_id', $request->section))
             ->orderBy('standard_id')->orderBy('section_id')
             ->get();
 
