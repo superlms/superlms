@@ -1,4 +1,65 @@
 <div class="min-h-screen bg-gray-50">
+    {{-- ══════════ EXPORT — the school admin's "Export as…" box: the school first, then
+         (as the admin's) all its students or one class / section, then Excel or PDF ══════════ --}}
+    @if ($showExportPicker)
+        <x-admin.export-picker excel="exportStudents" pdf="exportStudentsPdf">
+            <div class="mb-5 space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">School <span class="text-red-500">*</span></label>
+                    <select wire:model.live="exportSchool"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <option value="">Select school</option>
+                        @foreach ($exportSchools as $org)
+                            <option value="{{ $org->id }}">{{ $org->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('exportSchool')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+
+                @if ($exportSchool !== '')
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" wire:click="$set('exportScope', 'all')"
+                            class="px-3 py-2 rounded-lg border text-sm font-semibold transition-colors
+                                   {{ $exportScope === 'all' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                            All students
+                        </button>
+                        <button type="button" wire:click="$set('exportScope', 'class')"
+                            class="px-3 py-2 rounded-lg border text-sm font-semibold transition-colors
+                                   {{ $exportScope === 'class' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                            Class wise
+                        </button>
+                    </div>
+
+                    @if ($exportScope === 'class')
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Class <span class="text-red-500">*</span></label>
+                                <select wire:model.live="exportClass"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option value="">Select class</option>
+                                    @foreach ($exportStandards as $std)
+                                        <option value="{{ $std->id }}">{{ $std->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('exportClass')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Section</label>
+                                <select wire:model.live="exportSection" @disabled($exportClass === '')
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-50 disabled:text-gray-400">
+                                    <option value="">All sections</option>
+                                    @foreach ($exportSections as $sec)
+                                        <option value="{{ $sec->id }}">{{ $sec->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+            </div>
+        </x-admin.export-picker>
+    @endif
+
     @php
         $filtered = $search || $filterOrganization || $filterClass || $filterSection || $filterGender || $filterStatus !== '';
         $sortKey  = $sortBy ?: 'name';
@@ -72,13 +133,11 @@
                     </button>
                 @endif
 
-                {{-- Export: a school's students, so a school has to be picked first; then it is filled grey. --}}
-                <button wire:click="exportStudents" @disabled(!$filterOrganization)
-                    title="{{ $filterOrganization ? 'Export this school\'s students' : 'Select a school to export' }}"
-                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors
-                           {{ $filterOrganization ? 'border-gray-600 bg-gray-600 text-white hover:bg-gray-700 hover:border-gray-700' : 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed' }}">
+                {{-- Export: the school admin's "Export as…" box, with the school picked in it first. --}}
+                <button wire:click="openExportPicker" title="Export a school's students as Excel or PDF"
+                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors border-gray-600 bg-gray-600 text-white hover:bg-gray-700 hover:border-gray-700">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 13v8m0 0l-3-3m3 3l3-3M20 16.6A5 5 0 0018 7h-1.26A8 8 0 104 15.25" /></svg>
-                    {{ $filterOrganization ? 'Export' : 'Select School to Export' }}
+                    Export
                 </button>
             </div>
         </div>

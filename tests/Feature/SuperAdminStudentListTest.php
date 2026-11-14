@@ -116,11 +116,28 @@ class SuperAdminStudentListTest extends TestCase
         // No cards any more.
         $this->assertStringNotContainsString('Total Students', $text);
 
-        // The filter bar a size smaller than Fees'; Export waits for a school, then is filled grey.
+        // The filter bar a size smaller than Fees'; Export, filled grey, opens the admin's
+        // "Export as…" box, where the school is picked (the list's, when one is set).
         $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
-        $this->assertMatchesRegularExpression('/wire:click="exportStudents" disabled[^>]*bg-gray-50 text-gray-300/s', $html);
-        $page->set('filterOrganization', '9');
-        $this->assertMatchesRegularExpression('/wire:click="exportStudents"[^>]*bg-gray-600 text-white/s', $page->html());
+        $this->assertMatchesRegularExpression('/wire:click="openExportPicker"[^>]*bg-gray-600 text-white/s', $html);
+        $page->call('openExportPicker')
+            ->assertSet('showExportPicker', true)
+            ->assertSet('exportSchool', '')
+            ->assertSee('Export as…')
+            ->assertSee('Select school')
+            ->assertDontSee('Class wise')
+            ->call('exportStudents')
+            ->assertHasErrors('exportSchool')
+            ->assertSet('showExportPicker', true)
+            ->call('closeExportPicker');
+        $page->set('filterOrganization', '9')->set('filterClass', '5')
+            ->call('openExportPicker')
+            ->assertSet('exportSchool', '9')
+            ->assertSet('exportScope', 'class')
+            ->assertSet('exportClass', '5')
+            ->assertSee('Class wise')
+            ->call('closeExportPicker')
+            ->set('filterClass', '');
 
         // Filtered, the figures follow the list.
         $page->set('filterOrganization', '')->set('filterStatus', '0');

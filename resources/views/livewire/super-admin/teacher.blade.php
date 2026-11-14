@@ -1,4 +1,21 @@
 <div class="min-h-screen bg-gray-50">
+    {{-- ══════════ EXPORT — the school admin's "Export as…" box: the school first, then Excel or PDF ══════════ --}}
+    @if ($showExportPicker)
+        <x-admin.export-picker excel="exportTeachers" pdf="exportTeachersPdf">
+            <div class="mb-5">
+                <label class="block text-xs font-medium text-gray-500 mb-1">School <span class="text-red-500">*</span></label>
+                <select wire:model.live="exportSchool"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Select school</option>
+                    @foreach ($exportSchools as $org)
+                        <option value="{{ $org->id }}">{{ $org->name }}</option>
+                    @endforeach
+                </select>
+                @error('exportSchool')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            </div>
+        </x-admin.export-picker>
+    @endif
+
     @php
         $filtered = $search || $filterOrganization || $filterGender || $filterStatus !== '';
         // The filter bar's boxes, as on Fees, a size smaller.
@@ -57,13 +74,11 @@
                     </button>
                 @endif
 
-                {{-- Export: a school's teachers, so a school has to be picked first; then it is filled grey. --}}
-                <button wire:click="exportTeachers" @disabled(!$filterOrganization)
-                    title="{{ $filterOrganization ? 'Export this school\'s teachers' : 'Select a school to export' }}"
-                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors
-                           {{ $filterOrganization ? 'border-gray-600 bg-gray-600 text-white hover:bg-gray-700 hover:border-gray-700' : 'border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed' }}">
+                {{-- Export: the school admin's "Export as…" box, with the school picked in it first. --}}
+                <button wire:click="openExportPicker" title="Export a school's teachers as Excel or PDF"
+                    class="sm:ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors border-gray-600 bg-gray-600 text-white hover:bg-gray-700 hover:border-gray-700">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 13v8m0 0l-3-3m3 3l3-3M20 16.6A5 5 0 0018 7h-1.26A8 8 0 104 15.25" /></svg>
-                    {{ $filterOrganization ? 'Export' : 'Select School to Export' }}
+                    Export
                 </button>
             </div>
         </div>

@@ -113,10 +113,15 @@ class SuperAdminTeacherListTest extends TestCase
         // The filter bar a size smaller than Fees'.
         $this->assertStringContainsString('class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar', $html);
 
-        // Export waits for a school, then is filled grey.
-        $this->assertMatchesRegularExpression('/wire:click="exportTeachers" disabled[^>]*bg-gray-50 text-gray-300/s', $html);
-        $page->set('filterOrganization', '9');
-        $this->assertMatchesRegularExpression('/wire:click="exportTeachers"[^>]*bg-gray-600 text-white/s', $page->html());
+        // Export, filled grey, opens the admin's "Export as…" box, the school picked in it first.
+        $this->assertMatchesRegularExpression('/wire:click="openExportPicker"[^>]*bg-gray-600 text-white/s', $html);
+        $page->call('openExportPicker')
+            ->assertSee('Export as…')
+            ->assertSee('Green Valley')
+            ->call('exportTeachersPdf')
+            ->assertHasErrors('exportSchool')
+            ->call('closeExportPicker');
+        $page->set('filterOrganization', '9')->call('openExportPicker')->assertSet('exportSchool', '9')->call('closeExportPicker');
 
         // A teacher is found by username too.
         $page->set('filterOrganization', '')->set('search', 'neha.sh');
@@ -153,5 +158,32 @@ class SuperAdminTeacherListTest extends TestCase
             $this->assertStringContainsString('wire:click="' . $call . '"', $html);
         }
         $this->assertStringContainsString('Showing 1–3 of 3 entries', $text);
+    }
+
+    public function test_export_gives_the_school_admins_excel_and_pdf_for_the_school_picked(): void
+    {
+        // What the admin's teacher export reads besides the list (TeacherExport); MySQL's
+        // DATE_FORMAT, which its month-by-month attendance uses, for this SQLite test.
+        Schema::create('teacher_attendances', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('teacher_detail_id'); $t->date('attendance_date'); $t->tinyInteger('status')->default(1); $t->timestamps();
+        });
+        Schema::create('subjects', function (Blueprint $t) {
+            $t->id(); $t->string('name'); $t->timestamps();
+        });
+        DB::connection()->getPdo()->sqliteCreateFunction('DATE_FORMAT', fn ($d, $f) => substr((string) $d, 0, 7), 2);
+
+        $page = Livewire::test(Teacher::class)
+            ->set('filterOrganization', '9')
+            ->call('openExportPicker')
+            ->assertSet('exportSchool', '9')
+            ->call('exportTeachers')
+            ->assertHasNoErrors()
+            ->assertSet('showExportPicker', false)
+            ->assertFileDownloaded('teachers_doon-school_' . now()->format('Y-m-d') . '.xlsx');
+
+        $page->call('openExportPicker')
+            ->set('exportSchool', '10')
+            ->call('exportTeachersPdf')
+            ->assertFileDownloaded('teachers_green-valley_' . now()->format('Y-m-d') . '.pdf');
     }
 }

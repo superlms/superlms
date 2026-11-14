@@ -3,15 +3,11 @@
 namespace App\Livewire\SuperAdmin;
 
 use App\Helpers\CityGetHelper;
-use App\Models\Admin\ExamCopy;
-use App\Models\Admin\Fee\FeePayment;
-use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\SchoolInfo;
 use App\Models\Admin\Transportation;
 use App\Models\Organization;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
-use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
@@ -19,7 +15,6 @@ use App\Support\Credentials;
 use App\Support\LoginIdentifier;
 use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
-use App\Support\TransportBilling;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -34,6 +29,7 @@ use App\Support\NameOrder;
 class Student extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
+    use \App\Livewire\Concerns\SuperAdminSchoolExport;
 
     // ─── Stats ───────────────────────────────────────────────────────────────
     public int $totalSchools     = 0;
@@ -608,141 +604,105 @@ class Student extends Component
         $this->notification()->success('Student updated successfully!');
     }
 
+    // ─── Export (the school admin's export, for any school) ──────────────────
+
+    public string $exportScope   = 'all';
+    public string $exportClass   = '';
+    public string $exportSection = '';
+
+    /** Export opens the admin's "Export as…" box, the list's school and class already in it. */
+    public function openExportPicker(): void
+    {
+        $this->resetErrorBag();
+        $this->exportSchool  = (string) ($this->exportLockedSchool() ?: $this->filterOrganization);
+        $classFromList       = $this->exportSchool !== '' && $this->exportSchool === (string) $this->filterOrganization && $this->filterClass;
+        $this->exportScope   = $classFromList ? 'class' : 'all';
+        $this->exportClass   = $classFromList ? (string) $this->filterClass : '';
+        $this->exportSection = $classFromList ? (string) $this->filterSection : '';
+        $this->showExportPicker = true;
+    }
+
+    public function updatedExportSchool(): void
+    {
+        $this->exportClass   = '';
+        $this->exportSection = '';
+        $this->resetErrorBag();
+    }
+
+    public function updatedExportScope(): void
+    {
+        if ($this->exportScope !== 'class') {
+            $this->exportScope   = 'all';
+            $this->exportClass   = '';
+            $this->exportSection = '';
+        }
+        $this->resetErrorBag('exportClass');
+    }
+
+    public function updatedExportClass(): void
+    {
+        $this->exportSection = '';
+        $this->resetErrorBag('exportClass');
+    }
+
+    /**
+     * The school, and the class and section when Class wise: [org, class, section],
+     * or null with the error shown. A class must be the school's, a section the class's.
+     */
+    private function studentExportSelection(): ?array
+    {
+        $org = $this->exportSchoolId();
+        if (!$org) {
+            return null;
+        }
+        if ($this->exportScope !== 'class') {
+            return [$org, null, null];
+        }
+
+        $class = Standard::where('organization_id', $org)->whereKey((int) $this->exportClass)->first();
+        if (!$class) {
+            $this->addError('exportClass', 'Please choose a class to export.');
+
+            return null;
+        }
+        $section = $this->exportSection !== ''
+            ? Section::where('standard_id', $class->id)->whereKey((int) $this->exportSection)->value('id')
+            : null;
+
+        return [$org, (int) $class->id, $section ? (int) $section : null];
+    }
+
+    /** Excel: the sheet the school's admin downloads (App\Support\StudentExport). */
     public function exportStudents()
     {
-        if (!$this->filterOrganization) return;
+        if (!$sel = $this->studentExportSelection()) {
+            return null;
+        }
+        [$org, $classId, $sectionId] = $sel;
+        $this->showExportPicker = false;
 
-        $students = $this->baseQuery()->with('transportations')->tap(fn ($q) => NameOrder::students($q))->get();
-        $ids      = $students->pluck('id')->all();
+        [$headings, $rows] = \App\Support\StudentExport::data($org, $classId, $sectionId);
+        $xlsx = \App\Support\StudentExport::xlsx($headings, $rows);
+        $name = 'students_' . $this->exportSchoolSlug($org) . '_' . \App\Support\StudentExport::slug($classId, $sectionId) . '_' . now()->format('Y-m-d') . '.xlsx';
 
-        // ── Attendance: present (status = 1) out of total marked days ──
-        $attendance = StudentAttendance::whereIn('student_detail_id', $ids)
-            ->selectRaw('student_detail_id, COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
-            ->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
-
-        // ── Performance: marks obtained out of max across all exam copies ──
-        $marks = ExamCopy::whereIn('student_detail_id', $ids)
-            ->selectRaw('student_detail_id, SUM(marks_obtained) as obtained, SUM(max_marks) as max_total')
-            ->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
-
-        // ── Fees paid (academic / transport) ──
-        // Transport payments live in transport_fee_payments — see TransportBilling.
-        $orgId = (int) $this->filterOrganization;
-        $academicPaid = FeePayment::whereIn('student_detail_id', $ids)->where('fee_type', 'academic')
-            ->selectRaw('student_detail_id, SUM(amount) as paid')->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
-        $transportPaid = TransportBilling::paidByStudent($orgId, $ids);
-
-        // ── Fee totals: academic per class (memoised so we hit the DB once per
-        // class), transport per student on their route (monthly fee × billed months) ──
-        $academicTotals = [];
-        $academicTotalFor = function ($stdId, $secId) use (&$academicTotals) {
-            if (!$stdId) return 0.0;
-            $key = $stdId . '-' . ($secId ?: '0');
-            return $academicTotals[$key] ??= (float) FeeStructure::forClass((int) $stdId, $secId ? (int) $secId : null)
-                ->academic()->active()->sum('amount');
-        };
-        $transportTotals = TransportBilling::yearTotals($orgId, $ids);
-        // Each student's own academic rows — Last Year Dues.
-        $ownFees = FeeStructure::ownTotals($orgId, $ids);
-
-        return response()->streamDownload(function () use ($students, $attendance, $marks, $academicPaid, $transportPaid, $academicTotalFor, $ownFees, $transportTotals) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, [
-                'S.No',
-                'Full Name',
-                'Email',
-                'Mobile',
-                'Gender',
-                'Date of Birth',
-                'Religion',
-                'Board',
-                'Class',
-                'Section',
-                'Roll No',
-                'Admission No',
-                'Date of Admission',
-                'Father Name',
-                'Mother Name',
-                'Aadhar No',
-                'Appar ID',
-                'Registration Number',
-                'Local Address',
-                'Permanent Address',
-                'City',
-                'State',
-                'Pincode',
-                'Transportation Required',
-                'Transport Route',
-                'School',
-                'Status',
-                'Attendance (Present/Total)',
-                'Attendance %',
-                'Performance (Marks/Max)',
-                'Performance %',
-                'Academic Fee (Paid/Total)',
-                'Academic Fee Pending',
-                'Transport Fee (Paid/Total)',
-                'Transport Fee Pending',
-            ]);
-
-            foreach ($students as $index => $s) {
-                $att        = $attendance[$s->id] ?? null;
-                $attTotal   = (int) ($att->total ?? 0);
-                $attPresent = (int) ($att->present ?? 0);
-                $attPct     = $attTotal > 0 ? round($attPresent / $attTotal * 100, 1) . '%' : '—';
-
-                $mk      = $marks[$s->id] ?? null;
-                $obt     = (float) ($mk->obtained ?? 0);
-                $maxT    = (float) ($mk->max_total ?? 0);
-                $perfPct = $maxT > 0 ? round($obt / $maxT * 100, 1) . '%' : '—';
-
-                $acPaid  = (float) ($academicPaid[$s->id]->paid ?? 0);
-                $acTotal = (float) $academicTotalFor($s->standard_id, $s->section_id) + (float) ($ownFees[$s->id] ?? 0);
-                $trPaid  = (float) ($transportPaid[$s->id] ?? 0);
-                $trTotal = (float) ($transportTotals[$s->id] ?? 0);
-
-                fputcsv($handle, [
-                    $index + 1,
-                    $s->full_name ?? '',
-                    $s->user?->email ?? '',
-                    $s->phone ?? '',
-                    ucfirst($s->gender ?? ''),
-                    $s->dob?->format('d-m-Y') ?? '',
-                    $s->religion ?? '',
-                    $s->board ?? '',
-                    $s->standard?->name ?? '',
-                    $s->section?->name ?? '',
-                    $s->roll_no ?? '',
-                    $s->admission_no ?? '',
-                    $s->date_of_admission?->format('d-m-Y') ?? '',
-                    $s->father_name ?? '',
-                    $s->mother_name ?? '',
-                    $s->aadhar_no ?? '',
-                    $s->appar_id ?? '',
-                    $s->registration_number ?? '',
-                    $s->local_address ?? '',
-                    $s->permanent_address ?? '',
-                    $s->city ?? '',
-                    $s->state ?? '',
-                    $s->pincode ?? '',
-                    $s->transportation_required ? 'Yes' : 'No',
-                    $s->transportations->first()?->route_name ?? '',
-                    $s->user?->organization?->name ?? '',
-                    ($s->user?->is_active) ? 'Active' : 'Inactive',
-                    $attPresent . '/' . $attTotal,
-                    $attPct,
-                    rtrim(rtrim(number_format($obt, 2, '.', ''), '0'), '.') . '/' . rtrim(rtrim(number_format($maxT, 2, '.', ''), '0'), '.'),
-                    $perfPct,
-                    number_format($acPaid, 2) . ' / ' . number_format($acTotal, 2),
-                    number_format(max($acTotal - $acPaid, 0), 2),
-                    number_format($trPaid, 2) . ' / ' . number_format($trTotal, 2),
-                    number_format(max($trTotal - $trPaid, 0), 2),
-                ]);
-            }
-            fclose($handle);
-        }, 'students_' . now()->format('Y-m-d_H-i-s') . '.csv', [
-            'Content-Type' => 'text/csv',
+        return response()->streamDownload(fn () => print($xlsx), $name, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /** PDF: the list the school's admin downloads (App\Support\StudentExport::listPdf). */
+    public function exportStudentsPdf()
+    {
+        if (!$sel = $this->studentExportSelection()) {
+            return null;
+        }
+        [$org, $classId, $sectionId] = $sel;
+        $this->showExportPicker = false;
+
+        $bytes = \App\Support\StudentExport::listPdf($org, $classId, $sectionId);
+        $name  = 'students_' . $this->exportSchoolSlug($org) . '_' . \App\Support\StudentExport::slug($classId, $sectionId) . '_' . now()->format('Y-m-d') . '.pdf';
+
+        return response()->streamDownload(fn () => print($bytes), $name, ['Content-Type' => 'application/pdf']);
     }
 
     // ─── Add Student Panel ────────────────────────────────────────────────────
@@ -1084,6 +1044,15 @@ class Student extends Component
         $students = $query->paginate($this->perPage);
         $stats    = $this->headerStats();
 
-        return view('livewire.super-admin.student', compact('students', 'stats'));
+        // The Export box: the schools, and the picked school's classes and the class's sections.
+        $exportSchools   = $this->showExportPicker ? $this->exportSchools() : collect();
+        $exportStandards = $this->showExportPicker && $this->exportSchool !== ''
+            ? Standard::where('organization_id', (int) $this->exportSchool)->inClassOrder()->get(['id', 'name'])
+            : collect();
+        $exportSections  = $this->showExportPicker && $this->exportClass !== ''
+            ? Section::where('standard_id', (int) $this->exportClass)->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        return view('livewire.super-admin.student', compact('students', 'stats', 'exportSchools', 'exportStandards', 'exportSections'));
     }
 }

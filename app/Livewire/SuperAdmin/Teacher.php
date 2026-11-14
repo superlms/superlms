@@ -22,6 +22,7 @@ use App\Support\NameOrder;
 class Teacher extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
+    use \App\Livewire\Concerns\SuperAdminSchoolExport;
 
     public int $totalSchools      = 0;
     public int $totalTeachers     = 0;
@@ -433,53 +434,50 @@ class Teacher extends Component
         $this->notification()->success('Teacher updated successfully!');
     }
 
-    // ─── Export ───────────────────────────────────────────────────────────────
+    // ─── Export (the school admin's export, for any school) ──────────────────
 
+    /** Export opens the admin's "Export as…" box, the list's school already in it. */
+    public function openExportPicker(): void
+    {
+        $this->resetErrorBag();
+        $this->exportSchool     = (string) ($this->exportLockedSchool() ?: $this->filterOrganization);
+        $this->showExportPicker = true;
+    }
+
+    public function updatedExportSchool(): void
+    {
+        $this->resetErrorBag('exportSchool');
+    }
+
+    /** Excel: the sheet the school's admin downloads (App\Support\TeacherExport). */
     public function exportTeachers()
     {
-        if (!$this->filterOrganization) return;
+        if (!$org = $this->exportSchoolId()) {
+            return null;
+        }
+        $this->showExportPicker = false;
 
-        $teachers = $this->baseQuery()->tap(fn ($q) => NameOrder::teachers($q))->get();
+        [$headings, $rows] = \App\Support\TeacherExport::data($org);
+        $xlsx = \App\Support\TeacherExport::xlsx($headings, $rows);
+        $name = 'teachers_' . $this->exportSchoolSlug($org) . '_' . now()->format('Y-m-d') . '.xlsx';
 
-        return response()->streamDownload(function () use ($teachers) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, [
-                'S.No', 'Name', 'Email', 'Mobile', 'Gender',
-                'Employee ID', 'Date of Birth', 'Date of Joining',
-                'Qualification', 'Emergency Contact',
-                'Address', 'City', 'State', 'Pincode',
-                'Subjects', 'School', 'Status',
-            ]);
-
-            foreach ($teachers as $i => $t) {
-                $subjects = $t->assignedSubjects?->count()
-                    ? $t->assignedSubjects->pluck('subject.name')->filter()->implode(', ')
-                    : '';
-
-                fputcsv($handle, [
-                    $i + 1,
-                    $t->user?->name ?? '',
-                    $t->user?->email ?? '',
-                    $t->user?->mobile_number ?? '',
-                    ucfirst($t->user?->gender ?? ''),
-                    $t->employee_id ?? '',
-                    $t->user?->dob ?? '',
-                    $t->date_of_joining ?? '',
-                    $t->qualification ?? '',
-                    $t->emergency_contact ?? '',
-                    $t->address ?? '',
-                    $t->city ?? '',
-                    $t->state ?? '',
-                    $t->pincode ?? '',
-                    $subjects,
-                    $t->user?->organization?->name ?? '',
-                    ($t->user?->is_active) ? 'Active' : 'Inactive',
-                ]);
-            }
-            fclose($handle);
-        }, 'teachers_' . now()->format('Y-m-d_H-i-s') . '.csv', [
-            'Content-Type' => 'text/csv',
+        return response()->streamDownload(fn () => print($xlsx), $name, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /** PDF: the list the school's admin downloads (App\Support\TeacherExport::listPdf). */
+    public function exportTeachersPdf()
+    {
+        if (!$org = $this->exportSchoolId()) {
+            return null;
+        }
+        $this->showExportPicker = false;
+
+        $bytes = \App\Support\TeacherExport::listPdf($org);
+        $name  = 'teachers_' . $this->exportSchoolSlug($org) . '_' . now()->format('Y-m-d') . '.pdf';
+
+        return response()->streamDownload(fn () => print($bytes), $name, ['Content-Type' => 'application/pdf']);
     }
 
     // ─── Add Teacher Panel ────────────────────────────────────────────────────
@@ -650,6 +648,9 @@ class Teacher extends Component
         $teachers = $this->baseQuery()->tap(fn ($q) => NameOrder::teachers($q))->paginate($this->perPage);
         $stats    = $this->headerStats();
 
-        return view('livewire.super-admin.teacher', compact('teachers', 'stats'));
+        // The Export box's schools.
+        $exportSchools = $this->showExportPicker ? $this->exportSchools() : collect();
+
+        return view('livewire.super-admin.teacher', compact('teachers', 'stats', 'exportSchools'));
     }
 }
