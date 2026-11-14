@@ -1,4 +1,50 @@
 <div class="min-h-screen bg-gray-50">
+    @php
+        // A school's tabs (DETAIL VIEW), also named on the page's skeleton.
+        $detailTabs = [
+            'overview'   => 'Overview',
+            'modules'    => 'Modules',
+            'custom_fee' => 'Custom Fee',
+            'biometric'  => 'Biometric',
+            'bank'       => 'Bank Details',
+            // The school's own PhonePe merchant, and Fee Autopay on it.
+            'payment'    => 'Online Payment',
+            'fees'       => 'Fees Analytics',
+            'students'   => 'Students',
+            'teachers'   => 'Teachers',
+        ];
+        // What a tab's skeleton looks like: rows for the lists, else fields.
+        $tabTargets = fn (array $tabs) => implode(',', array_map(fn ($t) => "setDetailTab('$t')", $tabs));
+        $tableTabs  = ['fees', 'students', 'teachers'];
+    @endphp
+
+    {{-- ══════════ SKELETONS — a screen that takes longer than .5s to open
+         (ListSkeleton::DELAY_MS; wire:loading's .delay.longer is 500ms) shows
+         its skeleton until it arrives; a quicker one shows straight away. ══════════ --}}
+    @if ($activeView === 'list')
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="viewSchoolDetail">
+            @include('livewire.super-admin.partials.screen-skeleton-detail', ['tabs' => array_values($detailTabs), 'actions' => 2])
+        </div>
+    @else
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="backToList">
+            @include('livewire.super-admin.partials.list-page-skeleton', \App\Support\ListSkeleton::page('super-admin.schools'))
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openBankModal">
+            @include('livewire.super-admin.partials.panel-skeleton', ['width' => 'max-w-xl', 'cols' => 1, 'fields' => 5])
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openPaymentModal">
+            @include('livewire.super-admin.partials.panel-skeleton', ['width' => 'max-w-xl', 'cols' => 1, 'fields' => 5])
+        </div>
+    @endif
+    <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openModal">
+        @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'New School', 'fields' => 10])
+    </div>
+    <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="onEdit">
+        @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'Edit School', 'fields' => 10])
+    </div>
+
+    {{-- The list and a school's page: hidden while the other one's skeleton stands in. --}}
+    <div wire:loading.delay.longer.class="hidden" wire:target="viewSchoolDetail,backToList">
 
     {{-- ══════════ LIST VIEW — in the Students list's look ══════════ --}}
     @if ($activeView === 'list')
@@ -93,7 +139,7 @@
 
             {{-- ══════════ DESKTOP TABLE — the Students list's table: S.No, the school (its logo, the
                  email under the name), Mobile, Board, School Code, Students, Teachers; the status is the
-                 dot beside the row's ⋮ (View, Login as school, Edit, Delete). ══════════ --}}
+                 dot beside the row's action buttons (View, Login as school, Edit, Delete). ══════════ --}}
             <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div class="overflow-x-auto xl:overflow-visible rounded-xl">
                     <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
@@ -106,13 +152,13 @@
                                 <th class="{{ $th }} w-[110px]">School Code</th>
                                 <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Students</th>
                                 <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Teachers</th>
-                                <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
+                                <th class="px-2 py-2.5 w-[168px] text-right text-[11px] font-medium text-gray-500 rounded-tr-xl"><span class="pr-2">Actions</span></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                             @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::SCHOOLS, 'rows' => 10])
                         </tbody>
-                        <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                        <tbody class="divide-y divide-gray-100" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                             @forelse ($schools as $index => $school)
                                 @php $board = \App\Support\BoardName::short($school->education_board); @endphp
                                 <tr wire:key="sa-sch-row-{{ $school->id }}" class="hover:bg-gray-50/70 transition-colors">
@@ -144,6 +190,7 @@
                                     <td class="px-2 py-3">
                                         @include('livewire.super-admin.partials.list-row-actions', [
                                             'active'  => (bool) $school->status,
+                                            'buttons' => true,
                                             'actions' => [
                                                 ['View', 'viewSchoolDetail(' . (int) $school->id . ')', 'view'],
                                                 ['Login as school', 'lmsLoginAsSchool(' . (int) $school->id . ')', 'login', true],
@@ -171,10 +218,10 @@
             </div>
 
             {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
-            <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+            <div class="md:hidden space-y-3 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                 @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
             </div>
-            <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+            <div class="md:hidden space-y-3" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                 @forelse ($schools as $index => $school)
                     @php $mActive = (bool) $school->status; @endphp
                     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="sa-sch-card-m-{{ $school->id }}">
@@ -312,18 +359,7 @@
 
                 {{-- Tab Bar --}}
                 <div class="flex border-b border-gray-200 overflow-x-auto">
-                    @foreach ([
-        'overview' => 'Overview',
-        'modules' => 'Modules',
-        'custom_fee' => 'Custom Fee',
-        'biometric' => 'Biometric',
-        'bank' => 'Bank Details',
-        // The school's own PhonePe merchant, and Fee Autopay on it.
-        'payment' => 'Online Payment',
-        'fees' => 'Fees Analytics',
-        'students' => 'Students',
-        'teachers' => 'Teachers',
-    ] as $tab => $label)
+                    @foreach ($detailTabs as $tab => $label)
                         <button wire:click="setDetailTab('{{ $tab }}')"
                             class="px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2
                                 {{ $detailTab === $tab
@@ -333,6 +369,15 @@
                         </button>
                     @endforeach
                 </div>
+
+                {{-- A tab (or a student or teacher of it) slower than .5s to open: its skeleton. --}}
+                <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $tabTargets($tableTabs) }},selectStudent,selectTeacher">
+                    @include('livewire.super-admin.partials.screen-skeleton-tab', ['kind' => 'table'])
+                </div>
+                <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $tabTargets(array_diff(array_keys($detailTabs), $tableTabs)) }}">
+                    @include('livewire.super-admin.partials.screen-skeleton-tab', ['kind' => 'fields'])
+                </div>
+                <div wire:loading.delay.longer.class="hidden" wire:target="setDetailTab,selectStudent,selectTeacher">
 
                 {{-- ════════ OVERVIEW TAB ════════ --}}
                 @if ($detailTab === 'overview')
@@ -1198,9 +1243,12 @@
                     </div>
                 @endif
 
+                </div>{{-- the tab's body --}}
             </div>
         </div>
     @endif
+
+    </div>{{-- the list and a school's page --}}
 
     {{-- ══════════ ADD / EDIT SCHOOL SLIDE-IN PANEL ══════════
          In the school panel's Add Student look (flat 2-col grid, header and

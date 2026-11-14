@@ -10,7 +10,11 @@
      view | edit | delete | login | fee | link | send | check | cancel | reopen;
      the call is a wire:click, or with js true an Alpine expression (Login as
      school). $dot (optional, true): false leaves the status dot out (a list
-     that shows its status in a column of its own, as Calendar → Queries). --}}
+     that shows its status in a column of its own, as Calendar → Queries).
+
+     $buttons (optional, false): true sets the actions out as icon buttons in
+     the row instead of the ⋮ — View blue, Login green, Edit amber, Delete red
+     (Schools); a single 'arrow' is the bordered › that opens the row (Fees). --}}
 @php
     $icons = [
         'view'   => 'M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
@@ -23,9 +27,38 @@
         'check'  => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
         'cancel' => 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636',
         'reopen' => 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+        'arrow'  => 'M9 5l7 7-7 7',
     ];
     $statusWord = $active ? 'Active' : 'Inactive';
+    // The icon buttons' colours, as the lists had them before the ⋮.
+    $tones = [
+        'view'   => 'p-1.5 text-blue-600 hover:bg-blue-50',
+        'login'  => 'p-1.5 text-emerald-600 hover:bg-emerald-50',
+        'edit'   => 'p-1.5 text-amber-600 hover:bg-amber-50',
+        'delete' => 'p-1.5 text-red-600 hover:bg-red-50',
+        'arrow'  => 'w-9 h-9 border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200',
+    ];
 @endphp
+@if ($buttons ?? false)
+<div class="flex items-center justify-end gap-1" data-row-buttons>
+    <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }} {{ ($dot ?? true) ? '' : 'hidden' }}"
+        title="{{ $statusWord }}" role="img" aria-label="{{ $statusWord }}" data-status="{{ strtolower($statusWord) }}"></span>
+    @foreach ($actions as $action)
+        @php
+            [$label, $call, $icon] = $action;
+            $cls = 'inline-flex items-center justify-center rounded-lg transition-colors flex-shrink-0 '
+                 . ($tones[$icon] ?? 'p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100');
+        @endphp
+        @if ($action[3] ?? false)
+            <button type="button" title="{{ $label }}" aria-label="{{ $label }}" x-on:click="{{ $call }}" class="{{ $cls }}">
+        @else
+            <button type="button" title="{{ $label }}" aria-label="{{ $label }}" wire:click="{{ $call }}" class="{{ $cls }}">
+        @endif
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icons[$icon] }}" /></svg>
+        </button>
+    @endforeach
+</div>
+@else
 <div class="flex items-center justify-end gap-1"
     x-data="{ open: false, up: false, y: 0, right: 0 }"
     x-init="$el.closest('#main-scroll')?.addEventListener('scroll', () => open = false, { passive: true })"
@@ -70,3 +103,4 @@
         @endforeach
     </div>
 </div>
+@endif

@@ -1,10 +1,12 @@
-{{-- A whole Super Admin list page as a skeleton, shown the moment its link is
-     clicked until the page itself arrives: the header (the title, the
-     figures as bars, the Add button), the filter bar, the table with its real
-     column names over skeleton rows — and on a phone, skeleton cards.
+{{-- A whole Super Admin list page as a skeleton, shown once its link (or
+     Back to it) has taken longer than ListSkeleton::DELAY_MS, until the page
+     itself arrives: the header (the title, the figures as bars, the Add
+     button), the filter bar, the table with its real column names over
+     skeleton rows — and on a phone, skeleton cards.
 
      $title; $headers = [[name, th classes], …]; $cols (as list-skeleton-rows);
-     $filters = how many filter boxes the bar has. --}}
+     $filters = how many filter boxes the bar has; $export (default true):
+     the bar ends in Export. --}}
 <div class="min-h-screen bg-gray-50" aria-busy="true" data-page-skeleton>
     <div class="bg-white border-b border-gray-200">
         <div class="px-4 sm:px-6 py-3">
@@ -27,7 +29,9 @@
                 @for ($f = 0; $f < $filters; $f++)
                     <span class="sa-skel h-6 w-28 rounded-md"></span>
                 @endfor
-                <span class="sa-skel h-6 w-36 rounded-md sm:ml-auto"></span>
+                @if ($export ?? true)
+                    <span class="sa-skel h-6 w-36 rounded-md sm:ml-auto"></span>
+                @endif
             </div>
         </div>
     </div>

@@ -190,10 +190,10 @@
                             <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                    <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                         @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::STUDENTS, 'rows' => 10])
                     </tbody>
-                    <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                    <tbody class="divide-y divide-gray-100" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                         @forelse ($students as $index => $student)
                             @php
                                 // Class / Section: the class, then the section's last letter (Nursery-A)
@@ -258,10 +258,10 @@
         </div>
 
         {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
-        <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+        <div class="md:hidden space-y-3 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
             @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
         </div>
-        <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+        <div class="md:hidden space-y-3" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
             @forelse ($students as $index => $student)
                 @php
                     $mSecLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1));

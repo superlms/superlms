@@ -88,9 +88,9 @@ class SuperAdminSchoolOnlinePaymentTest extends TestCase
     /**
      * Schools in the Students list's look: the figures in the header, the
      * smaller filter bar, S.No, the school with its email under the name,
-     * the status as a dot beside the ⋮ — View, Login as school, Edit and
-     * Delete in its menu, Delete set apart — skeleton rows while the list
-     * reloads, and the shared foot.
+     * the status as a dot beside the action buttons as they were before the
+     * ⋮ — View, Login as school, Edit and Delete — skeleton rows once the list
+     * is slower than .5s to reload, and the shared foot.
      */
     public function test_the_list_is_in_the_students_look(): void
     {
@@ -106,18 +106,55 @@ class SuperAdminSchoolOnlinePaymentTest extends TestCase
         $this->assertStringContainsString('1 A Adarsh Satyadev Inter College office@adarsh.in', $text);
         $this->assertStringContainsString('2 G Green Valley —', $text);
 
-        // The dot beside the ⋮, and the menu.
+        // The dot beside the row's buttons — View, Login as school, Edit, Delete — and no ⋮.
         $this->assertSame(1, substr_count($html, 'data-status="inactive"'));
         $this->assertSame(1, substr_count($html, 'data-status="active"'));
-        $this->assertStringContainsString('wire:click="viewSchoolDetail(1)"', $html);
-        $this->assertStringContainsString('x-on:click="open = false; lmsLoginAsSchool(1)"', $html);
-        $this->assertStringContainsString('wire:click="onEdit(1)"', $html);
-        // (Livewire marks its @if blocks with <!--[if BLOCK]--> comments.)
-        $this->assertMatchesRegularExpression('/role="separator"><\/div>(\s*<!--\[if (END)?BLOCK\]><!\[endif\]-->)*\s*<button type="button" role="menuitem" wire:click="onDelete\(1\)"/', $html);
+        $this->assertStringNotContainsString('aria-haspopup="menu"', $html);
+        $this->assertStringNotContainsString('role="menuitem"', $html);
+        $this->assertStringContainsString('>Actions</span></th>', $html);
+        foreach ([
+            ['View', 'wire:click="viewSchoolDetail(1)"', 'text-blue-600'],
+            ['Login as school', 'x-on:click="lmsLoginAsSchool(1)"', 'text-emerald-600'],
+            ['Edit', 'wire:click="onEdit(1)"', 'text-amber-600'],
+            ['Delete', 'wire:click="onDelete(1)"', 'text-red-600'],
+        ] as [$label, $call, $tone]) {
+            $this->assertMatchesRegularExpression('/<button type="button" title="' . $label . '" aria-label="' . $label . '" ' . preg_quote($call, '/') . ' class="[^"]*' . $tone . '[^"]*">/', $html, $label);
+        }
+
+        // View, Add School and Edit slower than .5s: their skeletons (the school's page, the panel).
+        $this->assertStringContainsString('<div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="viewSchoolDetail">', $html);
+        $this->assertStringContainsString('<div wire:loading.delay.longer.class="hidden" wire:target="viewSchoolDetail,backToList">', $html);
+        $this->assertSame(1, substr_count($html, 'data-screen-skeleton'));
+        $this->assertSame(2, substr_count($html, 'data-panel-skeleton'));
 
         // Skeleton rows stand in while a filter, the sort or another page loads.
-        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="search,statusFilter,mediumFilter,boardFilter,sortBy,sortDir,gotoPage,nextPage,previousPage,clearFilters">', $html);
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="search,statusFilter,mediumFilter,boardFilter,sortBy,sortDir,gotoPage,nextPage,previousPage,clearFilters">', $html);
         $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
         $this->assertStringContainsString('Showing 1–2 of 2 entries', $text);
+    }
+
+    /**
+     * A school's page: Back, a tab (or a student or teacher of it) and each
+     * slide-in show a skeleton once slower than .5s.
+     */
+    public function test_a_schools_page_has_skeletons_after_half_a_second(): void
+    {
+        $html = html_entity_decode(Livewire::test(Schools::class)->call('viewSchoolDetail', 1)->html(), ENT_QUOTES);
+
+        // Back: the list's skeleton with its real columns; the page itself hidden meanwhile.
+        $this->assertStringContainsString('<div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="backToList">', $html);
+        $this->assertStringContainsString('<div wire:loading.delay.longer.class="hidden" wire:target="viewSchoolDetail,backToList">', $html);
+        $this->assertSame(1, substr_count($html, 'data-page-skeleton'));
+        $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
+        $this->assertSame(0, substr_count($html, 'data-screen-skeleton'));
+
+        // A tab: rows for the lists, fields for the rest; the open tab hidden meanwhile.
+        $this->assertStringContainsString("wire:target=\"setDetailTab('fees'),setDetailTab('students'),setDetailTab('teachers'),selectStudent,selectTeacher\"", $html);
+        $this->assertStringContainsString("wire:target=\"setDetailTab('overview'),setDetailTab('modules'),setDetailTab('custom_fee'),setDetailTab('biometric'),setDetailTab('bank'),setDetailTab('payment')\"", $html);
+        $this->assertStringContainsString('<div wire:loading.delay.longer.class="hidden" wire:target="setDetailTab,selectStudent,selectTeacher">', $html);
+        $this->assertSame(2, substr_count($html, 'data-tab-skeleton'));
+
+        // New / Edit School, Bank Details, Online Payment.
+        $this->assertSame(4, substr_count($html, 'data-panel-skeleton'));
     }
 }

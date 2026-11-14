@@ -13,6 +13,37 @@
         };
     @endphp
 
+    {{-- ══════════ SKELETONS — a screen that takes longer than .5s to open
+         (ListSkeleton::DELAY_MS; wire:loading's .delay.longer is 500ms) shows
+         its skeleton until it arrives; a quicker one shows straight away. ══════════ --}}
+    @if ($activeView === 'list')
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="selectSchool">
+            @include('livewire.super-admin.partials.screen-skeleton-dashboard')
+        </div>
+    @else
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="backToList">
+            @include('livewire.super-admin.partials.list-page-skeleton', \App\Support\ListSkeleton::page('super-admin.fees'))
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openAddFeePanel,openUpdateFeePanel">
+            @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'Fee Structure', 'fields' => 6])
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="viewPayment">
+            @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'Payment', 'width' => 'max-w-xl', 'cols' => 1, 'fields' => 5])
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openEditPayment">
+            @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'Edit Payment', 'fields' => 6])
+        </div>
+        <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openPayModal,openMarkPaidModal,openInstallmentPayModal,openMarkInstallmentPaidModal">
+            @include('livewire.super-admin.partials.panel-skeleton', ['width' => 'max-w-md', 'cols' => 1, 'fields' => 4, 'z' => 'z-[60]'])
+        </div>
+    @endif
+    <div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="openUpdatePanel,openUpdatePanelForCurrent">
+        @include('livewire.super-admin.partials.panel-skeleton', ['title' => 'Update Fee', 'fields' => 6])
+    </div>
+
+    {{-- The list and a school's fee page: hidden while the other one's skeleton stands in. --}}
+    <div wire:loading.delay.longer.class="hidden" wire:target="selectSchool,backToList">
+
     {{-- ══════════ LIST VIEW ══════════ --}}
     @if ($activeView === 'list')
 
@@ -140,7 +171,7 @@
 
             {{-- ══════════ DESKTOP TABLE — the Students list's table: S.No, the school (its logo, the
                  code under the name), Board, Fee Type, Amount, Students, Collection; the school's status
-                 is the dot beside the row's ⋮ (Manage Fee / Set up Fee). ══════════ --}}
+                 is the dot beside the row's › button (Manage Fee / Set up Fee). ══════════ --}}
             <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div class="overflow-x-auto xl:overflow-visible rounded-xl">
                     <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
@@ -153,13 +184,13 @@
                                 <th class="{{ $th }} w-[130px]">Amount</th>
                                 <th class="{{ $th }} w-[80px]">Students</th>
                                 <th class="{{ $th }} w-[22%]">Collection</th>
-                                <th class="px-2 py-2.5 w-[60px] rounded-tr-xl"><span class="sr-only">Status and actions</span></th>
+                                <th class="px-2 py-2.5 w-[76px] rounded-tr-xl"><span class="sr-only">Status and open</span></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                        <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                             @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => \App\Support\ListSkeleton::FEES, 'rows' => 10])
                         </tbody>
-                        <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                        <tbody class="divide-y divide-gray-100" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                             @forelse ($schools as $index => $school)
                                 @php
                                     [$orgStructure, $orgExpected, $orgCollected, $orgPct] = $feeOf[$school->id];
@@ -219,8 +250,9 @@
                                     <td class="px-2 py-3">
                                         @include('livewire.super-admin.partials.list-row-actions', [
                                             'active'  => (bool) $school->status,
+                                            'buttons' => true,
                                             'actions' => [
-                                                [$orgStructure ? 'Manage Fee' : 'Set up Fee', 'selectSchool(' . (int) $school->id . ')', 'fee'],
+                                                [$orgStructure ? 'Manage Fee' : 'Set up Fee', 'selectSchool(' . (int) $school->id . ')', 'arrow'],
                                             ],
                                         ])
                                     </td>
@@ -243,10 +275,10 @@
             </div>
 
             {{-- ══════════ MOBILE CARDS (skeleton cards while the list reloads) ══════════ --}}
-            <div class="md:hidden space-y-3 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+            <div class="md:hidden space-y-3 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                 @include('livewire.super-admin.partials.list-skeleton-cards', ['cards' => 4])
             </div>
-            <div class="md:hidden space-y-3" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+            <div class="md:hidden space-y-3" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                 @forelse ($schools as $index => $school)
                     @php
                         [$orgStructure, $orgExpected, $orgCollected, $orgPct] = $feeOf[$school->id];
@@ -295,8 +327,9 @@
                             @endif
                         </div>
                         <div class="border-t border-gray-100">
-                            <button wire:click="selectSchool({{ $school->id }})" class="w-full py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                            <button wire:click="selectSchool({{ $school->id }})" class="w-full inline-flex items-center justify-center gap-1 py-2.5 text-xs font-medium text-blue-600 hover:bg-blue-50">
                                 {{ $orgStructure ? 'Manage Fee' : 'Set up Fee' }}
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                             </button>
                         </div>
                     </div>
@@ -819,6 +852,24 @@
                         @endif
                     </div>
 
+                    {{-- A class, section, status or sort slower than .5s: skeleton rows stand in. --}}
+                    @php $vfReloads = 'viewFeeStandardId,viewFeeSectionId,viewFeeStatus,viewFeeSort,clearViewFeeFilters'; @endphp
+                    <div class="hidden border-t border-gray-100 divide-y divide-gray-100" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $vfReloads }}" aria-hidden="true">
+                        @foreach ([72, 58, 84, 66, 90, 62] as $w)
+                            <div class="flex items-center gap-4 px-5 py-3.5">
+                                <span class="sa-skel h-3 w-5 flex-shrink-0"></span>
+                                <div class="flex-1 min-w-0 space-y-1.5">
+                                    <span class="sa-skel block h-3" style="width: {{ round($w * 0.45) }}%"></span>
+                                    <span class="sa-skel block h-2.5" style="width: {{ round($w * 0.3) }}%"></span>
+                                </div>
+                                <span class="sa-skel h-3 w-16"></span>
+                                <span class="sa-skel h-3 w-16"></span>
+                                <span class="sa-skel h-5 w-16 rounded-full"></span>
+                                <span class="sa-skel h-6 w-24 rounded-lg"></span>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div wire:loading.delay.longer.class="hidden" wire:target="{{ $vfReloads }}">
                     @if (empty($vfRows))
                         <p class="px-5 py-12 text-center text-sm text-gray-400 border-t border-gray-100">No students match the selected filters.</p>
                     @else
@@ -883,6 +934,7 @@
                             </table>
                         </div>
                     @endif
+                    </div>
                 </div>
             @elseif ($dStructure?->fee_type === 'one_time')
                 <div class="sa-card min-w-0 overflow-hidden">
@@ -962,6 +1014,8 @@
             @endif
         </div>
     @endif
+
+    </div>{{-- the list and a school's fee page --}}
 
     {{-- ══════════ ADD/UPDATE FEE SLIDE-IN PANEL ══════════
          In the Update Fee panel's look (the Students form's): a wide panel,

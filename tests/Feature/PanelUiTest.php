@@ -80,12 +80,13 @@ class PanelUiTest extends TestCase
         $this->assertStringContainsString("el.innerHTML.includes('wire:loading')", $js);
         $this->assertStringContainsString('body.lms-ui :is(button, a[wire\:click]):not(:disabled):active { scale: .96; }', $js);
         $this->assertStringContainsString('body.lms-ui [data-sa-busy]::after {', $js);
-        // Only a slow answer turns the button into a spinner: for the first .4s it stays as it is.
-        $this->assertStringContainsString('transition: color 0s .4s !important;', $js);
-        $this->assertStringContainsString('opacity: 0; animation: sa-spin .6s linear infinite, sa-show .12s ease .4s forwards;', $js);
+        // Only a slow answer turns the button into a spinner: for the first .5s (the skeletons' wait) it stays as it is.
+        $this->assertSame(500, \App\Support\ListSkeleton::DELAY_MS);
+        $this->assertStringContainsString('transition: color 0s .5s !important;', $js);
+        $this->assertStringContainsString('opacity: 0; animation: sa-spin .6s linear infinite, sa-show .12s ease .5s forwards;', $js);
     }
 
-    public function test_a_lists_skeleton_shows_the_moment_its_link_is_clicked(): void
+    public function test_a_lists_skeleton_shows_once_its_link_takes_longer_than_half_a_second(): void
     {
         $layout = $this->layout();
         $js     = $this->partial();
@@ -100,10 +101,19 @@ class PanelUiTest extends TestCase
         $this->assertStringContainsString("const tpl = document.querySelector('template[data-skeleton-for=\"' + CSS.escape(url.pathname) + '\"]');", $js);
         $this->assertStringContainsString("window.addEventListener('pageshow', e => { if (e.persisted) restore(); });", $js);
         $this->assertStringContainsString('.sa-skel {', $js);
+        // Not at once: only once the page has taken longer than .5s; a quicker one simply opens.
+        $this->assertStringContainsString('window.__saSkelWait = setTimeout(() => {', $js);
+        $this->assertStringContainsString('}, 500);', $js);
+        $this->assertStringContainsString("window.addEventListener('pagehide', wait);", $js);
 
-        // The Students and Teachers skeletons: their real column names over skeleton rows.
+        // The Students, Teachers, Schools and Fees skeletons: their real column names over skeleton rows.
         $html = view('livewire.super-admin.partials.list-skeletons')->render();
-        foreach (['super-admin.students' => ['Students', 'Admission No', 'Father&#039;s Name'], 'super-admin.teachers' => ['Teachers', 'Username', 'Class Teacher']] as $route => $words) {
+        foreach ([
+            'super-admin.students' => ['Students', 'Admission No', 'Father&#039;s Name'],
+            'super-admin.teachers' => ['Teachers', 'Username', 'Class Teacher'],
+            'super-admin.schools'  => ['Schools', 'School Code', 'Actions'],
+            'super-admin.fees'     => ['Fees', 'Fee Type', 'Collection'],
+        ] as $route => $words) {
             $path = parse_url(route($route), PHP_URL_PATH);
             $start = strpos($html, '<template data-skeleton-for="' . $path . '">');
             $this->assertNotFalse($start, $route);

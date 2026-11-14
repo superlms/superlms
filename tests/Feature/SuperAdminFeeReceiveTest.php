@@ -526,9 +526,9 @@ class SuperAdminFeeReceiveTest extends TestCase
 
     /**
      * Fees in the Students list's look: the smaller filter bar, S.No, the
-     * school with its code under the name, the status as a dot beside the ⋮
-     * whose menu opens the school's fee, skeleton rows while the list
-     * reloads, and the shared foot.
+     * school with its code under the name, the status as a dot beside the ›
+     * button that opens the school's fee (no ⋮), skeleton rows once the list
+     * is slower than .5s to reload, and the shared foot.
      */
     public function test_the_list_is_in_the_students_look(): void
     {
@@ -541,10 +541,41 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertSame(['S.No', 'School', 'Board', 'Fee Type', 'Amount', 'Students', 'Collection'],
             array_slice(array_values(array_filter(array_map('trim', $th[1]))), 0, 7));
         $this->assertMatchesRegularExpression('/1 \S+ .+ Code: /', $text);
-        $this->assertMatchesRegularExpression('/role="menuitem" wire:click="selectSchool\(1\)"/', $html);
+        // (Livewire marks its @if blocks with <!--[if BLOCK]--> comments.)
+        $this->assertMatchesRegularExpression('/<button type="button" title="(Manage|Set up) Fee" aria-label="(Manage|Set up) Fee" wire:click="selectSchool\(1\)" class="[^"]*w-9 h-9 border border-gray-200 text-blue-600[^"]*">(\s*<!--\[if (END)?BLOCK\]><!\[endif\]-->)*\s*<svg[^>]*><path[^>]* d="M9 5l7 7-7 7"/', $html);
+        $this->assertStringNotContainsString('aria-haspopup="menu"', $html);
         $this->assertMatchesRegularExpression('/(Manage|Set up) Fee/', $text);
-        $this->assertMatchesRegularExpression('/wire:loading\.delay\.long\.class\.remove="hidden" wire:target="search,filterOrganization,filterFeeType,filterBoard,gotoPage,nextPage,previousPage,clearFilters"/', $html);
+        $this->assertMatchesRegularExpression('/wire:loading\.delay\.longer\.class\.remove="hidden" wire:target="search,filterOrganization,filterFeeType,filterBoard,gotoPage,nextPage,previousPage,clearFilters"/', $html);
+        // Manage Fee slower than .5s: the school's fee page as a skeleton in the list's place.
+        $this->assertStringContainsString('<div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="selectSchool">', $html);
+        $this->assertStringContainsString('<div wire:loading.delay.longer.class="hidden" wire:target="selectSchool,backToList">', $html);
+        $this->assertSame(1, substr_count($html, 'data-screen-skeleton'));
         $this->assertMatchesRegularExpression('/Showing 1–\d+ of \d+ entries/', $text);
+    }
+
+    /**
+     * A school's fee page: Back, each slide-in and a class, section, status
+     * or sort of its Students show a skeleton once slower than .5s.
+     */
+    public function test_a_schools_fee_page_has_skeletons_after_half_a_second(): void
+    {
+        $this->signIn();
+        $this->alphaStudents();
+        $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 70]);
+
+        $html = html_entity_decode(Livewire::test(Fees::class)->call('selectSchool', 1)->html(), ENT_QUOTES);
+
+        // Back: the list's skeleton with its real columns; the page itself hidden meanwhile.
+        $this->assertStringContainsString('<div class="hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="backToList">', $html);
+        $this->assertStringContainsString('<div wire:loading.delay.longer.class="hidden" wire:target="selectSchool,backToList">', $html);
+        $this->assertSame(1, substr_count($html, 'data-page-skeleton'));
+        $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
+        $this->assertSame(0, substr_count($html, 'data-screen-skeleton'));
+        // Fee Structure, a payment, Edit Payment, Record / Mark Paid, Update Fee.
+        $this->assertSame(5, substr_count($html, 'data-panel-skeleton'));
+        $this->assertStringContainsString('wire:target="openPayModal,openMarkPaidModal,openInstallmentPayModal,openMarkInstallmentPaidModal"', $html);
+        // The Students card's rows while a filter or the sort is slow.
+        $this->assertSame(2, substr_count($html, 'wire:target="viewFeeStandardId,viewFeeSectionId,viewFeeStatus,viewFeeSort,clearViewFeeFilters"'));
     }
 
     // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────

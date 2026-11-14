@@ -175,8 +175,8 @@ class SuperAdminStudentListTest extends TestCase
         $targets = 'search,filterOrganization,filterClass,filterSection,filterGender,filterStatus,sort,gotoPage,nextPage,previousPage,clearFilters';
 
         // Hidden at first; shown — and the rows hidden — only once a reload takes longer than a moment.
-        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="' . $targets . '">', $html);
-        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="' . $targets . '">', $html);
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="' . $targets . '">', $html);
+        $this->assertStringContainsString('<tbody class="divide-y divide-gray-100" wire:loading.delay.longer.class="hidden" wire:target="' . $targets . '">', $html);
         // Ten rows shaped as the real ones: S.No, photo and name, the other columns, the dot and ⋮.
         $this->assertSame(10, substr_count($html, 'data-skeleton-row'));
         $this->assertSame(10 * 2, substr_count($html, 'sa-skel w-8 h-8 rounded-full') + substr_count($html, 'sa-skel w-2 h-2 rounded-full') - 4);

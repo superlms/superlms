@@ -58,10 +58,10 @@
                         <th class="px-2 py-2.5 w-[48px] rounded-tr-xl"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.long.class.remove="hidden" wire:target="{{ $reloads }}">
+                <tbody class="divide-y divide-gray-100 hidden" wire:loading.delay.longer.class.remove="hidden" wire:target="{{ $reloads }}">
                     @include('livewire.super-admin.partials.list-skeleton-rows', ['cols' => ['sno', 'person', 70, 80, 70, 70, 60, 'actions'], 'rows' => 8])
                 </tbody>
-                <tbody class="divide-y divide-gray-100" wire:loading.delay.long.class="hidden" wire:target="{{ $reloads }}">
+                <tbody class="divide-y divide-gray-100" wire:loading.delay.longer.class="hidden" wire:target="{{ $reloads }}">
                     @forelse ($queries as $index => $q)
                         @php
                             $s = $q->statusKey();

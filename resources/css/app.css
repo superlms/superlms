@@ -3,6 +3,8 @@
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+/* The Super Admin list skeletons' header classes are given in PHP. */
+@source '../../app/Support/ListSkeleton.php';
 
 /* Tile colour palette used by admin Quick Links / More / Home tiles is built
    at runtime from a fixed PHP list; safelist the exact utilities so the
