@@ -221,13 +221,14 @@
     @if ($showPanel)
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col"
+                x-data="{ uploading: 0 }" x-on:doc-uploading="uploading = $event.detail">
 
                 {{-- Panel Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Document' : 'Add Document' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Add a title, description and attach a file</p>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Document' : 'Add Documents' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Add a title, description and attach a file' : 'Upload one file or several at once — each becomes a document' }}</p>
                     </div>
                     <button wire:click="closePanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
@@ -238,42 +239,49 @@
                 {{-- Body --}}
                 <div class="flex-1 overflow-y-auto">
                     <div class="px-6 py-6 space-y-5">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="title" placeholder="e.g. Fee Structure 2026-27"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
+                        @if ($editId)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="title" placeholder="e.g. Fee Structure 2026-27"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        @else
+                            {{-- One file or several at once — each its own document, with its own title. --}}
+                            @include('livewire.partials.many-documents-picker')
+                        @endif
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="text-gray-400 font-normal">(optional)</span></label>
-                            <textarea wire:model="description" rows="3" placeholder="Short note about this document"
+                            <textarea wire:model="description" rows="3" placeholder="{{ $editId ? 'Short note about this document' : 'Short note — goes with every document added here' }}"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
                             @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                File @if (!$editId)<span class="text-red-500">*</span>@endif
-                                <span class="text-gray-400 font-normal">(PDF, image or any file, max 5 MB)</span>
-                            </label>
-                            @if ($editId && $existingFileName)
-                                <p class="text-xs text-gray-500 mb-1.5">Current: <strong class="text-gray-700 font-medium">{{ $existingFileName }}</strong> — upload a new file to replace it.</p>
-                            @endif
-                            <input type="file" wire:model="file"
-                                class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            <div wire:loading wire:target="file" class="text-xs text-blue-600 mt-1">Uploading...</div>
-                            @error('file')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
+                        @if ($editId)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    File <span class="text-gray-400 font-normal">(PDF, image or any file, max 5 MB)</span>
+                                </label>
+                                @if ($existingFileName)
+                                    <p class="text-xs text-gray-500 mb-1.5">Current: <strong class="text-gray-700 font-medium">{{ $existingFileName }}</strong> — upload a new file to replace it.</p>
+                                @endif
+                                <input type="file" wire:model="file"
+                                    class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <div wire:loading wire:target="file" class="text-xs text-blue-600 mt-1">Uploading...</div>
+                                @error('file')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
                     </div>
                 </div>
 
                 {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save,file"
+                    <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save,file,docPick"
+                        x-bind:disabled="uploading > 0"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Document' : 'Save Document' }}</span>
+                        <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Document' : (count($docFiles) > 1 ? 'Save ' . count($docFiles) . ' Documents' : 'Save Document') }}</span>
                         <span wire:loading wire:target="save">Saving...</span>
                     </button>
                 </div>

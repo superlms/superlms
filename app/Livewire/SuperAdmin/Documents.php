@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use App\Livewire\Concerns\PicksManyDocuments;
 use App\Models\Organization;
 use App\Models\SuperAdmin\SuperAdminDocument;
 use App\Models\User;
@@ -19,10 +20,14 @@ use WireUi\Traits\WireUiActions;
  * all organizations or a chosen set, and the schools' admins receive it in their
  * own Documents screen (plus a bell notification) to view and download. Add and
  * edit both happen in a right slide-in panel.
+ *
+ * Add Doc takes one file or several at once (PicksManyDocuments): each becomes
+ * a document of its own, with its own title, all going to the same schools —
+ * and the schools' admins get one bell notification for the lot.
  */
 class Documents extends Component
 {
-    use WithFileUploads, WithPagination, WireUiActions;
+    use WithFileUploads, WithPagination, WireUiActions, PicksManyDocuments;
 
     /** School-admin accounts live on the users table under these roles. */
     private const ADMIN_ROLES = ['admin', 'sub-admin'];
@@ -109,6 +114,7 @@ class Documents extends Component
     private function resetForm(): void
     {
         $this->reset(['title', 'description', 'file', 'existingFileName', 'editId']);
+        $this->resetManyDocs();
         $this->resetValidation();
 
         if ($lockedOrgId = $this->lockedOrganizationId()) {
@@ -144,60 +150,106 @@ class Documents extends Component
             $this->selectedOrgs  = [$lockedOrgId];
         }
 
-        $this->validate([
-            'title'           => 'required|string|max:255',
-            'description'     => 'nullable|string|max:1000',
-            // File is required when creating; optional (keep existing) when editing.
-            'file'            => ($this->editId ? 'nullable' : 'required') . '|file|max:5120', // KB → 5 MB
+        $audience = [
             'audienceScope'   => 'required|in:private,all,selected',
             'selectedOrgs'    => 'required_if:audienceScope,selected|array',
             'selectedOrgs.*'  => 'exists:organizations,id',
-        ], [
-            'file.required'            => 'Please choose a file to upload.',
-            'file.max'                 => 'The file may not be larger than 5 MB.',
-            'selectedOrgs.required_if' => 'Pick at least one school, or choose "All schools".',
-        ]);
+        ];
+        $messages = ['selectedOrgs.required_if' => 'Pick at least one school, or choose "All schools".'];
 
-        try {
-            $this->editId ? $this->updateDocument() : $this->createDocument();
-        } catch (\Throwable $e) {
-            report($e);
-            $this->notification()->error('Save failed', $e->getMessage());
+        if ($this->editId) {
+            $this->validate([
+                'title'       => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                // Replacing the file is optional when editing.
+                'file'        => 'nullable|file|max:5120', // KB → 5 MB
+            ] + $audience, [
+                'file.max' => 'The file may not be larger than 5 MB.',
+            ] + $messages);
+
+            try {
+                $this->updateDocument();
+            } catch (\Throwable $e) {
+                report($e);
+                $this->notification()->error('Save failed', $e->getMessage());
+                return;
+            }
+
+            $this->closePanel();
+            $this->resetPage();
             return;
         }
 
-        $this->closePanel();
+        // Adding: one document per file picked, each with its own title.
+        $this->validate($this->manyDocsRules() + ['description' => 'nullable|string|max:1000'] + $audience,
+            $this->manyDocsMessages() + $messages);
+
+        if ($this->createDocuments()) {
+            $this->closePanel();
+        }
         $this->resetPage();
     }
 
-    private function createDocument(): void
+    /**
+     * Each file picked becomes a document, all going to the same schools. A
+     * file that fails stays in the panel with the reason, the rest are saved;
+     * true when every one was.
+     */
+    private function createDocuments(): bool
     {
-        $key = $this->file->store('super-admin/documents', 's3');
-        Storage::disk('s3')->setVisibility($key, 'public');
+        $created = [];
+        $failed  = [];
 
-        $doc = SuperAdminDocument::create([
-            'title'          => $this->title,
-            'description'    => $this->description ?: null,
-            'file_path'      => $key,
-            'file_name'      => $this->file->getClientOriginalName(),
-            'file_size'      => $this->file->getSize(),
-            'mime_type'      => $this->file->getMimeType(),
-            'audience_scope' => $this->audienceScope,
-            'uploaded_by'    => Auth::id() ?: null,
-        ]);
+        foreach ($this->docFiles as $i => $file) {
+            try {
+                $key = $this->storeDoc($file, 'super-admin/documents');
 
-        if ($this->audienceScope === 'selected') {
-            $doc->organizations()->sync($this->selectedOrgs);
+                $doc = SuperAdminDocument::create([
+                    'title'          => trim((string) ($this->docTitles[$i] ?? '')) ?: static::titleFromFileName($file->getClientOriginalName()),
+                    'description'    => $this->description ?: null,
+                    'file_path'      => $key,
+                    'file_name'      => $file->getClientOriginalName(),
+                    'file_size'      => $file->getSize(),
+                    'mime_type'      => $file->getMimeType(),
+                    'audience_scope' => $this->audienceScope,
+                    'uploaded_by'    => Auth::id() ?: null,
+                ]);
+
+                if ($this->audienceScope === 'selected') {
+                    $doc->organizations()->sync($this->selectedOrgs);
+                }
+
+                $created[] = $doc;
+                $this->forgetDoc($i);
+            } catch (\Throwable $e) {
+                report($e);
+                $failed[] = $file->getClientOriginalName() . ': ' . Str::limit($e->getMessage(), 120);
+            }
         }
 
-        // A private document stays here: no school sees it, nobody is notified.
-        if ($this->audienceScope === 'private') {
-            $this->notification()->success('Document saved', 'Kept private — no school can see it.');
-            return;
+        $this->docFiles  = array_values($this->docFiles);
+        $this->docTitles = array_values($this->docTitles);
+
+        $n     = count($created);
+        $words = $n === 1 ? 'Document' : $n . ' documents';
+
+        if ($n > 0) {
+            // A private document stays here: no school sees it, nobody is notified.
+            if ($this->audienceScope === 'private') {
+                $this->notification()->success($words . ' saved', 'Kept private — no school can see ' . ($n === 1 ? 'it' : 'them') . '.');
+            } else {
+                $this->notifyAdmins($created);
+                $this->notification()->success($words . ' sent', 'Schools can now view and download ' . ($n === 1 ? 'it' : 'them') . '.');
+            }
         }
 
-        $this->notifyAdmins($doc);
-        $this->notification()->success('Document sent', 'Schools can now view and download it.');
+        if ($failed) {
+            $this->addError('docFiles', 'Not saved — ' . implode('; ', $failed));
+            $this->notification()->error(count($failed) === 1 ? 'A file was not saved' : count($failed) . ' files were not saved', 'They are still in the panel — try Save again.');
+            return false;
+        }
+
+        return true;
     }
 
     private function updateDocument(): void
@@ -259,11 +311,23 @@ class Documents extends Component
 
     /**
      * Drop a bell notification into each targeted school-admin's web inbox so
-     * the document actually "reaches" them. Fail-soft — a notification hiccup
-     * must never lose the uploaded document.
+     * the documents actually "reach" them — one for documents added together,
+     * which all go to the same schools. Fail-soft — a notification hiccup
+     * must never lose the uploaded documents.
+     *
+     * @param SuperAdminDocument[] $docs
      */
-    private function notifyAdmins(SuperAdminDocument $doc): void
+    private function notifyAdmins(array $docs): void
     {
+        $doc = $docs[0] ?? null;
+        if (!$doc) {
+            return;
+        }
+
+        $title = count($docs) === 1
+            ? 'New document: ' . $doc->title
+            : count($docs) . ' new documents: ' . Str::limit(collect($docs)->pluck('title')->join(', '), 120);
+
         try {
             $orgIds = $this->targetOrgIds($doc);
             if (empty($orgIds)) {
@@ -283,8 +347,10 @@ class Documents extends Component
             $now  = now();
             $data = json_encode([
                 'type'   => 'document',
-                'title'  => 'New document: ' . $doc->title,
-                'body'   => 'A new document is available in your Documents section.',
+                'title'  => $title,
+                'body'   => count($docs) === 1
+                    ? 'A new document is available in your Documents section.'
+                    : count($docs) . ' new documents are available in your Documents section.',
                 'screen' => 'documents',
             ]);
 

@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\PicksManyDocuments;
 use App\Models\Admin\AdminDocument;
 use App\Models\SuperAdmin\SuperAdminDocument;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -16,12 +18,14 @@ use WireUi\Traits\WireUiActions;
  * School-admin Documents screen, in two tabs:
  *   1. "School Documents" — files the admin uploads and manages for their own
  *      organization (add / view / edit / download / delete via a right slide-in panel).
+ *      Add Doc takes one file or several at once (PicksManyDocuments), each
+ *      its own document with its own title.
  *   2. "Admin Documents" — documents the super-admin has pushed down to this
  *      organization; admins can only view & download these.
  */
 class Documents extends Component
 {
-    use WithFileUploads, WithPagination, WireUiActions;
+    use WithFileUploads, WithPagination, WireUiActions, PicksManyDocuments;
 
     public $organization = null;
 
@@ -93,6 +97,7 @@ class Documents extends Component
     private function resetForm(): void
     {
         $this->reset(['title', 'description', 'file', 'existingFileName', 'editId']);
+        $this->resetManyDocs();
         $this->resetValidation();
     }
 
@@ -100,45 +105,88 @@ class Documents extends Component
 
     public function save(): void
     {
-        $this->validate([
-            'title'       => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            // File is required when creating; optional (keep existing) when editing.
-            'file'        => ($this->editId ? 'nullable' : 'required') . '|file|max:5120', // KB → 5 MB
-        ], [
-            'file.required' => 'Please choose a file to upload.',
-            'file.max'      => 'The file may not be larger than 5 MB.',
-        ]);
+        if ($this->editId) {
+            $this->validate([
+                'title'       => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                // Replacing the file is optional when editing.
+                'file'        => 'nullable|file|max:5120', // KB → 5 MB
+            ], [
+                'file.max' => 'The file may not be larger than 5 MB.',
+            ]);
 
-        try {
-            $this->editId ? $this->updateDocument() : $this->createDocument();
-        } catch (\Throwable $e) {
-            report($e);
-            $this->notification()->error('Save failed', $e->getMessage());
+            try {
+                $this->updateDocument();
+            } catch (\Throwable $e) {
+                report($e);
+                $this->notification()->error('Save failed', $e->getMessage());
+                return;
+            }
+
+            $this->closePanel();
+            $this->resetPage();
             return;
         }
 
-        $this->closePanel();
+        // Adding: one document per file picked, each with its own title.
+        $this->validate($this->manyDocsRules() + ['description' => 'nullable|string|max:1000'], $this->manyDocsMessages());
+
+        if ($this->createDocuments()) {
+            $this->closePanel();
+        }
         $this->resetPage();
     }
 
-    private function createDocument(): void
+    /**
+     * Each file picked becomes a document of the school. A file that fails
+     * stays in the panel with the reason, the rest are saved; true when every
+     * one was.
+     */
+    private function createDocuments(): bool
     {
-        $key = $this->file->store('admin/documents', 's3');
-        Storage::disk('s3')->setVisibility($key, 'public');
+        $saved  = 0;
+        $failed = [];
 
-        AdminDocument::create([
-            'organization_id' => $this->orgId(),
-            'title'           => $this->title,
-            'description'     => $this->description ?: null,
-            'file_path'       => $key,
-            'file_name'       => $this->file->getClientOriginalName(),
-            'file_size'       => $this->file->getSize(),
-            'mime_type'       => $this->file->getMimeType(),
-            'uploaded_by'     => Auth::id() ?: null,
-        ]);
+        foreach ($this->docFiles as $i => $file) {
+            try {
+                $key = $this->storeDoc($file, 'admin/documents');
 
-        $this->notification()->success('Document added', 'Your document has been saved.');
+                AdminDocument::create([
+                    'organization_id' => $this->orgId(),
+                    'title'           => trim((string) ($this->docTitles[$i] ?? '')) ?: static::titleFromFileName($file->getClientOriginalName()),
+                    'description'     => $this->description ?: null,
+                    'file_path'       => $key,
+                    'file_name'       => $file->getClientOriginalName(),
+                    'file_size'       => $file->getSize(),
+                    'mime_type'       => $file->getMimeType(),
+                    'uploaded_by'     => Auth::id() ?: null,
+                ]);
+
+                $saved++;
+                $this->forgetDoc($i);
+            } catch (\Throwable $e) {
+                report($e);
+                $failed[] = $file->getClientOriginalName() . ': ' . Str::limit($e->getMessage(), 120);
+            }
+        }
+
+        $this->docFiles  = array_values($this->docFiles);
+        $this->docTitles = array_values($this->docTitles);
+
+        if ($saved > 0) {
+            $this->notification()->success(
+                $saved === 1 ? 'Document added' : $saved . ' documents added',
+                $saved === 1 ? 'Your document has been saved.' : 'Your documents have been saved.'
+            );
+        }
+
+        if ($failed) {
+            $this->addError('docFiles', 'Not saved — ' . implode('; ', $failed));
+            $this->notification()->error(count($failed) === 1 ? 'A file was not saved' : count($failed) . ' files were not saved', 'They are still in the panel — try Save again.');
+            return false;
+        }
+
+        return true;
     }
 
     private function updateDocument(): void
