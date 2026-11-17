@@ -70,6 +70,16 @@ class Performance extends Component
     public bool   $showPerformerView = false;
     public array  $performerView     = [];
 
+    // ─── Progress Report tab ──────────────────────────────────────────────────
+    // One exam's report card for each student of a section (App\Support\ProgressReport).
+    public string $prExam     = '';
+    public string $prStandard = '';
+    public string $prSection  = '';
+    public string $prStudent  = '';
+    public array  $prSections = [];
+    // The View panel: the student whose A5 card is shown in the frame.
+    public ?int   $progressViewStudent = null;
+
     // ─── Shared lookup ────────────────────────────────────────────────────────
     public $exams     = [];
     public $standards = [];
@@ -129,6 +139,9 @@ class Performance extends Component
 
         if ($tab === 'performers') {
             $this->performers = [];
+        } elseif ($tab === 'progress') {
+            // Its own filters stay as they were; the list is read in render().
+            $this->progressViewStudent = null;
         } else {
             $this->resetPage();
             $this->loadFilterLists();
@@ -542,6 +555,71 @@ class Performance extends Component
         $this->performerView     = [];
     }
 
+    // ─── Progress Report tab: Exam → Class → Section, then a student ────────
+    public function updatedPrExam(): void
+    {
+        $this->prStudent = '';
+        $this->progressViewStudent = null;
+    }
+
+    public function updatedPrStandard(mixed $value): void
+    {
+        $this->prSection  = '';
+        $this->prStudent  = '';
+        $this->prSections = [];
+        $this->progressViewStudent = null;
+
+        if ($value) {
+            $this->prSections = Section::where('standard_id', $value)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->toArray();
+        }
+    }
+
+    public function updatedPrSection(): void
+    {
+        $this->prStudent = '';
+        $this->progressViewStudent = null;
+    }
+
+    public function clearProgressFilters(): void
+    {
+        $this->reset(['prExam', 'prStandard', 'prSection', 'prStudent', 'prSections', 'progressViewStudent']);
+    }
+
+    /** A student's card, shown in the View panel's frame. */
+    public function viewProgressReport(int $studentDetailId): void
+    {
+        $this->progressViewStudent = $studentDetailId;
+    }
+
+    public function closeProgressView(): void
+    {
+        $this->progressViewStudent = null;
+    }
+
+    /**
+     * The Progress Report tab's list: the picked section's cards for the
+     * picked exam (every student with marks in it, A to Z), or none until
+     * exam, class and section are all chosen.
+     */
+    private function progressCards(): array
+    {
+        if (!$this->prExam || !$this->prStandard || !$this->prSection) {
+            return [];
+        }
+
+        $orgId = Auth::user()->organization_id;
+        $exam  = Exam::where('organization_id', $orgId)->find($this->prExam);
+        if (!$exam) {
+            return [];
+        }
+
+        return \App\Support\ProgressReport::cards($orgId, $exam, (int) $this->prStandard, (int) $this->prSection);
+    }
+
     // ─── View / Edit ─────────────────────────────────────────────────────────
     public function onView(int $id): void
     {
@@ -757,9 +835,10 @@ class Performance extends Component
     // ─── Render ──────────────────────────────────────────────────────────────
     public function render()
     {
-        $examCopies = $this->getExamCopies();
-        $headStats  = $this->headStats();
-        return view('livewire.admin.performance', compact('examCopies', 'headStats'));
+        $examCopies    = $this->getExamCopies();
+        $headStats     = $this->headStats();
+        $progressCards = $this->activeTab === 'progress' ? $this->progressCards() : [];
+        return view('livewire.admin.performance', compact('examCopies', 'headStats', 'progressCards'));
     }
 
     /**
@@ -772,9 +851,11 @@ class Performance extends Component
     private function headStats(): array
     {
         $orgId = Auth::user()->organization_id;
-        [$exam, $std, $sec, $sub, $stu] = $this->activeTab === 'performers'
-            ? [$this->perfExam, $this->perfStandard, $this->perfSection, $this->perfSubject, $this->perfStudent]
-            : [$this->filterExam, $this->filterStandard, $this->filterSection, $this->filterSubject, $this->filterStudent];
+        [$exam, $std, $sec, $sub, $stu] = match ($this->activeTab) {
+            'performers' => [$this->perfExam, $this->perfStandard, $this->perfSection, $this->perfSubject, $this->perfStudent],
+            'progress'   => [$this->prExam, $this->prStandard, $this->prSection, '', $this->prStudent],
+            default      => [$this->filterExam, $this->filterStandard, $this->filterSection, $this->filterSubject, $this->filterStudent],
+        };
 
         $students = StudentDetail::where('organization_id', $orgId)
             ->when($std, fn ($q) => $q->where('standard_id', $std))

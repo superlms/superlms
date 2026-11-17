@@ -209,6 +209,13 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/report-card/{id}/view', [ReportCardController::class, 'view'])
             ->name('admin.report-card.view');
 
+        // Performance → Progress Report: one exam's A5 report card (App\Support\ProgressReport).
+        // Named under admin.performance, so a sub-admin given Performance has them too.
+        Route::get('/performance/progress-report/view', [\App\Http\Controllers\Admin\ProgressReportController::class, 'view'])
+            ->name('admin.performance.progress-report.view');
+        Route::get('/performance/progress-report/download', [\App\Http\Controllers\Admin\ProgressReportController::class, 'download'])
+            ->name('admin.performance.progress-report.download');
+
         // Lists → custom list PDF
         Route::get('/lists/pdf', [\App\Http\Controllers\Admin\ListReportController::class, 'generate'])
             ->name('admin.lists.pdf');

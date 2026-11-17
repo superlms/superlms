@@ -66,6 +66,7 @@
             @foreach ([
                 'subject'    => 'View Marks',
                 'performers' => 'Performers',
+                'progress'   => 'Progress Report',
             ] as $tab => $label)
                 <button wire:click="showTab('{{ $tab }}')"
                     class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
@@ -159,6 +160,46 @@
                 </select>
                 @if ($perfExam || $perfStandard || $perfSection || $perfSubject || $perfStudent)
                     <button wire:click="clearPerfFilters"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Clear
+                    </button>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    {{-- ────────── PROGRESS REPORT TAB FILTER BAR ────────── --}}
+    @if ($activeTab === 'progress')
+        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                    Filter by:
+                </div>
+                {{-- Exam → Class → Section, then a student to narrow it to one card. --}}
+                <select wire:model.live="prExam"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[140px]">
+                    <option value="">Select Exam</option>
+                    @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
+                </select>
+                <select wire:model.live="prStandard" @disabled(!$prExam)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
+                    <option value="">Select Class</option>
+                    @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                </select>
+                <select data-sole-section wire:model.live="prSection" @disabled(!$prStandard)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
+                    <option value="">Select Section</option>
+                    @foreach ($prSections as $sec)<option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>@endforeach
+                </select>
+                <select wire:model.live="prStudent" @disabled(!$prSection || count($progressCards) === 0)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]">
+                    <option value="">All Students</option>
+                    @foreach ($progressCards as $c)<option value="{{ $c['student_id'] }}">{{ $c['name'] ?: 'N/A' }}</option>@endforeach
+                </select>
+                @if ($prExam || $prStandard || $prSection || $prStudent)
+                    <button wire:click="clearProgressFilters"
                         class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         Clear
@@ -392,9 +433,162 @@
         </div>
     @endif
 
+{{-- ═══════════════════════════════════════════════
+     PROGRESS REPORT TAB — one exam's report card for each student of the
+     section: every subject's marks and grade on an A5 page
+═══════════════════════════════════════════════ --}}
+@elseif ($activeTab === 'progress')
+    @php
+        $prParams = ['organization' => auth()->user()->organization_id, 'exam' => $prExam, 'standard' => $prStandard, 'section' => $prSection];
+        $prShown  = $prStudent
+            ? array_values(array_filter($progressCards, fn ($c) => (string) $c['student_id'] === (string) $prStudent))
+            : $progressCards;
+        $prExamName = collect($exams)->firstWhere('id', $prExam)?->exam_name;
+        $prSecName  = collect($prSections)->firstWhere('id', $prSection)['name'] ?? '';
+        $prStdName  = collect($standards)->firstWhere('id', $prStandard)?->name;
+    @endphp
+
+    @if (!$prExam || !$prStandard || !$prSection)
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+            <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            </div>
+            <p class="text-sm text-gray-600 font-medium">Pick Exam → Class → Section to prepare the report cards.</p>
+            <p class="text-xs text-gray-400 mt-1">Each student gets that one exam's card on an A5 page: every subject's marks and grade, the total, percentage, rank and result.</p>
+        </div>
+    @elseif (count($progressCards) === 0)
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 text-center">
+            <p class="text-sm font-medium text-gray-500">No marks have been uploaded in this exam for this class yet.</p>
+            <button wire:click="openUploadMarks" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800">Upload marks →</button>
+        </div>
+    @else
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center gap-3">
+                <div class="min-w-0">
+                    <h3 class="font-semibold text-gray-900 text-sm">Report cards · {{ $prExamName }}</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ $prStdName }}{{ $prSecName !== '' ? ' - ' . $prSecName : '' }} · {{ count($progressCards) }} {{ count($progressCards) === 1 ? 'student' : 'students' }} · A5</p>
+                </div>
+                @if (!$prStudent && count($progressCards) > 1)
+                    {{-- The whole section in one PDF, a card to each A5 page. --}}
+                    <a href="{{ route('admin.performance.progress-report.download', $prParams) }}" download
+                        class="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download All ({{ count($progressCards) }})
+                    </a>
+                @endif
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subjects</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rank</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Card</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($prShown as $c)
+                            <tr class="hover:bg-gray-50/70 transition-colors" wire:key="pr-{{ $c['student_id'] }}">
+                                <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $loop->iteration }}</span></td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        @if ($c['image'])
+                                            <img src="{{ $c['image'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                        @else
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($c['name'] ?: '?', 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $c['name'] ?: 'N/A' }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $c['admission_no'] ?: '—' }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    {{-- A subject with no marks yet shows as "—" on the card. --}}
+                                    <span class="text-sm tabular-nums {{ $c['entered'] < $c['subjects'] ? 'text-amber-600' : 'text-gray-700' }}">{{ $c['entered'] }} / {{ $c['subjects'] }}</span>
+                                    @if ($c['entered'] < $c['subjects'])
+                                        <p class="text-xs text-amber-600">{{ $c['subjects'] - $c['entered'] }} not entered</p>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $c['obtained'] }}</span><span class="text-sm text-gray-400 tabular-nums"> / {{ $c['max'] }}</span>
+                                    <p class="text-xs text-gray-400 tabular-nums">{{ number_format($c['pct'], 2) }}%</p>
+                                </td>
+                                <td class="px-4 py-3"><span class="text-sm text-gray-700">{{ $c['grade'] }}</span></td>
+                                <td class="px-4 py-3 whitespace-nowrap"><span class="text-sm text-gray-700 tabular-nums">{{ $c['rank'] }}</span><span class="text-xs text-gray-400"> of {{ $c['of'] }}</span></td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm font-medium {{ $c['result'] === 'Pass' ? 'text-emerald-600' : ($c['result'] === 'Fail' ? 'text-red-600' : 'text-gray-500') }}">{{ $c['result'] }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <button wire:click="viewProgressReport({{ $c['student_id'] }})" title="View"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        </button>
+                                        <a href="{{ route('admin.performance.progress-report.download', $prParams + ['student' => $c['student_id']]) }}" download title="Download PDF"
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
 @endif
 
 </div>
+
+{{-- ═══════════════════════════════════════════════
+     PROGRESS REPORT VIEW SLIDE-IN — the student's A5 card itself, in a frame
+═══════════════════════════════════════════════ --}}
+@php
+    $pvCard = ($activeTab === 'progress' && $progressViewStudent)
+        ? collect($progressCards)->firstWhere('student_id', $progressViewStudent)
+        : null;
+@endphp
+@if ($pvCard)
+@php $pvParams = ['organization' => auth()->user()->organization_id, 'exam' => $prExam, 'standard' => $prStandard, 'section' => $prSection, 'student' => $pvCard['student_id']]; @endphp
+<div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+    <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeProgressView"></div>
+    <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $pvCard['name'] ?: 'N/A' }}</h2>
+                <p class="text-xs text-gray-500 mt-0.5 truncate">Progress Report · {{ collect($exams)->firstWhere('id', $prExam)?->exam_name }} · Adm {{ $pvCard['admission_no'] ?: '—' }}</p>
+            </div>
+            <button wire:click="closeProgressView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-hidden bg-gray-100">
+            <iframe wire:key="pr-frame-{{ $pvCard['student_id'] }}-{{ $prExam }}"
+                src="{{ route('admin.performance.progress-report.view', $pvParams) }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
+                class="w-full h-full border-0" title="Progress Report"></iframe>
+        </div>
+        <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+            <a href="{{ route('admin.performance.progress-report.download', $pvParams) }}" download
+                class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md inline-flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Download PDF
+            </a>
+            <button type="button" wire:click="closeProgressView"
+                class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- ═══════════════════════════════════════════════
      UPLOAD MARKS SLIDE-IN (exams-style)
