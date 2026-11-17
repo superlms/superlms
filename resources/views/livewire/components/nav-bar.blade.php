@@ -65,8 +65,9 @@
                         @endif
                     </h2>
                     {{-- The current academic session (Super Admin → Session). A
-                         super admin who may open that page can switch it here
-                         when there is more than one session, else open the page. --}}
+                         super admin who may open that page can pick another one here
+                         when there is more than one session — Session then asks for
+                         its two codes — else open the page. --}}
                     @php
                         $sessionLabel = \App\Models\AcademicSession::currentLabel();
                         $sessionLink  = $saBar && auth()->user()->canAccessSuperAdminRoute('super-admin.sessions');
@@ -95,19 +96,29 @@
                                 class="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl border border-gray-200 shadow-lg z-[999] overflow-hidden">
                                 <p class="px-3 pt-2.5 pb-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Current session</p>
                                 <div class="max-h-64 overflow-y-auto pb-1" role="listbox">
+                                    {{-- Another session becomes current only behind its two codes
+                                         (an email one and a WhatsApp one): picking it opens them on Session. --}}
                                     @foreach ($sessionList as $s)
-                                        <button type="button" role="option" @if ($s->is_current) aria-selected="true" @endif
-                                            @unless ($s->is_current) wire:click="switchSession({{ $s->id }})" @endunless
-                                            x-on:click="open = false"
-                                            class="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors {{ $s->is_current ? 'bg-blue-50/60' : 'hover:bg-gray-50' }}">
-                                            <span class="flex-1 min-w-0">
-                                                <span class="block text-sm {{ $s->is_current ? 'font-semibold text-blue-700' : 'font-medium text-gray-800' }}">{{ $s->name }}</span>
-                                                <span class="block text-xs text-gray-400">{{ $s->durationLabel() }}</span>
-                                            </span>
-                                            @if ($s->is_current)
+                                        @if ($s->is_current)
+                                            <div role="option" aria-selected="true"
+                                                class="w-full flex items-center gap-3 px-3 py-2 text-left bg-blue-50/60">
+                                                <span class="flex-1 min-w-0">
+                                                    <span class="block text-sm font-semibold text-blue-700">{{ $s->name }}</span>
+                                                    <span class="block text-xs text-gray-400">{{ $s->durationLabel() }}</span>
+                                                </span>
                                                 <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                            @endif
-                                        </button>
+                                            </div>
+                                        @else
+                                            <a role="option" href="{{ route('super-admin.sessions', ['switch' => $s->id]) }}" x-on:click="open = false"
+                                                title="Make {{ $s->name }} current — needs a code from the Super Admin's email and one from WhatsApp"
+                                                class="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50">
+                                                <span class="flex-1 min-w-0">
+                                                    <span class="block text-sm font-medium text-gray-800">{{ $s->name }}</span>
+                                                    <span class="block text-xs text-gray-400">{{ $s->durationLabel() }}</span>
+                                                </span>
+                                                <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                            </a>
+                                        @endif
                                     @endforeach
                                 </div>
                                 <a href="{{ route('super-admin.sessions') }}"

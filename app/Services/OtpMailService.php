@@ -157,6 +157,49 @@ class OtpMailService
     }
 
     /**
+     * One code by email only — the ZeptoMail OTP template, then the app's own
+     * mailer when one is set up — for a flow that keeps its own codes (Super
+     * Admin → Session's two codes). Never throws.
+     *
+     * @return array{ok: bool, error: ?string}
+     */
+    public static function deliverByEmail(User $user, string $panelName, string $otp): array
+    {
+        try {
+            self::sendViaZeptoMail($user, $panelName, $otp);
+            return ['ok' => true, 'error' => null];
+        } catch (\Throwable $e) {
+            $error = self::emailProblem($e->getMessage());
+            Log::warning('OTP email (ZeptoMail) failed — trying the app mailer', [
+                'email' => $user->email, 'panel' => $panelName, 'error' => $e->getMessage(),
+            ]);
+        }
+
+        if (!self::hasRealMailer()) {
+            return ['ok' => false, 'error' => $error];
+        }
+
+        try {
+            Mail::to($user->email)->send(new LoginOtpMail($otp, $user->name ?? '', $panelName));
+            return ['ok' => true, 'error' => null];
+        } catch (\Throwable $e) {
+            Log::error('OTP email fallback failed', ['email' => $user->email, 'panel' => $panelName, 'error' => $e->getMessage()]);
+            return ['ok' => false, 'error' => $error . '; the backup mailer failed too: ' . Str::limit($e->getMessage(), 90)];
+        }
+    }
+
+    /**
+     * One code on WhatsApp only (the OTP Authentication template), for a flow
+     * that keeps its own codes. Never throws.
+     *
+     * @return array{ok: bool, error: ?string}
+     */
+    public static function deliverByWhatsApp(string $to, string $otp): array
+    {
+        return self::sendViaWhatsApp($to, $otp);
+    }
+
+    /**
      * The numbers to send to, each once: normalized (91 + ten digits) => as
      * given. A number WhatsApp can't use stays in, so it is reported, not lost.
      *

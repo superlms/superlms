@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Components;
 
-use App\Models\AcademicSession;
 use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -136,34 +135,18 @@ class NavBar extends Component
         }
     }
 
-    #[On('open-notifications')]
     /**
-     * The top bar's session switcher: makes another academic session the
-     * current one — only for a super admin who may open Super Admin → Session.
-     * Pages showing sessions hear 'academic-session-changed' and refresh.
+     * Another academic session was made current (Super Admin → Session, after
+     * its two codes): the top bar's session badge follows. The switcher in
+     * the top bar no longer switches by itself — it opens Session's codes.
      */
-    public function switchSession(int $id): void
+    #[On('academic-session-changed')]
+    public function academicSessionChanged(): void
     {
-        $user = Auth::user();
-
-        if (!$user
-            || !in_array($user->role, ['super-admin', 'sub-super-admin'], true)
-            || !$user->canAccessSuperAdminRoute('super-admin.sessions')) {
-            return;
-        }
-
-        $session = AcademicSession::find($id);
-
-        if (!$session || $session->is_current) {
-            return;
-        }
-
-        $session->makeCurrent();
-
-        $this->dispatch('academic-session-changed', id: $session->id);
-        $this->notification()->success('Current session changed', "{$session->name} is now the current session.");
+        // Re-rendering is all it takes.
     }
 
+    #[On('open-notifications')]
     public function openNotifications(): void
     {
         $this->showNotifications = true;
