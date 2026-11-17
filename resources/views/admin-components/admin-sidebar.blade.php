@@ -12,8 +12,8 @@
      - expanded, it is 224px wide instead of the shared 253px;
      - expanded, the logo sits 28px higher (up beside the menu button, which
        stays on top and clickable) and is 56px instead of 72px;
-     - the menu is one list with no "Dashboard" title over it, a faint line
-       between each two items;
+     - the menu is one list with no "Dashboard" title over it and no lines
+       between the items;
      - the menu's scrollbar is a hairline. --}}
 <style>
     @media (min-width: 768px) {
@@ -22,12 +22,6 @@
         html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -1.75rem; }
         html.sidebar-expanded .lms-admin-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
     }
-    /* A short, very faint line between two menu items. */
-    .lms-sb-divider { height: 1px; margin: 1px 1.75rem; background: rgba(17, 24, 39, .028); }
-    @media (min-width: 768px) {
-        html:not(.sidebar-expanded) .lms-sb-divider { margin-left: .875rem; margin-right: .875rem; }
-    }
-
     #sidebar-nav::-webkit-scrollbar { width: 3px; }
     #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
     #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
@@ -92,9 +86,6 @@
                                     $is_active = Route::is($menu_item['prefix']);
                                     $routeParams = ['organization' => $currentOrganization];
                                 @endphp
-                                @unless ($loop->first)
-                                    <div class="lms-sb-divider" aria-hidden="true"></div>
-                                @endunless
                                 <a href="{{ route($menu_item['link'], $routeParams) }}"
                                     class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                     <x-icon
@@ -151,9 +142,6 @@
                                     $is_active = Route::is($menu_item['prefix']);
                                     $routeParams = ['organization' => $currentOrganization];
                                 @endphp
-                                @unless ($loop->first)
-                                    <div class="lms-sb-divider" aria-hidden="true"></div>
-                                @endunless
                                 <a href="{{ route($menu_item['link'], $routeParams) }}"
                                     title="{{ $menu_item['title'] }}"
                                     class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
