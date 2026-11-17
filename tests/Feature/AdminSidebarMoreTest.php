@@ -154,16 +154,12 @@ class AdminSidebarMoreTest extends TestCase
         Livewire::test(More::class)->assertSee('Exam Copy')->assertSeeHtml('/exam-copy"');
     }
 
-    public function test_reception_gatepass_and_complaints_are_only_their_pages_for_now(): void
+    /** Their screens themselves: AdminFrontDeskTest. */
+    public function test_reception_gatepass_and_complaints_are_tiles_on_more(): void
     {
         $this->signIn();
 
-        foreach ([
-            'Reception'  => [\App\Livewire\Admin\Reception::class, '/reception"'],
-            'Gatepass'   => [\App\Livewire\Admin\Gatepass::class, '/gatepass"'],
-            'Complaints' => [\App\Livewire\Admin\Complaints::class, '/complaints"'],
-        ] as $title => [$component, $href]) {
-            Livewire::test($component)->assertSee($title)->assertSee('Coming soon');
+        foreach (['Reception' => '/reception"', 'Gatepass' => '/gatepass"', 'Complaints' => '/complaints"'] as $title => $href) {
             Livewire::test(More::class)->assertSee($title)->assertSeeHtml($href);
         }
     }

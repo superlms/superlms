@@ -161,7 +161,7 @@ class ProgressReport
         $affiliation = trim((string) ($org->affiliation_no ?? ''));
 
         return [
-            'logo'        => self::logoSrc($org->logo),
+            'logo'        => PdfLogo::src($org->logo),
             'school'      => (string) $org->name,
             // Under the name, each its own short line so none breaks at a
             // separator: the address, phone and email, website and affiliation.
@@ -241,25 +241,6 @@ class ProgressReport
             (bool) $to                    => $to,
             default                       => '',
         };
-    }
-
-    /** A logo URL as it is; a stored path from public storage, if it is there. */
-    private static function logoSrc(?string $logo): ?string
-    {
-        $logo = trim((string) $logo);
-        if ($logo === '') {
-            return null;
-        }
-        if (preg_match('#^(https?:|data:)#i', $logo)) {
-            return $logo;
-        }
-        foreach ([public_path('storage/' . ltrim($logo, '/')), public_path(ltrim($logo, '/'))] as $path) {
-            if (is_file($path)) {
-                return $path;
-            }
-        }
-
-        return null;
     }
 
     /** 86.50 → "86.5", 40.00 → "40". */

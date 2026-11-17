@@ -131,9 +131,12 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/messaging', \App\Livewire\Admin\Messaging::class)->name('admin.messaging');
         // The school's own push notifications to its students and teachers (More → Push Notification).
         Route::get('/push-notification', \App\Livewire\Admin\PushNotification::class)->name('admin.push-notification');
-        // More → Reception, Gatepass and Complaints: only their pages for now.
+        // More → Reception (the visitor book), Gatepass (a student let out, and its slip) and Complaints.
         Route::get('/reception', \App\Livewire\Admin\Reception::class)->name('admin.reception');
         Route::get('/gatepass', \App\Livewire\Admin\Gatepass::class)->name('admin.gatepass');
+        Route::get('/gatepass/{id}/pdf', [\App\Http\Controllers\Admin\GatePassController::class, 'pdf'])
+            ->whereNumber('id')
+            ->name('admin.gatepass.pdf');
         Route::get('/complaints', \App\Livewire\Admin\Complaints::class)->name('admin.complaints');
         Route::get('/ledger/statement', [\App\Http\Controllers\Admin\LedgerStatementController::class, 'download'])
             ->name('admin.ledger.statement');

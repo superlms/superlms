@@ -18,7 +18,7 @@ class More extends Component
         ['title' => 'Messaging',            'route' => 'admin.messaging',            'icon' => 'chat-bubble-left-right'],
         // A push notification to the school's students and teachers (2026-11-13; the Notification module's).
         ['title' => 'Push Notification',    'route' => 'admin.push-notification',    'icon' => 'megaphone'],
-        // Only their pages so far (2026-11-04); what they do is still to be built.
+        // The visitor book, a student's gate pass, and complaints about students (2026-11-17).
         ['title' => 'Reception',            'route' => 'admin.reception',            'icon' => 'building-office'],
         ['title' => 'Gatepass',             'route' => 'admin.gatepass',             'icon' => 'ticket'],
         ['title' => 'Complaints',           'route' => 'admin.complaints',           'icon' => 'exclamation-circle'],
