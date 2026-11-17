@@ -36,6 +36,18 @@
                     </select>
                 @endunless
                 @if ($org)
+                    {{-- Every functionality's PDF to the school's registered email. --}}
+                    @php $mailTo = filter_var(trim((string) $org->email), FILTER_VALIDATE_EMAIL) ? trim($org->email) : null; @endphp
+                    <button wire:click="sendToMail" wire:loading.attr="disabled" wire:target="sendToMail"
+                        @if ($mailTo) wire:confirm="Send every PDF of {{ $org->name }} to {{ $mailTo }}?" @endif
+                        title="{{ $mailTo ? 'Send all PDFs to ' . $mailTo : 'This school has no registered email' }}"
+                        @disabled(!$mailTo || ($mailStatus['state'] ?? null) === 'sending')
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-send-to-mail>
+                        <svg class="w-4 h-4" wire:loading.remove wire:target="sendToMail" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <svg class="w-4 h-4 animate-spin" wire:loading wire:target="sendToMail" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                        Send to Mail
+                    </button>
                     <button wire:click="export" wire:loading.attr="disabled" wire:target="export"
                         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-60">
                         <svg class="w-4 h-4" wire:loading.remove wire:target="export" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -77,6 +89,65 @@
                     @if ($org->email)<span class="flex items-center gap-1.5 min-w-0"><x-icon name="envelope" class="w-4 h-4 text-gray-400" /><span class="truncate">{{ $org->email }}</span></span>@endif
                     <span class="flex items-center gap-1.5"><x-icon name="calendar" class="w-4 h-4 text-gray-400" />Joined {{ $org->created_at?->format('d M Y') ?? '—' }}</span>
                 </div>
+            </div>
+
+            {{-- ══════════ Every functionality, each with its PDF ══════════
+                 All the school's records there, plainly laid out
+                 (App\Support\SchoolPdf). Send to Mail, up top, mails them all. --}}
+            @php
+                $sections = \App\Support\SchoolPdf\Exporter::SECTIONS;
+                $mailAt   = !empty($mailStatus['at']) ? \Carbon\Carbon::parse($mailStatus['at'])->timezone(config('app.timezone'))->format('d M, h:i A') : null;
+            @endphp
+            <div class="sa-card overflow-hidden" data-school-pdfs
+                @if (($mailStatus['state'] ?? null) === 'sending') wire:poll.10s @endif>
+                <div class="px-5 pt-5 pb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 border-b border-gray-100">
+                    <div class="min-w-0">
+                        <h3 class="sa-card-title">Functionalities</h3>
+                        <p class="sa-card-sub">Export everything {{ $org->name }} keeps in each one as a PDF</p>
+                    </div>
+                    @if ($mailStatus)
+                        <p class="text-xs sm:text-right sm:max-w-[22rem] {{ ($mailStatus['state'] ?? '') === 'failed' ? 'text-rose-600' : 'text-gray-500' }}" data-mail-status>
+                            @switch($mailStatus['state'] ?? '')
+                                @case('sending')
+                                    <span class="inline-flex items-center gap-1.5"><span class="sa-dot animate-pulse" style="background:#7c3aed"></span>Sending {{ $mailStatus['files'] ?? '' }} PDFs to {{ $mailStatus['to'] }}…</span>
+                                    @break
+                                @case('sent')
+                                    Sent {{ $mailStatus['files'] ?? '' }} PDFs to {{ $mailStatus['to'] }} · {{ $mailAt }}
+                                    @break
+                                @case('failed')
+                                    Could not send to {{ $mailStatus['to'] }} ({{ $mailAt }}){{ !empty($mailStatus['error']) ? ': ' . $mailStatus['error'] : '' }}
+                                    @break
+                            @endswitch
+                        </p>
+                    @endif
+                </div>
+                <ul class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 -mb-px">
+                    @foreach ($sections as $key => [$label, $about])
+                        @php
+                            $n    = $pdfCounts[$key] ?? 0;
+                            // Fees counts payments; its PDF has every student's fee even before one.
+                            $unit = $key === 'fees' ? ['payment', 'payments', 'No payments yet'] : ['record', 'records', 'No records yet'];
+                            $has  = $n > 0 || ($key === 'fees' && ($pdfCounts['students'] ?? 0) > 0);
+                        @endphp
+                        <li class="flex items-center gap-3 px-5 py-3 border-b border-gray-100 min-w-0" wire:key="sd-pdf-{{ $key }}">
+                            <span class="w-5 flex-shrink-0 text-[11px] text-gray-400 tabular-nums">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ $label }}</p>
+                                <p class="text-xs text-gray-400 truncate" title="{{ $about }}">
+                                    <span class="{{ $n > 0 ? 'text-gray-600' : '' }} tabular-nums">{{ $n > 0 ? number_format($n) . ' ' . ($n === 1 ? $unit[0] : $unit[1]) : $unit[2] }}</span>
+                                    · {{ $about }}
+                                </p>
+                            </div>
+                            <button wire:click="exportPdf('{{ $key }}')" wire:loading.attr="disabled" wire:target="exportPdf('{{ $key }}')"
+                                class="inline-flex items-center gap-1.5 flex-shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-60
+                                       {{ $has ? 'text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100' : 'text-gray-500 border-gray-200 bg-white hover:bg-gray-50' }}">
+                                <svg class="w-3.5 h-3.5" wire:loading.remove wire:target="exportPdf('{{ $key }}')" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M7 21h10a2 2 0 002-2V8.414a1 1 0 00-.293-.707l-4.414-4.414A1 1 0 0013.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                <svg class="w-3.5 h-3.5 animate-spin" wire:loading wire:target="exportPdf('{{ $key }}')" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                                Export PDF
+                            </button>
+                        </li>
+                    @endforeach
+                </ul>
             </div>
 
             {{-- ══════════ KPIs ══════════ --}}

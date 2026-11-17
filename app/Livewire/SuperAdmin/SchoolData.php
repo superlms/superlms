@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use App\Jobs\SchoolDataMailSend;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Organization;
@@ -13,6 +14,7 @@ use App\Models\Teacher\TeacherDetail;
 use App\Support\AcademicYear;
 use App\Support\NameOrder;
 use App\Support\SchoolFeeTotals;
+use App\Support\SchoolPdf\Exporter;
 use App\Support\StudentExport;
 use App\Support\TeacherExport;
 use Carbon\Carbon;
@@ -27,6 +29,10 @@ use WireUi\Traits\WireUiActions;
  * school and see its students, teachers, staff, classes and fees — the
  * figures up top (with how they moved this month), then each list with a
  * search and an Excel export of it.
+ *
+ * Every functionality of the school's panel is listed with an Export PDF of
+ * all its records (App\Support\SchoolPdf\Exporter), and Send to Mail sends
+ * all those PDFs to the school's registered email.
  *
  * A sub super-admin limited to one school sees only that school.
  */
@@ -129,6 +135,55 @@ class SchoolData extends Component
         return response()->streamDownload(fn () => print($bytes), $name, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /** One functionality's PDF — everything the school keeps there (App\Support\SchoolPdf). */
+    public function exportPdf(string $key)
+    {
+        $org = $this->org();
+        if (!$org || !Exporter::exists($key)) {
+            return null;
+        }
+
+        try {
+            $bytes = Exporter::pdf($org->id, $key);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->notification()->error('Export failed', 'The ' . Exporter::label($key) . ' PDF could not be made. Please try again.');
+
+            return null;
+        }
+
+        return response()->streamDownload(fn () => print($bytes), Exporter::filename($org, $key), [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    /**
+     * Every functionality's PDF to the school's registered email, made and
+     * sent in the background (App\Jobs\SchoolDataMailSend).
+     */
+    public function sendToMail(): void
+    {
+        $org = $this->org();
+        if (!$org) {
+            return;
+        }
+
+        $to = trim((string) $org->email);
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $this->notification()->error('No email', $org->name . ' has no registered email. Add one on Schools first.');
+
+            return;
+        }
+
+        if (!SchoolDataMailSend::start($org, $to)) {
+            $this->notification()->info('Already sending', 'The PDFs for ' . $org->name . ' are on their way to ' . $to . '.');
+
+            return;
+        }
+
+        $this->notification()->success('Sending', 'All the PDFs will reach ' . $to . ' in a few minutes.');
     }
 
     // ─── The school and its figures ───────────────────────────────────────────
@@ -370,6 +425,8 @@ class SchoolData extends Component
             'summary'  => $org ? $this->summary($org->id) : null,
             'rows'     => $org && $this->tab !== 'classes' ? $this->rows($org->id) : null,
             'classes'  => $org && $this->tab === 'classes' ? $this->classes($org->id) : [],
+            'pdfCounts'  => $org ? Exporter::counts($org->id) : [],
+            'mailStatus' => $org ? SchoolDataMailSend::status($org->id) : null,
         ]);
     }
 }

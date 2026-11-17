@@ -223,4 +223,170 @@ class SuperAdminSchoolDataTest extends TestCase
         $links = array_column(config('menu.super-admin'), 'link');
         $this->assertSame('super-admin.school-data', end($links));
     }
+
+    // ─── Functionalities as PDFs, and Send to Mail ────────────────────────────
+
+    /** The columns the Students and Fees PDFs read beyond what the lists above need. */
+    private function fullSchema(): void
+    {
+        Schema::table('student_details', function (Blueprint $t) {
+            foreach (['email', 'gender', 'religion', 'mother_name', 'local_address', 'permanent_address', 'city', 'state', 'pincode',
+                      'board', 'aadhar_no', 'appar_id', 'pen_no', 'registration_number'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->date('dob')->nullable();
+            $t->date('date_of_admission')->nullable();
+            $t->boolean('transportation_required')->default(false);
+        });
+        Schema::table('users', fn (Blueprint $t) => $t->string('username')->nullable());
+        Schema::table('fee_payments', function (Blueprint $t) {
+            $t->string('applies_to')->nullable(); $t->decimal('waiver_amount', 10, 2)->default(0); $t->string('waiver_reason')->nullable();
+            $t->decimal('penalty_amount', 10, 2)->default(0); $t->text('remark')->nullable(); $t->string('submitted_by')->nullable();
+        });
+        Schema::table('transportations', function (Blueprint $t) {
+            $t->string('route_name')->nullable(); $t->boolean('is_active')->default(true);
+        });
+        Schema::table('transport_fee_payments', function (Blueprint $t) {
+            $t->string('payment_mode')->nullable(); $t->string('receipt_number')->nullable(); $t->text('remark')->nullable();
+            $t->unsignedBigInteger('submitted_by')->nullable(); $t->unsignedBigInteger('transportation_id')->nullable();
+        });
+        Schema::create('fee_concessions', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('student_detail_id')->nullable();
+            $t->string('concession_type')->default('amount'); $t->decimal('value', 10, 2)->default(0); $t->string('fee_type')->nullable();
+            $t->boolean('is_penalty')->default(false); $t->string('reason')->nullable(); $t->timestamps();
+        });
+
+        DB::table('fee_payments')->where('receipt_number', 'RCT-7-1')->update(['submitted_by' => 'Office Clerk', 'remark' => 'October', 'waiver_amount' => 50]);
+        DB::table('fee_concessions')->insert(['organization_id' => self::SCHOOL, 'student_detail_id' => 1, 'concession_type' => 'amount',
+            'value' => 100, 'fee_type' => 'academic', 'reason' => 'Sibling']);
+        DB::table('student_details')->where('id', 1)->update(['gender' => 'male', 'father_name' => 'Ravi Sharma', 'city' => 'Aligarh']);
+    }
+
+    public function test_every_functionality_is_listed_with_its_export_pdf_and_send_to_mail_is_in_the_header(): void
+    {
+        $this->signIn();
+
+        $page = Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
+            ->assertSee('Functionalities')
+            ->assertSee('Send to Mail')
+            ->assertSee('1 payment');   // Fees counts its payments: RCT-7-1, not the other school's
+
+        foreach (\App\Support\SchoolPdf\Exporter::SECTIONS as $key => [$label]) {
+            $page->assertSee($label)->assertSeeHtml("exportPdf('{$key}')");
+        }
+        $this->assertSame(count(\App\Support\SchoolPdf\Exporter::SECTIONS), substr_count($page->html(), 'wire:click="exportPdf('));
+    }
+
+    public function test_the_fees_pdf_has_each_students_fee_and_every_payment_with_who_took_it(): void
+    {
+        $this->fullSchema();
+
+        $doc = \App\Support\SchoolPdf\Exporter::document(self::SCHOOL, 'fees');
+        $fee = collect($doc['blocks'])->where('type', 'fee')->keyBy('title');
+
+        // Only this school's students; Aarav: ₹1,000 less the ₹100 concession, ₹500 paid.
+        $this->assertSame(['Aarav Sharma', 'Bela Khan'], $fee->keys()->all());
+        $this->assertSame([['Fee', '₹900'], ['Paid', '₹500'], ['Due', '₹400', true]], $fee['Aarav Sharma']['figures']);
+        $this->assertStringContainsString('Concession ₹100', $fee['Aarav Sharma']['note']);
+        $this->assertSame(['10 Oct 2026', 'RCT-7-1', 'Academic', '₹500', '₹50', '—', 'Cash', 'Counter', 'Office Clerk', 'October'],
+            $fee['Aarav Sharma']['rows'][0]);
+        $this->assertSame([], $fee['Bela Khan']['rows']);
+        $this->assertSame('No payment yet', $fee['Bela Khan']['empty']);
+        $this->assertContains(['Collected', '₹500'], $doc['summary']);
+    }
+
+    public function test_the_students_pdf_has_a_card_with_every_field_and_the_pdf_downloads(): void
+    {
+        $this->fullSchema();
+        $this->signIn();
+
+        $doc   = \App\Support\SchoolPdf\Exporter::document(self::SCHOOL, 'students');
+        $cards = collect($doc['blocks'])->where('type', 'cards')->flatMap(fn ($b) => $b['items'])->keyBy('title');
+        $this->assertSame(['Aarav Sharma', 'Bela Khan'], $cards->keys()->sort()->values()->all());
+        $fields = collect($cards['Aarav Sharma']['fields'])->mapWithKeys(fn ($f) => [$f[0] => $f[1]]);
+        $this->assertSame('Ravi Sharma', $fields['Father']);
+        $this->assertSame('Male', $fields['Gender']);
+        $this->assertSame('Aligarh', $fields['City']);
+        $this->assertSame('1 present, 0 absent', $fields['Attendance']);
+        $this->assertSame('₹500', $fields['Fee Paid']);
+        $this->assertSame(['Class 8 - A', 'Class 8 - B'], collect($doc['blocks'])->where('type', 'heading')->pluck('text')->all());
+
+        $bytes = \App\Support\SchoolPdf\Exporter::pdf(self::SCHOOL, 'students');
+        $this->assertStringStartsWith('%PDF', $bytes);
+
+        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
+            ->call('exportPdf', 'students')
+            ->assertFileDownloaded('adarsh-public-school-students-2026-11-03.pdf');
+    }
+
+    public function test_an_empty_functionality_still_makes_a_pdf(): void
+    {
+        $this->signIn();
+        Schema::create('ledger_transactions', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('type'); $t->decimal('amount', 12, 2); $t->date('txn_date');
+            $t->string('party')->nullable(); $t->string('party_to')->nullable(); $t->string('mode')->nullable(); $t->text('reason')->nullable();
+            $t->unsignedBigInteger('created_by')->nullable(); $t->timestamps();
+        });
+
+        $this->assertStringStartsWith('%PDF', \App\Support\SchoolPdf\Exporter::pdf(self::SCHOOL, 'ledger'));
+        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
+            ->call('exportPdf', 'passwords')
+            ->assertNoFileDownloaded();
+    }
+
+    public function test_send_to_mail_makes_every_pdf_in_the_background_and_mails_them_to_the_school(): void
+    {
+        $this->fullSchema();
+        $this->signIn();
+        \Illuminate\Support\Facades\Bus::fake();
+
+        // No registered email: nothing goes.
+        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])->call('sendToMail');
+        \Illuminate\Support\Facades\Bus::assertNothingDispatched();
+
+        DB::table('organizations')->where('id', self::SCHOOL)->update(['email' => 'office@adarsh.test']);
+        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])->call('sendToMail')
+            ->assertSee('Sending');
+
+        \Illuminate\Support\Facades\Bus::assertChained([
+            \App\Jobs\SchoolDataMailPdf::class,   // students
+            \App\Jobs\SchoolDataMailPdf::class,   // teachers
+            \App\Jobs\SchoolDataMailPdf::class,   // staff
+            \App\Jobs\SchoolDataMailPdf::class,   // classes
+            \App\Jobs\SchoolDataMailPdf::class,   // fees
+            \App\Jobs\SchoolDataMailPdf::class,   // attendance
+            \App\Jobs\SchoolDataMailSend::class,
+        ]);
+
+        // A second click while it is on its way starts nothing new.
+        $this->assertFalse(\App\Jobs\SchoolDataMailSend::start(\App\Models\Organization::find(self::SCHOOL), 'office@adarsh.test'));
+    }
+
+    public function test_the_last_step_mails_the_pdfs_as_attachments_and_clears_up(): void
+    {
+        $this->fullSchema();
+        config(['services.zeptomail.api_token' => 'test-token', 'services.zeptomail.api_url' => 'https://zepto.test']);
+        \Illuminate\Support\Facades\Http::fake(['zepto.test/*' => \Illuminate\Support\Facades\Http::response(['request_id' => 'r1'])]);
+
+        $dir = storage_path('framework/testing/school-data-mail-' . uniqid());
+        (new \App\Jobs\SchoolDataMailPdf(self::SCHOOL, 'students', $dir))->handle();
+        (new \App\Jobs\SchoolDataMailPdf(self::SCHOOL, 'fees', $dir))->handle();
+        file_put_contents($dir . '/ledger.failed', 'boom');
+        (new \App\Jobs\SchoolDataMailSend(self::SCHOOL, $dir, 'office@adarsh.test', ['students' => 2, 'fees' => 1]))->handle();
+
+        \Illuminate\Support\Facades\Http::assertSentCount(1);
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+            $body = $request->data();
+            $names = array_column($body['attachments'], 'name');
+
+            return $body['to'][0]['email_address']['address'] === 'office@adarsh.test'
+                && $names === ['adarsh-public-school-students-2026-11-03.pdf', 'adarsh-public-school-fees-2026-11-03.pdf']
+                && str_starts_with(base64_decode($body['attachments'][0]['content']), '%PDF')
+                && str_contains($body['htmlbody'], 'Could not be made this time: Ledger')
+                && str_contains($body['subject'], 'Adarsh Public School');
+        });
+        $this->assertDirectoryDoesNotExist($dir);
+        $this->assertSame('sent', \App\Jobs\SchoolDataMailSend::status(self::SCHOOL)['state']);
+        $this->assertSame(2, \App\Jobs\SchoolDataMailSend::status(self::SCHOOL)['files']);
+    }
 }
