@@ -221,12 +221,6 @@ return [
             'prefix' => 'super-admin.analytics',
         ],
         [
-            'title' => 'Reports',
-            'link' => 'super-admin.reports',
-            'icon' => 'document-text',
-            'prefix' => 'super-admin.reports',
-        ],
-        [
             'title' => 'Schools',
             'link' => 'super-admin.schools',
             'icon' => 'building-library',
@@ -257,6 +251,12 @@ return [
             'link' => 'super-admin.calendar',
             'icon' => 'calendar',
             'prefix' => 'super-admin.calendar',
+        ],
+        [
+            'title' => 'Reports',
+            'link' => 'super-admin.reports',
+            'icon' => 'document-text',
+            'prefix' => 'super-admin.reports',
         ],
         [
             'title' => 'Users',
