@@ -246,9 +246,9 @@
                             </select>
                             @error('uploadStandard')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                         </div>
-                        <div>
+                        <div data-sole-section-wrap>
                             <label class="block text-xs font-medium text-gray-700 mb-1">Section <span class="text-red-500">*</span></label>
-                            <select wire:model.live="uploadSection" @disabled(!$uploadStandard) class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50">
+                            <select data-sole-section wire:model.live="uploadSection" @disabled(!$uploadStandard) class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm disabled:opacity-50">
                                 <option value="">Select Section</option>
                                 @foreach ($sections as $sec)
                                     <option value="{{ $sec->id }}">{{ $sec->name }}</option>

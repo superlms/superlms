@@ -145,9 +145,9 @@
                                     </select>
                                     @error('standardId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                                 </div>
-                                <div>
+                                <div data-sole-section-wrap>
                                     <label class="block text-xs text-gray-500 mb-1">Section</label>
-                                    <select wire:model.live="sectionId" @disabled($standardId === '')
+                                    <select data-sole-section="keep-all" wire:model.live="sectionId" @disabled($standardId === '')
                                         class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                         <option value="">All sections</option>
                                         @foreach ($sections as $sec)

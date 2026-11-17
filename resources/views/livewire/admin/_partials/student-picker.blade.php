@@ -12,7 +12,8 @@
         </select>
         @error('standardId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
     </div>
-    <div>
+    {{-- A class with one section: picked by itself and not shown (partials/sole-section). --}}
+    <div data-sole-section-wrap>
         <label class="block text-xs font-semibold text-gray-600 mb-1">Section <span class="text-red-500">*</span></label>
         <select data-sole-section wire:model.live="sectionId" @disabled($standardId === '')
             class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">

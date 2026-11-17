@@ -43,9 +43,9 @@
                                 </select>
                                 @error('exportClass')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
-                            <div>
+                            <div data-sole-section-wrap>
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Section</label>
-                                <select wire:model.live="exportSection" @disabled($exportClass === '')
+                                <select data-sole-section="keep-all" wire:model.live="exportSection" @disabled($exportClass === '')
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-50 disabled:text-gray-400">
                                     <option value="">All sections</option>
                                     @foreach ($exportSections as $sec)

@@ -587,7 +587,7 @@
                     <option value="">Select class…</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="sMarkSection" @disabled(!$sMarkStandard)
+                <select data-sole-section wire:model.live="sMarkSection" @disabled(!$sMarkStandard)
                     class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                     <option value="">Select section…</option>
                     @foreach ($sMarkSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach

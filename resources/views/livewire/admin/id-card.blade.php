@@ -459,7 +459,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <select wire:model.live="exportSection" @disabled(count($exportStandards) !== 1)
+                            <select data-sole-section="keep-all" wire:model.live="exportSection" @disabled(count($exportStandards) !== 1)
                                 title="{{ count($exportStandards) === 1 ? 'A section of this class' : 'Pick one class for its sections' }}"
                                 class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:opacity-50">
                                 <option value="">All Sections</option>

@@ -1372,9 +1372,9 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div>
+                                <div data-sole-section-wrap>
                                     <label class="{{ $upLb }}">Section</label>
-                                    <select wire:model.live="updateSectionId" @if(!$updateStandardId) disabled @endif class="{{ $upIn }}">
+                                    <select data-sole-section="keep-all" wire:model.live="updateSectionId" @if(!$updateStandardId) disabled @endif class="{{ $upIn }}">
                                         <option value="">All Sections</option>
                                         @foreach ($updateSections as $sec)
                                             <option value="{{ $sec->id }}">{{ $sec->name }}</option>

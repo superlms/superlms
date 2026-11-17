@@ -1,15 +1,21 @@
-{{-- A class with a single section: the filter bars do not ask for it.
+{{-- A class with a single section: nothing asks for it.
 
-     Every filter bar's Section box carries data-sole-section. Once the class
-     picked has only one section, that section is chosen by itself — set on
-     the box and sent the way a pick by hand is (a "change"), so the page's own
-     code runs exactly as before — and the box is hidden (with the "→" before
-     it, or the labelled wrapper marked data-sole-section-wrap). A class with
-     more sections, or none, shows the box as it always did.
+     A Section box marked data-sole-section is one a section has to be picked
+     in (every filter bar's; Mark Attendance, Upload Marks, Issue Report
+     Cards, the Students form, Timetable, Complaints, Gatepass…). Once the
+     class picked has only one section, that section is chosen by itself —
+     set on the box and sent the way a pick by hand is (a "change"), so the
+     page's own code runs exactly as before — and the box is hidden (with the
+     "→" before it, or the labelled wrapper marked data-sole-section-wrap).
 
-     Only filter bars are marked: forms and panels that pick a class and a
-     section (Mark Attendance, Upload Marks, Issue Report Cards, Generate,
-     Add / Edit) are left as they are. --}}
+     A box marked data-sole-section="keep-all" is one whose empty choice means
+     "All sections" (Push Notification, Messaging, Generate / Print admit
+     cards, exports, fee and syllabus forms…): for a class with one section,
+     all of them is that one, so the box is just hidden and keeps the value it
+     has — what a saved row applies to never changes.
+
+     A class with more sections, or none, or a box that is disabled, shows the
+     box as it always did. --}}
 <script>
     (function () {
         if (window.__lmsSoleSection) return;
@@ -27,7 +33,7 @@
                 if (only) {
                     box.style.display = 'none';
                     if (sep) sep.style.display = 'none';
-                    if (el.value !== only.value) {
+                    if (el.getAttribute('data-sole-section') !== 'keep-all' && el.value !== only.value) {
                         el.value = only.value;
                         el.dispatchEvent(new Event('change', { bubbles: true }));
                     }

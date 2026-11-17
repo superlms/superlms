@@ -272,7 +272,7 @@
                             <option value="{{ $standard->id }}">{{ $standard->name }}</option>
                         @endforeach
                     </select>
-                    <select wire:model.live="issueSection" wire:key="issue-section-{{ $issueStandard ?: 'none' }}" @disabled(!$issueStandard)
+                    <select data-sole-section wire:model.live="issueSection" wire:key="issue-section-{{ $issueStandard ?: 'none' }}" @disabled(!$issueStandard)
                         class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         <option value="">{{ $issueStandard ? 'Select section…' : 'Select a class first' }}</option>
                         @foreach ($this->issueSections as $section)
