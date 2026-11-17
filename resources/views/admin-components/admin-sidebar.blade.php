@@ -7,16 +7,20 @@
 @endphp
 
 {{-- The school panel's own sidebar tweaks, on md+ (this partial is only
-     included for admin and sub-admin, so the other panels keep theirs):
-     - expanded, it is 4px narrower than the shared 253px;
-     - expanded, the logo and the school's name sit up beside the menu button
-       instead of under it (the button stays on top and clickable);
+     included for admin and sub-admin, so the other panels keep theirs), in
+     the Super Admin sidebar's size (super-admin-sidebar):
+     - expanded, it is 224px wide instead of the shared 253px;
+     - expanded, the logo sits 28px higher (up beside the menu button, which
+       stays on top and clickable) and is 56px instead of 72px;
+     - the menu is one list with no "Dashboard" title over it, a faint line
+       between each two items;
      - the menu's scrollbar is a hairline. --}}
 <style>
     @media (min-width: 768px) {
-        html.sidebar-expanded { --lms-sb: 249px; }
+        html.sidebar-expanded { --lms-sb: 224px; }
         html.sidebar-expanded .lms-admin-rail .lms-topbar { position: relative; z-index: 1; }
-        html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -2.25rem; padding-top: 0; }
+        html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -1.75rem; }
+        html.sidebar-expanded .lms-admin-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
     }
     /* A short, very faint line between two menu items. */
     .lms-sb-divider { height: 1px; margin: 1px 1.75rem; background: rgba(17, 24, 39, .028); }
@@ -66,23 +70,18 @@
 
         <!-- Scrollable area -->
         <div class="flex-1 h-0 overflow-y-auto bg-white border-r border-gray-200">
-            <!-- Logo Section -->
-            <div class="flex-shrink-0 flex items-center px-4 py-4 border-b border-gray-200">
-                <div class="flex justify-between gap-2 ">
-                    <div class="flex-shrink-0 flex">
-                        <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
-                            alt="Logo" class="w-20 h-20 object-contain mb-2">
-                        <h2 class="text-sm font-bold text-gray-900 text-center">
-                            {{ auth()->user()->organization->name }}
-                        </h2>
-                    </div>
-                </div>
+            <!-- Logo Section (as the Super Admin's: the logo, the name under it) -->
+            <div class="flex-shrink-0 flex flex-col items-center px-4 pt-1 pb-3 border-b border-gray-200">
+                <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
+                    alt="Logo" class="w-14 h-14 object-contain mb-1">
+                <h2 class="text-sm font-bold text-gray-900 text-center">
+                    {{ auth()->user()->organization->name }}
+                </h2>
             </div>
 
             <!-- Navigation -->
             <nav class="px-4 py-4">
                 <div class="mb-6">
-                    <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Dashboard</h3>
                     <div class="space-y-0.5">
                         @auth
                             @php
@@ -130,7 +129,7 @@
             </button>
         </div>
         <!-- Logo section -->
-        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-4 pt-1 border-b border-gray-200">
+        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-3 pt-1 border-b border-gray-200">
             <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
                 alt="Logo" class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
             <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">
@@ -141,9 +140,7 @@
         <!-- Scrollable navigation area -->
         <div id="sidebar-nav" class="flex-1 flex flex-col overflow-y-auto">
             <nav class="lms-nav flex-1 px-4 py-4 space-y-6">
-                <!-- Dashboard Section -->
                 <div>
-                    <h3 class="lms-section-title text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Dashboard</h3>
                     <div class="space-y-0.5">
                         @auth
                             @php
