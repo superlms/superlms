@@ -24,6 +24,10 @@ use Illuminate\Support\Str;
  * share a rank here (1, 2, 2, 4), since the card is printed. An absent paper
  * counts as 0 of its maximum, as it does on the Performers tab. A deleted
  * student's or subject's marks are left out.
+ *
+ * The result is on the combined marks alone: Fail only when all the
+ * subjects together come under the pass percentage (config/grading.php,
+ * 35%) — a low mark in one subject does not fail the card.
  */
 class ProgressReport
 {
@@ -66,7 +70,6 @@ class ProgressReport
             ->values();
 
         $grading = app(GradingService::class);
-        $pass    = $grading->passPercentage();
 
         $cards = [];
         foreach ($copies->groupBy('student_detail_id') as $own) {
@@ -74,7 +77,6 @@ class ProgressReport
             $bySubject = $own->keyBy('subject_id');
 
             $rows = [];
-            $below = []; // the papers sat under the pass mark
             foreach ($subjects as $subject) {
                 $c = $bySubject->get($subject->id);
                 if (!$c) {
@@ -83,9 +85,6 @@ class ProgressReport
                     continue;
                 }
                 $absent = (bool) $c->is_absent;
-                if (!$absent && (float) $c->percentage < $pass) {
-                    $below[] = (string) $subject->name;
-                }
                 $rows[] = [
                     'subject'  => (string) $subject->name,
                     'entered'  => true,
@@ -100,16 +99,11 @@ class ProgressReport
             $max      = (float) $own->sum('max_marks');
             $pct      = $max > 0 ? round($obtained / $max * 100, 2) : 0.0;
             $sat      = $own->contains(fn ($c) => !$c->is_absent);
-            // Pass: every paper sat at the pass mark or above, and the whole
-            // exam too (an absent paper counts as 0 there).
-            $result   = !$sat ? 'Absent' : ($below === [] && $grading->isPass($pct) ? 'Pass' : 'Fail');
-            // The scale's word for the percentage — unless a paper was failed,
-            // when the card says which, so it never reads "Pass" over a Fail.
-            $remark   = match (true) {
-                !$sat         => 'Absent',
-                $below !== [] => 'Needs improvement in ' . implode(', ', $below),
-                default       => (string) ($grading->remarkFor($pct) ?? ''),
-            };
+            // Fail only when the combined marks of all the subjects come under
+            // the pass percentage (an absent paper counts as 0 of its maximum).
+            $result   = !$sat ? 'Absent' : ($grading->isPass($pct) ? 'Pass' : 'Fail');
+            // The scale's word for that same percentage, so it agrees with the result.
+            $remark   = !$sat ? 'Absent' : (string) ($grading->remarkFor($pct) ?? '');
 
             $cards[] = [
                 'student_id'   => (int) $student->id,

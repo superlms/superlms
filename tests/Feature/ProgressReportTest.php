@@ -166,16 +166,32 @@ class ProgressReportTest extends TestCase
         $cards = ProgressReport::cards(6, Exam::find($this->ids['exam']), $this->ids['five'], $this->ids['a']);
         $by = array_column($cards, null, 'name');
 
-        // Absent counts as 0 of its maximum; a paper below the pass mark fails the card.
+        // Absent counts as 0 of its maximum. Hindi alone is 10 of 50 (20%), but
+        // the result is on the combined marks: 60 of 150 is 40%, a Pass.
         $english = $by['Chetan']['rows'][0];
         $this->assertTrue($english['absent']);
         $this->assertSame('AB', $english['grade']);
+        $this->assertSame('F', $by['Chetan']['rows'][1]['grade']);
         $this->assertSame('60', $by['Chetan']['obtained']);
         $this->assertSame('150', $by['Chetan']['max']);
         $this->assertSame(40.0, $by['Chetan']['pct']);
-        $this->assertSame('Fail', $by['Chetan']['result']);
-        // 40% is a "Pass" on the scale, but a failed paper is what the remark names.
-        $this->assertSame('Needs improvement in Hindi', $by['Chetan']['remark']);
+        $this->assertSame('Pass', $by['Chetan']['result']);
+        $this->assertSame('Pass', $by['Chetan']['remark']);
+        $this->assertSame('P', $by['Chetan']['grade']);
+
+        // Combined marks under 35% fail the card: 51 of 150 is 34%.
+        $farhan = DB::table('student_details')->insertGetId(['organization_id' => 6, 'standard_id' => $this->ids['five'],
+            'section_id' => $this->ids['a'], 'full_name' => 'Farhan', 'admission_no' => 'ADM-FAR']);
+        foreach (['Hindi' => 40, 'English' => 6, 'Maths' => 5] as $subject => $got) {
+            DB::table('exam_copies')->insert(['organization_id' => 6, 'exam_id' => $this->ids['exam'], 'standard_id' => $this->ids['five'],
+                'section_id' => $this->ids['a'], 'subject_id' => $this->ids['sub'][$subject], 'student_detail_id' => $farhan,
+                'max_marks' => 50, 'marks_obtained' => $got, 'percentage' => $got / 50 * 100, 'is_absent' => false]);
+        }
+        $farhanCard = array_column(ProgressReport::cards(6, Exam::find($this->ids['exam']), $this->ids['five'], $this->ids['a']), null, 'name')['Farhan'];
+        $this->assertSame(34.0, $farhanCard['pct']);
+        $this->assertSame('Fail', $farhanCard['result']);
+        $this->assertSame('Fail', $farhanCard['remark']);
+        $this->assertSame('F', $farhanCard['grade']);
 
         // A paper not entered yet is on the card, empty, and not in the total.
         $maths = $by['Diya']['rows'][2];
