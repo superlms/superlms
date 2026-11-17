@@ -60,7 +60,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     COMPOSER_ALLOW_SUPERUSER=1 \
     APP_HOME=/var/www/html
 
-# System packages + PHP extensions
+# System packages + PHP extensions. libffi-dev + libharfbuzz0b and the ffi
+# extension: the Hindi in our PDFs is shaped with HarfBuzz
+# (App\Support\Pdf\Devanagari), which PHP reaches through FFI.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         unzip \
@@ -78,10 +80,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libicu-dev \
         libpq-dev \
         zip \
+        libffi-dev \
+        libharfbuzz0b \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         exif \
+        ffi \
         gd \
         intl \
         opcache \

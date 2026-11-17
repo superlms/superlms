@@ -14,6 +14,13 @@ return [
     |
     */
 
+    // HarfBuzz, which shapes the Hindi in our PDFs (App\Support\Pdf\Devanagari),
+    // loaded through FFI: the library's name or path. The Docker image has
+    // libharfbuzz0b; elsewhere point HARFBUZZ_LIB at a harfbuzz .so / .dll.
+    'harfbuzz' => [
+        'lib' => env('HARFBUZZ_LIB', 'libharfbuzz.so.0'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],

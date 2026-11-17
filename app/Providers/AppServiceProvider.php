@@ -17,6 +17,12 @@ class AppServiceProvider extends ServiceProvider
         // pushes and send them when the request ends.
         $this->app->singleton(\App\Services\TeacherPushNotifier::class);
         $this->app->singleton(\App\Services\StudentPushNotifier::class);
+
+        // Every PDF (Pdf::loadView / loadHTML) prints Hindi as it is typed:
+        // the wrapper shapes it before dompdf reads the HTML.
+        $this->app->extend('dompdf.wrapper', fn ($pdf, $app) => new \App\Support\Pdf\ShapedPdf(
+            $pdf->getDomPDF(), $app['config'], $app['files'], $app['view'],
+        ));
     }
 
     public function boot(): void

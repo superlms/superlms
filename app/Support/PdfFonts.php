@@ -67,4 +67,34 @@ class PdfFonts
 
         return self::$css = $css;
     }
+
+    private static ?string $devanagariCss = null;
+
+    /**
+     * @font-face CSS for the face a shaped Hindi word falls back to
+     * (App\Support\Pdf\Devanagari::FAMILY): Poppins Regular, and Poppins Bold
+     * for bold text — both carry the Private Use code points the shaper
+     * writes. Italic is given too, so no element's style leaves it unfound.
+     */
+    public static function devanagariCss(): string
+    {
+        if (self::$devanagariCss !== null) {
+            return self::$devanagariCss;
+        }
+
+        $family = \App\Support\Pdf\Devanagari::FAMILY;
+        $css = '';
+        foreach (['normal' => 'Poppins-Regular.ttf', 'bold' => 'Poppins-Bold.ttf'] as $weight => $file) {
+            $path = resource_path('fonts/' . $file);
+            if (!is_file($path)) {
+                continue;
+            }
+            $src = 'url(data:font/truetype;charset=utf-8;base64,' . base64_encode((string) file_get_contents($path)) . ") format('truetype')";
+            foreach (['normal', 'italic'] as $style) {
+                $css .= "@font-face{font-family:'{$family}';font-weight:{$weight};font-style:{$style};src:{$src};}\n";
+            }
+        }
+
+        return self::$devanagariCss = $css;
+    }
 }
