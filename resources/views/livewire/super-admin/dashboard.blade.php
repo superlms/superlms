@@ -20,7 +20,9 @@
         $monthShort    = array_map(fn ($l) => explode(' ', (string) $l)[0], $monthlyRegistrations['labels'] ?? []);
 
         $feeData = $superAdminFee['data'];
-        $feePeak = count($feeData) && max($feeData) > 0 ? array_search(max($feeData), $feeData, true) : -1;
+        // The fee chart: one bar for every day money came in, under its date.
+        $feeDays = $superAdminFee['days'] ?? [];
+        $feeLast = $feeDays ? end($feeDays) : null;
 
         $allUsers    = (int) $totalStudents + (int) $totalTeachers;
         $activeUsers = (int) $activeStudents + (int) $activeTeachers;
@@ -34,7 +36,18 @@
 
         // The two Chart.js charts' figures (see partials.dash-charts-js).
         $homeCharts = [
-            'fee' => ['labels' => $superAdminFee['labels'], 'data' => $feeData, 'peak' => (int) $feePeak],
+            'fee' => [
+                'labels'  => array_column($feeDays, 'label'),
+                'data'    => array_column($feeDays, 'amount'),
+                'full'    => array_column($feeDays, 'full'),
+                'schools' => array_map(function ($d) use ($inr) {
+                    $lines = array_map(fn ($s) => $s['name'] . ' · ' . $inr($s['amount']), array_slice($d['schools'], 0, 5));
+                    if (count($d['schools']) > 5) {
+                        $lines[] = '+' . (count($d['schools']) - 5) . ' more';
+                    }
+                    return $lines;
+                }, $feeDays),
+            ],
             'reg' => ['labels' => $monthShort, 'students' => $studentSeries, 'teachers' => $teacherSeries],
         ];
     @endphp
@@ -106,15 +119,23 @@
                 <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
                     <div>
                         <h3 class="sa-card-title">Fee Collection</h3>
-                        <p class="sa-card-sub">Super Admin fee collected month by month · last 12 months</p>
+                        <p class="sa-card-sub">Super Admin fee collected on each date · last 12 months</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short($superAdminFee['year_total']) }} in 12 months</span>
+                        @if ($feeLast)
+                            <span class="sa-chip" style="background:#f3f4f6;color:#374151">Last on {{ $feeLast['label'] }}</span>
+                        @endif
                         <span class="sa-chip" style="background:#fef2f2;color:#b91c1c">{{ $short($superAdminFee['pending']) }} pending</span>
                     </div>
                 </div>
-                <div class="h-64 relative" wire:ignore wire:key="chart-homeFeeChart">
-                    <canvas id="homeFeeChart"></canvas>
+                <div class="h-64 relative">
+                    <div class="h-full relative" wire:ignore wire:key="chart-homeFeeChart">
+                        <canvas id="homeFeeChart"></canvas>
+                    </div>
+                    @if (!$feeDays)
+                        <p class="absolute inset-0 flex items-center justify-center text-sm text-gray-400 pointer-events-none">No fee collected in the last 12 months</p>
+                    @endif
                 </div>
                 <dl class="mt-5 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     @foreach ([
@@ -131,35 +152,41 @@
                 </dl>
             </div>
 
-            <div class="sa-card p-5 min-w-0">
-                <div class="flex items-start justify-between gap-3 mb-5">
-                    <div>
+            {{-- Students by school: the total, one bar split by school, then
+                 each school's students and share on a row of its own. --}}
+            <div class="sa-card p-5 min-w-0 flex flex-col" data-home-students>
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
                         <h3 class="sa-card-title">Students by School</h3>
                         <p class="sa-card-sub">The biggest schools and the rest</p>
                     </div>
                     <a href="{{ route('super-admin.students') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">View all →</a>
                 </div>
                 @if (count($studentsBySchool))
-                    <div class="flex justify-center mb-5">
-                        @include('livewire.super-admin.partials.dash-donut', [
-                            'segments' => $studentsBySchool, 'center' => number_format($totalStudents), 'centerLabel' => 'Students',
-                            'size' => 168, 'legend' => false,
-                        ])
+                    @php $studentPct = fn ($v) => $totalStudents > 0 ? round($v / $totalStudents * 100) : 0; @endphp
+                    <div class="mt-5 flex items-baseline gap-2">
+                        <p class="text-[28px] leading-none font-semibold text-gray-900 tabular-nums">{{ number_format($totalStudents) }}</p>
+                        <p class="text-xs text-gray-400">students in {{ number_format($totalSchools) }} {{ (int) $totalSchools === 1 ? 'school' : 'schools' }}</p>
                     </div>
-                    <ul class="space-y-2.5">
+                    <div class="mt-4 flex h-2 gap-0.5 overflow-hidden rounded-full bg-gray-100">
                         @foreach ($studentsBySchool as $part)
-                            <li class="flex items-start gap-2 text-sm min-w-0">
-                                <span class="sa-dot mt-[0.4rem]" style="background: {{ $part['color'] }}"></span>
-                                <span class="flex-1 min-w-0 text-gray-600 leading-snug line-clamp-2 break-words" title="{{ $part['label'] }}">{{ $part['label'] }}</span>
-                                <span class="pl-2 text-right leading-snug whitespace-nowrap">
-                                    <span class="font-semibold text-gray-900 tabular-nums">{{ $totalStudents > 0 ? round($part['value'] / $totalStudents * 100) : 0 }}%</span>
-                                    <span class="block text-[11px] text-gray-400 tabular-nums">{{ number_format($part['value']) }}</span>
-                                </span>
+                            @if ($part['value'] > 0)
+                                <span class="h-full" style="flex: {{ $part['value'] }} 1 0%; background: {{ $part['color'] }}" title="{{ $part['label'] }} · {{ number_format($part['value']) }}"></span>
+                            @endif
+                        @endforeach
+                    </div>
+                    <ul class="mt-4 divide-y divide-gray-100">
+                        @foreach ($studentsBySchool as $part)
+                            <li class="flex items-center gap-3 py-2.5 text-sm min-w-0">
+                                <span class="w-2.5 h-2.5 rounded-[3px] flex-shrink-0" style="background: {{ $part['color'] }}"></span>
+                                <span class="flex-1 min-w-0 truncate {{ $part['label'] === 'Other schools' ? 'text-gray-400' : 'text-gray-700' }}" title="{{ $part['label'] }}">{{ $part['label'] }}</span>
+                                <span class="font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ number_format($part['value']) }}</span>
+                                <span class="w-10 text-right text-xs text-gray-400 tabular-nums">{{ $studentPct($part['value']) }}%</span>
                             </li>
                         @endforeach
                     </ul>
                 @else
-                    <p class="py-16 text-center text-sm text-gray-400">No students yet</p>
+                    <p class="flex-1 flex items-center justify-center py-16 text-sm text-gray-400">No students yet</p>
                 @endif
             </div>
         </div>
@@ -168,32 +195,42 @@
              Three across from xl; below that the chart takes a row of its own
              first and the two cards share the next, so none is squeezed. --}}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-5">
-            <div class="sa-card p-5 xl:col-span-4 min-w-0">
-                <div class="flex items-start justify-between gap-3 mb-4">
-                    <div>
+            {{-- A timeline of the newest schools, students and teachers. The
+                 list scrolls on its own, with a 4px bar on the card's very
+                 right edge (sa-scroll), not the page's wide one. --}}
+            <div class="sa-card xl:col-span-4 min-w-0 flex flex-col overflow-hidden" data-home-activity>
+                <div class="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
                         <h3 class="sa-card-title">Recent Activity</h3>
                         <p class="sa-card-sub">New schools, students and teachers</p>
                     </div>
+                    @if (count($activityFeed))
+                        <span class="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 tabular-nums">{{ count($activityFeed) }} latest</span>
+                    @endif
                 </div>
-                <div class="space-y-4 overflow-y-auto max-h-[19rem] pr-1">
+                <ul class="sa-scroll flex-1 min-h-0 max-h-[19rem] pl-5 pr-3 pb-4">
                     @forelse ($activityFeed as $activity)
                         @php [$tint, $ink] = $activityTone[$activity['color']] ?? ['#f3f4f6', '#6b7280']; @endphp
-                        <div class="flex items-start gap-3">
-                            <span class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background: {{ $tint }}; color: {{ $ink }}">
+                        <li class="relative flex gap-3 {{ $loop->last ? '' : 'pb-4' }}">
+                            @unless ($loop->last)
+                                <span class="absolute left-[15.5px] top-9 bottom-1 w-px bg-gray-100" aria-hidden="true"></span>
+                            @endunless
+                            <span class="relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background: {{ $tint }}; color: {{ $ink }}">
                                 <x-icon name="{{ $activity['icon'] }}" class="w-4 h-4" />
                             </span>
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1 min-w-0 pt-0.5">
                                 <div class="flex items-baseline justify-between gap-2">
-                                    <p class="text-sm font-medium text-gray-800 truncate" title="{{ $activity['title'] }}">{{ $activity['title'] }}</p>
+                                    <p class="text-sm font-medium text-gray-800 truncate" title="{{ $activity['name'] ?? $activity['title'] }}">{{ $activity['name'] ?? $activity['title'] }}</p>
                                     <span class="text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0">{{ $activity['time'] }}</span>
                                 </div>
-                                <p class="text-xs text-gray-400 mt-0.5 leading-snug line-clamp-2 break-words" title="{{ $activity['description'] }}">{{ $activity['description'] }}</p>
+                                @php $actLine = ($activity['kind'] ?? $activity['title']) . (!empty($activity['school']) ? ' · ' . $activity['school'] : ''); @endphp
+                                <p class="text-xs text-gray-400 mt-0.5 truncate" title="{{ $actLine }}">{{ $actLine }}</p>
                             </div>
-                        </div>
+                        </li>
                     @empty
-                        <p class="py-10 text-center text-sm text-gray-400">No recent activity</p>
+                        <li class="py-10 text-center text-sm text-gray-400">No recent activity</li>
                     @endforelse
-                </div>
+                </ul>
             </div>
 
             <div class="sa-card p-5 md:col-span-2 xl:col-span-5 md:order-first xl:order-none min-w-0">
@@ -212,39 +249,33 @@
                 </div>
             </div>
 
-            <div class="sa-card-dark p-5 xl:col-span-3 min-w-0 flex flex-col">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <h3 class="text-[15px] font-semibold text-white">Active Users</h3>
-                        <p class="text-xs text-white/50 mt-0.5">Students and teachers who can sign in</p>
-                    </div>
+            {{-- Active users: plain and grey — the share, one bar, the figures. --}}
+            <div class="sa-card p-5 xl:col-span-3 min-w-0 flex flex-col" data-home-active>
+                <div class="min-w-0">
+                    <h3 class="sa-card-title">Active Users</h3>
+                    <p class="sa-card-sub">Students and teachers who can sign in</p>
                 </div>
-                <div class="flex justify-center my-5">
-                    @include('livewire.super-admin.partials.dash-donut', [
-                        'segments' => [
-                            ['label' => 'Active students', 'value' => (int) $activeStudents, 'color' => '#a78bfa'],
-                            ['label' => 'Active teachers', 'value' => (int) $activeTeachers, 'color' => '#38bdf8'],
-                            ['label' => 'Inactive', 'value' => max(0, $allUsers - $activeUsers), 'color' => 'rgba(255,255,255,.14)'],
-                        ],
-                        'center' => $activePct . '%', 'centerLabel' => 'Active', 'size' => 140, 'legend' => false, 'dark' => true,
-                    ])
+                <div class="mt-5 flex items-baseline gap-2">
+                    <p class="text-[32px] leading-none font-semibold text-gray-900 tabular-nums">{{ $activePct }}%</p>
+                    <p class="text-xs text-gray-400 tabular-nums">{{ number_format($activeUsers) }} of {{ number_format($allUsers) }} active</p>
                 </div>
-                <dl class="mt-auto space-y-2.5 text-sm">
-                    <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Students</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($activeStudents) }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#38bdf8"></span>Teachers</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($activeTeachers) }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
-                        <dt class="text-white/60">Active schools</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($activeSchools) }} / {{ number_format($totalSchools) }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between gap-2">
-                        <dt class="text-white/60">Website · 7 days</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($websiteWeek['visits']) }} visits</dd>
+                <div class="mt-3 h-1.5 rounded-full bg-gray-100">
+                    <div class="h-1.5 rounded-full bg-gray-800" style="width: {{ min(100, $activePct) }}%"></div>
+                </div>
+                <dl class="mt-auto pt-4 divide-y divide-gray-100 text-sm">
+                    @foreach ([
+                        ['Students', $activeStudents, $totalStudents],
+                        ['Teachers', $activeTeachers, $totalTeachers],
+                        ['Schools', $activeSchools, $totalSchools],
+                    ] as [$label, $on, $all])
+                        <div class="flex items-center justify-between gap-2 py-2.5">
+                            <dt class="text-gray-500">{{ $label }}</dt>
+                            <dd class="tabular-nums whitespace-nowrap"><span class="font-semibold text-gray-900">{{ number_format($on) }}</span><span class="text-gray-400"> / {{ number_format($all) }}</span></dd>
+                        </div>
+                    @endforeach
+                    <div class="flex items-center justify-between gap-2 pt-2.5">
+                        <dt class="text-gray-500">Website · 7 days</dt>
+                        <dd class="tabular-nums whitespace-nowrap"><span class="font-semibold text-gray-900">{{ number_format($websiteWeek['visits']) }}</span><span class="text-gray-400"> visits</span></dd>
                     </div>
                 </dl>
             </div>
@@ -379,29 +410,44 @@
                 </div>
             </div>
 
-            <div class="sa-card p-5 min-w-0">
-                <div class="flex items-start justify-between gap-3 mb-4">
-                    <div>
+            {{-- The five schools with the most teachers: rank, logo, name with
+                 a bar against the first, and the count. --}}
+            @php
+                $teacherTop  = array_values(array_filter($topSchoolsByTeachers, fn ($s) => (int) $s['teachers_count'] > 0));
+                $maxTeachers = max(1, (int) max(array_column($teacherTop, 'teachers_count') ?: [0]));
+            @endphp
+            <div class="sa-card min-w-0 flex flex-col overflow-hidden" data-home-top-teachers>
+                <div class="px-5 pt-5 pb-3 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
                         <h3 class="sa-card-title">Top Schools by Teachers</h3>
-                        <p class="sa-card-sub">Top 5</p>
+                        <p class="sa-card-sub">The schools with the most teachers</p>
                     </div>
+                    <a href="{{ route('super-admin.teachers') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">View all →</a>
                 </div>
-                @php $maxTeachers = max(1, (int) max(array_column($topSchoolsByTeachers, 'teachers_count') ?: [0])); @endphp
-                <div class="space-y-4">
-                    @forelse ($topSchoolsByTeachers as $school)
-                        <div class="min-w-0">
-                            <div class="flex items-center justify-between gap-3 text-sm">
-                                <p class="font-medium text-gray-800 truncate" title="{{ $school['name'] }}"><span class="text-gray-400 tabular-nums mr-1.5">{{ $school['rank'] }}</span>{{ $school['name'] }}</p>
-                                <p class="text-gray-700 tabular-nums whitespace-nowrap font-semibold">{{ number_format($school['teachers_count']) }}</p>
+                <ol class="divide-y divide-gray-100 border-t border-gray-100">
+                    @forelse ($teacherTop as $school)
+                        <li class="px-5 py-3 flex items-center gap-3 min-w-0">
+                            <span class="w-5 flex-shrink-0 text-center text-xs font-semibold tabular-nums {{ $loop->first ? 'text-violet-600' : 'text-gray-400' }}">{{ $loop->iteration }}</span>
+                            @if (!empty($school['logo']))
+                                <img src="{{ $school['logo'] }}" alt="" class="w-9 h-9 rounded-xl object-cover border border-gray-100 flex-shrink-0">
+                            @else
+                                <span class="w-9 h-9 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
+                            @endif
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-800 truncate" title="{{ $school['name'] }}">{{ $school['name'] }}</p>
+                                <div class="mt-1.5 h-1 rounded-full bg-gray-100">
+                                    <div class="h-1 rounded-full" style="width: {{ round($school['teachers_count'] / $maxTeachers * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                                </div>
                             </div>
-                            <div class="mt-1.5 h-1.5 rounded-full bg-gray-100">
-                                <div class="h-1.5 rounded-full" style="width: {{ round($school['teachers_count'] / $maxTeachers * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                            <div class="pl-1 text-right flex-shrink-0">
+                                <p class="text-sm font-semibold text-gray-900 tabular-nums leading-tight">{{ number_format($school['teachers_count']) }}</p>
+                                <p class="text-[11px] text-gray-400 leading-tight">{{ (int) $school['teachers_count'] === 1 ? 'teacher' : 'teachers' }}</p>
                             </div>
-                        </div>
+                        </li>
                     @empty
-                        <p class="py-8 text-center text-sm text-gray-400">No schools yet</p>
+                        <li class="px-5 py-10 text-center text-sm text-gray-400">No teachers yet</li>
                     @endforelse
-                </div>
+                </ol>
             </div>
         </div>
 
@@ -454,25 +500,48 @@
                 </div>
             </div>
 
-            <div class="sa-card p-5 min-w-0 md:col-span-2 xl:col-span-1">
-                <div class="flex items-start justify-between gap-3 mb-4">
+            {{-- Website: three figures side by side, a bar for each of the 7
+                 days (today's in violet) and the most visited page — on the
+                 card itself, no boxes inside it. --}}
+            @php
+                $webDaily = $websiteWeek['daily'] ?? [];
+                $webMax   = max(1, (int) max(array_column($webDaily, 'count') ?: [0]));
+            @endphp
+            <div class="sa-card p-5 min-w-0 md:col-span-2 xl:col-span-1 flex flex-col" data-home-website>
+                <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h3 class="sa-card-title">Website · Last 7 Days</h3>
                         <p class="sa-card-sub">Visits to the SuperLMS website</p>
                     </div>
                     <a href="{{ route('super-admin.analytics') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Analytics →</a>
                 </div>
-                <div class="grid grid-cols-3 gap-3">
-                    @foreach ([['Visits', number_format($websiteWeek['visits'])], ['Unique', number_format($websiteWeek['unique'])], ['Today', number_format($websiteWeek['today'])]] as [$label, $val])
-                        <div class="rounded-xl bg-gray-50 px-3 py-3 min-w-0">
-                            <p class="text-xs text-gray-400 truncate">{{ $label }}</p>
-                            <p class="text-base font-semibold text-gray-900 tabular-nums mt-0.5 break-words">{{ $val }}</p>
+                <dl class="mt-5 grid grid-cols-3 divide-x divide-gray-100">
+                    @foreach ([['Visits', $websiteWeek['visits']], ['Unique', $websiteWeek['unique']], ['Today', $websiteWeek['today']]] as [$label, $val])
+                        <div class="min-w-0 {{ $loop->first ? 'pr-3' : 'px-3' }}">
+                            <dt class="text-xs text-gray-400 truncate">{{ $label }}</dt>
+                            <dd class="mt-1 text-xl leading-none font-semibold text-gray-900 tabular-nums truncate">{{ number_format($val) }}</dd>
                         </div>
                     @endforeach
-                </div>
-                <div class="mt-3 rounded-xl bg-violet-50 px-3.5 py-3 min-w-0">
-                    <p class="text-xs text-violet-500">Most visited page</p>
-                    <p class="text-sm font-semibold text-violet-800 mt-1 leading-snug break-all line-clamp-2" title="{{ $websiteWeek['top'] }}">{{ $websiteWeek['top'] }}</p>
+                </dl>
+                @if ($webDaily)
+                    <div class="mt-5 flex items-end gap-2 h-16" aria-label="Visits each day">
+                        @foreach ($webDaily as $d)
+                            <div class="flex-1 h-full flex items-end" title="{{ $d['date'] }} · {{ number_format($d['count']) }} {{ $d['count'] === 1 ? 'visit' : 'visits' }}">
+                                <div class="w-full rounded-md {{ $d['today'] ? 'bg-violet-600' : 'bg-gray-200' }}" style="height: {{ $d['count'] > 0 ? max(6, round($d['count'] / $webMax * 100)) : 4 }}%"></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-1.5 flex gap-2">
+                        @foreach ($webDaily as $d)
+                            <span class="flex-1 text-center text-[10px] {{ $d['today'] ? 'font-semibold text-violet-600' : 'text-gray-400' }}">{{ $d['label'] }}</span>
+                        @endforeach
+                    </div>
+                @endif
+                <div class="mt-auto pt-4">
+                    <div class="pt-3 border-t border-gray-100 flex items-baseline justify-between gap-3 min-w-0">
+                        <p class="text-xs text-gray-400 whitespace-nowrap">Most visited</p>
+                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $websiteWeek['top'] }}">{{ $websiteWeek['top'] }}</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -529,47 +598,56 @@
                 ])
             </div>
 
-            <div class="sa-card p-5 min-w-0 flex flex-col">
-                <div class="flex items-start justify-between gap-3 mb-4">
+            {{-- Push: the counts side by side and the latest one sent, on the
+                 card itself (no boxes inside it). --}}
+            <div class="sa-card p-5 min-w-0 flex flex-col" data-home-push>
+                <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h3 class="sa-card-title">Push Notifications</h3>
                         <p class="sa-card-sub">Sent from the panel</p>
                     </div>
                     <a href="{{ route('super-admin.push-notification') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Open →</a>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    @foreach ([['This month', $pushSummary['this_month']], ['In all', $pushSummary['total']]] as [$label, $val])
-                        <div class="rounded-xl bg-gray-50 px-3.5 py-3 min-w-0">
-                            <p class="text-xs text-gray-400 truncate">{{ $label }}</p>
-                            <p class="text-lg font-semibold text-gray-900 tabular-nums mt-0.5">{{ number_format($val) }}</p>
+                <dl class="mt-5 grid grid-cols-3 divide-x divide-gray-100">
+                    @foreach ([['This month', $pushSummary['this_month']], ['In all', $pushSummary['total']], ['Reached', $pushSummary['reached'] ?? 0]] as [$label, $val])
+                        <div class="min-w-0 {{ $loop->first ? 'pr-3' : 'px-3' }}">
+                            <dt class="text-xs text-gray-400 truncate">{{ $label }}</dt>
+                            <dd class="mt-1 text-lg leading-none font-semibold text-gray-900 tabular-nums truncate" title="{{ number_format($val) }}">{{ number_format($val) }}</dd>
                         </div>
                     @endforeach
-                </div>
-                @if ($pushSummary['latest'])
-                    <div class="mt-3 rounded-xl bg-violet-50 p-3.5 min-w-0">
-                        <p class="text-[11px] font-medium text-violet-500 uppercase tracking-wide">Latest</p>
-                        <p class="text-sm font-medium text-violet-900 mt-1 leading-snug line-clamp-2 break-words" title="{{ $pushSummary['latest']['title'] }}">{{ $pushSummary['latest']['title'] }}</p>
-                        <p class="text-xs text-violet-500/80 mt-1">{{ number_format($pushSummary['latest']['recipients']) }} people · {{ $pushSummary['latest']['time'] }}</p>
+                </dl>
+                <div class="mt-auto pt-5">
+                    <div class="pt-3 border-t border-gray-100 min-w-0">
+                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Latest</p>
+                        @if ($pushSummary['latest'])
+                            <p class="text-sm font-medium text-gray-800 mt-1 leading-snug line-clamp-2 break-words" title="{{ $pushSummary['latest']['title'] }}">{{ $pushSummary['latest']['title'] }}</p>
+                            <p class="text-xs text-gray-400 mt-1">{{ number_format($pushSummary['latest']['recipients']) }} people · {{ $pushSummary['latest']['time'] }}</p>
+                        @else
+                            <p class="text-sm text-gray-400 mt-1">Nothing sent yet</p>
+                        @endif
                     </div>
-                @else
-                    <p class="mt-3 text-sm text-gray-400">Nothing sent yet</p>
-                @endif
+                </div>
             </div>
 
+            {{-- LMS rating: figures only — the average, how many reviews gave
+                 each number of stars, and the schools rated and not yet. --}}
             @php
                 $starPath = 'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z';
-                $avgStars = (int) round((float) $ratingStats['avg_rating']);
+                $avgStars   = (int) round((float) $ratingStats['avg_rating']);
+                $rateDist   = $ratingStats['dist'] ?? array_fill_keys([5, 4, 3, 2, 1], 0);
+                $rateCount  = (int) ($ratingStats['reviews'] ?? array_sum($rateDist));
+                $rateMax    = max(1, (int) max($rateDist ?: [0]));
             @endphp
-            <div class="sa-card p-5 min-w-0 flex flex-col">
-                <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="sa-card p-5 min-w-0 flex flex-col" data-home-rating>
+                <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h3 class="sa-card-title">LMS Rating</h3>
-                        <p class="sa-card-sub">{{ $ratingStats['schools_rated'] }} schools rated · {{ $ratingStats['remaining'] }} not yet</p>
+                        <p class="sa-card-sub">{{ number_format($rateCount) }} {{ $rateCount === 1 ? 'review' : 'reviews' }} by schools</p>
                     </div>
                     <a href="{{ route('super-admin.rating') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">View →</a>
                 </div>
-                <div class="flex items-center gap-3">
-                    <p class="text-[28px] leading-none font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['avg_rating'], 1) }}</p>
+                <div class="mt-5 flex items-center gap-3">
+                    <p class="text-[32px] leading-none font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['avg_rating'], 1) }}</p>
                     <div>
                         <div class="flex">
                             @for ($i = 1; $i <= 5; $i++)
@@ -579,24 +657,30 @@
                         <p class="text-[11px] text-gray-400 mt-0.5">average, out of 5</p>
                     </div>
                 </div>
-                @if ($latestReview)
-                    <div class="mt-4 rounded-xl bg-gray-50 p-3.5 min-w-0">
-                        <div class="flex items-center justify-between gap-2">
-                            <div class="flex">
-                                @for ($i = 1; $i <= 5; $i++)
-                                    <svg class="w-3 h-3 {{ $i <= $latestReview['rating'] ? 'text-amber-400' : 'text-gray-200' }}" fill="currentColor" viewBox="0 0 20 20"><path d="{{ $starPath }}" /></svg>
-                                @endfor
-                            </div>
-                            <span class="text-[11px] text-gray-400 whitespace-nowrap">{{ $latestReview['time'] }}</span>
+                <ul class="mt-4 space-y-1.5">
+                    @foreach ($rateDist as $stars => $n)
+                        <li class="flex items-center gap-2 text-xs">
+                            <span class="w-2 text-gray-500 tabular-nums">{{ $stars }}</span>
+                            <svg class="w-3 h-3 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="{{ $starPath }}" /></svg>
+                            <span class="flex-1 h-1.5 rounded-full bg-gray-100">
+                                <span class="block h-1.5 rounded-full bg-amber-400" style="width: {{ $n > 0 ? max(4, round($n / $rateMax * 100)) : 0 }}%"></span>
+                            </span>
+                            <span class="w-6 text-right text-gray-500 tabular-nums">{{ number_format($n) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+                <dl class="mt-auto pt-4">
+                    <div class="pt-3 border-t border-gray-100 grid grid-cols-2 divide-x divide-gray-100">
+                        <div class="min-w-0 pr-3">
+                            <dt class="text-xs text-gray-400 truncate">Schools rated</dt>
+                            <dd class="mt-1 text-lg leading-none font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['schools_rated']) }}<span class="text-xs font-normal text-gray-400"> / {{ number_format($ratingStats['total_schools']) }}</span></dd>
                         </div>
-                        <p class="text-sm font-medium text-gray-800 mt-1.5 leading-snug line-clamp-2 break-words" title="{{ $latestReview['school'] }}">{{ $latestReview['school'] }}</p>
-                        @if ($latestReview['feedback'])
-                            <p class="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-3 break-words" title="{{ $latestReview['feedback'] }}">{{ $latestReview['feedback'] }}</p>
-                        @endif
+                        <div class="min-w-0 px-3">
+                            <dt class="text-xs text-gray-400 truncate">Not yet</dt>
+                            <dd class="mt-1 text-lg leading-none font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['remaining']) }}</dd>
+                        </div>
                     </div>
-                @else
-                    <p class="mt-4 text-sm text-gray-400">No reviews yet</p>
-                @endif
+                </dl>
             </div>
         </div>
     </div>
@@ -616,23 +700,16 @@
             const tooltip = { backgroundColor: INK, padding: 10, cornerRadius: 8 };
 
             saCharts.define('home', {
+                // One bar for each day money came in, under its date; the
+                // tooltip gives the full date and the schools it came from.
                 homeFeeChart: p => ({
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: p.fee.labels || [],
                         datasets: [{
                             label: 'Collected', data: p.fee.data || [],
-                            borderColor: VIOLET, borderWidth: 2.5, tension: 0.42, fill: true,
-                            backgroundColor: c => {
-                                const a = c.chart.chartArea;
-                                if (!a) return 'rgba(124,58,237,0.12)';
-                                const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
-                                g.addColorStop(0, 'rgba(124,58,237,0.28)');
-                                g.addColorStop(1, 'rgba(124,58,237,0)');
-                                return g;
-                            },
-                            pointRadius: c => c.dataIndex === p.fee.peak ? 5 : 0,
-                            pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: VIOLET, pointBorderWidth: 2.5,
+                            backgroundColor: VIOLET, hoverBackgroundColor: '#5b21b6',
+                            borderRadius: 6, borderSkipped: false, barPercentage: 0.8, categoryPercentage: 0.7, maxBarThickness: 28,
                         }]
                     },
                     options: {
@@ -641,7 +718,11 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: Object.assign({}, tooltip, { displayColors: false,
-                                callbacks: { label: c => '₹' + Number(c.parsed.y).toLocaleString('en-IN') } })
+                                callbacks: {
+                                    title: items => items.length ? ((p.fee.full || [])[items[0].dataIndex] || items[0].label) : '',
+                                    label: c => '₹' + Number(c.parsed.y).toLocaleString('en-IN'),
+                                    afterBody: items => items.length ? ((p.fee.schools || [])[items[0].dataIndex] || []) : [],
+                                } })
                         },
                         scales: {
                             x: { grid: { display: false }, border: { display: false }, ticks: Object.assign({ maxRotation: 0, autoSkip: true }, axis) },

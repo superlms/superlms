@@ -26,6 +26,20 @@
     }
     .sa-dot { width: .5rem; height: .5rem; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
 
+    /* A list that scrolls inside a card (Home's Recent Activity): its bar is
+       a 4px hairline on the card's very right edge, lighter than the page's
+       8px one (that rule only reaches .overflow-*-auto boxes, not this). */
+    .sa-scroll { overflow-y: auto; overscroll-behavior: contain; }
+    .sa-scroll::-webkit-scrollbar { width: 4px; }
+    .sa-scroll::-webkit-scrollbar-track { background: transparent; margin: 2px 0 10px; }
+    .sa-scroll::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 9999px; }
+    .sa-scroll:hover::-webkit-scrollbar-thumb { background: #d1d5db; }
+    .sa-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    .sa-scroll::-webkit-scrollbar-button { display: none; }
+    @supports not selector(::-webkit-scrollbar) {
+        .sa-scroll { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+    }
+
     /* A KPI card's figure: a size down on a narrow card, so it always fits whole. */
     .sa-kpi { container-type: inline-size; }
     .sa-kpi-value { font-size: 26px; line-height: 1; }

@@ -162,6 +162,47 @@ class SuperAdminHomeTest extends TestCase
         $this->assertSame(2, $fee['schools']);
         $this->assertSame(2, $fee['schools_due']);
         $this->assertSame('2026-2027', $fee['year']);
+
+        // The chart's bars: each day money came in, under its date, with the
+        // school it came from (last year's and an undated receipt are left off).
+        $this->assertSame(['20 Sep', '05 Oct'], array_column($fee['days'], 'label'));
+        $this->assertSame(['Sun, 20 Sep 2026', 'Mon, 05 Oct 2026'], array_column($fee['days'], 'full'));
+        $this->assertEquals([500, 1000], array_column($fee['days'], 'amount'));
+        $this->assertSame([['name' => 'Alpha', 'amount' => 1000.0]], $fee['days'][1]['schools']);
+    }
+
+    public function test_website_week_gives_each_of_the_seven_days_and_rating_counts_each_star(): void
+    {
+        $this->signIn();
+        (require base_path('database/migrations/2026_07_19_000004_create_website_visits_table.php'))->up();
+        $visit = fn ($at, $who = 'v1') => DB::table('website_visits')->insert(['visitor_id' => $who, 'path' => '/', 'created_at' => $at]);
+        $visit('2026-10-11 09:00:00');
+        $visit('2026-10-11 09:30:00', 'v2');
+        $visit('2026-10-09 12:00:00');
+        $visit('2026-10-01 12:00:00');                  // before the 7 days
+
+        $web = $this->helper('websiteWeek');
+        $this->assertSame(3, $web['visits']);
+        $this->assertCount(7, $web['daily']);
+        $this->assertSame(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], array_column($web['daily'], 'label'));
+        $this->assertSame([0, 0, 0, 0, 1, 0, 2], array_column($web['daily'], 'count'));
+        $this->assertTrue($web['daily'][6]['today']);
+
+        $this->table('rate_lms', function (Blueprint $t) {
+            $t->unsignedBigInteger('organization_id');
+            $t->integer('rating')->default(0);
+        });
+        DB::table('rate_lms')->insert([
+            ['organization_id' => 1, 'rating' => 5], ['organization_id' => 2, 'rating' => 5],
+            ['organization_id' => 2, 'rating' => 4], ['organization_id' => 3, 'rating' => 2],
+        ]);
+
+        $rating = $this->helper('ratingStats', 5);
+        $this->assertSame([5 => 2, 4 => 1, 3 => 0, 2 => 1, 1 => 0], $rating['dist']);
+        $this->assertSame(4, $rating['reviews']);
+        $this->assertSame(3, $rating['schools_rated']);
+        $this->assertSame(2, $rating['remaining']);
+        $this->assertEquals(4.0, $rating['avg_rating']);
     }
 
     public function test_staff_salary_and_attendance_count_active_staff_only(): void
@@ -324,10 +365,93 @@ class SuperAdminHomeTest extends TestCase
     public function test_home_charts_are_kept_through_re_renders_and_figures_are_whole(): void
     {
         $this->signIn();
+        $html = view('livewire.super-admin.dashboard', $this->homeViewData())->render();
+
+        foreach (['homeFeeChart', 'homeRegChart'] as $id) {
+            $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="' . $id . '"/', $html);
+        }
+        // No chart is drawn from an Alpine init on its canvas any more.
+        $this->assertStringNotContainsString('<canvas x-data', $html);
+        $this->assertStringContainsString('data-sa-charts="home"', $html);
+        $this->assertStringContainsString("saCharts.define('home'", $html);
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Leave / holiday 1 · 50%', $text);
+        $this->assertStringContainsString('Ravi Kumar Team ₹15,000', $text);
+        $this->assertStringContainsString('0% vs last month', $text);
+
+        // The Calendar card: today's counts, its three lists, each row opening its day.
+        $this->assertStringContainsString('1 meeting today 1/2 tasks done 0 events Open →', $text);
+        $this->assertStringContainsString('Today · 11 Oct 3 Fee review 3:00 PM – 3:30 PM · With Doon School Send reminders Any time +1 more', $text);
+        $this->assertStringContainsString('Next 7 days 0 Nothing in the next 7 days', $text);
+        $this->assertStringContainsString('Tasks still open 1 Old task Fri, 02 Oct · Any time', $text);
+        $this->assertStringContainsString('href="' . e(route('super-admin.calendar', ['month' => '2026-10', 'day' => '2026-10-02'])) . '"', $html);
+        $this->assertStringContainsString('line-through', $html);
+
+        // The cards of 17 Nov 2026: no fee day yet says so over the chart;
+        // Students by School is one row a school; Active Users is a plain
+        // white card; Recent Activity scrolls with the card's own slim bar;
+        // LMS Rating shows figures only.
+        $this->assertStringContainsString('No fee collected in the last 12 months', $text);
+        $this->assertStringContainsString('12 students in 1 school', $text);
+        $this->assertStringContainsString('Alpha Public School 12 100%', $text);
+        $this->assertMatchesRegularExpression('/<div class="sa-card p-5[^"]*" data-home-active>/', $html);
+        $this->assertStringContainsString('86% 12 of 14 active Students 10 / 12 Teachers 2 / 2 Schools 1 / 1', $text);
+        $this->assertStringContainsString('class="sa-scroll', $html);
+        $this->assertStringContainsString('0 reviews by schools', $text);
+        $this->assertStringContainsString('Schools rated 0 / 1 Not yet 1', $text);
+    }
+
+    /**
+     * The fee chart's figures are the days money came in: each bar's date,
+     * its full date and the schools for the tooltip; and the other cards
+     * read their new figures.
+     */
+    public function test_home_fee_chart_has_a_bar_for_each_day_fee_came_in(): void
+    {
+        $this->signIn();
+        $data = $this->homeViewData();
+        $data['superAdminFee']['days'] = [
+            ['date' => '2026-09-20', 'label' => '20 Sep', 'full' => 'Sun, 20 Sep 2026', 'amount' => 500, 'schools' => [['name' => 'Alpha', 'amount' => 500]]],
+            ['date' => '2026-10-05', 'label' => '05 Oct', 'full' => 'Mon, 05 Oct 2026', 'amount' => 1500,
+             'schools' => [['name' => 'Beta', 'amount' => 1000], ['name' => 'Alpha', 'amount' => 500]]],
+        ];
+        $data['activityFeed'] = [[
+            'type' => 'student', 'title' => 'New student enrolled', 'description' => 'Asha · Alpha', 'name' => 'Asha',
+            'kind' => 'Student enrolled', 'school' => 'Alpha', 'icon' => 'user', 'color' => 'blue', 'time' => '2h ago',
+        ]];
+        $data['websiteWeek']['daily'] = array_map(fn ($d, $i) => ['label' => $d, 'date' => $d, 'count' => $i, 'today' => $i === 6],
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], range(0, 6));
+        $data['pushSummary']['reached'] = 1250;
+        $data['ratingStats'] += ['reviews' => 3, 'dist' => [5 => 2, 4 => 0, 3 => 1, 2 => 0, 1 => 0]];
+
+        $html = view('livewire.super-admin.dashboard', $data)->render();
+        preg_match('/data-sa-charts="home" data-payload="([^"]*)"/', $html, $m);
+        $fee = json_decode(html_entity_decode($m[1]), true)['fee'];
+
+        $this->assertSame(['20 Sep', '05 Oct'], $fee['labels']);
+        $this->assertEquals([500, 1500], $fee['data']);
+        $this->assertSame(['Sun, 20 Sep 2026', 'Mon, 05 Oct 2026'], $fee['full']);
+        $this->assertSame(['Beta · ₹1,000', 'Alpha · ₹500'], $fee['schools'][1]);
+        $this->assertStringContainsString("type: 'bar'", $html);
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Super Admin fee collected on each date · last 12 months', $text);
+        $this->assertStringContainsString('Last on 05 Oct', $text);
+        $this->assertStringNotContainsString('No fee collected in the last 12 months', $text);
+        $this->assertStringContainsString('Asha 2h ago Student enrolled · Alpha', $text);
+        $this->assertStringContainsString('This month 0 In all 0 Reached 1,250', $text);
+        $this->assertStringContainsString('3 reviews by schools', $text);
+        $this->assertStringContainsString('5 2 4 0 3 1 2 0 1 0', $text);
+    }
+
+    /** The Home view's figures, enough to render every card. */
+    private function homeViewData(): array
+    {
         $months = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
         $zeros  = array_fill(0, 12, 0);
 
-        $html = view('livewire.super-admin.dashboard', [
+        return [
             'activeSchools' => 1, 'activeStudents' => 10, 'activeTeachers' => 2, 'newSchoolsThisMonth' => 0,
             'superAdminFee' => [
                 'total' => 1000, 'collected' => 400, 'pending' => 600, 'pct' => 40, 'this_month' => 0, 'last_month' => 0,
@@ -362,27 +486,6 @@ class SuperAdminHomeTest extends TestCase
                 'overdue' => [['type' => 'task', 'title' => 'Old task', 'time' => 'Any time', 'with' => null, 'done' => false, 'date' => '2026-10-02', 'day' => 'Fri, 02 Oct']],
                 'overdue_count' => 1,
             ],
-        ])->render();
-
-        foreach (['homeFeeChart', 'homeRegChart'] as $id) {
-            $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="' . $id . '"/', $html);
-        }
-        // No chart is drawn from an Alpine init on its canvas any more.
-        $this->assertStringNotContainsString('<canvas x-data', $html);
-        $this->assertStringContainsString('data-sa-charts="home"', $html);
-        $this->assertStringContainsString("saCharts.define('home'", $html);
-
-        $text = preg_replace('/\s+/', ' ', strip_tags($html));
-        $this->assertStringContainsString('Leave / holiday 1 · 50%', $text);
-        $this->assertStringContainsString('Ravi Kumar Team ₹15,000', $text);
-        $this->assertStringContainsString('0% vs last month', $text);
-
-        // The Calendar card: today's counts, its three lists, each row opening its day.
-        $this->assertStringContainsString('1 meeting today 1/2 tasks done 0 events Open →', $text);
-        $this->assertStringContainsString('Today · 11 Oct 3 Fee review 3:00 PM – 3:30 PM · With Doon School Send reminders Any time +1 more', $text);
-        $this->assertStringContainsString('Next 7 days 0 Nothing in the next 7 days', $text);
-        $this->assertStringContainsString('Tasks still open 1 Old task Fri, 02 Oct · Any time', $text);
-        $this->assertStringContainsString('href="' . e(route('super-admin.calendar', ['month' => '2026-10', 'day' => '2026-10-02'])) . '"', $html);
-        $this->assertStringContainsString('line-through', $html);
+        ];
     }
 }

@@ -171,19 +171,52 @@ class Dashboard extends Component
         $collected = $year['collected'];
 
         $from  = now()->subMonthsNoOverflow(self::FEE_MONTHS - 1)->startOfMonth();
-        // Money received on each day (SuperAdminFeeReceipt, as Reports reads it).
-        $byDay = SuperAdminFeeReceipt::query()
+        // Money received on each day from each school (SuperAdminFeeReceipt,
+        // as Reports reads it).
+        $rows = SuperAdminFeeReceipt::query()
             ->whereNotNull('payment_date')
             ->whereDate('payment_date', '>=', $from->toDateString())
             ->whereDate('payment_date', '<=', now()->toDateString())
-            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
-            ->groupBy('d')
-            ->pluck('total', 'd');
+            ->selectRaw('DATE(payment_date) as d, organization_id, SUM(amount) as total')
+            ->groupBy('d', 'organization_id')
+            ->orderBy('d')
+            ->get();
+
+        $byDay = $bySchool = [];
+        foreach ($rows as $r) {
+            $d = substr((string) $r->d, 0, 10);
+            $byDay[$d] = ($byDay[$d] ?? 0) + (float) $r->total;
+            $bySchool[$d][(int) $r->organization_id] = ($bySchool[$d][(int) $r->organization_id] ?? 0) + (float) $r->total;
+        }
 
         $byMonth = [];
         foreach ($byDay as $date => $amount) {
             $key = substr((string) $date, 0, 7);
             $byMonth[$key] = ($byMonth[$key] ?? 0) + (float) $amount;
+        }
+
+        // The chart's bars: every day money came in, with its date and the
+        // schools it came from. A day whose receipts cancel out is left off.
+        $names = Organization::whereIn('id', collect($bySchool)->flatMap(fn ($s) => array_keys($s))->unique()->all())
+            ->pluck('name', 'id');
+        $kept = array_filter($byDay, fn ($amount) => round($amount, 2) != 0);
+        $multiYear = count($kept) > 0 && substr(array_key_first($kept), 0, 4) !== substr(array_key_last($kept), 0, 4);
+        $days = [];
+        foreach ($kept as $d => $amount) {
+            $date    = Carbon::parse($d);
+            $schools = collect($bySchool[$d] ?? [])
+                ->filter(fn ($v) => round($v, 2) != 0)
+                ->sortDesc()
+                ->map(fn ($v, $id) => ['name' => (string) ($names[$id] ?? 'School #' . $id), 'amount' => round($v, 2)])
+                ->values()
+                ->all();
+            $days[] = [
+                'date'    => $d,
+                'label'   => $date->format($multiYear ? 'd M y' : 'd M'),
+                'full'    => $date->format('D, d M Y'),
+                'amount'  => round($amount, 2),
+                'schools' => $schools,
+            ];
         }
 
         $labels = $data = [];
@@ -207,6 +240,7 @@ class Dashboard extends Component
             'labels'         => $labels,
             'data'           => $data,
             'year_total'     => array_sum($data),
+            'days'           => $days,
         ];
     }
 
@@ -386,11 +420,24 @@ class Dashboard extends Component
             ->toArray();
     }
 
-    /** Visits to the SuperLMS website over the last 7 days. */
+    /** Visits to the SuperLMS website over the last 7 days, and each day's. */
     protected function websiteWeek(): array
     {
         $from = now()->subDays(6)->startOfDay();
         $base = fn () => WebsiteVisit::where('created_at', '>=', $from);
+
+        $perDay = $base()->selectRaw('DATE(created_at) as d, COUNT(*) as c')->groupBy('d')->pluck('c', 'd')
+            ->mapWithKeys(fn ($c, $d) => [substr((string) $d, 0, 10) => (int) $c]);
+        $daily = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day     = now()->subDays($i);
+            $daily[] = [
+                'label' => $day->format('D'),
+                'date'  => $day->format('D, d M'),
+                'count' => $perDay[$day->toDateString()] ?? 0,
+                'today' => $i === 0,
+            ];
+        }
 
         return [
             'visits'  => $base()->count(),
@@ -398,6 +445,7 @@ class Dashboard extends Component
             'today'   => WebsiteVisit::where('created_at', '>=', now()->startOfDay())->count(),
             'top'     => $base()->selectRaw("COALESCE(NULLIF(page, ''), path) as pg, COUNT(*) as c")
                 ->groupBy('pg')->orderByDesc('c')->value('pg') ?? '—',
+            'daily'   => $daily,
         ];
     }
 
@@ -409,6 +457,7 @@ class Dashboard extends Component
         return [
             'this_month' => PushNotificationCampaign::where('created_at', '>=', now()->startOfMonth())->count(),
             'total'      => PushNotificationCampaign::count(),
+            'reached'    => (int) PushNotificationCampaign::sum('recipient_count'),
             'latest'     => $latest ? [
                 'title'      => $latest->title,
                 'recipients' => (int) $latest->recipient_count,
@@ -417,31 +466,41 @@ class Dashboard extends Component
         ];
     }
 
-    /** The latest Rate LMS review, with its school. */
-    protected function latestReview(): ?array
+    /**
+     * The Rate LMS figures: the average, how many reviews and schools, and
+     * how many reviews gave each number of stars (5 down to 1).
+     */
+    protected function ratingStats(int $totalSchools): array
     {
-        $r = RateLms::with('organization:id,name')->latest()->first();
+        $rated = RateLms::distinct('organization_id')->count('organization_id');
+        $dist  = array_fill_keys([5, 4, 3, 2, 1], 0);
+        foreach (RateLms::selectRaw('rating, COUNT(*) as c')->groupBy('rating')->pluck('c', 'rating') as $rating => $c) {
+            $stars = max(1, min(5, (int) round((float) $rating)));
+            $dist[$stars] += (int) $c;
+        }
 
-        return $r ? [
-            'school'   => $r->organization?->name ?? '—',
-            'rating'   => (int) $r->rating,
-            'feedback' => $r->feedback,
-            'time'     => $r->created_at?->diffForHumans() ?? '—',
-        ] : null;
+        return [
+            'total_schools' => $totalSchools,
+            'schools_rated' => $rated,
+            'remaining'     => max(0, $totalSchools - $rated),
+            'avg_rating'    => round((float) (RateLms::avg('rating') ?? 0), 1),
+            'reviews'       => array_sum($dist),
+            'dist'          => $dist,
+        ];
     }
 
     /**
-     * The donut's parts: the four schools with the most students, then every
+     * The card's parts: the five schools with the most students, then every
      * other school as "Other schools" (left out when there are none).
      *
      * @return list<array{label: string, value: int, color: string}>
      */
     protected function studentsBySchool(array $topSchools, int $totalStudents): array
     {
-        $colors = ['#7c3aed', '#111827', '#a78bfa', '#cbd5e1'];
+        $colors = ['#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd'];
         $parts  = [];
 
-        foreach (array_slice($topSchools, 0, 4) as $i => $s) {
+        foreach (array_slice($topSchools, 0, 5) as $i => $s) {
             if ((int) $s['students_count'] > 0) {
                 $parts[] = ['label' => $s['name'], 'value' => (int) $s['students_count'], 'color' => $colors[$i]];
             }
@@ -564,10 +623,13 @@ class Dashboard extends Component
                 'type'        => 'school',
                 'title'       => 'New school registered',
                 'description' => $o->name,
+                'name'        => $o->name,
+                'kind'        => 'School registered',
+                'school'      => null,
                 'icon'        => 'building-office-2',
                 'color'       => 'emerald',
                 'created_at'  => $o->created_at,
-                'time'        => $o->created_at->diffForHumans(),
+                'time'        => $o->created_at->diffForHumans(['short' => true]),
             ]);
 
         $recentStudents = User::select(['id', 'name', 'organization_id', 'created_at'])
@@ -580,10 +642,13 @@ class Dashboard extends Component
                 'type'        => 'student',
                 'title'       => 'New student enrolled',
                 'description' => $u->name . ($u->organization ? ' · ' . $u->organization->name : ''),
+                'name'        => $u->name,
+                'kind'        => 'Student enrolled',
+                'school'      => $u->organization?->name,
                 'icon'        => 'user',
                 'color'       => 'blue',
                 'created_at'  => $u->created_at,
-                'time'        => $u->created_at->diffForHumans(),
+                'time'        => $u->created_at->diffForHumans(['short' => true]),
             ]);
 
         $recentTeachers = User::select(['id', 'name', 'organization_id', 'created_at'])
@@ -596,10 +661,13 @@ class Dashboard extends Component
                 'type'        => 'teacher',
                 'title'       => 'New teacher joined',
                 'description' => $u->name . ($u->organization ? ' · ' . $u->organization->name : ''),
+                'name'        => $u->name,
+                'kind'        => 'Teacher joined',
+                'school'      => $u->organization?->name,
                 'icon'        => 'academic-cap',
                 'color'       => 'violet',
                 'created_at'  => $u->created_at,
-                'time'        => $u->created_at->diffForHumans(),
+                'time'        => $u->created_at->diffForHumans(['short' => true]),
             ]);
 
         $recentActivities = $recentOrgs
@@ -641,16 +709,7 @@ class Dashboard extends Component
         });
 
         // ── Rating Stats ─────────────────────────────────────────────────────
-        $totalSchoolsCount = $totalSchools;
-        $schoolsRated      = RateLms::distinct('organization_id')->count('organization_id');
-        $avgRating         = RateLms::avg('rating') ?? 0;
-
-        $ratingStats = [
-            'total_schools'  => $totalSchoolsCount,
-            'schools_rated'  => $schoolsRated,
-            'remaining'      => max(0, $totalSchoolsCount - $schoolsRated),
-            'avg_rating'     => round($avgRating, 1),
-        ];
+        $ratingStats = $this->ratingStats((int) $totalSchools);
 
         // ── Support Stats ────────────────────────────────────────────────────
         $supportStats = [
@@ -694,7 +753,6 @@ class Dashboard extends Component
         $latestEnquiries = $this->latestEnquiries();
         $websiteWeek     = $this->websiteWeek();
         $pushSummary     = $this->pushSummary();
-        $latestReview    = $this->latestReview();
         $calendar        = $this->calendarSummary();
 
         // The empty public $recentActivities shadows a view variable of that
@@ -702,8 +760,7 @@ class Dashboard extends Component
         // reads it under another name.
         $activityFeed = $recentActivities;
 
-        // Students by school for the donut: the four biggest schools and the
-        // rest together.
+        // Students by school: the five biggest schools and the rest together.
         $studentsBySchool = $this->studentsBySchool($topSchoolsByStudents, (int) $totalStudents);
 
         return view('livewire.super-admin.dashboard', compact(
@@ -718,7 +775,6 @@ class Dashboard extends Component
             'latestEnquiries',
             'websiteWeek',
             'pushSummary',
-            'latestReview',
             'calendar',
             'activityFeed',
             'studentsBySchool',
