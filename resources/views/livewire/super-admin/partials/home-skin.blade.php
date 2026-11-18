@@ -72,12 +72,14 @@
     .sk-chip svg { width: 16px; height: 16px; color: var(--sk-teal); }
     .sk-empty { position: relative; padding: 48px 16px; text-align: center; color: var(--sk-muted); font-size: 14px; }
 
-    /* ── Quick Links page (sk-ql): the mint is the whole page, edge to edge;
-          the header row sits on it with no line under it and none between
-          Sort and its buttons; white search, pills and buttons on the mint;
-          the tiles straight on the page, lined up with the header. ── */
-    .sa-skin.sk-ql { background: radial-gradient(55% 60% at 95% 105%, rgba(255,255,255,.6), transparent 70%), var(--sk-mint); min-height: calc(100vh - var(--lms-nav-h, 0px)); }
-    .sk-ql .sk-head { background: rgba(223,243,238,.94); border-bottom: 0; padding: 18px 24px 8px; }
+    /* ── Quick Links page (sk-ql): a light cream is the whole page, edge to
+          edge; the header row sits on it with no line under it and none
+          between Sort and its buttons; white search, pills and buttons on the
+          cream; the tiles straight on the page, lined up with the header. ── */
+    .sa-skin.sk-ql { --sk-cream: #fcf7ed; background: radial-gradient(55% 60% at 95% 105%, rgba(255,255,255,.6), transparent 70%), var(--sk-cream); min-height: calc(100vh - var(--lms-nav-h, 0px)); }
+    .sk-ql .sk-head { background: rgba(252,247,237,.94); border-bottom: 0; padding: 18px 24px 8px; }
+    .sk-ql .sk-tile { border-color: #f4ecdb; box-shadow: 0 10px 24px -16px rgba(74,56,24,.3); }
+    .sk-ql .sk-tile:hover { border-color: var(--sk-teal-100); }
     .sk-ql .sk-actions { border-left: 0; padding-left: 0; margin-left: 2px; }
     .sk-ql .sk-search input { background: #fff; border-color: #fff; box-shadow: 0 1px 2px rgba(12,38,32,.04), 0 10px 24px -18px rgba(12,38,32,.35); }
     .sk-ql .sk-search input:focus { border-color: var(--sk-teal); }

@@ -6,8 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {{-- Restore the collapsed/expanded sidebar preference before first paint (no FOUC).
          Default is EXPANDED (the width every functionality screen is laid out for);
-         collapse to the icon rail only when the user explicitly chose it. --}}
+         collapse to the icon rail only when the user explicitly chose it.
+         The Super Admin's sidebar has no menu button: it is always open, and
+         it leaves the saved preference (the school panels') alone. --}}
+    @if (Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true))
+    <script>document.documentElement.classList.add('sidebar-expanded');</script>
+    @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
+    @endif
     {{-- A page the browser brings back with the Back button (from its cache, or
          a plain back/forward hit) still carries the Livewire snapshot it was
          serialised with. The server has moved on, so the restored page looks
@@ -234,7 +240,7 @@
       x-data="{ offcanvas: false, sidebarOpen: document.documentElement.classList.contains('sidebar-expanded') }"
       x-effect="document.body.classList.toggle('drawer-open', offcanvas);
                 document.documentElement.classList.toggle('sidebar-expanded', sidebarOpen);
-                try { localStorage.setItem('lmsSidebar', sidebarOpen ? 'open' : 'closed'); } catch (e) {}"
+                @if (!$lmsSuperAdmin) try { localStorage.setItem('lmsSidebar', sidebarOpen ? 'open' : 'closed'); } catch (e) {} @endif"
       x-on:keydown.escape.window="offcanvas = false">
 
     <x-notifications position="top-end" />

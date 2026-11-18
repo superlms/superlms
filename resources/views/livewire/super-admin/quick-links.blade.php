@@ -5,7 +5,8 @@
      website's "everything in one place" grid. The search filters the tiles
      as you type; Sort keeps Sidebar / A–Z.
      Later the same day: the mint is the whole page, edge to edge, with the
-     tiles straight on it, and the header row has no lines (sk-ql). --}}
+     tiles straight on it, and the header row has no lines (sk-ql); then the
+     page's colour became a light cream (the tiles stay white). --}}
 <div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 

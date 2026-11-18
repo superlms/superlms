@@ -2,20 +2,6 @@
     $authUser  = auth()->user();
     $allItems  = config('menu.' . App\Helpers\Constants::ROLEVALUE[$authUser->role]);
 
-    // The menu in groups, as the website's product screen has its "Reports":
-    // the order stays the menu's own; a group begins at these links and its
-    // small label sits over the first item of it a person can see.
-    $groupStarts = [
-        'super-admin.payroll'         => 'Business',
-        'super-admin.terms-condition' => 'Website & App',
-        'super-admin.sessions'        => 'Data',
-    ];
-    $group = null;
-    foreach ($allItems as $k => $item) {
-        $group = $groupStarts[$item['link'] ?? ''] ?? $group;
-        $allItems[$k]['group'] = $group;
-    }
-
     // A screen marked 'sidebar' => false (Credit) is left off the menu.
     $allItems  = array_values(array_filter($allItems, fn($i) => ($i['sidebar'] ?? true) !== false));
 
@@ -43,52 +29,52 @@
 
 {{-- The Super Admin's sidebar in the look of the website's product screen
      (superlms.in → Features, 2026-11-18): a light panel with a hairline edge,
-     the logo and SUPERLMS on one line, plain rows with a soft grey pill for
-     the open page (its icon teal), small group labels, and who is signed in
-     at the foot. Collapsed, it is the same icon rail as before.
+     the logo and SUPERLMS on one line with a full-width divider under it,
+     one plain list of rows (no group labels), each icon in a soft rounded
+     tile — teal for the open page — and who is signed in at the foot.
+     It is always open on md+ (no menu button, no icon rail): the layout
+     sets `sidebar-expanded` for the super admin before the first paint.
      Scrollbars in the school panel's style (this partial is only included for
      the super admin and sub-super-admins, so the other panels keep theirs):
      - the menu's scrollbar is a hairline, as the school sidebar's;
      - every box that scrolls inside a page (slide-in panel bodies, lists,
        wide tables) gets the page's own slim 8px bar, darker on hover,
        instead of the browser's wide one.
-     The expanded menu is a little narrower than the layout's 253px (224px),
-     giving the page more width. --}}
+     The menu is a little narrower than the layout's 253px (226px), giving
+     the page more width. --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
     @media (min-width: 768px) {
-        html.sidebar-expanded { --lms-sb: 224px; }
+        html.sidebar-expanded { --lms-sb: 226px; }
     }
     /* No shadow beside the menu: its hairline edge is enough, as on the website. */
     .lms-aside { box-shadow: none !important; }
 
     .sa-side {
-        --sa-ink: #0c2620; --sa-text: #44544f; --sa-icon: #7b8a85; --sa-line: #eef1f0;
-        --sa-teal: #0d9488; --sa-on: #edf1f0; --sa-hover: #f3f6f5;
+        --sa-ink: #0c2620; --sa-text: #44544f; --sa-icon: #5f716b; --sa-line: #eef1f0; --sa-divider: #e3e9e7;
+        --sa-teal: #0d9488; --sa-teal-50: #e4f6f2; --sa-on: #edf1f0; --sa-hover: #f3f6f5;
         font-family: 'Geist', 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
         background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
     }
 
-    /* Logo · SUPERLMS · menu button */
-    .sa-brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 18px 12px 14px 18px; flex-shrink: 0; }
+    /* Logo · SUPERLMS, and a divider the full width of the sidebar under it */
+    .sa-brand { display: flex; align-items: center; gap: 8px; padding: 18px 18px 16px; flex-shrink: 0; border-bottom: 1px solid var(--sa-divider); }
     .sa-brand-link { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }
-    .sa-toggle { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--sa-icon); flex-shrink: 0; transition: background .2s, color .2s; }
-    .sa-toggle:hover { background: var(--sa-hover); color: var(--sa-ink); }
-    .sa-toggle svg { width: 18px; height: 18px; }
 
-    /* The menu */
-    .sa-nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 12px 14px; }
-    .sa-link { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 500; color: var(--sa-text); line-height: 1.25; transition: background .2s, color .2s; }
-    .sa-link svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--sa-icon); transition: color .2s; }
+    /* The menu: each icon in a small rounded tile, as on the Quick Links tiles */
+    .sa-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 12px 14px; }
+    .sa-link { display: flex; align-items: center; gap: 11px; padding: 5px 8px; border-radius: 11px; font-size: 13.5px; font-weight: 500; color: var(--sa-text); line-height: 1.25; transition: background .2s, color .2s; }
+    .sa-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: #f0f4f3; color: var(--sa-icon); transition: background .2s, color .2s, box-shadow .2s, transform .2s; }
+    .sa-ic svg { width: 16px; height: 16px; }
+    .sa-ic svg * { stroke-width: 1.8px; }
     .sa-link:hover { background: var(--sa-hover); color: var(--sa-ink); }
-    .sa-link:hover svg { color: var(--sa-ink); }
+    .sa-link:hover .sa-ic { background: var(--sa-teal-50); color: var(--sa-teal); transform: scale(1.04); }
     .sa-link.on { background: var(--sa-on); color: var(--sa-ink); font-weight: 600; }
-    .sa-link.on svg { color: var(--sa-teal); }
-    .sa-label { padding: 16px 10px 5px; font-size: 11.5px; font-weight: 500; color: #98a5a1; white-space: nowrap; }
+    .sa-link.on .sa-ic { background: linear-gradient(135deg, #14b8a6, #0d9488); color: #fff; box-shadow: 0 6px 14px -6px rgba(13,148,136,.65); transform: none; }
 
     /* Who is signed in */
     .sa-user { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 12px 6px 14px; border-top: 1px solid var(--sa-line); flex-shrink: 0; border-radius: 0; transition: color .2s; }
@@ -97,18 +83,6 @@
     .sa-user-text { min-width: 0; line-height: 1.25; }
     .sa-user-name { display: block; font-size: 13px; font-weight: 600; color: var(--sa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s; }
     .sa-user-text small { display: block; font-size: 11.5px; color: #8b9893; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* Collapsed (md+): the icon rail — logo over the menu button, icons only,
-       a hairline between the groups, the avatar at the foot. */
-    @media (min-width: 768px) {
-        html:not(.sidebar-expanded) .sa-rail .sa-brand { flex-direction: column; padding: 16px 0 10px; gap: 10px; }
-        html:not(.sidebar-expanded) .sa-rail .sa-brand-link span,
-        html:not(.sidebar-expanded) .sa-rail .sa-user-text { display: none; }
-        html:not(.sidebar-expanded) .sa-rail .sa-nav { padding: 4px 10px 14px; }
-        html:not(.sidebar-expanded) .sa-rail .sa-link { justify-content: center; padding: 9px 0; }
-        html:not(.sidebar-expanded) .sa-rail .sa-label { font-size: 0; height: 1px; padding: 0; margin: 8px 8px; background: var(--sa-line); }
-        html:not(.sidebar-expanded) .sa-rail .sa-user { justify-content: center; margin: 0 10px; padding: 12px 0 14px; }
-    }
 
     #sidebar-nav::-webkit-scrollbar { width: 3px; }
     #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
@@ -166,17 +140,10 @@
 
             <div class="flex-1 min-h-0 overflow-y-auto">
                 <nav class="sa-nav">
-                    @php $shown = null; @endphp
                     @foreach ($navItems as $menu_item)
-                        @if (($menu_item['group'] ?? null) !== null && $menu_item['group'] !== $shown)
-                            <p class="sa-label">{{ $menu_item['group'] }}</p>
-                        @endif
-                        @php
-                            $shown     = $menu_item['group'] ?? null;
-                            $is_active = Route::is($menu_item['prefix']);
-                        @endphp
+                        @php $is_active = Route::is($menu_item['prefix']); @endphp
                         <a href="{{ route($menu_item['link']) }}" class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
-                            <x-icon name="{{ $menu_item['icon'] }}" />
+                            <span class="sa-ic"><x-icon name="{{ $menu_item['icon'] }}" /></span>
                             <span>{{ $menu_item['title'] }}</span>
                         </a>
                     @endforeach
@@ -198,35 +165,22 @@
 <!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
 <div class="lms-rail lms-sa-rail sa-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
     <div class="sa-side flex-1 flex flex-col min-h-0">
-        <!-- Logo · SUPERLMS · menu button -->
+        <!-- Logo · SUPERLMS, the divider under it -->
         <div class="sa-brand">
             <a href="{{ route('super-admin.quick-links') }}" class="sa-brand-link" title="Quick Links">
                 <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo">
                 <span>SUPERLMS</span>
             </a>
-            <button @click="sidebarOpen = !sidebarOpen" type="button" class="sa-toggle"
-                :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'" aria-label="Toggle menu">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
         </div>
 
         <!-- Scrollable navigation area -->
         <div id="sidebar-nav" class="relative flex-1 min-h-0 overflow-y-auto">
             <nav class="sa-nav">
-                @php $shown = null; @endphp
                 @foreach ($navItems as $menu_item)
-                    @if (($menu_item['group'] ?? null) !== null && $menu_item['group'] !== $shown)
-                        <p class="sa-label">{{ $menu_item['group'] }}</p>
-                    @endif
-                    @php
-                        $shown     = $menu_item['group'] ?? null;
-                        $is_active = Route::is($menu_item['prefix']);
-                    @endphp
+                    @php $is_active = Route::is($menu_item['prefix']); @endphp
                     <a href="{{ route($menu_item['link']) }}" title="{{ $menu_item['title'] }}"
                         class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
-                        <x-icon name="{{ $menu_item['icon'] }}" />
+                        <span class="sa-ic"><x-icon name="{{ $menu_item['icon'] }}" /></span>
                         <span class="lms-label">{{ $menu_item['title'] }}</span>
                     </a>
                 @endforeach
