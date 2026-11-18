@@ -206,6 +206,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .hero .display { font-size: clamp(40px, 3.9vw, 56px); line-height: 1.05; }
 @media (min-width: 1280px) { .hero-visual { margin-right: -96px; } }
 .hero-mk .appx { grid-template-columns: 158px minmax(0, 1fr); }
+@media (max-width: 1279px) { .hero-mk .appx { grid-template-columns: minmax(0, 1fr); } .hero-mk .appx-side { display: none; } }
 .hero .lead { margin-top: 24px; max-width: 560px; color: var(--text); }
 .hero .actions { margin-top: 34px; }
 .badge-pill { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--line); box-shadow: var(--sh-sm); font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 26px; transition: border-color .2s; }
