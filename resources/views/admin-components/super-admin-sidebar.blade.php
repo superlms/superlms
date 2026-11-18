@@ -20,7 +20,7 @@
 
     // The card at the foot: who is signed in, and the current session.
     $saName    = trim((string) ($authUser->name ?? '')) ?: 'Super Admin';
-    $saInitial = mb_strtoupper(mb_substr($saName, 0, 1));
+    $saLogo    = \App\Support\Platform::logoUrl();   // the platform's logo on the card, not an initial
     $saRole    = $authUser->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin';
     $saSession = \App\Models\AcademicSession::currentLabel();
     // Under the name: the role and the session ("Super Admin" once only).
@@ -29,9 +29,10 @@
 
 {{-- The Super Admin's sidebar in the look of the website's product screen
      (superlms.in → Features, 2026-11-18): a light panel with a hairline edge,
-     the logo and SUPERLMS on one line with a full-width divider under it,
-     one plain list of rows (no group labels), each icon in a soft rounded
-     tile — teal for the open page — and who is signed in at the foot.
+     the logo and SUPERLMS centred on one line (the divider under it kept but
+     invisible), one plain list of rows (no group labels) with plain icons —
+     the open page's name and icon both teal — and who is signed in at the
+     foot, beside the platform's logo.
      It is always open on md+ (no menu button, no icon rail): the layout
      sets `sidebar-expanded` for the super admin before the first paint.
      Scrollbars in the school panel's style (this partial is only included for
@@ -59,27 +60,29 @@
         background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
     }
 
-    /* Logo · SUPERLMS, and a divider the full width of the sidebar under it */
-    .sa-brand { display: flex; align-items: center; gap: 8px; padding: 18px 18px 16px; flex-shrink: 0; border-bottom: 1px solid var(--sa-divider); }
-    .sa-brand-link { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    /* Logo · SUPERLMS, centred, a little shorter (4px less), with an invisible divider under it */
+    .sa-brand { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 18px 15px; flex-shrink: 0; border-bottom: 1px solid transparent; }
+    .sa-brand-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }
 
-    /* The menu: each icon in a small rounded tile, as on the Quick Links tiles */
-    .sa-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 12px 14px; }
-    .sa-link { display: flex; align-items: center; gap: 11px; padding: 5px 8px; border-radius: 11px; font-size: 13.5px; font-weight: 500; color: var(--sa-text); line-height: 1.25; transition: background .2s, color .2s; }
-    .sa-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: #f0f4f3; color: var(--sa-icon); transition: background .2s, color .2s, box-shadow .2s, transform .2s; }
-    .sa-ic svg { width: 16px; height: 16px; }
-    .sa-ic svg * { stroke-width: 1.8px; }
+    /* The menu: plain icons (no tile behind them); the open page's name and
+       icon both in teal, on a soft pill. */
+    .sa-nav { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 14px; }
+    .sa-link { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 500; color: var(--sa-text); line-height: 1.25; transition: background .2s, color .2s; }
+    .sa-ic { width: 18px; height: 18px; display: grid; place-items: center; flex-shrink: 0; color: var(--sa-icon); transition: color .2s; }
+    .sa-ic svg { width: 18px; height: 18px; }
+    .sa-ic svg * { stroke-width: 1.7px; }
     .sa-link:hover { background: var(--sa-hover); color: var(--sa-ink); }
-    .sa-link:hover .sa-ic { background: var(--sa-teal-50); color: var(--sa-teal); transform: scale(1.04); }
-    .sa-link.on { background: var(--sa-on); color: var(--sa-ink); font-weight: 600; }
-    .sa-link.on .sa-ic { background: linear-gradient(135deg, #14b8a6, #0d9488); color: #fff; box-shadow: 0 6px 14px -6px rgba(13,148,136,.65); transform: none; }
+    .sa-link:hover .sa-ic { color: var(--sa-ink); }
+    .sa-link.on { background: var(--sa-teal-50); color: var(--sa-teal); font-weight: 600; }
+    .sa-link.on .sa-ic { color: var(--sa-teal); }
 
     /* Who is signed in */
     .sa-user { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 12px 6px 14px; border-top: 1px solid var(--sa-line); flex-shrink: 0; border-radius: 0; transition: color .2s; }
     .sa-user:hover .sa-user-name { color: var(--sa-teal); }
-    .sa-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #f59e0b; color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .sa-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid var(--sa-line); box-shadow: 0 1px 2px rgba(12,38,32,.06); flex-shrink: 0; overflow: hidden; }
+    .sa-av img { width: 22px; height: 22px; object-fit: contain; }
     .sa-user-text { min-width: 0; line-height: 1.25; }
     .sa-user-name { display: block; font-size: 13px; font-weight: 600; color: var(--sa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s; }
     .sa-user-text small { display: block; font-size: 11.5px; color: #8b9893; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -151,7 +154,7 @@
             </div>
 
             <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile">
-                <span class="sa-av">{{ $saInitial }}</span>
+                <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
                 <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
             </a>
         </div>
@@ -189,7 +192,7 @@
 
         <!-- Who is signed in -->
         <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile — {{ $saName }}">
-            <span class="sa-av">{{ $saInitial }}</span>
+            <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
             <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
         </a>
     </div>

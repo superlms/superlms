@@ -1,16 +1,23 @@
-<div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
+{{-- The Super Admin's sign-in, in the superlms.in website's colours and
+     layout (partials.super-admin-auth-site): Login, then its Verify OTP step. --}}
+<div class="sa-auth">
     @include('partials.super-admin-auth-fields')
+    @include('partials.super-admin-auth-site')
 
     {{-- Inside the installed app: over to its code screen --}}
     @include('partials.panel-app-login', ['panel' => 'superadmin'])
 
-    <!-- Split Screen Container -->
-    <div class="flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60">
+    @include('partials.super-admin-auth-top')
 
-        <!-- Left Side: dynamic illustration that follows the active step -->
-        <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
+    <main class="sa-auth-main">
+    <div class="sa-auth-card">
+
+        <!-- Left: the website's mint band with the picture that follows the step -->
+        <div class="sa-auth-art">
+            <span class="sa-auth-badge"><i></i>Super Admin Panel</span>
             @include('partials.auth-illustration', [
                 'variant'  => $step === 'otp' ? 'otp' : 'login',
+                'scheme'   => 'teal',
                 'subtitle' => $step === 'otp' ? null : 'Sign in to manage schools, users and settings across your SuperLMS Admin panel',
                 'animated' => true,
                 'headingClass'  => 'sa-title',
@@ -18,17 +25,15 @@
             ])
         </div>
 
-        <!-- Right Side (Form) -->
-        <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-8 md:p-12">
+        <!-- Right: the form -->
+        <div class="sa-auth-form">
 
-            <!-- Logo -->
-            <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
-                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
-                    class="w-full h-full object-contain">
+            <div class="sa-auth-logo">
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo">
             </div>
 
             @if (session('success'))
-                <div class="w-full max-w-sm mb-5 flex items-start gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700 ring-1 ring-green-100">
+                <div class="sa-auth-note">
                     <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     <span>{{ session('success') }}</span>
                 </div>
@@ -37,8 +42,9 @@
             {{-- ── STEP 1: Credentials ── --}}
             @if ($step === 'credentials')
                 <div class="text-center mb-8">
-                    <h1 class="sa-title text-2xl md:text-3xl">Super Admin Login</h1>
-                    <p class="sa-sub text-gray-500 mt-2 text-sm">Enter your registered email and password to access your SuperLMS admin panel</p>
+                    <span class="sa-auth-eyebrow">Sign in</span>
+                    <h1 class="sa-title text-3xl md:text-4xl">Super Admin <span class="grad">Login</span></h1>
+                    <p class="sa-sub mt-3 text-sm">Enter your registered email and password to access your SuperLMS admin panel</p>
                 </div>
 
                 <div class="w-full max-w-sm" x-data="{ email: @entangle('email'), password: @entangle('password'), showPass: false }">
@@ -84,12 +90,12 @@
 
                     <div class="flex items-center justify-end mb-5">
                         <a href="{{ route('super-admin.forgot-password') }}"
-                            class="text-sm text-violet-600 hover:text-violet-800 hover:underline">Forgot password?</a>
+                            class="sa-accent text-sm">Forgot password?</a>
                     </div>
 
                     <button wire:click="login" wire:loading.attr="disabled"
                         :disabled="!email.trim() || !password.trim()"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                        class="sa-btn">
                         <span wire:loading.remove wire:target="login">Login</span>
                         <span wire:loading wire:target="login">Sending OTP…</span>
                     </button>
@@ -99,8 +105,9 @@
             {{-- ── STEP 2: OTP Verification ── --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <h1 class="sa-title text-2xl md:text-3xl">Verify OTP</h1>
-                    <p class="sa-sub text-gray-500 mt-2 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    <span class="sa-auth-eyebrow">Two-step verification</span>
+                    <h1 class="sa-title text-3xl md:text-4xl">Verify <span class="grad">OTP</span></h1>
+                    <p class="sa-sub mt-3 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>
 
                 <div class="w-full max-w-sm">
@@ -151,7 +158,7 @@
                     <x-otp-lockout :until="$otpLockedUntil" />
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
+                        class="sa-btn mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify &amp; Login</span>
                         <span wire:loading wire:target="verifyOtp">Verifying…</span>
                     </button>
@@ -181,15 +188,15 @@
                             });
                         ">
                         <template x-if="!canResend">
-                            <p class="text-sm text-gray-500">
+                            <p class="text-sm sa-quiet">
                                 Resend OTP in
-                                <span class="font-semibold text-violet-600"
+                                <span class="font-semibold sa-accent"
                                     x-text="Math.floor(countdown / 60) + ':' + String(countdown % 60).padStart(2, '0')"></span>
                             </p>
                         </template>
                         <template x-if="canResend">
                             <button wire:click="resendOtp"
-                                class="text-sm text-violet-600 hover:text-violet-800 font-medium hover:underline">
+                                class="text-sm sa-accent">
                                 Resend OTP
                             </button>
                         </template>
@@ -197,7 +204,7 @@
 
                     <div class="text-center mt-3">
                         <button wire:click="backToLogin"
-                            class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            class="text-sm sa-quiet">
                             Back to login
                         </button>
                     </div>
@@ -206,4 +213,7 @@
 
         </div>
     </div>
+    </main>
+
+    <p class="sa-auth-foot">&copy; {{ date('Y') }} <a href="{{ url('/') }}">SUPERLMS</a> · Secure sign-in with a one-time code</p>
 </div>

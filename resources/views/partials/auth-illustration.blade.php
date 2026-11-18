@@ -3,9 +3,10 @@
     Pass a $variant: 'login' | 'otp' | 'reset' | 'newpass'. Each renders a clean,
     minimal inline-SVG scene tied to that step (no static image asset).
 
-    Pass an optional $scheme ('violet' | 'emerald') to recolour the art. Admin
-    uses the default violet/pink brand; the accounts panel passes 'emerald' so
-    the illustration matches its green theme while keeping the same design.
+    Pass an optional $scheme ('violet' | 'emerald' | 'teal') to recolour the
+    art. Admin uses the default violet/pink brand; the accounts panel passes
+    'emerald' so the illustration matches its green theme while keeping the
+    same design; the Super Admin's screens pass 'teal' (the website's colours).
 
     Pass $animated = true (the Super Admin login, forgot password and app
     screens) and each scene acts out its own step, on a loop:
@@ -24,6 +25,12 @@
 @php($scheme = $scheme ?? 'violet')
 @php($animated = (bool) ($animated ?? false))
 @php($schemes = [
+    // The superlms.in website's teal and olive (the Super Admin's sign-in screens).
+    'teal' => [
+        'bg1' => '#EFFAF7', 'bg2' => '#D8F3EC', 'stroke' => '#B1E6DB',
+        'primary' => '#0D9488', 'primaryLight' => '#7DD3C4', 'primaryDot' => '#99E0D3',
+        'accent' => '#86A83A', 'accentDot' => '#C9DB9B', 'line' => '#F1F5F4',
+    ],
     'violet' => [
         'bg1' => '#F5F3FF', 'bg2' => '#EDE9FE', 'stroke' => '#E9D5FF',
         'primary' => '#7C3AED', 'primaryLight' => '#C4B5FD', 'primaryDot' => '#C4B5FD',

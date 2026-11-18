@@ -101,10 +101,10 @@ class SuperAdminHomeTest extends TestCase
 
     /**
      * The sidebar in the look of the website's product screen (2026-11-18,
-     * later): the logo and SUPERLMS on one line over a full-width divider,
-     * the menu as one plain list (no group labels), each icon in its own
-     * tile, no menu button (always open), and who is signed in at the foot.
-     * Quick Links' cream is the whole page (sk-ql).
+     * later): the logo and SUPERLMS centred on one line (its divider kept
+     * but invisible), the menu as one plain list (no group labels) with plain
+     * icons, no menu button (always open), and who is signed in at the foot
+     * beside the platform's logo. Quick Links' cream is the whole page (sk-ql).
      */
     public function test_the_sidebar_has_the_websites_look_as_one_plain_list(): void
     {
@@ -115,6 +115,7 @@ class SuperAdminHomeTest extends TestCase
         $this->assertStringContainsString('class="sa-user"', $html);
         $this->assertStringContainsString('<span class="sa-user-name">Super</span>', $html);
         $this->assertStringContainsString('<span class="sa-ic">', $html);
+        $this->assertStringContainsString('<span class="sa-av"><img src="' . \App\Support\Platform::logoUrl() . '"', $html);
         $this->assertStringNotContainsString('class="sa-label"', $html);
         $this->assertStringNotContainsString('Toggle menu', $html);
 
@@ -123,6 +124,32 @@ class SuperAdminHomeTest extends TestCase
 
         $this->signIn();
         Livewire::test(QuickLinks::class)->assertSeeHtml('sk-ql');
+    }
+
+    /**
+     * The sign-in screens in the superlms.in website's colours and layout
+     * (2026-11-18): the wordmark and Back to website on top, the mint panel
+     * with the teal picture, the form with the website's pill button — on
+     * Login, its Verify OTP step and every Forgot Password step.
+     */
+    public function test_the_sign_in_screens_have_the_websites_look(): void
+    {
+        $screens = [
+            \Livewire\Livewire::test(\App\Livewire\SuperAdmin\Login::class),
+            \Livewire\Livewire::test(\App\Livewire\SuperAdmin\Login::class)->set('step', 'otp'),
+            \Livewire\Livewire::test(\App\Livewire\SuperAdmin\ForgotPassword::class),
+            \Livewire\Livewire::test(\App\Livewire\SuperAdmin\ForgotPassword::class)->set('step', 'otp'),
+            \Livewire\Livewire::test(\App\Livewire\SuperAdmin\ForgotPassword::class)->set('step', 'password'),
+        ];
+        foreach ($screens as $screen) {
+            $screen->assertSeeHtml('class="sa-auth"')
+                ->assertSeeHtml('class="sa-auth-top"')
+                ->assertSeeHtml('class="sa-auth-art"')
+                ->assertSeeHtml('class="sa-btn')
+                ->assertSeeHtml('#0D9488')                 // the picture in the website's teal
+                ->assertDontSeeHtml('bg-violet-600');
+        }
+        $screens[1]->assertSeeHtml('Verify <span class="grad">OTP</span>');
     }
 
     public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link(): void
