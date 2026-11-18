@@ -7,8 +7,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 /**
- * What the two modern templates (Vibrant and Breeze, user's ask of
- * 2026-11-03) work out from a site before laying it out. They read exactly
+ * What the modern templates (Vibrant and Breeze, user's ask of 2026-11-03;
+ * Mint, 2026-11-18) work out from a site before laying it out. They read exactly
  * the content, pages and menu Classic reads — nothing of their own — so a
  * school can move between the three at any time: the home slider's slides,
  * the photos a home page can use, the facility cards, the messages from the
@@ -25,13 +25,27 @@ class ModernSite
         ['#FFF7ED', '#EA580C'], ['#F0F9FF', '#0284C7'], ['#F5F3FF', '#7C3AED'],
     ];
 
+    /** Mint's pastel panels, as on superlms.in (mint, blush, sky, lilac, sand, sage), each with its ink: [tint, ink]. */
+    public const PANELS = [
+        ['#F6DCD8', '#C2410C'], ['#DDE9FB', '#2563EB'], ['#E9E2FB', '#7C3AED'],
+        ['#F8EDD0', '#B45309'], ['#E3EFDC', '#4D7C0F'], ['#DFF3EE', '#0F766E'],
+    ];
+
     /**
      * The colours of the $i-th card, badge or tag as CSS variables: --c (its
      * colour) and --t (its tint). Vibrant rings bright colours, Breeze soft
-     * tints; the first is always the school's own.
+     * tints, Mint the website's pastel panels; the first is always the
+     * school's own.
      */
     public static function swatch(string $template, int $i, string $primary): string
     {
+        if ($template === 'mint') {
+            [$tint, $ink] = $i % (count(self::PANELS) + 1) === 0
+                ? ["color-mix(in srgb, {$primary} 14%, #fff)", $primary]
+                : self::PANELS[($i % (count(self::PANELS) + 1)) - 1];
+
+            return "--c: {$ink}; --t: {$tint};";
+        }
         if ($template === 'breeze') {
             [$tint, $ink] = $i % (count(self::TINTS) + 1) === 0
                 ? ["color-mix(in srgb, {$primary} 10%, #fff)", $primary]

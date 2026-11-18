@@ -50,6 +50,37 @@
                 <span style="grid-column:span 2;border-radius:6px 6px 0 0;background:linear-gradient(120deg, {{ $a }}, #7C3AED 70%, #EC4899);"></span>
             </span>
         </span>
+    @elseif ($key === 'mint')
+        {{-- Dark announcement strip · white header with a pill button · headline with a gradient word beside an app window · pastel cards --}}
+        <span style="display:flex;flex-direction:column;height:100%;background:radial-gradient(circle at 85% 35%, {{ $soft }}, transparent 45%), #fff;">
+            <span style="height:6%;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb, {{ $a }} 45%, #0b1f1b);">{!! $bar('34%', 2, '#fcd77f') !!}</span>
+            <span style="height:11%;display:flex;align-items:center;justify-content:space-between;padding:0 7%;border-bottom:1px solid #EEF1F0;">
+                <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:3px;background:{{ $a }};"></span>{!! $bar('22px', 4, '#0c2620') !!}{!! $bar('10px', 4, $a) !!}</span>
+                <span style="display:flex;gap:4px;">@for ($i = 0; $i < 4; $i++){!! $bar('9px', 3, $i === 0 ? '#94a3a0' : '#CBD5D1') !!}@endfor</span>
+                {!! $bar('22px', 8, $a) !!}
+            </span>
+            <span style="display:grid;grid-template-columns:1.1fr 1fr;gap:7%;align-items:center;padding:6% 7% 4%;">
+                <span style="display:flex;flex-direction:column;gap:4px;">
+                    {!! $bar('46%', 6, '#fff', 'border:1px solid #E5EAE8;') !!}
+                    {!! $bar('95%', 6, '#0c2620') !!}{!! $bar('62%', 6, "linear-gradient(90deg, {$a}, #86a83a)") !!}
+                    {!! $bar('85%', 3, '#CBD5D1') !!}
+                    <span style="display:flex;gap:3px;margin-top:2px;">{!! $bar('26px', 9, $a) !!}{!! $bar('26px', 9, '#fff', "border:1px solid {$a};") !!}</span>
+                </span>
+                <span style="border-radius:7px;background:#fff;border:1px solid #E5EAE8;box-shadow:0 4px 10px rgba(12,38,32,.12);overflow:hidden;">
+                    <span style="display:flex;gap:2px;padding:3px 4px;border-bottom:1px solid #EEF1F0;"><span style="width:3px;height:3px;border-radius:50%;background:#f0506e;"></span><span style="width:3px;height:3px;border-radius:50%;background:#f5a524;"></span><span style="width:3px;height:3px;border-radius:50%;background:#22a75a;"></span></span>
+                    <span style="display:block;margin:3px;aspect-ratio:16/10;border-radius:4px;background:linear-gradient(135deg, {{ $soft }}, #dfe9e5);"></span>
+                    <span style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;padding:0 3px 3px;">@for ($i = 0; $i < 3; $i++)<span style="height:7px;border-radius:2px;background:#F1F4F3;"></span>@endfor</span>
+                </span>
+            </span>
+            <span style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:0 7%;">
+                @foreach (['#fde6cf', '#dbe9ff', '#ece3ff'] as $tint)
+                    <span style="border-radius:6px 6px 0 0;background:#fff;box-shadow:0 1px 4px rgba(12,38,32,.12);padding:3px;display:flex;flex-direction:column;gap:3px;">
+                        <span style="height:55%;border-radius:4px;background:{{ $tint }};"></span>
+                        {!! $bar('70%', 3, '#334155') !!}
+                    </span>
+                @endforeach
+            </span>
+        </span>
     @else
         {{-- Light header with a capsule menu · split hero with a photo card · soft dashboard cards --}}
         <span style="display:flex;flex-direction:column;height:100%;background:linear-gradient(180deg, {{ $soft }} 0%, #F8FAFC 60%);">

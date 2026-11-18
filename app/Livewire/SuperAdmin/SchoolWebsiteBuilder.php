@@ -62,7 +62,8 @@ class SchoolWebsiteBuilder extends Component
     /**
      * Picking a template on its default colours moves to that template's own
      * preset (Classic's red-and-green tricolour, Vibrant's and Breeze's
-     * electric blue); a preset or colour picked on purpose is kept.
+     * electric blue, Mint's superlms.in teal); a preset or colour picked on
+     * purpose is kept.
      */
     public function pickTemplate(string $key): void
     {

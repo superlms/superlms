@@ -17,8 +17,9 @@ use Tests\TestCase;
 
 /**
  * Vibrant (modern, colourful) and Breeze (modern, light) — user's ask of
- * 2026-11-03: two new school-website templates on the same content, pages
- * and menu as Classic, picked per school by the Super Admin.
+ * 2026-11-03 — and Mint (the superlms.in website's look, 2026-11-18): school
+ * website templates on the same content, pages and menu as Classic, picked
+ * per school by the Super Admin.
  */
 class SchoolSiteModernTemplatesTest extends TestCase
 {
@@ -85,10 +86,15 @@ class SchoolSiteModernTemplatesTest extends TestCase
         $this->actingAs($su);
     }
 
-    public function test_there_are_three_templates_and_the_new_two_share_their_inner_pages(): void
+    public function test_there_are_four_templates_and_the_modern_three_share_their_inner_pages(): void
     {
-        $this->assertSame(['classic', 'vibrant', 'breeze'], array_keys(SchoolWebsite::templates()));
+        $this->assertSame(['classic', 'vibrant', 'breeze', 'mint'], array_keys(SchoolWebsite::templates()));
         $this->assertSame(['vibrant', 'modern'], SchoolWebsite::viewFolders('vibrant'));
+        $this->assertSame(['mint', 'modern'], SchoolWebsite::viewFolders('mint'));
+        $this->assertSame('school-site.mint.home', SchoolWebsite::viewFor('mint', 'home'));
+        $this->assertSame('school-site.modern.contact', SchoolWebsite::viewFor('mint', 'contact'));
+        $this->assertSame('teal', SchoolWebsite::templates()['mint']['preset']);
+        $this->assertArrayHasKey('teal', SchoolWebsite::themePresets());
         $this->assertSame(['classic'], SchoolWebsite::viewFolders('classic'));
         $this->assertSame('school-site.vibrant.home', SchoolWebsite::viewFor('vibrant', 'home'));
         $this->assertSame('school-site.modern.about', SchoolWebsite::viewFor('breeze', 'about'));
@@ -97,14 +103,14 @@ class SchoolSiteModernTemplatesTest extends TestCase
         $this->assertSame('vibrant', $this->site('vibrant')->templateKey());
     }
 
-    public function test_every_page_renders_on_both_new_templates(): void
+    public function test_every_page_renders_on_the_modern_templates(): void
     {
         $content = [
             'pages' => ['labs' => ['heading' => 'Labs', 'body' => 'Our labs.', 'photos' => "https://example.com/1.jpg\nhttps://example.com/2.jpg"]],
             'results' => [['year' => '2025', 'appeared' => 120, 'passed' => 114], ['year' => '2026', 'appeared' => 130, 'passed' => 128]],
             'leadership' => [['name' => 'Dr. Meera Rao', 'role' => 'Principal', 'photo' => '', 'message' => 'Every child can shine.']],
         ];
-        foreach (['vibrant' => ['v-hero', 'v-banner'], 'breeze' => ['z-hero', 'z-banner']] as $tpl => [$homeMark, $pageMark]) {
+        foreach (['vibrant' => ['v-hero', 'v-banner'], 'breeze' => ['z-hero', 'z-banner'], 'mint' => ['m-hero', 'm-banner']] as $tpl => [$homeMark, $pageMark]) {
             $site = $this->site($tpl, $content);
             foreach (array_keys(SchoolWebsite::allPages()) as $slug) {
                 [$status, $html] = $this->render($site, $slug === 'home' ? '' : $slug);
@@ -157,11 +163,32 @@ class SchoolSiteModernTemplatesTest extends TestCase
         $this->assertStringContainsString('Pass percentage · 2026', $breeze);
         $this->assertStringContainsString('Documents required', $breeze);   // the checklist card, from Website Data's documents
         $this->assertStringContainsString('"Serving Nation Through Education"', html_entity_decode(str_replace(['“', '”'], '"', $breeze)));
+
+        // Mint, in the superlms.in look: the same content, laid out as the website's home.
+        [, $mint] = $this->render($this->site('mint', $content), '');
+        $this->assertStringContainsString('Welcome to <span class="hl">Sunrise Public School</span>', $mint);
+        $this->assertStringContainsString('Admissions open · 1 April – 31 July 2026', $mint);   // the badge pill
+        $this->assertStringContainsString('Sunrise Public <span>School</span>', $mint);           // the name as SUPER·LMS
+        $this->assertSame(2, substr_count($mint, 'aria-roledescription="slide"'));
+        $this->assertMatchesRegularExpression('/class="slide\s+is-mark"/', $mint);
+        $this->assertStringContainsString('Robotics Lab', $mint);
+        $this->assertStringContainsString('95% pass', $mint);
+        $this->assertStringContainsString('Board results', $mint);
+        $this->assertStringContainsString('Documents required', $mint);
+        $this->assertStringContainsString('Birth Certificate', $mint);
+        $this->assertStringContainsString('2132562', $mint);                                       // the facts band
+        $this->assertStringContainsString('data-kind="Call back request" data-type="query"', $mint);
+        $this->assertStringContainsString('Plus+Jakarta+Sans', $mint);
+        $this->assertStringNotContainsString('class="m-cta-band"', $mint);                        // the home has its own band
+
+        [, $about] = $this->render($this->site('mint', $content), 'about');
+        $this->assertStringContainsString('class="m-cta-band"', $about);
+        $this->assertStringContainsString('class="crumbs"', $about);
     }
 
     public function test_a_school_with_nothing_filled_in_still_gets_a_whole_site(): void
     {
-        foreach (['vibrant', 'breeze'] as $tpl) {
+        foreach (['vibrant', 'breeze', 'mint'] as $tpl) {
             [$status, $html] = $this->render($this->site($tpl), '');
             $this->assertSame(200, $status);
             $this->assertStringNotContainsString('<img src="https://', $html, $tpl);
@@ -172,7 +199,7 @@ class SchoolSiteModernTemplatesTest extends TestCase
 
     public function test_the_documents_menu_and_document_pages_work_on_the_new_templates(): void
     {
-        foreach (['vibrant', 'breeze'] as $tpl) {
+        foreach (['vibrant', 'breeze', 'mint'] as $tpl) {
             $site = $this->site($tpl, ['documents' => ['disclosures' => [
                 ['title' => 'CBSE Affiliation Letter', 'file' => 'https://example.com/aff.pdf', 'date' => ''],
                 ['title' => 'NOC', 'file' => '', 'date' => ''],
@@ -196,13 +223,15 @@ class SchoolSiteModernTemplatesTest extends TestCase
 
         $page = Livewire::test(SchoolWebsiteBuilder::class, ['organization' => Organization::find(1)])
             ->call('switchTab', 'theme')
-            ->assertSee(['Classic CBSE', 'Vibrant', 'Breeze'])
+            ->assertSee(['Classic CBSE', 'Vibrant', 'Breeze', 'Mint'])
             ->assertSet('theme_preset', 'tricolour')
             ->call('pickTemplate', 'vibrant')
             ->assertSet('template', 'vibrant')
             ->assertSet('theme_preset', 'electric')
             ->set('template', 'breeze')                 // the card's radio
             ->assertSet('theme_preset', 'electric')
+            ->set('template', 'mint')                   // the superlms.in teal
+            ->assertSet('theme_preset', 'teal')
             ->set('template', 'classic')
             ->assertSet('theme_preset', 'tricolour')
             ->set('theme_preset', 'forest')             // a colour picked on purpose stays
@@ -219,7 +248,7 @@ class SchoolSiteModernTemplatesTest extends TestCase
 
         // Each card has a drawing of its home page and says which is selected.
         $html = $page->call('switchTab', 'theme')->html();
-        $this->assertSame(3, substr_count($html, 'wire:model.live="template"'));
+        $this->assertSame(4, substr_count($html, 'wire:model.live="template"'));
         $this->assertStringContainsString('Selected', $html);
     }
 
@@ -260,5 +289,7 @@ class SchoolSiteModernTemplatesTest extends TestCase
         $this->assertStringContainsString('--c: #2B5BF5;', ModernSite::swatch('vibrant', 0, '#2B5BF5'));
         $this->assertStringContainsString('--c: #7C3AED;', ModernSite::swatch('vibrant', 1, '#2B5BF5'));
         $this->assertStringContainsString('--t: #EEF2FF;', ModernSite::swatch('breeze', 1, '#2B5BF5'));
+        $this->assertStringContainsString('--c: #0D9488;', ModernSite::swatch('mint', 0, '#0D9488'));
+        $this->assertStringContainsString('--t: #DDE9FB;', ModernSite::swatch('mint', 2, '#0D9488'));
     }
 }

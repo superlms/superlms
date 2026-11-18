@@ -125,7 +125,7 @@
                         <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Template</p>
                         {{-- A card a template, with a small drawing of its home page in the colour picked below. --}}
                         @php $accent = $primary ?: ($themePresets[$theme_preset]['primary'] ?? '#2B5BF5'); @endphp
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-2 pb-4 border-b border-gray-100">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-4 pt-2 pb-4 border-b border-gray-100">
                             @foreach ($templates as $key => $tpl)
                                 <label wire:key="tpl-{{ $key }}"
                                     class="group relative flex flex-col rounded-xl border-2 cursor-pointer overflow-hidden transition-all

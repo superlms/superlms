@@ -289,8 +289,8 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->assertSame(2, preg_match_all('/class="ph[^"]*"\s+data-lb/', $labs));
 
         // Playful (kider) is gone (user's ask of 2026-10-20): a site naming it, or
-        // any other, is shown on Classic. Vibrant and Breeze came on 2026-11-03.
-        $this->assertSame(['classic', 'vibrant', 'breeze'], array_keys(SchoolWebsite::templates()));
+        // any other, is shown on Classic. Vibrant and Breeze came on 2026-11-03, Mint on 2026-11-18.
+        $this->assertSame(['classic', 'vibrant', 'breeze', 'mint'], array_keys(SchoolWebsite::templates()));
         foreach (['kider', 'unknown-template'] as $name) {
             SchoolWebsite::query()->delete();
             $old = $this->site([], $name);

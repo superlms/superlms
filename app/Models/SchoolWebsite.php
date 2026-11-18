@@ -40,7 +40,8 @@ class SchoolWebsite extends Model
      * The site designs a school can be given, each a folder of blades under
      * resources/views/school-site/<key>. The Playful (kider) template was
      * taken out on the user's ask of 2026-10-20 and its sites moved to
-     * Classic; Vibrant and Breeze came on the user's ask of 2026-11-03.
+     * Classic; Vibrant and Breeze came on the user's ask of 2026-11-03, and
+     * Mint — the superlms.in website's own look — on 2026-11-18.
      *
      * Every template reads the same content, pages and menu — only the look
      * differs. `preset` is the colour a site gets when it is moved to the
@@ -59,6 +60,8 @@ class SchoolWebsite extends Model
                 'desc' => 'Modern and colourful: a bento-card home page in bright gradients, a slider in a rounded frame, facility cards to swipe and a gradient admission card.'],
             'breeze'  => ['label' => 'Breeze', 'preset' => 'electric', 'shares' => 'modern',
                 'desc' => 'Modern and light: soft pastel colours, airy white cards and a dashboard-style home with the calendar, classes and board results.'],
+            'mint'    => ['label' => 'Mint', 'preset' => 'teal', 'shares' => 'modern',
+                'desc' => 'In the superlms.in look: a clean white page, bold display headings, pill buttons, pastel panels and an app-screen hero with the school’s photos and figures.'],
         ];
     }
 
@@ -269,6 +272,7 @@ class SchoolWebsite extends Model
             'amber'  => ['label' => 'Amber Gold',       'primary' => '#E8A009', 'light' => '#FFF8E8', 'dark' => '#3A2A05'],
             'tricolour' => ['label' => 'Tricolour (Red & Green)', 'primary' => '#E8000B', 'light' => '#FFF6EA', 'dark' => '#2D6944'],
             'electric'  => ['label' => 'Electric Blue',           'primary' => '#2B5BF5', 'light' => '#EEF2FF', 'dark' => '#0C1B4D'],
+            'teal'      => ['label' => 'Teal (superlms.in)',      'primary' => '#0D9488', 'light' => '#EFFAF7', 'dark' => '#0F4A43'],
         ];
     }
 
