@@ -80,6 +80,25 @@ class SuperAdminHomeTest extends TestCase
         $this->assertContains('Payroll', $titles);
     }
 
+    /**
+     * Quick Links in the website's look (2026-11-18): no top bar on a computer,
+     * so its search, notifications, Profile and Logout sit on the page's own
+     * header, and every screen is a tile on the mint panel.
+     */
+    public function test_quick_links_carry_the_top_bars_buttons_on_their_own_header(): void
+    {
+        $this->signIn();
+
+        Livewire::test(QuickLinks::class)
+            ->assertSeeHtml('sa-skin')
+            ->assertSeeHtml('class="sk-tile"')
+            ->assertSeeHtml('placeholder="Search pages..."')
+            ->assertSeeHtml("Livewire.dispatch('open-notifications')")
+            ->assertSeeHtml("Livewire.dispatch('open-logout-confirm')")
+            ->assertSeeHtml(route('super-admin.profile'))
+            ->assertSee('Payroll');
+    }
+
     public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link(): void
     {
         $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.schools', 'super-admin.users', 'super-admin.credit']);

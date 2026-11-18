@@ -59,8 +59,37 @@ class QuickLinks extends Component
             usort($links, fn($a, $b) => $a['order'] <=> $b['order']);
         }
 
+        // The page has no top bar on a computer (components.layouts.app), so
+        // what the bar held comes onto the page's own header: the session, the
+        // assistant, notifications, Profile and Logout.
+        $user        = auth()->user();
+        $sessionLink = $user?->canAccessSuperAdminRoute('super-admin.sessions') ?? false;
+
         return view('livewire.super-admin.quick-links', [
-            'orderedLinks' => $links,
+            'orderedLinks'        => $links,
+            'sessionLabel'        => \App\Models\AcademicSession::currentLabel(),
+            'sessionLink'         => $sessionLink,
+            'sessionList'         => $sessionLink ? \App\Models\AcademicSession::switchable() : collect(),
+            'unreadNotifications' => $this->unreadNotifications(),
+            'assistantEnabled'    => $user
+                && in_array($user->role, (array) config('gemini.roles', []), true)
+                && app(\App\Services\Gemini\GeminiAssistant::class)->available(),
         ]);
+    }
+
+    /** Re-render the bell's badge when notifications are read. */
+    #[\Livewire\Attributes\On('notifications-updated')]
+    public function refreshNotifications(): void
+    {
+        //
+    }
+
+    private function unreadNotifications(): int
+    {
+        try {
+            return (int) auth()->user()?->unreadNotifications()->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 }

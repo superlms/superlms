@@ -217,12 +217,13 @@
 
 {{-- offcanvas drives the mobile sidebar drawer (the navbar hamburger flips it).
      Kept at body level so every page inherits the same state.
-     lms-no-topbar: an admin or super admin page other than Quick Links shows
-     no top bar on md+ (see the style above). --}}
+     lms-no-topbar: no top bar on md+ (see the style above) on every super
+     admin page — its Quick Links carries the bar's buttons on its own header
+     (2026-11-18) — and on every admin page but Quick Links. --}}
 @php
     $lmsNoTopbar = Auth::check()
         && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true)
-        && !request()->routeIs('admin.quick-links', 'super-admin.quick-links');
+        && !request()->routeIs('admin.quick-links');
     // The panels' own touches (partials.panel-ui): login-style fields and button
     // spinners on the Super Admin's and the school admin's panels; dropping a
     // file on a picker on the Super Admin's.

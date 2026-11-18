@@ -10,7 +10,7 @@
      $trend (DashboardChart::trend() or null — null with $flat (default true)
      reads "0%", with $flat false shows no change row), $compare (what the
      change is against, default "vs last month"), $sub (the foot line, or
-     null), $color ('violet' | 'sky' | 'emerald' | 'amber' | 'rose'),
+     null), $color ('violet' | 'teal' | 'sky' | 'emerald' | 'amber' | 'rose'),
      $href (or null), $click (a Livewire action the card runs instead, e.g.
      "openMonthDetail('fees')" — Reports).
 
@@ -18,6 +18,7 @@
 @php
     $tones = [
         'violet'  => ['#f5f3ff', '#7c3aed'],
+        'teal'    => ['#effaf7', '#0d9488'],
         'sky'     => ['#f0f9ff', '#0284c7'],
         'emerald' => ['#ecfdf5', '#059669'],
         'amber'   => ['#fffbeb', '#d97706'],

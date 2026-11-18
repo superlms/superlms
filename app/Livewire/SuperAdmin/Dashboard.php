@@ -497,7 +497,8 @@ class Dashboard extends Component
      */
     protected function studentsBySchool(array $topSchools, int $totalStudents): array
     {
-        $colors = ['#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd'];
+        // The website's teal, darkest first (Home in the superlms.in look, 2026-11-18).
+        $colors = ['#0f766e', '#0d9488', '#2fae9f', '#6cc9bb', '#a7e1d7'];
         $parts  = [];
 
         foreach (array_slice($topSchools, 0, 5) as $i => $s) {

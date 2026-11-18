@@ -1,5 +1,6 @@
-<div class="min-h-screen bg-gray-50">
+<div class="sa-skin sa-home min-h-screen">
     @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
 
     @php
         // ─── Home in the dashboard layout (2026-11-03): KPI cards with their
@@ -31,7 +32,7 @@
         $activityTone = [
             'emerald' => ['#ecfdf5', '#059669'],
             'blue'    => ['#eff6ff', '#2563eb'],
-            'violet'  => ['#f5f3ff', '#7c3aed'],
+            'violet'  => ['#effaf7', '#0d9488'],
         ];
 
         // The two Chart.js charts' figures (see partials.dash-charts-js).
@@ -55,30 +56,52 @@
     {{-- The charts' figures: refreshed by every re-render, read again after it. --}}
     <div class="hidden" data-sa-charts="home" data-payload="{{ json_encode($homeCharts) }}"></div>
 
-    {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
-            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Overview</h1>
-                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
+    {{-- ══════════════════════════════ HEADER ══════════════════════════════
+         The website's analytics screen: the title, a search over the panel's
+         pages, a Live clock, Refresh and Add School. --}}
+    @php
+        $saPages = collect(config('menu.super-admin', []))
+            ->filter(fn ($l) => ($l['sidebar'] ?? true) !== false && \Illuminate\Support\Facades\Route::has($l['link']))
+            ->filter(fn ($l) => auth()->user()?->canAccessSuperAdminRoute($l['link']) ?? false)
+            ->map(fn ($l) => ['t' => $l['title'], 'u' => route($l['link'])])
+            ->values();
+    @endphp
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>Overview</h1>
+            <p>{{ now()->format('l, d M Y') }}</p>
+        </div>
+
+        <div class="sk-search" x-data="{ q: '', open: false, pages: {{ \Illuminate\Support\Js::from($saPages) }},
+                get hits() { const s = this.q.trim().toLowerCase(); return s ? this.pages.filter(p => p.t.toLowerCase().includes(s)).slice(0, 8) : []; } }"
+            x-on:click.away="open = false" x-on:keydown.escape="q = ''; open = false">
+            <x-icon name="magnifying-glass" />
+            <input type="text" x-model="q" x-on:focus="open = true" x-on:input="open = true" placeholder="Search pages..." autocomplete="off"
+                x-on:keydown.enter.prevent="if (hits.length) window.location = hits[0].u" aria-label="Search pages">
+            <button type="button" x-show="q" x-on:click="q = ''" style="display: none" aria-label="Clear"><x-icon name="x-mark" class="w-3.5 h-3.5" /></button>
+            <div class="sk-menu" x-show="open && q" x-transition style="display: none; right: 0; width: auto;">
+                <template x-for="p in hits" :key="p.u">
+                    <a :href="p.u"><x-icon name="arrow-right" class="w-3.5 h-3.5 text-gray-300" /><span x-text="p.t"></span></a>
+                </template>
+                <p class="sk-menu-h" x-show="!hits.length" style="text-transform: none; letter-spacing: 0; font-size: 13px; padding: 12px 14px;">No pages found</p>
             </div>
-            <div class="flex items-center gap-2">
-                <button wire:click="refreshData"
-                    class="inline-flex items-center gap-1.5 px-3 py-[7px] text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <svg class="w-4 h-4" wire:loading.class="animate-spin" wire:target="refreshData" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh
-                </button>
-                <a href="{{ route('super-admin.schools') }}"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add School
-                </a>
-            </div>
+        </div>
+
+        <div class="sk-right">
+            <span wire:ignore class="sk-pill live"
+                x-data="{ t: '', tick() { this.t = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); } }"
+                x-init="tick(); setInterval(() => tick(), 15000)">Live · <span class="tabular-nums" x-text="t"></span></span>
+            <button wire:click="refreshData" class="sk-pill" type="button">
+                <svg class="w-3.5 h-3.5" wire:loading.class="animate-spin" wire:target="refreshData" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+            </button>
+            <a href="{{ route('super-admin.schools') }}" class="sk-cta">
+                <x-icon name="plus" class="w-4 h-4" />
+                Add School
+            </a>
         </div>
     </div>
 
@@ -87,25 +110,25 @@
         {{-- ═══════════════ KPIs — figure, change vs last month, sparkline ═══════════════ --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Total Schools', 'value' => number_format($totalSchools), 'icon' => 'building-office-2', 'color' => 'violet',
+                'label' => 'Total Schools', 'value' => number_format($totalSchools), 'icon' => 'building-office-2', 'color' => 'teal',
                 'series' => $schoolSeries, 'trend' => $trend($schoolSeries),
                 'sub' => number_format($activeSchools) . ' active · ' . number_format($newSchoolsThisMonth) . ' new this month',
                 'href' => route('super-admin.schools'),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'users', 'color' => 'sky',
+                'label' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'users', 'color' => 'teal',
                 'series' => $studentSeries, 'trend' => $trend($studentSeries),
                 'sub' => number_format($activeStudents) . ' active',
                 'href' => route('super-admin.students'),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Total Teachers', 'value' => number_format($totalTeachers), 'icon' => 'academic-cap', 'color' => 'emerald',
+                'label' => 'Total Teachers', 'value' => number_format($totalTeachers), 'icon' => 'academic-cap', 'color' => 'teal',
                 'series' => $teacherSeries, 'trend' => $trend($teacherSeries),
                 'sub' => number_format($activeTeachers) . ' active',
                 'href' => route('super-admin.teachers'),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Fee Collected', 'value' => $short($superAdminFee['collected']), 'icon' => 'banknotes', 'color' => 'amber',
+                'label' => 'Fee Collected', 'value' => $short($superAdminFee['collected']), 'icon' => 'banknotes', 'color' => 'teal',
                 'series' => $feeData,
                 'trend' => \App\Support\DashboardChart::trend((float) $superAdminFee['this_month'], (float) $superAdminFee['last_month']),
                 'sub' => $superAdminFee['pct'] . '% of ' . $short($superAdminFee['total']) . ' · ' . $superAdminFee['year'],
@@ -122,7 +145,7 @@
                         <p class="sa-card-sub">Super Admin fee collected on each date · last 12 months</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short($superAdminFee['year_total']) }} in 12 months</span>
+                        <span class="sa-chip"><span class="sa-dot" style="background:#0d9488"></span>{{ $short($superAdminFee['year_total']) }} in 12 months</span>
                         @if ($feeLast)
                             <span class="sa-chip" style="background:#f3f4f6;color:#374151">Last on {{ $feeLast['label'] }}</span>
                         @endif
@@ -240,7 +263,7 @@
                         <p class="sa-card-sub">Students and teachers added · last 12 months</p>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-gray-500">
-                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Students</span>
+                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Students</span>
                         <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#111827"></span>Teachers</span>
                     </div>
                 </div>
@@ -436,7 +459,7 @@
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-gray-800 truncate" title="{{ $school['name'] }}">{{ $school['name'] }}</p>
                                 <div class="mt-1.5 h-1 rounded-full bg-gray-100">
-                                    <div class="h-1 rounded-full" style="width: {{ round($school['teachers_count'] / $maxTeachers * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                                    <div class="h-1 rounded-full" style="width: {{ round($school['teachers_count'] / $maxTeachers * 100) }}%; background: {{ $loop->first ? '#0d9488' : '#9fdcd2' }}"></div>
                                 </div>
                             </div>
                             <div class="pl-1 text-right flex-shrink-0">
@@ -587,8 +610,8 @@
                 </div>
                 @include('livewire.super-admin.partials.dash-donut', [
                     'segments' => [
-                        ['label' => 'Present', 'value' => $staff['today']['present'], 'color' => '#7c3aed'],
-                        ['label' => 'Half day', 'value' => $staff['today']['half_day'], 'color' => '#c4b5fd'],
+                        ['label' => 'Present', 'value' => $staff['today']['present'], 'color' => '#0d9488'],
+                        ['label' => 'Half day', 'value' => $staff['today']['half_day'], 'color' => '#9fdcd2'],
                         ['label' => 'Absent', 'value' => $staff['today']['absent'], 'color' => '#f43f5e'],
                         ['label' => 'Leave / holiday', 'value' => $staff['today']['leave'] + $staff['today']['holiday'], 'color' => '#111827'],
                         ['label' => 'Not marked', 'value' => $staffNotMarked, 'color' => '#e5e7eb'],
@@ -694,7 +717,7 @@
     @include('livewire.super-admin.partials.dash-charts-js')
     <script>
         (function () {
-            const VIOLET = '#7c3aed', INK = '#111827';
+            const VIOLET = '#0d9488', INK = '#111827';
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
             const axis = { color: '#9ca3af', font: { size: 11 } };
             const tooltip = { backgroundColor: INK, padding: 10, cornerRadius: 8 };
@@ -708,7 +731,7 @@
                         labels: p.fee.labels || [],
                         datasets: [{
                             label: 'Collected', data: p.fee.data || [],
-                            backgroundColor: VIOLET, hoverBackgroundColor: '#5b21b6',
+                            backgroundColor: VIOLET, hoverBackgroundColor: '#0f766e',
                             borderRadius: 6, borderSkipped: false, barPercentage: 0.8, categoryPercentage: 0.7, maxBarThickness: 28,
                         }]
                     },
