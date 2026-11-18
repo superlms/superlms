@@ -51,12 +51,41 @@
 
     @include('components.site.partials.footer', ['logo' => $logo])
 
-    {{-- Floating "ask" pill: the question opens a WhatsApp chat with the team. --}}
+    {{-- "Ask anything": a chat answered from this website's own pages
+         (POST /api/website/ask → App\Services\Gemini\WebsiteAssistant).
+         When the assistant can't answer, it offers WhatsApp with the question. --}}
+    <div class="askp" id="askPanel" role="dialog" aria-labelledby="askTitle" hidden>
+        <div class="askp-head">
+            <span class="askp-logo"><img src="{{ $logo }}" alt=""></span>
+            <div class="askp-ttl">
+                <b id="askTitle">{{ config('gemini.brand', 'Super LMS') }} Assistant</b>
+                <small><i></i> Answers from superlms.in</small>
+            </div>
+            <button type="button" class="askp-btn" id="askReset" aria-label="New chat" title="New chat"><x-site.icon name="refresh" /></button>
+            <button type="button" class="askp-btn" id="askClose" aria-label="Close" title="Close"><x-site.icon name="x" /></button>
+        </div>
+        <div class="askp-body" id="askBody" aria-live="polite">
+            <div class="askp-intro" id="askIntro">
+                <div class="askp-hi">Hi! Ask me anything about SUPERLMS.</div>
+                <p>Features, pricing, setup, apps or services — in English, हिन्दी or Hinglish.</p>
+                <div class="askp-sugs">
+                    @foreach (['How much does SUPERLMS cost?', 'Which modules are included?', 'How does a school get started?', 'Is there a mobile app?', 'School ko kuch pay karna padta hai?'] as $s)
+                        <button type="button" class="askp-sug" data-q="{{ $s }}">{{ $s }}</button>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        <div class="askp-foot">
+            <a href="https://wa.me/919084748563" target="_blank" rel="noopener noreferrer" id="askWa"><x-site.icon name="whatsapp" /> WhatsApp the team</a>
+            <a href="{{ url('web/demo') }}">Book a free demo <x-site.icon name="chevron-right" /></a>
+        </div>
+    </div>
+
     <form class="ask" id="askPill" data-wa="919084748563" autocomplete="off">
         <img class="ask-logo" src="{{ $logo }}" alt="">
         <label class="sr-only" for="askInput">Ask anything</label>
-        <input id="askInput" type="text" placeholder="Ask anything…" maxlength="300">
-        <button type="submit" aria-label="Send on WhatsApp"><x-site.icon name="arrow-up" /></button>
+        <input id="askInput" type="text" placeholder="Ask anything…" maxlength="500" enterkeyhint="send">
+        <button type="submit" aria-label="Ask"><x-site.icon name="arrow-up" /></button>
     </form>
 
     {{-- Toast (forms) --}}

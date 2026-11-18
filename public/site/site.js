@@ -219,29 +219,161 @@
     t._h = setTimeout(function () { t.classList.remove('is-show'); }, 4500);
   };
 
-  /* ── Ask pill → opens a WhatsApp chat with the typed question ── */
-  var ask = $('#askPill');
-  if (ask) {
-    var inp = $('input', ask), num = ask.getAttribute('data-wa');
+  /* ── "Ask anything": a chat answered from this website (POST /api/website/ask).
+        The panel opens above the pill; the conversation is kept for the tab.
+        When there is no answer, WhatsApp is offered with the same question. ── */
+  var ask = $('#askPill'), panel = $('#askPanel');
+  if (ask && panel) {
+    var inp = $('input', ask), sendBtn = $('button', ask), num = ask.getAttribute('data-wa');
+    var body = $('#askBody'), intro = $('#askIntro'), logoSrc = ($('.askp-logo img', panel) || {}).src || '';
+    var KEY = 'sl_ask_v1', busy = false, hist = [], footerInView = false;
+
+    try { hist = JSON.parse(sessionStorage.getItem(KEY) || '[]') || []; } catch (e) { hist = []; }
+    function save() { try { sessionStorage.setItem(KEY, JSON.stringify(hist.slice(-20))); } catch (e) {} }
+
+    function esc(s) { return w.siteEsc(s); }
+    // Markdown-lite: **bold**, [label](link) to this site / WhatsApp / Play / tel / mail, "- " lists.
+    function md(s) {
+      var h = esc(s);
+      h = h.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, t, u) {
+        var raw = u.replace(/&amp;/g, '&');
+        if (!/^(\/(?!\/)|https:\/\/(www\.)?(superlms\.in|wa\.me|play\.google\.com)(\/|$)|tel:|mailto:)/.test(raw)) return t;
+        var ext = /^https?:/.test(raw);
+        return '<a href="' + esc(raw) + '"' + (ext ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + t + '</a>';
+      });
+      h = h.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+      var out = [], list = false;
+      h.split(/\n/).forEach(function (l) {
+        var m = l.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)$/);
+        if (m) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + m[1] + '</li>'); return; }
+        if (list) { out.push('</ul>'); list = false; }
+        if (l.trim()) out.push('<p>' + l + '</p>');
+      });
+      if (list) out.push('</ul>');
+      return out.join('');
+    }
+
+    function scroll() { body.scrollTop = body.scrollHeight; }
+
+    function bubble(role, html) {
+      var el = d.createElement('div');
+      el.className = 'am ' + (role === 'user' ? 'user' : 'bot');
+      el.innerHTML = role === 'user'
+        ? '<div class="am-tx">' + html + '</div>'
+        : '<span class="am-av"><img src="' + esc(logoSrc) + '" alt=""></span><div class="am-tx">' + html + '</div>';
+      body.appendChild(el);
+      if (intro) intro.hidden = true;
+      scroll();
+      return el;
+    }
+
+    // Words appear one after another, then the formatted answer takes over.
+    function typeOut(el, text) {
+      var tx = $('.am-tx', el), words = text.split(/(\s+)/), i = 0;
+      if (reduce || words.length < 6) { tx.innerHTML = md(text); scroll(); return; }
+      var step = Math.max(1, Math.round(words.length / 70));
+      (function tick() {
+        i = Math.min(words.length, i + step);
+        tx.textContent = words.slice(0, i).join('');
+        scroll();
+        if (i < words.length) setTimeout(tick, 18); else { tx.innerHTML = md(text); scroll(); }
+      })();
+    }
+
+    function open() {
+      panel.hidden = false;
+      ask.classList.add('is-chat');
+      ask.classList.remove('is-hidden');
+      requestAnimationFrame(function () { panel.classList.add('is-open'); });
+      scroll();
+    }
+    function close() {
+      panel.classList.remove('is-open');
+      ask.classList.remove('is-chat');
+      ask.classList.toggle('is-hidden', footerInView);
+      setTimeout(function () { if (!panel.classList.contains('is-open')) panel.hidden = true; }, 260);
+    }
+
+    function waLink(q) { return 'https://wa.me/' + num + (q ? '?text=' + encodeURIComponent(q) : ''); }
+
+    function send(q) {
+      q = (q || '').trim();
+      if (!q || busy) return;
+      busy = true; sendBtn.disabled = true;
+      open();
+      bubble('user', esc(q));
+      $('#askWa').href = waLink(q);
+      var typing = d.createElement('div');
+      typing.className = 'am bot';
+      typing.innerHTML = '<span class="am-av"><img src="' + esc(logoSrc) + '" alt=""></span><div class="typing"><i></i><i></i><i></i></div>';
+      body.appendChild(typing); scroll();
+
+      fetch('/api/website/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ question: q, history: hist.slice(-8) })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          typing.remove();
+          if (j && j.success && j.answer) {
+            typeOut(bubble('model', ''), j.answer);
+            hist.push({ role: 'user', text: q }, { role: 'model', text: j.answer });
+            save();
+          } else {
+            fail((j && j.message) || 'I could not get an answer just now.', q);
+          }
+        })
+        .catch(function () { typing.remove(); fail('No connection just now. Please try again.', q); })
+        .then(function () { busy = false; sendBtn.disabled = false; });
+    }
+
+    function fail(msg, q) {
+      var el = bubble('model', '<p>' + esc(msg) + '</p>');
+      el.classList.add('err');
+      var a = d.createElement('a');
+      a.className = 'am-wa'; a.href = waLink(q); a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2a9.9 9.9 0 0 0-8.5 15l-1.4 5 5.1-1.3A9.9 9.9 0 1 0 12.04 2Zm5.8 14.1c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.2c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.7 1.1 1.4 1.8 1 .9 1.8 1.1 2.1 1.3.3.1.4.1.6-.1l.9-1.1c.2-.3.4-.2.6-.1l2.2 1c.3.2.5.2.6.4 0 .1 0 .7-.2 1.3Z"/></svg> Ask on WhatsApp';
+      $('.am-tx', el).appendChild(a);
+      scroll();
+    }
+
+    // Restore this tab's conversation (shown when the panel opens).
+    hist.forEach(function (t) { bubble(t.role === 'user' ? 'user' : 'model', t.role === 'user' ? esc(t.text) : md(t.text)); });
+
     inp.addEventListener('input', function () { ask.classList.toggle('has-text', inp.value.trim() !== ''); });
+    inp.addEventListener('focus', function () { if (hist.length) open(); });
     ask.addEventListener('submit', function (e) {
       e.preventDefault();
-      var q = inp.value.trim();
-      w.open('https://wa.me/' + num + (q ? '?text=' + encodeURIComponent(q) : ''), '_blank', 'noopener');
+      var q = inp.value;
       inp.value = ''; ask.classList.remove('has-text');
+      if (q.trim()) send(q); else open();
     });
-    // Out of the way while a form is being filled or the footer is in view.
+    $$('.askp-sug', panel).forEach(function (b) { b.addEventListener('click', function () { send(b.getAttribute('data-q')); }); });
+    $('#askClose').addEventListener('click', close);
+    $('#askReset').addEventListener('click', function () {
+      hist = []; save();
+      $$('.am', body).forEach(function (m) { m.remove(); });
+      if (intro) intro.hidden = false;
+      $('#askWa').href = waLink('');
+      inp.focus();
+    });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('is-open')) close(); });
+
+    // Out of the way while a page form is being filled or the footer is in view (unless chatting).
     var foot = $('.footer');
     if ('IntersectionObserver' in w && foot) {
       new IntersectionObserver(function (es) {
-        es.forEach(function (e) { ask.classList.toggle('is-hidden', e.isIntersecting); });
+        es.forEach(function (e) {
+          footerInView = e.isIntersecting;
+          if (!panel.classList.contains('is-open')) ask.classList.toggle('is-hidden', footerInView);
+        });
       }, { threshold: 0.05 }).observe(foot);
     }
     d.addEventListener('focusin', function (e) {
-      if (e.target.closest && e.target.closest('form') && !e.target.closest('#askPill')) ask.classList.add('is-hidden');
+      if (e.target.closest && e.target.closest('form') && !e.target.closest('#askPill')) { ask.classList.add('is-hidden'); if (panel.classList.contains('is-open')) close(); }
     });
     d.addEventListener('focusout', function (e) {
-      if (e.target.closest && e.target.closest('form') && !e.target.closest('#askPill')) ask.classList.remove('is-hidden');
+      if (e.target.closest && e.target.closest('form') && !e.target.closest('#askPill') && !footerInView) ask.classList.remove('is-hidden');
     });
   }
 })();

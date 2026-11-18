@@ -18,6 +18,9 @@ Route::prefix('website')->group(function () {
     Route::get('/terms-conditions', [WebsiteController::class, 'termsConditions']);
     Route::get('/terms-of-use',     [WebsiteController::class, 'termsOfUse']);
 
+    // The "Ask anything" pill: a question answered from the site's own content.
+    Route::post('/ask', \App\Http\Controllers\WebsiteAskController::class)->middleware('throttle:10,1');
+
     // Dynamic marketing pages (why-us, services, careers, become-executive, blogs, faqs)
     Route::get('/page/{slug}',      [WebsiteController::class, 'page']);
 
