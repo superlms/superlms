@@ -35,7 +35,6 @@
             {{-- ── STEP 1: Credentials ── --}}
             @if ($step === 'credentials')
                 <div class="text-center mb-8">
-                    <span class="sa-auth-eyebrow">Sign in</span>
                     <h1 class="sa-title text-3xl md:text-4xl">Super Admin <span class="grad">Login</span></h1>
                     <p class="sa-sub mt-3 text-sm">Enter your registered email and password to access your SuperLMS admin panel</p>
                 </div>
@@ -98,7 +97,6 @@
             {{-- ── STEP 2: OTP Verification ── --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <span class="sa-auth-eyebrow">Two-step verification</span>
                     <h1 class="sa-title text-3xl md:text-4xl">Verify <span class="grad">OTP</span></h1>
                     <p class="sa-sub mt-3 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>

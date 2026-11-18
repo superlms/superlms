@@ -4,17 +4,17 @@
      with the website's soft teal and olive glows and one large rounded card
      (nothing over or under it) — on the left a mint panel (the website's
      call-to-action band) with the step acted out in a small app window
-     (partials.super-admin-auth-motion), on the right the form with a teal
-     eyebrow, a display heading with a gradient word, and the website's pill
-     button. A field's typed text takes its border's colour (teal once
-     filled, red while wrong).
+     (partials.super-admin-auth-motion), on the right the form under the
+     platform's logo (on its own, no box), a display heading with a gradient
+     word (no eyebrow over it), and the website's pill button. A field's
+     typed text takes its border's colour (teal once filled, red while wrong).
 
      Everything is scoped to .sa-auth, so the shared field styles
      (partials.super-admin-auth-fields) keep their colours on the school and
      accounts panels' screens; here the fields, code boxes and links turn teal.
 
      Classes: .sa-auth (page), .sa-auth-card, .sa-auth-art, .sa-auth-form,
-     .sa-auth-eyebrow, .grad, .sa-btn (main button), .sa-accent (teal link),
+     .grad, .sa-btn (main button), .sa-accent (teal link),
      .sa-quiet (grey link). --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,9 @@
 
     /* Right: the form */
     .sa-auth-form { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px; }
-    .sa-auth-logo { width: 60px; height: 60px; margin-bottom: 18px; border-radius: 18px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line); box-shadow: 0 12px 30px -16px rgba(12,38,32,.35); }
-    .sa-auth-logo img { width: 38px; height: 38px; object-fit: contain; }
-    .sa-auth-eyebrow { display: inline-block; font-size: 14.5px; font-weight: 600; color: var(--teal); margin-bottom: 8px; }
+    /* The logo on its own (no box round it), a little bigger. */
+    .sa-auth-logo { margin-bottom: 18px; line-height: 0; }
+    .sa-auth-logo img { width: 54px; height: 54px; object-fit: contain; }
     .sa-auth .sa-title { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; }
     .sa-auth-form .sa-title { font-weight: 800; letter-spacing: -.04em; color: var(--ink); line-height: 1.1; }
     .sa-auth .grad { background: linear-gradient(92deg, var(--teal) 0%, #23a083 55%, var(--olive) 110%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .06em; }

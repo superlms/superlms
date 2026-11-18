@@ -157,11 +157,30 @@ class SuperAdminHomeTest extends TestCase
                 ->assertDontSeeHtml('Back to website')
                 ->assertDontSeeHtml('Super Admin Panel')
                 ->assertDontSeeHtml('sa-auth-foot')
+                ->assertDontSeeHtml('sa-auth-eyebrow')            // no "Sign in" / "Account recovery" over the heading
+                ->assertSeeHtml('<div class="sa-auth-logo">')     // the logo on its own, no box
                 ->assertDontSeeHtml('bg-violet-600');
         }
         $screens['am-login']->assertSeeHtml('<span class="am-typed">admin@superlms.in</span>');
         $screens['am-otp']->assertSeeHtml('Verify <span class="grad">OTP</span>')
             ->assertSeeHtml('class="am-box am-box5"');
+    }
+
+    /** The logout confirm in the website's card look: a pastel stage with a small panel, the question, pill buttons. */
+    public function test_the_logout_confirm_is_a_website_card(): void
+    {
+        $this->signIn();
+
+        Livewire::test(\App\Livewire\Components\NavBar::class)
+            ->assertDontSeeHtml('class="lo-card"')
+            ->call('openLogoutConfirm')
+            ->assertSet('showSuperAdminLogoutModal', true)
+            ->assertSeeHtml('class="lo-card"')
+            ->assertSeeHtml('class="lo-stage"')
+            ->assertSee('Logout from the Super Admin panel?')
+            ->assertSee('super@example.com')
+            ->assertSeeHtml('wire:click="superAdminLogout"')
+            ->assertDontSeeHtml('bg-red-500');
     }
 
     public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link(): void

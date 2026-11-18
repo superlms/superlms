@@ -24,7 +24,6 @@
             {{-- ========== STEP 1: EMAIL ========== --}}
             @if ($step === 'email')
                 <div class="text-center mb-8">
-                    <span class="sa-auth-eyebrow">Account recovery</span>
                     <h1 class="sa-title text-3xl md:text-4xl">Forgot <span class="grad">Password?</span></h1>
                     <p class="sa-sub mt-3 text-sm">Enter your registered email address and we'll send you an OTP to reset your password</p>
                 </div>
@@ -60,7 +59,6 @@
             {{-- ========== STEP 2: OTP ========== --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <span class="sa-auth-eyebrow">Two-step verification</span>
                     <h1 class="sa-title text-3xl md:text-4xl">Verify <span class="grad">OTP</span></h1>
                     <p class="sa-sub mt-3 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
                 </div>
@@ -159,7 +157,6 @@
             {{-- ========== STEP 3: NEW PASSWORD ========== --}}
             @if ($step === 'password')
                 <div class="text-center mb-8">
-                    <span class="sa-auth-eyebrow">Account recovery</span>
                     <h1 class="sa-title text-3xl md:text-4xl">Set New <span class="grad">Password</span></h1>
                     <p class="sa-sub mt-3 text-sm">Use 8–16 characters with at least one number and one special character like @, # or $</p>
                 </div>
