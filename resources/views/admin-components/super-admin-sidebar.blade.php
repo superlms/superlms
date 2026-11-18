@@ -60,8 +60,10 @@
         background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
     }
 
-    /* Logo · SUPERLMS, centred, a little shorter (4px less), with an invisible divider under it */
-    .sa-brand { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 18px 15px; flex-shrink: 0; border-bottom: 1px solid transparent; }
+    /* Logo · SUPERLMS, centred, a little shorter (4px less); under it a divider
+       like the one over the user card (inset 12px), only very faint. */
+    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 18px 15px; flex-shrink: 0; border-bottom: 1px solid transparent; }
+    .sa-brand::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 1px; background: rgba(12, 38, 32, .05); pointer-events: none; }
     .sa-brand-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }
@@ -80,7 +82,12 @@
 
     /* Who is signed in */
     .sa-user { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 12px 6px 14px; border-top: 1px solid var(--sa-line); flex-shrink: 0; border-radius: 0; transition: color .2s; }
-    .sa-user:hover .sa-user-name { color: var(--sa-teal); }
+    .sa-user-link { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .sa-user-link:hover .sa-user-name { color: var(--sa-teal); }
+    /* A thin logout icon at the card's end (opens the panel's logout confirm). */
+    .sa-logout { flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #8b9893; transition: background .2s, color .2s; }
+    .sa-logout:hover { color: #e11d48; background: #fff1f2; }
+    .sa-logout svg { width: 17px; height: 17px; }
     .sa-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid var(--sa-line); box-shadow: 0 1px 2px rgba(12,38,32,.06); flex-shrink: 0; overflow: hidden; }
     .sa-av img { width: 22px; height: 22px; object-fit: contain; }
     .sa-user-text { min-width: 0; line-height: 1.25; }
@@ -153,10 +160,16 @@
                 </nav>
             </div>
 
-            <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile">
-                <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
-                <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
-            </a>
+            <div class="sa-user">
+                <a href="{{ route('super-admin.profile') }}" class="sa-user-link" title="Profile">
+                    <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
+                    <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
+                </a>
+                <button type="button" class="sa-logout" title="Logout" aria-label="Logout"
+                    x-on:click="offcanvas = false; Livewire.dispatch('open-logout-confirm')">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -191,10 +204,16 @@
         </div>
 
         <!-- Who is signed in -->
-        <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile — {{ $saName }}">
-            <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
-            <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
-        </a>
+        <div class="sa-user">
+            <a href="{{ route('super-admin.profile') }}" class="sa-user-link" title="Profile — {{ $saName }}">
+                <span class="sa-av"><img src="{{ $saLogo }}" alt=""></span>
+                <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
+            </a>
+            <button type="button" class="sa-logout" title="Logout" aria-label="Logout"
+                x-on:click="Livewire.dispatch('open-logout-confirm')">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </button>
+        </div>
     </div>
 </div>
 

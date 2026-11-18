@@ -7,21 +7,14 @@
     {{-- Inside the installed app: over to its code screen --}}
     @include('partials.panel-app-login', ['panel' => 'superadmin'])
 
-    @include('partials.super-admin-auth-top')
-
     <main class="sa-auth-main">
     <div class="sa-auth-card">
 
-        <!-- Left: the website's mint band with the picture that follows the step -->
+        <!-- Left: the website's mint band with the step acted out in a small app window -->
         <div class="sa-auth-art">
-            <span class="sa-auth-badge"><i></i>Super Admin Panel</span>
-            @include('partials.auth-illustration', [
+            @include('partials.super-admin-auth-motion', [
                 'variant'  => $step === 'otp' ? 'otp' : 'login',
-                'scheme'   => 'teal',
                 'subtitle' => $step === 'otp' ? null : 'Sign in to manage schools, users and settings across your SuperLMS Admin panel',
-                'animated' => true,
-                'headingClass'  => 'sa-title',
-                'subtitleClass' => 'sa-sub',
             ])
         </div>
 
@@ -215,5 +208,4 @@
     </div>
     </main>
 
-    <p class="sa-auth-foot">&copy; {{ date('Y') }} <a href="{{ url('/') }}">SUPERLMS</a> · Secure sign-in with a one-time code</p>
 </div>

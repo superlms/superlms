@@ -4,20 +4,13 @@
     @include('partials.super-admin-auth-fields')
     @include('partials.super-admin-auth-site')
 
-    @include('partials.super-admin-auth-top')
-
     <main class="sa-auth-main">
     <div class="sa-auth-card">
 
-        <!-- Left: the website's mint band with the picture that follows the step -->
+        <!-- Left: the website's mint band with the step acted out in a small app window -->
         <div class="sa-auth-art">
-            <span class="sa-auth-badge"><i></i>Super Admin Panel</span>
-            @include('partials.auth-illustration', [
-                'variant'  => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset'),
-                'scheme'   => 'teal',
-                'animated' => true,
-                'headingClass'  => 'sa-title',
-                'subtitleClass' => 'sa-sub',
+            @include('partials.super-admin-auth-motion', [
+                'variant' => $step === 'otp' ? 'otp' : ($step === 'password' ? 'newpass' : 'reset'),
             ])
         </div>
 
@@ -279,5 +272,4 @@
     </div>
     </main>
 
-    <p class="sa-auth-foot">&copy; {{ date('Y') }} <a href="{{ url('/') }}">SUPERLMS</a> · Secure sign-in with a one-time code</p>
 </div>

@@ -1,19 +1,21 @@
 {{-- The Super Admin's sign-in screens (Login with its Verify OTP step, and
      Forgot Password with its OTP and new-password steps) in the superlms.in
      website's colours and layout (user's ask of 2026-11-18): a white page
-     with the website's soft teal and olive glows, the SUPER·LMS wordmark and
-     a "Back to website" pill on top, one large rounded card — on the left a
-     mint panel (the website's call-to-action band) with a badge pill and the
-     animated picture in teal, on the right the form with a teal eyebrow, a
-     display heading with a gradient word, and the website's pill button.
+     with the website's soft teal and olive glows and one large rounded card
+     (nothing over or under it) — on the left a mint panel (the website's
+     call-to-action band) with the step acted out in a small app window
+     (partials.super-admin-auth-motion), on the right the form with a teal
+     eyebrow, a display heading with a gradient word, and the website's pill
+     button. A field's typed text takes its border's colour (teal once
+     filled, red while wrong).
 
      Everything is scoped to .sa-auth, so the shared field styles
      (partials.super-admin-auth-fields) keep their colours on the school and
      accounts panels' screens; here the fields, code boxes and links turn teal.
 
-     Classes: .sa-auth (page), .sa-auth-top / -brand / -back, .sa-auth-card,
-     .sa-auth-art (+ .sa-auth-badge), .sa-auth-form, .sa-auth-eyebrow, .grad,
-     .sa-btn (main button), .sa-accent (teal link), .sa-quiet (grey link). --}}
+     Classes: .sa-auth (page), .sa-auth-card, .sa-auth-art, .sa-auth-form,
+     .sa-auth-eyebrow, .grad, .sa-btn (main button), .sa-accent (teal link),
+     .sa-quiet (grey link). --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap">
@@ -30,30 +32,16 @@
     .sa-auth::before { width: 620px; height: 520px; right: -120px; top: -140px; background: radial-gradient(circle, rgba(13,148,136,.16), transparent 70%); }
     .sa-auth::after { width: 520px; height: 440px; left: -140px; bottom: -120px; background: radial-gradient(circle, rgba(134,168,58,.14), transparent 70%); }
 
-    /* Wordmark · Back to website */
-    .sa-auth-top { width: 100%; max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 24px 10px; }
-    .sa-auth-brand { display: inline-flex; align-items: center; gap: 10px; }
-    .sa-auth-brand img { width: 34px; height: 34px; object-fit: contain; }
-    .sa-auth-brand b { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-weight: 800; font-size: 21px; letter-spacing: -.035em; color: var(--ink); }
-    .sa-auth-brand b span { color: var(--teal); }
-    .sa-auth-back { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 14.5px; font-weight: 500; color: var(--text); transition: border-color .2s, box-shadow .2s, color .2s; }
-    .sa-auth-back:hover { border-color: var(--teal-200); color: var(--teal-700); box-shadow: 0 1px 2px rgba(12,38,32,.06), 0 1px 3px rgba(12,38,32,.05); }
-    .sa-auth-back svg { width: 16px; height: 16px; }
-
     /* The card */
-    .sa-auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px 16px 28px; }
+    .sa-auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 28px 16px; }
     .sa-auth-card { width: 100%; max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; background: #fff; border: 1px solid var(--line); border-radius: 32px; overflow: hidden;
         box-shadow: 0 44px 90px -30px rgba(12,38,32,.32), 0 14px 28px -14px rgba(12,38,32,.14); animation: sa-auth-rise .7s var(--ease) both; }
     @keyframes sa-auth-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
     /* Left: the website's mint band with the picture */
-    .sa-auth-art { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 72px 40px 40px;
+    .sa-auth-art { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px;
         background: radial-gradient(120% 140% at 0% 0%, #d3f0e8 0%, rgba(211,240,232,0) 55%), radial-gradient(90% 120% at 100% 100%, #f4f3d6 0%, rgba(244,243,214,0) 55%), #ecf7f3; }
     .sa-auth-art::after { content: ''; position: absolute; width: 380px; height: 380px; border-radius: 50%; right: -120px; top: -160px; background: radial-gradient(closest-side, rgba(255,255,255,.7), transparent); pointer-events: none; }
-    .sa-auth-badge { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); z-index: 2; display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--line); box-shadow: 0 1px 2px rgba(12,38,32,.06), 0 1px 3px rgba(12,38,32,.05); font-size: 13.5px; font-weight: 500; color: var(--text); white-space: nowrap; }
-    .sa-auth-badge i { position: relative; width: 22px; height: 22px; border-radius: 50%; background: var(--teal-50); display: grid; place-items: center; }
-    .sa-auth-badge i::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: sa-auth-pulse 2s infinite; }
-    @keyframes sa-auth-pulse { 0% { box-shadow: 0 0 0 0 rgba(13,148,136,.5); } 70% { box-shadow: 0 0 0 8px rgba(13,148,136,0); } 100% { box-shadow: 0 0 0 0 rgba(13,148,136,0); } }
     .sa-auth-art .sa-title { font-weight: 800; letter-spacing: -.035em; color: var(--ink); }
     .sa-auth-art .sa-sub { color: var(--muted); }
 
@@ -70,15 +58,16 @@
     /* Fields, code boxes and links in teal (only on these screens) */
     .sa-auth .sa-field input { border-color: var(--line-2); font-family: inherit; }
     .sa-auth .sa-field input:focus { border-color: var(--teal); }
-    .sa-auth .sa-field.is-filled input, .sa-auth .sa-field input:-webkit-autofill { border-color: var(--teal); }
+    /* Typed text in the border's colour: teal once filled, red while wrong. */
+    .sa-auth .sa-field.is-filled input, .sa-auth .sa-field input:-webkit-autofill { border-color: var(--teal); color: var(--teal); -webkit-text-fill-color: var(--teal); }
     .sa-auth .sa-field.is-filled label { color: var(--teal-700); }
-    .sa-auth .sa-field[data-invalid] input, .sa-auth .sa-field.is-bad input { border-color: #dc2626; }
+    .sa-auth .sa-field[data-invalid] input, .sa-auth .sa-field.is-bad input { border-color: #dc2626; color: #dc2626; -webkit-text-fill-color: #dc2626; }
     .sa-auth .sa-field[data-invalid] label, .sa-auth .sa-field.is-bad label { color: #dc2626; }
     .sa-auth .sa-eye:hover { color: var(--teal-700); }
     .sa-auth .sa-otp-box { border-color: var(--line-2); border-radius: 14px; font-family: inherit; }
     .sa-auth .sa-otp-box:focus, .sa-auth .sa-otp-box.is-filled { border-color: var(--teal); }
-    .sa-auth .sa-otp-box.is-filled { background: var(--teal-50); color: var(--ink); }
-    .sa-auth .sa-otp[data-invalid] .sa-otp-box { border-color: #dc2626; background: #fff; }
+    .sa-auth .sa-otp-box.is-filled { background: var(--teal-50); color: var(--teal); }
+    .sa-auth .sa-otp[data-invalid] .sa-otp-box { border-color: #dc2626; background: #fff; color: #dc2626; }
 
     .sa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; padding: 0 28px; border: 1px solid transparent; border-radius: 999px; background: var(--teal); color: #fff; font-size: 16px; font-weight: 500; letter-spacing: -.01em;
         transition: background .2s, box-shadow .25s, transform .25s var(--ease); }
@@ -89,18 +78,12 @@
     .sa-quiet { color: var(--muted); }
     .sa-quiet:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
     .sa-auth-note { width: 100%; max-width: 24rem; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border-radius: 16px; background: var(--teal-50); border: 1px solid var(--teal-100); color: var(--teal-700); font-size: 14px; }
-
-    .sa-auth-foot { text-align: center; padding: 0 16px 22px; font-size: 13px; color: var(--muted); }
-    .sa-auth-foot a { color: var(--teal-700); font-weight: 600; }
+    @media (prefers-reduced-motion: reduce) { .sa-auth-card { animation: none; } }
 
     @media (max-width: 767px) {
-        .sa-auth-top { padding: 16px 16px 6px; }
-        .sa-auth-brand b { font-size: 19px; }
-        .sa-auth-back { height: 36px; padding: 0 12px; font-size: 13.5px; }
         .sa-auth-main { align-items: flex-start; padding: 8px 12px 20px; }
         .sa-auth-card { grid-template-columns: minmax(0, 1fr); min-height: 0; border-radius: 26px; }
         .sa-auth-art { display: none; }
         .sa-auth-form { padding: 32px 20px 30px; }
     }
-    @media (prefers-reduced-motion: reduce) { .sa-auth-card, .sa-auth-badge i::after { animation: none; } }
 </style>
