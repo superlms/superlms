@@ -602,6 +602,15 @@
                         <h3 class="sa-card-title">Website Data</h3>
                         <p class="sa-card-sub">What superlms.in shows and has collected</p>
                     </div>
+                    {{-- The look every visitor gets; both designs are kept in full. --}}
+                    <div class="flex items-center gap-1 p-1 rounded-xl bg-gray-100 flex-shrink-0" title="Which design superlms.in is shown in">
+                        <span class="hidden sm:inline px-2 text-[11px] font-medium text-gray-500">Design</span>
+                        @foreach (['new' => 'New', 'classic' => 'Classic'] as $key => $label)
+                            <button type="button" wire:click="setWebsiteDesign('{{ $key }}')"
+                                @if ($websiteDesign !== $key) wire:confirm="Show superlms.in in the {{ strtolower($label) }} design to every visitor?" @endif
+                                class="h-8 px-3 rounded-lg text-xs font-semibold transition-colors {{ $websiteDesign === $key ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-800' }}">{{ $label }}</button>
+                        @endforeach
+                    </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     @foreach ($websiteData as $row)

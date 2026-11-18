@@ -195,6 +195,27 @@ class SuperAdminProfileTest extends TestCase
             ->assertDontSee('Platform Logo');
     }
 
+    public function test_the_main_super_admin_switches_the_website_between_its_new_and_classic_design(): void
+    {
+        $this->actingAs($this->boss);
+        $this->assertSame('new', \App\Support\WebsiteDesign::platformDefault());
+
+        Livewire::test(Profile::class)
+            ->assertSee('Classic')
+            ->call('setWebsiteDesign', 'classic');
+        $this->assertSame('classic', Platform::get('website_design'));
+        $this->assertSame('classic', \App\Support\WebsiteDesign::platformDefault());
+
+        Livewire::test(Profile::class)->call('setWebsiteDesign', 'whatever');
+        $this->assertSame('classic', Platform::get('website_design'));
+
+        // A sub-super-admin can't change it.
+        $sub = User::forceCreate(['name' => 'Sub', 'email' => 'sub2@example.com', 'role' => 'sub-super-admin']);
+        $this->actingAs($sub);
+        Livewire::test(Profile::class)->call('setWebsiteDesign', 'new');
+        $this->assertSame('classic', Platform::get('website_design'));
+    }
+
     public function test_a_super_admin_sign_in_is_recorded_with_its_email_way_in_device_and_ip(): void
     {
         config(['services.otp.login_enabled' => true]);

@@ -1,40 +1,41 @@
 <?php
 
+use App\Support\WebsiteDesign;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('track.website')->group(function () {
 
 Route::get('/', function () {
-    return view('components.website.index');
+    return view(WebsiteDesign::view('index'));
 })->name('website.home');
 
 Route::prefix('web')->group(function () {
 
-    Route::get('/about', fn() => view('components.website.about'))
+    Route::get('/about', fn() => view(WebsiteDesign::view('about')))
         ->name('website.about');
 
-    Route::get('/features', fn() => view('components.website.features'))
+    Route::get('/features', fn() => view(WebsiteDesign::view('features')))
         ->name('website.features');
 
-    Route::get('/pricing', fn() => view('components.website.pricing'))
+    Route::get('/pricing', fn() => view(WebsiteDesign::view('pricing')))
         ->name('website.pricing');
 
-    Route::get('/contact', fn() => view('components.website.contact'))
+    Route::get('/contact', fn() => view(WebsiteDesign::view('contact')))
         ->name('website.contact');
 
-    Route::get('/privacy', fn() => view('components.website.privacy-policy'))
+    Route::get('/privacy', fn() => view(WebsiteDesign::view('privacy-policy')))
         ->name('website.privacy');
 
-    Route::get('/refund-policy', fn() => view('components.website.refund-policy'))
+    Route::get('/refund-policy', fn() => view(WebsiteDesign::view('refund-policy')))
         ->name('website.refund-policy');
 
-    Route::get('/terms-conditions', fn() => view('components.website.terms-conditions'))
+    Route::get('/terms-conditions', fn() => view(WebsiteDesign::view('terms-conditions')))
         ->name('website.terms-conditions');
 
-    Route::get('/terms-of-use', fn() => view('components.website.terms-of-use'))
+    Route::get('/terms-of-use', fn() => view(WebsiteDesign::view('terms-of-use')))
         ->name('website.terms-of-use');
 
-    Route::get('/demo', fn() => view('components.website.demo'))
+    Route::get('/demo', fn() => view(WebsiteDesign::view('demo')))
         ->name('website.demo');
 
     /* ── Company / Resources pages ─────────────────────────────
@@ -44,19 +45,19 @@ Route::prefix('web')->group(function () {
     $dynamicPage = fn(string $slug, string $view) =>
         view($view, ['page' => \App\Models\WebsitePage::where('slug', $slug)->first()]);
 
-    Route::get('/why-us', fn() => $dynamicPage('why-us', 'components.website.why-us'))
+    Route::get('/why-us', fn() => $dynamicPage('why-us', WebsiteDesign::view('why-us')))
         ->name('website.why-us');
 
-    Route::get('/services', fn() => $dynamicPage('services', 'components.website.services'))
+    Route::get('/services', fn() => $dynamicPage('services', WebsiteDesign::view('services')))
         ->name('website.services');
 
-    Route::get('/careers', fn() => $dynamicPage('careers', 'components.website.careers'))
+    Route::get('/careers', fn() => $dynamicPage('careers', WebsiteDesign::view('careers')))
         ->name('website.careers');
 
-    Route::get('/become-an-executive', fn() => $dynamicPage('become-executive', 'components.website.become-executive'))
+    Route::get('/become-an-executive', fn() => $dynamicPage('become-executive', WebsiteDesign::view('become-executive')))
         ->name('website.become-executive');
 
-    Route::get('/blogs', fn() => view('components.website.blogs', [
+    Route::get('/blogs', fn() => view(WebsiteDesign::view('blogs'), [
         'page'  => \App\Models\WebsitePage::where('slug', 'blogs')->first(),
         'blogs' => \App\Models\Blog::latest()->get(),
     ]))->name('website.blogs');
@@ -65,13 +66,13 @@ Route::prefix('web')->group(function () {
         // Count a view each time the article is opened (simple analytics).
         $blog->incrementQuietly('views');
 
-        return view('components.website.blog-detail', [
+        return view(WebsiteDesign::view('blog-detail'), [
             'blog'   => $blog,
             'recent' => \App\Models\Blog::where('id', '!=', $blog->id)->latest()->take(3)->get(),
         ]);
     })->name('website.blog.detail');
 
-    Route::get('/faqs', fn() => view('components.website.faqs', [
+    Route::get('/faqs', fn() => view(WebsiteDesign::view('faqs'), [
         'faqs'       => \App\Models\Faq::orderBy('category')->orderBy('id')->get(),
         'categories' => \App\Models\Faq::query()->whereNotNull('category')
             ->distinct()->orderBy('category')->pluck('category'),

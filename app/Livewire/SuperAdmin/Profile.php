@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\OtpNumbers;
 use App\Support\Platform;
 use App\Support\SuperAdminLogins;
+use App\Support\WebsiteDesign;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -241,6 +242,24 @@ class Profile extends Component
         $this->notification()->success('Back to the original SuperLMS logo.');
     }
 
+    // ─── Website design ───────────────────────────────────────────────────────
+
+    /**
+     * Which look superlms.in is served in for every visitor: the new design or
+     * the classic one (both kept in full — App\Support\WebsiteDesign).
+     */
+    public function setWebsiteDesign(string $design): void
+    {
+        if (!$this->isMainSuperAdmin() || !in_array($design, [WebsiteDesign::NEW, WebsiteDesign::CLASSIC], true)) {
+            return;
+        }
+
+        Platform::set(WebsiteDesign::SETTING_KEY, $design);
+        $this->notification()->success($design === WebsiteDesign::CLASSIC
+            ? 'The website is back on its classic design.'
+            : 'The website now shows the new design.');
+    }
+
     // ─── Platform details ─────────────────────────────────────────────────────
 
     public function saveDetails(): void
@@ -441,6 +460,7 @@ class Profile extends Component
             'maxNumbers'    => OtpNumbers::MAX,
             'platform'      => $isMain ? $this->platformDetails() : [],
             'websiteData'   => $isMain ? $this->websiteData() : [],
+            'websiteDesign' => WebsiteDesign::platformDefault(),
             'logins'        => SuperAdminLogins::recent($user),
             'detailLabels'  => Platform::DETAILS,
             'logoUrl'       => Platform::logoUrl(),
