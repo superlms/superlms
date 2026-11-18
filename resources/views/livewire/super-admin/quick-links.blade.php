@@ -3,8 +3,10 @@
      Profile and Logout sit on this page's own header row, as on the website's
      analytics screen — and every screen a white tile on a mint panel, as the
      website's "everything in one place" grid. The search filters the tiles
-     as you type; Sort keeps Sidebar / A–Z. --}}
-<div class="sa-skin sk-full flex flex-col" x-data="{ q: '' }">
+     as you type; Sort keeps Sidebar / A–Z.
+     Later the same day: the mint is the whole page, edge to edge, with the
+     tiles straight on it, and the header row has no lines (sk-ql). --}}
+<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}
@@ -84,7 +86,7 @@
     </div>
 
     {{-- ─── The tiles ─── --}}
-    <div class="flex-1 min-h-0 p-3 sm:p-5 flex flex-col">
+    <div class="sk-body flex-1 min-h-0 flex flex-col">
         <div class="sk-panel flex-1 min-h-0">
             <div class="sk-tiles" :class="q && 'is-filtering'">
                 @foreach ($orderedLinks as $i => $link)

@@ -121,7 +121,8 @@ class SuperAdminLedgerMessagingTest extends TestCase
 
         $this->actingAs($this->super());
         $page = Livewire::test(QuickLinks::class);
-        $this->assertStringContainsString('md:grid-cols-6 md:grid-rows-5', $page->html());
+        // Six tiles a row on a computer (home-skin's .sk-tiles since 277d3b0).
+        $this->assertStringContainsString('.sk-tiles { grid-template-columns: repeat(6, minmax(0, 1fr));', $page->html());
         $titles = array_column($page->viewData('orderedLinks'), 'title');
         $this->assertContains('Ledger', $titles);
         $this->assertContains('Messaging', $titles);

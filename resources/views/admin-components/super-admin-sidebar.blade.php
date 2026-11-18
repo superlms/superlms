@@ -2,6 +2,20 @@
     $authUser  = auth()->user();
     $allItems  = config('menu.' . App\Helpers\Constants::ROLEVALUE[$authUser->role]);
 
+    // The menu in groups, as the website's product screen has its "Reports":
+    // the order stays the menu's own; a group begins at these links and its
+    // small label sits over the first item of it a person can see.
+    $groupStarts = [
+        'super-admin.payroll'         => 'Business',
+        'super-admin.terms-condition' => 'Website & App',
+        'super-admin.sessions'        => 'Data',
+    ];
+    $group = null;
+    foreach ($allItems as $k => $item) {
+        $group = $groupStarts[$item['link'] ?? ''] ?? $group;
+        $allItems[$k]['group'] = $group;
+    }
+
     // A screen marked 'sidebar' => false (Credit) is left off the menu.
     $allItems  = array_values(array_filter($allItems, fn($i) => ($i['sidebar'] ?? true) !== false));
 
@@ -17,25 +31,85 @@
     } else {
         $navItems = $allItems;
     }
+
+    // The card at the foot: who is signed in, and the current session.
+    $saName    = trim((string) ($authUser->name ?? '')) ?: 'Super Admin';
+    $saInitial = mb_strtoupper(mb_substr($saName, 0, 1));
+    $saRole    = $authUser->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin';
+    $saSession = \App\Models\AcademicSession::currentLabel();
+    // Under the name: the role and the session ("Super Admin" once only).
+    $saSub     = strcasecmp($saName, $saRole) === 0 ? $saSession : $saRole . ' · ' . $saSession;
 @endphp
 
-{{-- Scrollbars in the school panel's style (this partial is only included for
+{{-- The Super Admin's sidebar in the look of the website's product screen
+     (superlms.in → Features, 2026-11-18): a light panel with a hairline edge,
+     the logo and SUPERLMS on one line, plain rows with a soft grey pill for
+     the open page (its icon teal), small group labels, and who is signed in
+     at the foot. Collapsed, it is the same icon rail as before.
+     Scrollbars in the school panel's style (this partial is only included for
      the super admin and sub-super-admins, so the other panels keep theirs):
      - the menu's scrollbar is a hairline, as the school sidebar's;
      - every box that scrolls inside a page (slide-in panel bodies, lists,
        wide tables) gets the page's own slim 8px bar, darker on hover,
        instead of the browser's wide one.
-     Expanded on md+, the logo sits 28px higher (up beside the menu button,
-     which stays on top and clickable) and is 56px instead of 72px, so the
-     menu gets more room; and the expanded menu is a little narrower than the
-     layout's 253px (224px), giving the page more width. --}}
+     The expanded menu is a little narrower than the layout's 253px (224px),
+     giving the page more width. --}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
     @media (min-width: 768px) {
         html.sidebar-expanded { --lms-sb: 224px; }
-        html.sidebar-expanded .lms-sa-rail .lms-topbar { position: relative; z-index: 1; }
-        html.sidebar-expanded .lms-sa-rail .lms-logo-wrap { margin-top: -1.75rem; }
-        html.sidebar-expanded .lms-sa-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
     }
+    /* No shadow beside the menu: its hairline edge is enough, as on the website. */
+    .lms-aside { box-shadow: none !important; }
+
+    .sa-side {
+        --sa-ink: #0c2620; --sa-text: #44544f; --sa-icon: #7b8a85; --sa-line: #eef1f0;
+        --sa-teal: #0d9488; --sa-on: #edf1f0; --sa-hover: #f3f6f5;
+        font-family: 'Geist', 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
+    }
+
+    /* Logo · SUPERLMS · menu button */
+    .sa-brand { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 18px 12px 14px 18px; flex-shrink: 0; }
+    .sa-brand-link { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+    .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }
+    .sa-toggle { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--sa-icon); flex-shrink: 0; transition: background .2s, color .2s; }
+    .sa-toggle:hover { background: var(--sa-hover); color: var(--sa-ink); }
+    .sa-toggle svg { width: 18px; height: 18px; }
+
+    /* The menu */
+    .sa-nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 12px 14px; }
+    .sa-link { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 500; color: var(--sa-text); line-height: 1.25; transition: background .2s, color .2s; }
+    .sa-link svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--sa-icon); transition: color .2s; }
+    .sa-link:hover { background: var(--sa-hover); color: var(--sa-ink); }
+    .sa-link:hover svg { color: var(--sa-ink); }
+    .sa-link.on { background: var(--sa-on); color: var(--sa-ink); font-weight: 600; }
+    .sa-link.on svg { color: var(--sa-teal); }
+    .sa-label { padding: 16px 10px 5px; font-size: 11.5px; font-weight: 500; color: #98a5a1; white-space: nowrap; }
+
+    /* Who is signed in */
+    .sa-user { display: flex; align-items: center; gap: 10px; margin: 0 12px; padding: 12px 6px 14px; border-top: 1px solid var(--sa-line); flex-shrink: 0; border-radius: 0; transition: color .2s; }
+    .sa-user:hover .sa-user-name { color: var(--sa-teal); }
+    .sa-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #f59e0b; color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .sa-user-text { min-width: 0; line-height: 1.25; }
+    .sa-user-name { display: block; font-size: 13px; font-weight: 600; color: var(--sa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .2s; }
+    .sa-user-text small { display: block; font-size: 11.5px; color: #8b9893; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Collapsed (md+): the icon rail — logo over the menu button, icons only,
+       a hairline between the groups, the avatar at the foot. */
+    @media (min-width: 768px) {
+        html:not(.sidebar-expanded) .sa-rail .sa-brand { flex-direction: column; padding: 16px 0 10px; gap: 10px; }
+        html:not(.sidebar-expanded) .sa-rail .sa-brand-link span,
+        html:not(.sidebar-expanded) .sa-rail .sa-user-text { display: none; }
+        html:not(.sidebar-expanded) .sa-rail .sa-nav { padding: 4px 10px 14px; }
+        html:not(.sidebar-expanded) .sa-rail .sa-link { justify-content: center; padding: 9px 0; }
+        html:not(.sidebar-expanded) .sa-rail .sa-label { font-size: 0; height: 1px; padding: 0; margin: 8px 8px; background: var(--sa-line); }
+        html:not(.sidebar-expanded) .sa-rail .sa-user { justify-content: center; margin: 0 10px; padding: 12px 0 14px; }
+    }
+
     #sidebar-nav::-webkit-scrollbar { width: 3px; }
     #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
     #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
@@ -66,7 +140,7 @@
     <div x-show="offcanvas" x-transition:enter="transition ease-in-out duration-300 transform"
         x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
         x-transition:leave="transition ease-in-out duration-300 transform" x-transition:leave-start="translate-x-0"
-        x-transition:leave-end="-translate-x-full" class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+        x-transition:leave-end="-translate-x-full" class="relative flex-1 flex flex-col max-w-xs w-full">
 
         <div x-show="offcanvas" x-transition:enter="ease-in-out duration-300" x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-300"
@@ -82,33 +156,37 @@
             </button>
         </div>
 
-        <div class="flex-1 h-0 overflow-y-auto bg-white border-r border-gray-200">
-            <!-- Mobile Logo Section -->
-            <div class="flex-shrink-0 flex flex-col items-center px-4 pt-1 pb-3 border-b border-gray-200">
-                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
-                    class="w-14 h-14 object-contain mb-1">
-                <h2 class="text-sm font-bold text-gray-900 text-center">SUPERLMS</h2>
+        <div class="sa-side flex-1 h-0 flex flex-col">
+            <div class="sa-brand">
+                <a href="{{ route('super-admin.quick-links') }}" class="sa-brand-link">
+                    <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo">
+                    <span>SUPERLMS</span>
+                </a>
             </div>
 
-            <!-- Mobile Navigation -->
-            <nav class="px-4 py-4">
-                <div class="mb-6">
-                    <div class="space-y-0.5">
-                        @foreach ($navItems as $menu_item)
-                            @php
-                                $is_active = Route::is($menu_item['prefix']);
-                            @endphp
-                            <a href="{{ route($menu_item['link']) }}"
-                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
-                                <x-icon
-                                    class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} mr-2 flex-shrink-0 h-4 w-4"
-                                    name="{{ $menu_item['icon'] }}" />
-                                {{ $menu_item['title'] }}
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-            </nav>
+            <div class="flex-1 min-h-0 overflow-y-auto">
+                <nav class="sa-nav">
+                    @php $shown = null; @endphp
+                    @foreach ($navItems as $menu_item)
+                        @if (($menu_item['group'] ?? null) !== null && $menu_item['group'] !== $shown)
+                            <p class="sa-label">{{ $menu_item['group'] }}</p>
+                        @endif
+                        @php
+                            $shown     = $menu_item['group'] ?? null;
+                            $is_active = Route::is($menu_item['prefix']);
+                        @endphp
+                        <a href="{{ route($menu_item['link']) }}" class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
+                            <x-icon name="{{ $menu_item['icon'] }}" />
+                            <span>{{ $menu_item['title'] }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+            </div>
+
+            <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile">
+                <span class="sa-av">{{ $saInitial }}</span>
+                <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
+            </a>
         </div>
     </div>
 
@@ -118,48 +196,48 @@
 </div>
 
 <!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
-<div class="lms-rail lms-sa-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
-    <!-- Sidebar component -->
-    <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
-        <!-- Three-dot toggle -->
-        <div class="lms-topbar flex items-center justify-between px-3 pt-3">
-            <button @click="sidebarOpen = !sidebarOpen" type="button"
-                :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'"
-                class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<div class="lms-rail lms-sa-rail sa-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
+    <div class="sa-side flex-1 flex flex-col min-h-0">
+        <!-- Logo · SUPERLMS · menu button -->
+        <div class="sa-brand">
+            <a href="{{ route('super-admin.quick-links') }}" class="sa-brand-link" title="Quick Links">
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo">
+                <span>SUPERLMS</span>
+            </a>
+            <button @click="sidebarOpen = !sidebarOpen" type="button" class="sa-toggle"
+                :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'" aria-label="Toggle menu">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
         </div>
-        <!-- Logo section -->
-        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-3 pt-1 border-b border-gray-200">
-            <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
-                class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
-            <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">SUPERLMS</h2>
-        </div>
 
         <!-- Scrollable navigation area -->
-        <div id="sidebar-nav" class="flex-1 flex flex-col overflow-y-auto">
-            <nav class="lms-nav flex-1 px-4 py-4 space-y-6">
-                <div>
-                    <div class="space-y-0.5">
-                        @foreach ($navItems as $menu_item)
-                            @php
-                                $is_active = Route::is($menu_item['prefix']);
-                            @endphp
-                            <a href="{{ route($menu_item['link']) }}"
-                                title="{{ $menu_item['title'] }}"
-                                class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
-                                <x-icon
-                                    class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
-                                    name="{{ $menu_item['icon'] }}" />
-                                <span class="lms-label">{{ $menu_item['title'] }}</span>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
+        <div id="sidebar-nav" class="relative flex-1 min-h-0 overflow-y-auto">
+            <nav class="sa-nav">
+                @php $shown = null; @endphp
+                @foreach ($navItems as $menu_item)
+                    @if (($menu_item['group'] ?? null) !== null && $menu_item['group'] !== $shown)
+                        <p class="sa-label">{{ $menu_item['group'] }}</p>
+                    @endif
+                    @php
+                        $shown     = $menu_item['group'] ?? null;
+                        $is_active = Route::is($menu_item['prefix']);
+                    @endphp
+                    <a href="{{ route($menu_item['link']) }}" title="{{ $menu_item['title'] }}"
+                        class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
+                        <x-icon name="{{ $menu_item['icon'] }}" />
+                        <span class="lms-label">{{ $menu_item['title'] }}</span>
+                    </a>
+                @endforeach
             </nav>
         </div>
+
+        <!-- Who is signed in -->
+        <a href="{{ route('super-admin.profile') }}" class="sa-user" title="Profile — {{ $saName }}">
+            <span class="sa-av">{{ $saInitial }}</span>
+            <span class="sa-user-text"><span class="sa-user-name">{{ $saName }}</span><small>{{ $saSub }}</small></span>
+        </a>
     </div>
 </div>
 
@@ -169,7 +247,7 @@
         const container = document.getElementById('sidebar-nav');
         if (!container) return;
 
-        const activeTab = container.querySelector('.bg-purple-50');
+        const activeTab = container.querySelector('.sa-link.on');
         if (!activeTab) return;
 
         // Center the active item within the sidebar scroll container

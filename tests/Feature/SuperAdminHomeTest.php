@@ -99,6 +99,38 @@ class SuperAdminHomeTest extends TestCase
             ->assertSee('Payroll');
     }
 
+    /**
+     * The sidebar in the look of the website's product screen (2026-11-18,
+     * later): the logo and SUPERLMS on one line, the menu in its own order
+     * with a small label over each later group (shown only when a person
+     * sees an item of it), and who is signed in at the foot. Quick Links'
+     * mint is the whole page (sk-ql).
+     */
+    public function test_the_sidebar_has_the_websites_look_with_group_labels(): void
+    {
+        $this->signIn();
+        $html = view('admin-components.super-admin-sidebar')->render();
+
+        $this->assertStringContainsString('class="sa-brand-link"', $html);
+        $this->assertStringContainsString('class="sa-user"', $html);
+        $this->assertStringContainsString('<span class="sa-user-name">Super</span>', $html);
+        $this->assertSame(['Business', 'Website & App', 'Data'], $this->sidebarLabels($html));
+
+        // A sub-super-admin sees a group's label only with an item of it.
+        $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.ledger']);
+        $this->assertSame(['Business'], $this->sidebarLabels(view('admin-components.super-admin-sidebar')->render()));
+
+        $this->signIn();
+        Livewire::test(QuickLinks::class)->assertSeeHtml('sk-ql');
+    }
+
+    private function sidebarLabels(string $html): array
+    {
+        preg_match_all('/<p class="sa-label">([^<]+)<\/p>/', $html, $m);
+
+        return array_values(array_unique(array_map('html_entity_decode', $m[1])));
+    }
+
     public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link(): void
     {
         $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.schools', 'super-admin.users', 'super-admin.credit']);
