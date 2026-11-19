@@ -188,4 +188,58 @@ class AdminSidebarMoreTest extends TestCase
         $this->assertContains('Documents', $titles);
         $this->assertNotContains('Exam Copy', $titles);
     }
+
+    /**
+     * The school panel in the Super Admin's exact style (2026-11-19): the
+     * sidebar's look (sa-*), always open, the school's logo and name on top
+     * and who is signed in at the foot with Profile and Logout; Quick Links
+     * with the Super Admin's own header (no top bar on a computer); the
+     * Super Admin's logout card.
+     */
+    public function test_the_school_panel_is_in_the_super_admins_style(): void
+    {
+        $this->signIn();
+
+        $html = view('admin-components.admin-sidebar')->render();
+        foreach (['class="sa-side', 'class="sa-brand is-school"', 'Test School', 'class="sa-user"', 'class="sa-link',
+                  "Livewire.dispatch('open-logout-confirm')", '/8/profile"', 'School Admin · ',
+                  '#sidebar-nav::-webkit-scrollbar { width: 3px; }', 'html.sidebar-expanded { --lms-sb: 226px; }'] as $seen) {
+            $this->assertStringContainsString($seen, $html);
+        }
+        // No menu button and none of the old purple rows.
+        $this->assertStringNotContainsString('Collapse menu', $html);
+        $this->assertStringNotContainsString('bg-purple-50', $html);
+
+        Livewire::test(\App\Livewire\Admin\QuickLinks::class)
+            ->assertSeeHtml('class="sa-skin sk-full sk-ql flex flex-col"')
+            ->assertSeeHtml('class="sk-head"')
+            ->assertSeeHtml("Livewire.dispatch('open-notifications')")
+            ->assertSeeHtml('class="sk-tile"')
+            ->assertSee('Filter by:')
+            ->assertDontSeeHtml('ql-grid');
+
+        Livewire::test(\App\Livewire\Components\NavBar::class)
+            ->call('openLogoutConfirm')
+            ->assertSet('showAdminLogoutModal', true)
+            ->assertSeeHtml('class="lo-card"')
+            ->assertSee('Logout from the School Admin panel?')
+            ->assertSeeHtml('wire:click="adminLogout"')
+            ->assertDontSeeHtml('wire:click="superAdminLogout"');
+    }
+
+    public function test_the_school_admins_sign_in_screens_are_the_super_admins(): void
+    {
+        foreach (['/login' => 'School Admin <span class="grad">Login</span>', '/reset-password' => 'Forgot <span class="grad">Password?</span>'] as $url => $heading) {
+            $html = $this->get($url)->assertOk()->getContent();
+            $this->assertStringContainsString('class="sa-auth"', $html);
+            $this->assertStringContainsString('class="sa-auth-card"', $html);
+            $this->assertStringContainsString($heading, $html);
+            $this->assertStringContainsString('class="am am-', $html);   // the step acted out beside the form
+            $this->assertStringNotContainsString('bg-violet-600', $html);
+            $this->assertStringNotContainsString('from-violet-50', $html);
+        }
+
+        // The window in the picture names the school panel's own screen.
+        $this->assertStringContainsString('<div class="am-h ">School Admin Login</div>', $this->get('/login')->getContent());
+    }
 }

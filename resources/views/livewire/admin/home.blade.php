@@ -1,8 +1,11 @@
-<div class="min-h-screen bg-gray-50">
+<div class="sa-skin sa-home min-h-screen">
     {{-- The Super Admin's dashboard look (2026-11-04): KPI cards with their
          change and a sparkline, the fee chart beside a donut, the attendance
-         rate beside one dark card, then the rest in matching cards. --}}
+         rate beside one dark card, then the rest in matching cards.
+         Since 2026-11-19 in the Super Admin Home's exact style too: its skin
+         (livewire.super-admin.partials.home-skin), its header row and teal. --}}
     @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
 
     @php
         $org     = ['organization' => $organization];
@@ -53,7 +56,7 @@
         ];
 
         $tones = [
-            'violet'  => ['#f5f3ff', '#7c3aed'],
+            'violet'  => ['#effaf7', '#0d9488'],   // Home's teal (the Super Admin's look)
             'sky'     => ['#f0f9ff', '#0284c7'],
             'emerald' => ['#ecfdf5', '#059669'],
             'amber'   => ['#fffbeb', '#d97706'],
@@ -70,47 +73,45 @@
     {{-- The charts' figures: refreshed by every re-render, read again after it. --}}
     <div class="hidden" data-sa-charts="adminHome" data-payload="{{ json_encode($homeCharts) }}"></div>
 
-    {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
-            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Dashboard</h1>
-                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
-            </div>
-            <div class="flex items-center gap-2">
-                {{-- Search --}}
-                <div class="relative flex-1 sm:flex-none sm:w-72">
-                    <input type="text" wire:model.live="searchQuery"
-                        placeholder="Search features…"
-                        class="w-full py-[7px] pl-9 pr-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+    {{-- ══════════════════════════════ HEADER ══════════════════════════════
+         The Super Admin Home's header row: the title and date, a search over
+         the panel's pages, a Live clock and Analytics. --}}
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>Dashboard</h1>
+            <p>{{ now()->format('l, d M Y') }}</p>
+        </div>
 
-                    {{-- Search dropdown --}}
-                    @if ($searchQuery && count($searchResults) > 0)
-                        <div class="absolute z-20 top-full mt-1 left-0 right-0 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-                            @foreach ($searchResults as $route => $label)
-                                <div wire:click="selectResult('{{ $route }}')"
-                                    class="px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0 text-sm font-medium text-gray-700">
-                                    {{ $label }}
-                                </div>
-                            @endforeach
-                        </div>
-                    @elseif($searchQuery && empty($searchResults))
-                        <div class="absolute z-20 top-full mt-1 left-0 right-0 bg-white rounded-xl shadow border border-gray-200 px-4 py-3 text-center text-sm text-gray-500">
-                            No results for "{{ $searchQuery }}"
-                        </div>
-                    @endif
+        <div class="sk-search" x-data="{ open: false }" x-on:click.away="open = false" x-on:keydown.escape="open = false">
+            <x-icon name="magnifying-glass" />
+            <input type="text" wire:model.live="searchQuery" x-on:focus="open = true" x-on:input="open = true"
+                placeholder="Search pages..." autocomplete="off" aria-label="Search pages">
+            @if ($searchQuery)
+                <button type="button" wire:click="$set('searchQuery', '')" aria-label="Clear"><x-icon name="x-mark" class="w-3.5 h-3.5" /></button>
+            @endif
+
+            {{-- Search dropdown --}}
+            @if ($searchQuery)
+                <div class="sk-menu" x-show="open" x-transition style="right: 0; width: auto;">
+                    @forelse ($searchResults as $route => $label)
+                        <a href="#" wire:click.prevent="selectResult('{{ $route }}')"><x-icon name="arrow-right" class="w-3.5 h-3.5 text-gray-300" /><span>{{ $label }}</span></a>
+                    @empty
+                        <p class="sk-menu-h" style="text-transform: none; letter-spacing: 0; font-size: 13px; padding: 12px 14px;">No pages found for “{{ $searchQuery }}”</p>
+                    @endforelse
                 </div>
-                @if (auth()->user()?->canAccessAdminRoute('admin.analytics'))
-                    <a href="{{ route('admin.analytics', $org) }}"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors whitespace-nowrap">
-                        <x-icon name="chart-bar" class="w-4 h-4" />
-                        <span class="hidden sm:inline">Analytics</span>
-                    </a>
-                @endif
-            </div>
+            @endif
+        </div>
+
+        <div class="sk-right">
+            <span wire:ignore class="sk-pill live"
+                x-data="{ t: '', tick() { this.t = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); } }"
+                x-init="tick(); setInterval(() => tick(), 15000)">Live · <span class="tabular-nums" x-text="t"></span></span>
+            @if (auth()->user()?->canAccessAdminRoute('admin.analytics'))
+                <a href="{{ route('admin.analytics', $org) }}" class="sk-cta">
+                    <x-icon name="chart-bar" class="w-4 h-4" />
+                    Analytics
+                </a>
+            @endif
         </div>
     </div>
 
@@ -119,25 +120,25 @@
         {{-- ═══════════════ KPIs — figure, its change, sparkline ═══════════════ --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'users', 'color' => 'violet',
+                'label' => 'Total Students', 'value' => number_format($totalStudents), 'icon' => 'users', 'color' => 'teal',
                 'series' => $monthly['students'] ?? [], 'trend' => $trendOf($monthly['students'] ?? []), 'flat' => true, 'compare' => 'vs last month',
                 'sub' => number_format($activeStudents) . ' active · ' . number_format($totalClasses) . ' classes',
                 'href' => route('admin.student', $org),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Total Teachers', 'value' => number_format($totalTeachers), 'icon' => 'academic-cap', 'color' => 'emerald',
+                'label' => 'Total Teachers', 'value' => number_format($totalTeachers), 'icon' => 'academic-cap', 'color' => 'teal',
                 'series' => $monthly['teachers'] ?? [], 'trend' => $trendOf($monthly['teachers'] ?? []), 'flat' => true, 'compare' => 'vs last month',
                 'sub' => number_format($activeTeachers) . ' active · ' . number_format($totalSubjects) . ' subjects',
                 'href' => route('admin.teacher', $org),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Fee Collected', 'value' => $short($overallFeeCollected), 'icon' => 'banknotes', 'color' => 'amber',
+                'label' => 'Fee Collected', 'value' => $short($overallFeeCollected), 'icon' => 'banknotes', 'color' => 'teal',
                 'series' => $monthly['fee'] ?? [], 'trend' => $trendOf($monthly['fee'] ?? []), 'flat' => true, 'compare' => 'vs last month',
                 'sub' => $collectionPct . '% of ' . $short($totalFee) . ' · ' . $inr($feeCollectedToday) . ' today',
                 'href' => route('admin.fee', $org),
             ])
             @include('livewire.super-admin.partials.dash-kpi', [
-                'label' => 'Attendance Today', 'value' => $todayMarked ? $pick['student_pct'] . '%' : '—', 'icon' => 'clipboard-document-check', 'color' => 'sky',
+                'label' => 'Attendance Today', 'value' => $todayMarked ? $pick['student_pct'] . '%' : '—', 'icon' => 'clipboard-document-check', 'color' => 'teal',
                 'series' => array_column($markedDays, 'student_pct'), 'trend' => $attTrend, 'flat' => false, 'compare' => $attAgainst,
                 'sub' => $todayMarked
                     ? number_format($pick['student_present']) . ' of ' . number_format($pick['student_total']) . ' students present · teachers ' . ($teacherMarked ? $pick['teacher_pct'] . '%' : 'not marked')
@@ -155,7 +156,7 @@
                         <p class="sa-card-sub">Academic and transport fee collected day by day · {{ strtolower($this->feeRangeLabel()) }}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short($feeRangeTotal) }} in 30 days</span>
+                        <span class="sa-chip"><span class="sa-dot" style="background:#0d9488"></span>{{ $short($feeRangeTotal) }} in 30 days</span>
                         <span class="sa-chip" style="background:#fef2f2;color:#b91c1c">{{ $short($feeRemaining) }} pending</span>
                     </div>
                 </div>
@@ -219,7 +220,7 @@
                         <p class="sa-card-sub">Students and teachers present, day by day · last 30 days</p>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-gray-500">
-                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Students</span>
+                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Students</span>
                         <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#111827"></span>Teachers</span>
                     </div>
                 </div>
@@ -239,7 +240,7 @@
                 <div class="flex justify-center my-5">
                     @include('livewire.super-admin.partials.dash-donut', [
                         'segments' => [
-                            ['label' => 'Present', 'value' => (int) ($pick['student_present'] ?? 0), 'color' => '#a78bfa'],
+                            ['label' => 'Present', 'value' => (int) ($pick['student_present'] ?? 0), 'color' => '#5eead4'],
                             ['label' => 'Half day', 'value' => (int) ($pick['student_half'] ?? 0), 'color' => '#38bdf8'],
                             ['label' => 'Absent', 'value' => (int) ($pick['student_absent'] ?? 0), 'color' => '#fb7185'],
                             ['label' => 'Not marked', 'value' => $notMarked, 'color' => 'rgba(255,255,255,.14)'],
@@ -249,7 +250,7 @@
                 </div>
                 <dl class="mt-auto space-y-2.5 text-sm">
                     <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Present</dt>
+                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Present</dt>
                         <dd class="font-semibold tabular-nums">{{ number_format($pick['student_present'] ?? 0) }}</dd>
                     </div>
                     <div class="flex items-center justify-between gap-2">
@@ -410,7 +411,7 @@
                                 @endif
                             </div>
                             <div class="flex items-center gap-3 text-xs text-gray-500">
-                                <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Average %</span>
+                                <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Average %</span>
                                 <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#111827"></span>Pass %</span>
                             </div>
                         </div>
@@ -551,7 +552,7 @@
     @include('livewire.super-admin.partials.dash-charts-js')
     <script>
         (function () {
-            const VIOLET = '#7c3aed', INK = '#111827';
+            const VIOLET = '#0d9488', INK = '#111827';
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
             const num = v => Number(v || 0).toLocaleString('en-IN');
             const axis = { color: '#9ca3af', font: { size: 11 } };

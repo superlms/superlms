@@ -1,35 +1,37 @@
-<div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
-    {{-- The Super Admin login's fields, headings and pill buttons --}}
+{{-- The school admin's sign-in in the Super Admin's look (user's ask of
+     2026-11-19): the superlms.in website's colours and layout
+     (partials.super-admin-auth-site) — Login, then its Verify OTP step, with
+     the step acted out in a small app window beside the form. --}}
+<div class="sa-auth">
     @include('partials.super-admin-auth-fields')
+    @include('partials.super-admin-auth-site')
 
     {{-- Inside the installed app: over to its code screen --}}
     @include('partials.panel-app-login', ['panel' => 'admin'])
 
-    <!-- Split Screen Container -->
-    <div class="flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60">
+    <main class="sa-auth-main">
+    <div class="sa-auth-card">
 
-        <!-- Left Side: dynamic illustration that follows the active step -->
-        <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', [
+        <!-- Left: the website's mint band with the step acted out in a small app window -->
+        <div class="sa-auth-art">
+            @include('partials.super-admin-auth-motion', [
                 'variant'  => $step === 'otp' ? 'otp' : 'login',
                 'subtitle' => $step === 'otp' ? null : 'Sign in to manage your school — students, teachers, fees and more',
-                'animated' => true,
-                'headingClass'  => 'sa-title',
-                'subtitleClass' => 'sa-sub',
+                'amTitle'  => $step === 'otp' ? null : 'School Admin Login',
+                'amPath'   => 'login',
+                'amEmail'  => 'admin@school.in',
             ])
         </div>
 
-        <!-- Right Side (Form) -->
-        <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-8 md:p-12">
+        <!-- Right: the form -->
+        <div class="sa-auth-form">
 
-            <!-- Logo -->
-            <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
-                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
-                    class="w-full h-full object-contain">
+            <div class="sa-auth-logo">
+                <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo">
             </div>
 
             @if (session('success'))
-                <div class="w-full max-w-sm mb-5 flex items-start gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700 ring-1 ring-green-100">
+                <div class="sa-auth-note">
                     <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     <span>{{ session('success') }}</span>
                 </div>
@@ -38,16 +40,19 @@
             {{-- ── STEP 1: Credentials ── --}}
             @if ($step === 'credentials')
                 <div class="text-center mb-8">
-                    <h1 class="sa-title text-2xl md:text-3xl">School Admin Login</h1>
-                    <p class="sa-sub text-gray-500 mt-2 text-sm">Enter your registered email and password to access your school's admin panel</p>
+                    <h1 class="sa-title text-3xl md:text-4xl">School Admin <span class="grad">Login</span></h1>
+                    <p class="sa-sub mt-3 text-sm">Enter your registered email and password to access your school's admin panel</p>
                 </div>
 
                 {{-- A school already open on this browser: carry on there, or sign in to another below. --}}
                 @if ($signedIn)
-                    <div class="w-full max-w-sm mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-gray-600">
-                        Signed in to <strong class="text-gray-800">{{ $signedIn['name'] }}</strong>.
-                        <a href="{{ $signedIn['url'] }}" class="font-semibold text-violet-600 hover:text-violet-800">Continue →</a>
-                        <span class="block text-xs text-gray-400 mt-0.5">Or sign in to another school below.</span>
+                    <div class="sa-auth-note">
+                        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>
+                            Signed in to <strong>{{ $signedIn['name'] }}</strong>.
+                            <a href="{{ $signedIn['url'] }}" class="sa-accent">Continue →</a>
+                            <span class="block text-xs opacity-75 mt-0.5">Or sign in to another school below.</span>
+                        </span>
                     </div>
                 @endif
 
@@ -94,25 +99,22 @@
 
                     <div class="flex items-center justify-end mb-5">
                         <a href="{{ route('reset.password') }}"
-                            class="text-sm text-violet-600 hover:text-violet-800 hover:underline">Forgot password?</a>
+                            class="sa-accent text-sm">Forgot password?</a>
                     </div>
 
                     <button wire:click="login" wire:loading.attr="disabled"
                         :disabled="!String(email ?? '').trim() || !String(password ?? '').trim()"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                        class="sa-btn">
                         <span wire:loading.remove wire:target="login">Login</span>
                         <span wire:loading wire:target="login">Sending OTP…</span>
                     </button>
 
-                    <p class="mt-4 text-xs text-gray-500 text-center leading-relaxed">
+                    <p class="sa-terms mt-4 text-xs text-center leading-relaxed sa-quiet">
                         By signing in you agree to our
-                        <a href="{{ route('website.terms-conditions') }}" target="_blank" rel="noopener noreferrer"
-                            class="text-violet-600 hover:text-violet-800 hover:underline font-medium">Terms &amp; Conditions</a>,
-                        <a href="{{ route('website.privacy') }}" target="_blank" rel="noopener noreferrer"
-                            class="text-violet-600 hover:text-violet-800 hover:underline font-medium">Privacy Policy</a>
+                        <a href="{{ route('website.terms-conditions') }}" target="_blank" rel="noopener noreferrer" class="sa-accent">Terms &amp; Conditions</a>,
+                        <a href="{{ route('website.privacy') }}" target="_blank" rel="noopener noreferrer" class="sa-accent">Privacy Policy</a>
                         and
-                        <a href="{{ route('website.terms-of-use') }}" target="_blank" rel="noopener noreferrer"
-                            class="text-violet-600 hover:text-violet-800 hover:underline font-medium">Terms of Use</a>.
+                        <a href="{{ route('website.terms-of-use') }}" target="_blank" rel="noopener noreferrer" class="sa-accent">Terms of Use</a>.
                     </p>
                 </div>
             @endif
@@ -120,8 +122,8 @@
             {{-- ── STEP 2: OTP Verification ── --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6">
-                    <h1 class="sa-title text-2xl md:text-3xl">Verify OTP</h1>
-                    <p class="sa-sub text-gray-500 mt-2 text-sm">
+                    <h1 class="sa-title text-3xl md:text-4xl">Verify <span class="grad">OTP</span></h1>
+                    <p class="sa-sub mt-3 text-sm">
                         {{ $hasMobile
                             ? 'We have sent an OTP to your email address and registered mobile number'
                             : 'We have sent an OTP to your registered email address' }}
@@ -176,7 +178,7 @@
                     <x-otp-lockout :until="$otpLockedUntil" />
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 bg-violet-600 text-white font-medium rounded-full hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
+                        class="sa-btn mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify &amp; Login</span>
                         <span wire:loading wire:target="verifyOtp">Verifying…</span>
                     </button>
@@ -206,15 +208,15 @@
                             });
                         ">
                         <template x-if="!canResend">
-                            <p class="text-sm text-gray-500">
+                            <p class="text-sm sa-quiet">
                                 Resend OTP in
-                                <span class="font-semibold text-violet-600"
+                                <span class="font-semibold sa-accent"
                                     x-text="Math.floor(countdown / 60) + ':' + String(countdown % 60).padStart(2, '0')"></span>
                             </p>
                         </template>
                         <template x-if="canResend">
                             <button wire:click="resendOtp"
-                                class="text-sm text-violet-600 hover:text-violet-800 font-medium hover:underline">
+                                class="text-sm sa-accent">
                                 Resend OTP
                             </button>
                         </template>
@@ -222,7 +224,7 @@
 
                     <div class="text-center mt-3">
                         <button wire:click="backToLogin"
-                            class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            class="text-sm sa-quiet">
                             Back to login
                         </button>
                     </div>
@@ -231,4 +233,6 @@
 
         </div>
     </div>
+    </main>
+
 </div>

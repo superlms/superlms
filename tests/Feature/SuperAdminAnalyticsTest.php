@@ -162,6 +162,11 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertSame([1, 2], array_slice($c->calendarMonthly['tasks'], -2));
         $this->assertSame([0, 1], array_slice($c->calendarMonthly['events'], -2));
 
+        // Coming up: today and the next seven days, a task done left out, in date order.
+        $this->assertSame(['Meeting', 'Event'], array_column($c->calendarUpcoming, 'title'));
+        $this->assertSame('Today', $c->calendarUpcoming[0]['when']);
+        $this->assertSame('Wed, 14 Oct', $c->calendarUpcoming[1]['when']);
+
         // A sub-super-admin given Calendar: their own diary alone.
         $sub = new User(['name' => 'Sub', 'email' => 'sub@example.com']);
         $sub->id = 902;
@@ -178,6 +183,67 @@ class SuperAdminAnalyticsTest extends TestCase
         $sub->permissions = ['super-admin.analytics'];
         $this->assertSame([], $load()->calendarStats);
         $this->assertSame([], $load()->calendarMonthly);
+        $this->assertSame([], $load()->calendarUpcoming);
+    }
+
+    /**
+     * Every section's extra detail (user's ask of 2026-11-19): this month
+     * against last, the platform's health and what waits on the Super Admin;
+     * the schools by state / board / medium and the newest; the website's
+     * weekdays and the range before; the fee by payment status, the biggest
+     * dues and the latest payments; the payroll's progress; what is coming up;
+     * the demo statuses and the latest enquiries; the schools and topics of
+     * the support tickets.
+     */
+    public function test_every_section_has_more_detail(): void
+    {
+        $html = Livewire::test(AnalyticsWithMoreDetail::class)->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        foreach ([
+            // Overview
+            'This Month vs Last Month', 'New schools 1 2 -50%', 'New students 6 3 +100%', 'Fee collected ₹1,000 ₹2,000 -50%',
+            'Platform Health', 'Schools active 75% · 3 of 4', 'Needs Attention', 'Demo requests to answer 2', 'Unpaid for Sep 2026 1',
+            // Schools
+            'Active Schools 3', 'Students per Teacher 6.3', 'Schools without Students 1', 'Schools by State', 'Uttar Pradesh 3 · 75%',
+            'Schools by Board', 'CBSE', 'Newest Schools', 'Beta School', 'Joined 02 Oct 2026 · 20 students · 2 teachers', 'Inactive',
+            // Website
+            'Visits Today 4', 'Return Visits 28', 'vs Range Before +33.3%', 'Visits by Weekday',
+            // Fee
+            'Schools by Payment', 'Paid in full 1', 'Highest Dues', '₹4,000', '60% paid', 'Latest Payments', 'Upi · #R-7', 'Average Payment ₹1,000',
+            // Payroll
+            'Sep 2026 Payroll Progress', '66.7% paid', 'Left to pay ₹15,000', 'People paid 2 / 3',
+            // Calendar
+            'Coming Up', 'Call with Alpha', 'Oct 2026 by Kind',
+            // Enquiries
+            'Demo Requests by Status', '1 demo meeting booked ahead', 'Top Cities', 'Lucknow', 'Latest Enquiries', 'Asha Demo · Alpha',
+            // Support
+            'Last Month 3', 'Oldest Waiting 5 d', 'Schools Writing Most', '2 waiting', 'Topics', 'Latest Tickets', 'Fee · Receipt is wrong',
+        ] as $seen) {
+            $this->assertStringContainsString($seen, $text, "Analytics shows \"{$seen}\"");
+        }
+        $this->assertMatchesRegularExpression('/<div[^>]*wire:ignore[^>]*>\s*<canvas id="feeCountChart"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/\bCredit\b/i', $text);
+    }
+
+    public function test_schools_are_grouped_by_their_own_fields(): void
+    {
+        \Illuminate\Support\Facades\Schema::create('organizations', function (\Illuminate\Database\Schema\Blueprint $t) {
+            $t->id();
+            $t->string('name')->nullable();
+            $t->string('state')->nullable();
+            $t->string('education_board')->nullable();
+            $t->string('medium')->nullable();
+            $t->timestamps();
+        });
+        foreach ([['Bihar', 'cbse'], ['bihar', 'CBSE'], ['Uttar pradesh', 'State Board'], [null, ''], ['  ', 'icse']] as [$state, $board]) {
+            \Illuminate\Support\Facades\DB::table('organizations')->insert(['name' => 'S', 'state' => $state, 'education_board' => $board]);
+        }
+
+        $group = fn (string $column) => (fn () => $this->groupSchools($column))->call(new Analytics());
+
+        $this->assertSame([['label' => 'Bihar', 'count' => 2], ['label' => 'Uttar Pradesh', 'count' => 1], ['label' => 'Not set', 'count' => 2]], $group('state'));
+        $this->assertSame([['label' => 'CBSE', 'count' => 2], ['label' => 'State Board', 'count' => 1], ['label' => 'ICSE', 'count' => 1], ['label' => 'Not set', 'count' => 1]], $group('education_board'));
     }
 
     public function test_the_super_admin_sidebar_scrollbar_is_a_hairline_and_page_boxes_get_the_slim_bar(): void
@@ -262,5 +328,35 @@ class AnalyticsWithFigures extends Analytics
     public function getVisitMinDateProperty(): string
     {
         return '2026-07-14';
+    }
+}
+
+/** The figures above with every section's extra detail too (2026-11-19). */
+class AnalyticsWithMoreDetail extends AnalyticsWithFigures
+{
+    public function mount(): void
+    {
+        parent::mount();
+
+        $this->schoolExtra = ['newLastMonth' => 2, 'avgTeachers' => 2.0, 'studentsPerTeacher' => 6.3, 'emptySchools' => 1, 'largest' => 30, 'teachersThisMonth' => 1, 'teachersLastMonth' => 0];
+        $this->schoolGroups = [
+            'state'  => [['label' => 'Uttar Pradesh', 'count' => 3], ['label' => 'Not set', 'count' => 1]],
+            'board'  => [['label' => 'CBSE', 'count' => 4]],
+            'medium' => [],
+        ];
+        $this->newestSchools = [['name' => 'Beta School', 'logo' => null, 'active' => false, 'students' => 20, 'teachers' => 2, 'joined' => '02 Oct 2026']];
+        $this->websiteExtra = ['today' => 4, 'prevVisits' => 30, 'changePct' => 33.3, 'returnVisits' => 28, 'perVisitor' => 3.3,
+            'busiest' => ['label' => 'Mon, 05 Oct', 'visits' => 9], 'weekdays' => ['Mon' => 9, 'Tue' => 5, 'Wed' => 5, 'Thu' => 6, 'Fri' => 5, 'Sat' => 5, 'Sun' => 5]];
+        $this->feeStats['schoolsDue'] = 1;
+        $this->feeExtra = ['status' => ['full' => 1, 'part' => 1, 'none' => 0], 'topDues' => [['name' => 'Alpha', 'remaining' => 4000.0, 'expected' => 10000.0, 'pct' => 60.0]],
+            'receipts' => 6, 'avgPayment' => 1000, 'paymentsThisMonth' => 1, 'largestPayment' => 2000.0];
+        $this->feeRecent = [['name' => 'Alpha', 'amount' => 1000.0, 'mode' => 'Upi', 'date' => '05 Oct 2026', 'number' => 'R-7']];
+        $this->payrollExtra = ['active' => 3, 'inactive' => 0, 'paymentsThisYear' => 9, 'paidPct' => 66.7, 'leftToPay' => 15000, 'avgMonth' => 30000];
+        $this->calendarUpcoming = [['type' => 'meeting', 'title' => 'Call with Alpha', 'when' => 'Today · 4:00 PM', 'where' => 'Ravi']];
+        $this->enquiryExtra = ['status' => ['pending' => 2, 'booked' => 1, 'completed' => 3, 'cancelled' => 0], 'upcomingMeetings' => 1,
+            'demoLastMonth' => 2, 'contactLastMonth' => 1, 'cities' => [['label' => 'Lucknow', 'count' => 4]]];
+        $this->enquiryRecent = [['kind' => 'Demo', 'name' => 'Asha', 'school' => 'Alpha', 'status' => 'Booked', 'replied' => false, 'ago' => '1 hour ago']];
+        $this->supportExtra = ['lastMonth' => 3, 'oldestPendingDays' => 5, 'schools' => [['name' => 'Alpha', 'count' => 5, 'pending' => 2]], 'topics' => [['label' => 'Fee', 'count' => 5]]];
+        $this->supportRecent = [['school' => 'Alpha', 'topic' => 'Fee', 'text' => 'Receipt is wrong', 'replied' => false, 'ago' => '2 days ago']];
     }
 }

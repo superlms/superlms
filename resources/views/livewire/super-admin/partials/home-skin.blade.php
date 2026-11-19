@@ -150,6 +150,47 @@
     .sa-home .bg-violet-50 { background-color: var(--sk-teal-50) !important; }
     .sa-home a.text-xs.font-medium.text-violet-600 { font-weight: 600; }
 
+    .sa-home .bg-violet-300 { background-color: #99e0d3 !important; }
+    .sa-home .hover\:bg-violet-700:hover { background-color: var(--sk-teal-700) !important; }
+    .sa-home .focus\:ring-violet-400:focus, .sa-home .focus\:ring-violet-500:focus { --tw-ring-color: rgba(13,148,136,.35) !important; }
+    /* The page's one dark card in the website's deep teal-ink (it was indigo). */
+    .sa-home .sa-card-dark { background: radial-gradient(120% 120% at 100% 0%, #13665d 0%, #0c2f28 42%, #0a1f1b 78%); box-shadow: 0 18px 40px -20px rgba(12,38,32,.7); }
+
+    /* ── Analytics: a chip for each functionality under the header ── */
+    .an-chips { display: flex; gap: 8px; padding: 16px 24px 2px; overflow-x: auto; scrollbar-width: none; }
+    .an-chips::-webkit-scrollbar { display: none; }
+    .an-chip { display: inline-flex; align-items: center; gap: 7px; flex: none; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid #e3e8e6; background: #fff; font-size: 13.5px; font-weight: 500; color: #44544f; white-space: nowrap; transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s; }
+    .an-chip svg { width: 16px; height: 16px; color: #8b9893; transition: color .2s; }
+    .an-chip:hover { border-color: #b1e6db; color: #0c2620; transform: translateY(-1px); }
+    .an-chip:hover svg { color: #0d9488; }
+    .an-chip.on { background: #0d9488; border-color: #0d9488; color: #fff; box-shadow: 0 10px 22px -12px rgba(13,148,136,.75); }
+    .an-chip.on svg { color: #fff; }
+    @media (max-width: 639px) { .an-chips { padding: 12px 14px 2px; } }
+
+    /* ── Analytics' extra detail (2026-11-19): a this-month-vs-last table,
+          small lists with a figure on the right, a pill per status ── */
+    .an-cmp { width: 100%; font-size: 13.5px; }
+    .an-cmp th { padding: 8px 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e; text-align: right; }
+    .an-cmp th:first-child { text-align: left; }
+    .an-cmp td { padding: 9px 0; border-top: 1px solid #f0f3f2; text-align: right; color: var(--sk-ink); font-variant-numeric: tabular-nums; }
+    .an-cmp td:first-child { text-align: left; color: #44544f; font-weight: 500; }
+    .an-delta { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+    .an-delta.up { background: #ecfdf5; color: #047857; }
+    .an-delta.down { background: #fff1f2; color: #be123c; }
+    .an-delta.flat { background: #f3f4f6; color: #6b7280; }
+    .an-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f3f2; min-width: 0; }
+    .an-row:first-child { border-top: 0; }
+    .an-av { width: 34px; height: 34px; border-radius: 11px; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--sk-teal-50); color: var(--sk-teal-700); overflow: hidden; }
+    .an-av img { width: 100%; height: 100%; object-fit: cover; }
+    .an-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; background: #f3f4f6; color: #4b5563; }
+    .an-tag.teal { background: var(--sk-teal-50); color: var(--sk-teal-700); }
+    .an-tag.green { background: #ecfdf5; color: #047857; }
+    .an-tag.amber { background: #fffbeb; color: #b45309; }
+    .an-tag.rose { background: #fff1f2; color: #be123c; }
+    .an-tag.blue { background: #eff6ff; color: #1d4ed8; }
+    .an-meter { height: 8px; border-radius: 999px; background: #eef2f1; overflow: hidden; display: flex; }
+    .an-meter > i { display: block; height: 100%; }
+
     @media (prefers-reduced-motion: reduce) { .sk-tile { animation: none; } .sk-pill.live::before { animation: none; } }
 </style>
 @endonce

@@ -4,31 +4,39 @@
     // screen of a module the school has not been given, and none that is
     // opened from the More screen instead (Exam Copy).
     $navItems = \App\Support\AdminMenu::sidebar(auth()->user());
+
+    $authUser   = auth()->user();
+    $school     = $authUser->organization;
+    $orgParam   = ['organization' => $authUser->organization_id];
+    $schoolName = trim((string) ($school->name ?? '')) ?: 'School';
+    $schoolLogo = $school && $school->logo ? $school->logo : \App\Support\Platform::logoUrl();
+
+    // The card at the foot: who is signed in, their role and the session.
+    $adName    = trim((string) ($authUser->name ?? '')) ?: 'School Admin';
+    $adRole    = $authUser->role === 'sub-admin' ? 'Sub Admin' : 'School Admin';
+    $adSession = \App\Models\AcademicSession::currentLabel();
+    $adSub     = strcasecmp($adName, $adRole) === 0 ? $adSession : $adRole . ' · ' . $adSession;
+    $adProfile = \Illuminate\Support\Facades\Route::has('admin.profile') ? route('admin.profile', $orgParam) : null;
 @endphp
 
-{{-- The school panel's own sidebar tweaks, on md+ (this partial is only
-     included for admin and sub-admin, so the other panels keep theirs), in
-     the Super Admin sidebar's size (super-admin-sidebar):
-     - expanded, it is 224px wide instead of the shared 253px;
-     - expanded, the logo sits 28px higher (up beside the menu button, which
-       stays on top and clickable) and is 56px instead of 72px;
-     - the menu is one list with no "Dashboard" title over it and no lines
-       between the items;
-     - the menu's scrollbar is a hairline. --}}
+{{-- The school panel's sidebar in the Super Admin's exact style (user's ask
+     of 2026-11-19, admin-components.sa-side-styles): a light panel with a
+     hairline edge, the school's logo and name at the top (a 60px row, its
+     faint divider level with Quick Links' header line), one plain list with
+     plain icons — the open page's name and icon in teal on a soft pill — and
+     who is signed in at the foot, with Profile and Logout. Always open on md+
+     (no menu button): the layout sets `sidebar-expanded` before the first
+     paint. --}}
+@include('admin-components.sa-side-styles')
 <style>
-    @media (min-width: 768px) {
-        html.sidebar-expanded { --lms-sb: 224px; }
-        html.sidebar-expanded .lms-admin-rail .lms-topbar { position: relative; z-index: 1; }
-        html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -1.75rem; }
-        html.sidebar-expanded .lms-admin-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
-    }
-    #sidebar-nav::-webkit-scrollbar { width: 3px; }
-    #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-    #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-    #sidebar-nav::-webkit-scrollbar-button { display: none; }
-    @supports not selector(::-webkit-scrollbar) {
-        #sidebar-nav { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
-    }
+    /* The school's name can be long: up to two lines beside its logo, in a
+       row exactly 60px tall (as the Super Admin's brand row with its line). */
+    .sa-brand.is-school { height: 60px; padding: 0 16px; justify-content: flex-start; }
+    .sa-brand.is-school .sa-brand-link { justify-content: flex-start; gap: 10px; width: 100%; }
+    .sa-brand.is-school .sa-brand-link img { width: 32px; height: 32px; border-radius: 8px; }
+    .sa-brand.is-school .sa-brand-link span { font-size: 13.5px; font-weight: 700; line-height: 1.22; letter-spacing: -.005em; white-space: normal;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .sa-av.is-school img { width: 100%; height: 100%; object-fit: cover; }
 </style>
 
 <!-- Off-canvas menu for mobile -->
@@ -45,7 +53,7 @@
     <div x-show="offcanvas" x-transition:enter="transition ease-in-out duration-300 transform"
         x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
         x-transition:leave="transition ease-in-out duration-300 transform" x-transition:leave-start="translate-x-0"
-        x-transition:leave-end="-translate-x-full" class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+        x-transition:leave-end="-translate-x-full" class="relative flex-1 flex flex-col max-w-xs w-full">
 
         <!-- Close button -->
         <div x-show="offcanvas" x-transition:enter="ease-in-out duration-300" x-transition:enter-start="opacity-0"
@@ -62,42 +70,36 @@
             </button>
         </div>
 
-        <!-- Scrollable area -->
-        <div class="flex-1 h-0 overflow-y-auto bg-white border-r border-gray-200">
-            <!-- Logo Section (as the Super Admin's: the logo, the name under it) -->
-            <div class="flex-shrink-0 flex flex-col items-center px-4 pt-1 pb-3 border-b border-gray-200">
-                <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
-                    alt="Logo" class="w-14 h-14 object-contain mb-1">
-                <h2 class="text-sm font-bold text-gray-900 text-center">
-                    {{ auth()->user()->organization->name }}
-                </h2>
+        <div class="sa-side flex-1 h-0 flex flex-col">
+            <div class="sa-brand is-school">
+                <a href="{{ route('admin.quick-links', $orgParam) }}" class="sa-brand-link">
+                    <img src="{{ $schoolLogo }}" alt="Logo">
+                    <span>{{ $schoolName }}</span>
+                </a>
             </div>
 
-            <!-- Navigation -->
-            <nav class="px-4 py-4">
-                <div class="mb-6">
-                    <div class="space-y-0.5">
-                        @auth
-                            @php
-                                $currentOrganization = auth()->user()->organization_id;
-                            @endphp
-                            @foreach ($navItems as $menu_item)
-                                @php
-                                    $is_active = Route::is($menu_item['prefix']);
-                                    $routeParams = ['organization' => $currentOrganization];
-                                @endphp
-                                <a href="{{ route($menu_item['link'], $routeParams) }}"
-                                    class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
-                                    <x-icon
-                                        class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} mr-2 flex-shrink-0 h-4 w-4"
-                                        name="{{ $menu_item['icon'] }}" />
-                                    {{ $menu_item['title'] }}
-                                </a>
-                            @endforeach
-                        @endauth
-                    </div>
-                </div>
-            </nav>
+            <div class="flex-1 min-h-0 overflow-y-auto">
+                <nav class="sa-nav">
+                    @foreach ($navItems as $menu_item)
+                        @php $is_active = Route::is($menu_item['prefix']); @endphp
+                        <a href="{{ route($menu_item['link'], $orgParam) }}" class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
+                            <span class="sa-ic"><x-icon name="{{ $menu_item['icon'] }}" /></span>
+                            <span>{{ $menu_item['title'] }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+            </div>
+
+            <div class="sa-user">
+                <a @if ($adProfile) href="{{ $adProfile }}" @endif class="sa-user-link" title="Profile">
+                    <span class="sa-av is-school"><img src="{{ $schoolLogo }}" alt=""></span>
+                    <span class="sa-user-text"><span class="sa-user-name">{{ $adName }}</span><small>{{ $adSub }}</small></span>
+                </a>
+                <button type="button" class="sa-logout" title="Logout" aria-label="Logout"
+                    x-on:click="offcanvas = false; Livewire.dispatch('open-logout-confirm')">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -106,70 +108,55 @@
     </div>
 </div>
 
-<!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
-<div class="lms-rail lms-admin-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
-    <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
-        <!-- Three-dot toggle -->
-        <div class="lms-topbar flex items-center justify-between px-3 pt-3">
-            <button @click="sidebarOpen = !sidebarOpen" type="button"
-                :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'"
-                class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-        </div>
-        <!-- Logo section -->
-        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-3 pt-1 border-b border-gray-200">
-            <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : \App\Support\Platform::logoUrl() }}"
-                alt="Logo" class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
-            <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">
-                {{ auth()->user()->organization->name }}
-            </h2>
+<!-- Static sidebar for desktop: always open, as the Super Admin's -->
+<div class="lms-rail lms-admin-rail sa-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
+    <div class="sa-side flex-1 flex flex-col min-h-0">
+        <!-- The school's logo and name, the divider under them -->
+        <div class="sa-brand is-school">
+            <a href="{{ route('admin.quick-links', $orgParam) }}" class="sa-brand-link" title="Quick Links — {{ $schoolName }}">
+                <img src="{{ $schoolLogo }}" alt="Logo">
+                <span class="lms-logo-name">{{ $schoolName }}</span>
+            </a>
         </div>
 
         <!-- Scrollable navigation area -->
-        <div id="sidebar-nav" class="flex-1 flex flex-col overflow-y-auto">
-            <nav class="lms-nav flex-1 px-4 py-4 space-y-6">
-                <div>
-                    <div class="space-y-0.5">
-                        @auth
-                            @php
-                                $currentOrganization = auth()->user()->organization_id;
-                            @endphp
-                            @foreach ($navItems as $menu_item)
-                                @php
-                                    $is_active = Route::is($menu_item['prefix']);
-                                    $routeParams = ['organization' => $currentOrganization];
-                                @endphp
-                                <a href="{{ route($menu_item['link'], $routeParams) }}"
-                                    title="{{ $menu_item['title'] }}"
-                                    class="{{ $is_active ? 'bg-purple-50 text-purple-700 border-r-2 border-purple-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
-                                    <x-icon
-                                        class="{{ $is_active ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
-                                        name="{{ $menu_item['icon'] }}" />
-                                    <span class="lms-label">{{ $menu_item['title'] }}</span>
-                                </a>
-                            @endforeach
-                        @endauth
-                    </div>
-                </div>
+        <div id="sidebar-nav" class="relative flex-1 min-h-0 overflow-y-auto">
+            <nav class="sa-nav">
+                @foreach ($navItems as $menu_item)
+                    @php $is_active = Route::is($menu_item['prefix']); @endphp
+                    <a href="{{ route($menu_item['link'], $orgParam) }}" title="{{ $menu_item['title'] }}"
+                        class="sa-link {{ $is_active ? 'on' : '' }}" @if ($is_active) aria-current="page" @endif>
+                        <span class="sa-ic"><x-icon name="{{ $menu_item['icon'] }}" /></span>
+                        <span class="lms-label">{{ $menu_item['title'] }}</span>
+                    </a>
+                @endforeach
             </nav>
+        </div>
+
+        <!-- Who is signed in -->
+        <div class="sa-user">
+            <a @if ($adProfile) href="{{ $adProfile }}" @endif class="sa-user-link" title="Profile — {{ $adName }}">
+                <span class="sa-av is-school"><img src="{{ $schoolLogo }}" alt=""></span>
+                <span class="sa-user-text"><span class="sa-user-name">{{ $adName }}</span><small>{{ $adSub }}</small></span>
+            </a>
+            <button type="button" class="sa-logout" title="Logout" aria-label="Logout"
+                x-on:click="Livewire.dispatch('open-logout-confirm')">
+                <svg fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </button>
         </div>
     </div>
 </div>
 
 <!-- JavaScript to scroll active tab into view -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const sidebarNav = document.getElementById('sidebar-nav');
-        const activeTab = sidebarNav.querySelector('.bg-purple-50');
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('sidebar-nav');
+        if (!container) return;
 
-        if (activeTab) {
-            activeTab.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-            });
-        }
+        const activeTab = container.querySelector('.sa-link.on');
+        if (!activeTab) return;
+
+        // Center the active item within the sidebar scroll container
+        container.scrollTop = activeTab.offsetTop - (container.clientHeight / 2) + (activeTab.clientHeight / 2);
     });
 </script>

@@ -32,10 +32,14 @@
     .sa-auth::before { width: 620px; height: 520px; right: -120px; top: -140px; background: radial-gradient(circle, rgba(13,148,136,.16), transparent 70%); }
     .sa-auth::after { width: 520px; height: 440px; left: -140px; bottom: -120px; background: radial-gradient(circle, rgba(134,168,58,.14), transparent 70%); }
 
-    /* The card */
-    .sa-auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 28px 16px; }
+    /* The card. On a computer the whole screen fits the window, so the browser
+       never shows a scrollbar (user's ask of 2026-11-19): the space round the
+       card and the card's height follow the window's height — 600px tall where
+       there is room, shorter on a laptop whose window is less than ~660px. */
+    .sa-auth { --sa-pad: clamp(12px, 3.5vh, 28px); }
+    .sa-auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--sa-pad) 16px; }
     /* No hard border: a feathered, wide soft shadow, so the card reads as part of the page. */
-    .sa-auth-card { width: 100%; max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; background: #fff; border-radius: 32px; overflow: hidden;
+    .sa-auth-card { width: 100%; max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: min(600px, calc(100vh - 2 * var(--sa-pad))); min-height: min(600px, calc(100dvh - 2 * var(--sa-pad))); background: #fff; border-radius: 32px; overflow: hidden;
         box-shadow: 0 0 0 1px rgba(12,38,32,.03), 0 40px 110px -40px rgba(12,38,32,.26), 0 0 70px -24px rgba(13,148,136,.16); animation: sa-auth-rise .7s var(--ease) both; }
     @keyframes sa-auth-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
@@ -80,6 +84,25 @@
     .sa-quiet:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
     .sa-auth-note { width: 100%; max-width: 24rem; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border-radius: 16px; background: var(--teal-50); border: 1px solid var(--teal-100); color: var(--teal-700); font-size: 14px; }
     @media (prefers-reduced-motion: reduce) { .sa-auth-card { animation: none; } }
+
+    /* A short window (a laptop with the bookmarks bar, a zoomed page): a little
+       less air in the card, so the form and the picture still fit without a scroll. */
+    @media (min-width: 768px) and (max-height: 720px) {
+        .sa-auth-form { padding: 26px 44px; }
+        .sa-auth-art { padding: 24px 32px; }
+        .sa-auth-logo { margin-bottom: 12px; }
+        .sa-auth-logo img { width: 46px; height: 46px; }
+        .sa-auth-form > .text-center { margin-bottom: 22px; }
+        .sa-auth-art .am { zoom: 1; }
+        .sa-auth-art h2.sa-title { margin-top: 22px; }
+    }
+    @media (min-width: 768px) and (max-height: 600px) {
+        .sa-auth-form { padding: 18px 40px; }
+        .sa-auth-form > .text-center { margin-bottom: 14px; }
+        .sa-auth-art .am { zoom: .86; }
+        .sa-auth-art h2.sa-title { margin-top: 14px; }
+        .sa-auth .sa-btn { height: 46px; }
+    }
 
     @media (max-width: 767px) {
         .sa-auth-main { align-items: flex-start; padding: 8px 12px 20px; }

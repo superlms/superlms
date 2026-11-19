@@ -369,14 +369,22 @@
         </div>
     @endif
 
-    {{-- ── Super Admin Logout Modal ──
+    {{-- ── Super Admin / School Admin Logout Modal ──
          In the superlms.in website's card look (its "pcards", user's ask of
          2026-11-18): a white card whose top is a pastel stage holding a white
          panel with only the question and one line under it (no icons or other
          text, user's ask), then the website's pill buttons. A click outside or
-         Esc cancels. --}}
-    @if ($showSuperAdminLogoutModal)
-        @php $loRole = auth()->user()->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin'; @endphp
+         Esc cancels. The school admin's is the same card since 2026-11-19
+         (its sidebar is in the Super Admin's style). --}}
+    @if ($showSuperAdminLogoutModal || $showAdminLogoutModal)
+        @php
+            $loSchool = $showAdminLogoutModal && !$showSuperAdminLogoutModal;
+            $loRole   = $loSchool
+                ? (auth()->user()->role === 'sub-admin' ? 'Sub Admin' : 'School Admin')
+                : (auth()->user()->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin');
+            $loFlag   = $loSchool ? 'showAdminLogoutModal' : 'showSuperAdminLogoutModal';
+            $loAction = $loSchool ? 'adminLogout' : 'superAdminLogout';
+        @endphp
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
         <style>
             .lo-shade { background: rgba(12, 38, 32, .32); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: lo-fade .2s ease both; }
@@ -398,8 +406,8 @@
             @media (prefers-reduced-motion: reduce) { .lo-shade, .lo-card { animation: none; } }
         </style>
         <div class="lms-cover lo-shade fixed inset-0 flex items-center justify-center z-[9999] px-4"
-            wire:click.self="$set('showSuperAdminLogoutModal', false)"
-            x-data x-on:keydown.escape.window="$wire.set('showSuperAdminLogoutModal', false)">
+            wire:click.self="$set('{{ $loFlag }}', false)"
+            x-data x-on:keydown.escape.window="$wire.set('{{ $loFlag }}', false)">
             <div class="lo-card" role="dialog" aria-modal="true" aria-labelledby="lo-title">
                 <div class="lo-stage">
                     <div class="lo-panel">
@@ -408,43 +416,10 @@
                     </div>
                 </div>
                 <div class="lo-btns">
-                    <button type="button" wire:click="$set('showSuperAdminLogoutModal', false)" class="lo-btn ghost">Cancel</button>
-                    <button type="button" wire:click="superAdminLogout" wire:loading.attr="disabled" class="lo-btn danger">
-                        <span wire:loading.remove wire:target="superAdminLogout">Yes, Logout</span>
-                        <span wire:loading wire:target="superAdminLogout">Logging out…</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- ── Admin Logout Modal ── --}}
-    @if ($showAdminLogoutModal)
-        <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
-            <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-semibold text-gray-900">School Logout</h3>
-                        <p class="text-xs text-gray-400">School Panel</p>
-                    </div>
-                </div>
-                <p class="text-sm text-gray-500 mb-5">Are you sure you want to logout from the School Panel?</p>
-                <div class="flex items-center gap-2">
-                    <button wire:click="adminLogout"
-                        class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white text-sm
-                               font-medium rounded-lg transition-colors">
-                        Yes, Logout
-                    </button>
-                    <button wire:click="$set('showAdminLogoutModal', false)"
-                        class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm
-                               font-medium rounded-lg transition-colors">
-                        Cancel
+                    <button type="button" wire:click="$set('{{ $loFlag }}', false)" class="lo-btn ghost">Cancel</button>
+                    <button type="button" wire:click="{{ $loAction }}" wire:loading.attr="disabled" class="lo-btn danger">
+                        <span wire:loading.remove wire:target="{{ $loAction }}">Yes, Logout</span>
+                        <span wire:loading wire:target="{{ $loAction }}">Logging out…</span>
                     </button>
                 </div>
             </div>

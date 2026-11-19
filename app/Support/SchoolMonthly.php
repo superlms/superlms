@@ -93,7 +93,7 @@ class SchoolMonthly
      */
     public static function studentsByClass(int $orgId): array
     {
-        $colors = ['#7c3aed', '#111827', '#a78bfa', '#38bdf8'];
+        $colors = ['#0f766e', '#0d9488', '#2fae9f', '#6cc9bb'];   // Home's teal (the Super Admin's look)
 
         $byClass = StudentDetail::where('organization_id', $orgId)
             ->whereNotNull('standard_id')

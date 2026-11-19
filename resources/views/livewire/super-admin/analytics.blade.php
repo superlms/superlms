@@ -33,18 +33,6 @@
     {{-- The dashboard look (2026-11-03), shared with Home. --}}
     @include('livewire.super-admin.partials.dash-styles')
     @include('livewire.super-admin.partials.home-skin')
-    <style>
-        .an-chips { display: flex; gap: 8px; padding: 16px 24px 2px; overflow-x: auto; scrollbar-width: none; }
-        .an-chips::-webkit-scrollbar { display: none; }
-        .an-chip { display: inline-flex; align-items: center; gap: 7px; flex: none; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid #e3e8e6; background: #fff; font-size: 13.5px; font-weight: 500; color: #44544f; white-space: nowrap; transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s; }
-        .an-chip svg { width: 16px; height: 16px; color: #8b9893; transition: color .2s; }
-        .an-chip:hover { border-color: #b1e6db; color: #0c2620; transform: translateY(-1px); }
-        .an-chip:hover svg { color: #0d9488; }
-        .an-chip.on { background: #0d9488; border-color: #0d9488; color: #fff; box-shadow: 0 10px 22px -12px rgba(13,148,136,.75); }
-        .an-chip.on svg { color: #fff; }
-        .sa-home .bg-violet-300 { background-color: #99e0d3 !important; }
-        @media (max-width: 639px) { .an-chips { padding: 12px 14px 2px; } }
-    </style>
 
     @php
         $inr = fn ($v) => '₹' . number_format((float) $v, 0);
@@ -63,6 +51,20 @@
             $m['labels'] ?? [], $m['data'] ?? [], array_keys($m['data'] ?? [])
         );
         $initial = fn ($name) => strtoupper(mb_substr(trim((string) $name) ?: '?', 0, 1));
+
+        // The extra detail (2026-11-19): a change against last month as a pill,
+        // and a share as a whole %.
+        $delta = function ($now, $before): array {
+            $now = (float) $now; $before = (float) $before;
+            if ($before <= 0) {
+                return $now > 0 ? ['New', 'up'] : ['—', 'flat'];
+            }
+            $pct = (int) round(($now - $before) / $before * 100);
+
+            return [($pct > 0 ? '+' : '') . $pct . '%', $pct > 0 ? 'up' : ($pct < 0 ? 'down' : 'flat')];
+        };
+        $pctOf = fn ($part, $whole) => (float) $whole > 0 ? round((float) $part / (float) $whole * 100, 1) : 0;
+        $can   = fn (string $route) => \Illuminate\Support\Facades\Route::has($route) && (auth()->user()?->canAccessSuperAdminRoute($route) ?? false);
     @endphp
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════
@@ -135,10 +137,113 @@
                 ['Rating', ($ratingStats['avg'] ?? 0) . ' ★', number_format($ratingStats['total'] ?? 0) . ' reviews', 'text-gray-900'],
                 ['5-Star Reviews', number_format($ratingStats['fiveStar'] ?? 0), 'of ' . number_format($ratingStats['total'] ?? 0), 'text-emerald-600'],
             ]])
+
+            {{-- This month against last, how healthy the platform is, and what
+                 is waiting on the Super Admin (2026-11-19). --}}
+            @php
+                $cmpRows = [
+                    ['New schools', $overviewStats['newSchoolsThisMonth'] ?? 0, $schoolExtra['newLastMonth'] ?? 0, false],
+                    ['New students', $overviewStats['studentsThisMonth'] ?? 0, $overviewStats['studentsLastMonth'] ?? 0, false],
+                    ['New teachers', $schoolExtra['teachersThisMonth'] ?? 0, $schoolExtra['teachersLastMonth'] ?? 0, false],
+                    ['Fee collected', $feeStats['collectedThisMonth'] ?? 0, $feeStats['collectedLastMonth'] ?? 0, true],
+                    ['Demo requests', $enquiryStats['demo']['thisMonth'] ?? 0, $enquiryExtra['demoLastMonth'] ?? 0, false],
+                    ['Contact messages', $enquiryStats['contact']['thisMonth'] ?? 0, $enquiryExtra['contactLastMonth'] ?? 0, false],
+                    ['Support tickets', $supportStats['thisMonth'] ?? 0, $supportExtra['lastMonth'] ?? 0, false],
+                ];
+                $health = [
+                    ['Schools active', $pctOf($overviewStats['activeSchools'] ?? 0, $overviewStats['totalSchools'] ?? 0), number_format($overviewStats['activeSchools'] ?? 0) . ' of ' . number_format($overviewStats['totalSchools'] ?? 0)],
+                    ['Students active', $pctOf($overviewStats['activeStudents'] ?? 0, $overviewStats['totalStudents'] ?? 0), number_format($overviewStats['activeStudents'] ?? 0) . ' of ' . number_format($overviewStats['totalStudents'] ?? 0)],
+                    ['Teachers active', $pctOf($overviewStats['activeTeachers'] ?? 0, $overviewStats['totalTeachers'] ?? 0), number_format($overviewStats['activeTeachers'] ?? 0) . ' of ' . number_format($overviewStats['totalTeachers'] ?? 0)],
+                    ['Fee collected', (float) ($feeStats['collectionRate'] ?? 0), $short($feeStats['totalCollected'] ?? 0) . ' of ' . $short($feeStats['totalFeeToCollect'] ?? 0)],
+                    ['Enquiries answered', $pctOf($enquiryStats['combined']['replied'] ?? 0, $enquiryStats['combined']['total'] ?? 0), number_format($enquiryStats['combined']['replied'] ?? 0) . ' of ' . number_format($enquiryStats['combined']['total'] ?? 0)],
+                    ['Tickets answered', (float) $supportReplyRate, number_format($supportStats['replied'] ?? 0) . ' of ' . number_format($supportStats['total'] ?? 0)],
+                ];
+                $waiting = array_values(array_filter([
+                    ['Demo requests to answer', (int) ($enquiryStats['demo']['pending'] ?? 0), 'super-admin.enquiries', 'presentation-chart-line'],
+                    ['Contact messages to answer', (int) ($enquiryStats['contact']['pending'] ?? 0), 'super-admin.enquiries', 'envelope'],
+                    ['Support tickets to answer', (int) ($supportStats['pending'] ?? 0), 'super-admin.support', 'lifebuoy'],
+                    ['Schools with fee dues', (int) ($feeStats['schoolsDue'] ?? $feeStats['unpaidRecords'] ?? 0), 'super-admin.fees', 'banknotes'],
+                    ['Unpaid for ' . ($payrollStats['payableMonth'] ?? 'last month'), (int) ($payrollStats['pendingThisMonth'] ?? 0), 'super-admin.payroll', 'credit-card'],
+                    !empty($calendarStats) ? ['Tasks overdue', (int) ($calendarStats['overdue'] ?? 0), 'super-admin.calendar', 'calendar-days'] : null,
+                ]));
+            @endphp
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-2">
+                        <h3 class="sa-card-title">This Month vs Last Month</h3>
+                        <p class="sa-card-sub">{{ now()->format('M Y') }} so far against {{ now()->subMonthNoOverflow()->format('M Y') }}</p>
+                    </div>
+                    <table class="an-cmp">
+                        <thead><tr><th>Figure</th><th>{{ now()->format('M') }}</th><th>{{ now()->subMonthNoOverflow()->format('M') }}</th><th>Change</th></tr></thead>
+                        <tbody>
+                            @foreach ($cmpRows as [$label, $now, $before, $money])
+                                @php [$chg, $dir] = $delta($now, $before); @endphp
+                                <tr>
+                                    <td>{{ $label }}</td>
+                                    <td class="font-semibold">{{ $money ? $short($now) : number_format($now) }}</td>
+                                    <td class="text-gray-500">{{ $money ? $short($before) : number_format($before) }}</td>
+                                    <td><span class="an-delta {{ $dir }}">{{ $chg }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Platform Health</h3>
+                        <p class="sa-card-sub">The share that is active, collected or answered</p>
+                    </div>
+                    <div class="space-y-3.5">
+                        @foreach ($health as [$label, $pct, $line])
+                            <div class="min-w-0">
+                                <div class="flex items-baseline justify-between gap-3 text-sm">
+                                    <p class="font-medium text-gray-800 truncate">{{ $label }}</p>
+                                    <p class="whitespace-nowrap tabular-nums"><span class="font-semibold text-gray-900">{{ $pct }}%</span> <span class="text-xs text-gray-400">· {{ $line }}</span></p>
+                                </div>
+                                <div class="an-meter mt-1.5"><i style="width: {{ min(100, $pct) }}%; background: {{ $pct >= 75 ? '#0d9488' : ($pct >= 40 ? '#f59e0b' : '#f43f5e') }}"></i></div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-2">
+                        <h3 class="sa-card-title">Needs Attention</h3>
+                        <p class="sa-card-sub">What is waiting on you right now</p>
+                    </div>
+                    <div>
+                        @foreach ($waiting as [$label, $count, $route, $icon])
+                            @php $tag = $can($route) ? 'a' : 'div'; @endphp
+                            <{{ $tag }} @if ($tag === 'a') href="{{ route($route) }}" @endif class="an-row group">
+                                <span class="an-av" @if ($count > 0) style="background:#fff1f2;color:#be123c" @endif><x-icon name="{{ $icon }}" class="w-4 h-4" /></span>
+                                <p class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate {{ $tag === 'a' ? 'group-hover:text-teal-700' : '' }}">{{ $label }}</p>
+                                @if ($count > 0)
+                                    <span class="an-tag rose tabular-nums">{{ number_format($count) }}</span>
+                                @else
+                                    <span class="an-tag green">All clear</span>
+                                @endif
+                            </{{ $tag }}>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
         </section>
 
         {{-- ═══════════════════════ SCHOOLS ═══════════════════════ --}}
         <section class="space-y-4" data-an="schools" x-show="tab === 'schools'" style="display: none">
+
+            {{-- The schools in figures (2026-11-19). --}}
+            @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
+                ['Active Schools', number_format($overviewStats['activeSchools'] ?? 0), $pctOf($overviewStats['activeSchools'] ?? 0, $overviewStats['totalSchools'] ?? 0) . '% of all schools', 'text-emerald-600'],
+                ['Inactive Schools', number_format($overviewStats['inactiveSchools'] ?? 0), 'switched off', ($overviewStats['inactiveSchools'] ?? 0) > 0 ? 'text-red-500' : 'text-gray-900'],
+                ['Joined This Month', number_format($overviewStats['newSchoolsThisMonth'] ?? 0), number_format($schoolExtra['newLastMonth'] ?? 0) . ' last month', 'text-violet-600'],
+                ['Largest School', number_format($schoolExtra['largest'] ?? 0), 'students', 'text-gray-900'],
+                ['Avg Students / School', number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1), 'students in a school', 'text-gray-900'],
+                ['Avg Teachers / School', number_format($schoolExtra['avgTeachers'] ?? 0, 1), 'teachers in a school', 'text-gray-900'],
+                ['Students per Teacher', number_format($schoolExtra['studentsPerTeacher'] ?? 0, 1), 'across the platform', 'text-gray-900'],
+                ['Schools without Students', number_format($schoolExtra['emptySchools'] ?? 0), 'nobody added yet', ($schoolExtra['emptySchools'] ?? 0) > 0 ? 'text-red-500' : 'text-gray-900'],
+            ]])
 
             {{-- Registrations + schools onboarded --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -246,6 +351,68 @@
                 @endforeach
             </div>
 
+            {{-- Where the schools are and what they teach in (2026-11-19). --}}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                @foreach ([
+                    ['Schools by State', 'Where the schools are', $schoolGroups['state'] ?? []],
+                    ['Schools by Board', 'The board each school is with', $schoolGroups['board'] ?? []],
+                    ['Schools by Medium', 'The language each school teaches in', $schoolGroups['medium'] ?? []],
+                ] as [$heading, $subline, $rows])
+                    <div class="sa-card p-5 min-w-0">
+                        <div class="mb-4">
+                            <h3 class="sa-card-title">{{ $heading }}</h3>
+                            <p class="sa-card-sub">{{ $subline }}</p>
+                        </div>
+                        @include('livewire.super-admin.partials.an-bars', ['rows' => $rows, 'empty' => 'No schools yet'])
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- The schools that joined last, and active against inactive. --}}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="sa-card p-5 lg:col-span-2 min-w-0">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-2">
+                        <div>
+                            <h3 class="sa-card-title">Newest Schools</h3>
+                            <p class="sa-card-sub">The last schools to join, with their size</p>
+                        </div>
+                        @if ($can('super-admin.schools'))
+                            <a href="{{ route('super-admin.schools') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Schools →</a>
+                        @endif
+                    </div>
+                    @if (count($newestSchools))
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                            @foreach ($newestSchools as $s)
+                                <div class="an-row" style="border-top: 1px solid #f0f3f2">
+                                    <span class="an-av">@if ($s['logo'])<img src="{{ $s['logo'] }}" alt="">@else{{ $initial($s['name']) }}@endif</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $s['name'] }}">{{ $s['name'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate">Joined {{ $s['joined'] }} · {{ number_format($s['students']) }} students · {{ number_format($s['teachers']) }} teachers</p>
+                                    </div>
+                                    <span class="an-tag {{ $s['active'] ? 'green' : 'rose' }}">{{ $s['active'] ? 'Active' : 'Inactive' }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-center py-10 text-gray-400 text-sm">No schools yet</p>
+                    @endif
+                </div>
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Schools at a Glance</h3>
+                        <p class="sa-card-sub">Switched on and switched off</p>
+                    </div>
+                    @include('livewire.super-admin.partials.dash-donut', [
+                        'segments' => [
+                            ['label' => 'Active', 'value' => (int) ($overviewStats['activeSchools'] ?? 0), 'color' => '#0d9488'],
+                            ['label' => 'Inactive', 'value' => (int) ($overviewStats['inactiveSchools'] ?? 0), 'color' => '#f43f5e'],
+                        ],
+                        'center' => number_format($overviewStats['totalSchools'] ?? 0), 'centerLabel' => 'Schools', 'size' => 140, 'legend' => true,
+                        'format' => fn ($v) => number_format($v),
+                    ])
+                </div>
+            </div>
+
             {{-- Gender split + rating distribution --}}
             @php
                 $genderTotal = (int) array_sum(array_map('intval', $genderSplit ?: []));
@@ -326,6 +493,20 @@
                 ['Most Visited', $websiteStats['topPage'] ?? '—', null, 'text-gray-900'],
             ]])
 
+            {{-- More on the range (2026-11-19): today, people coming back, the
+                 busiest day and the range before this one. --}}
+            @php
+                $wChange = $websiteExtra['changePct'] ?? null;
+                $wBusy   = $websiteExtra['busiest'] ?? null;
+            @endphp
+            @include('livewire.super-admin.partials.analytics-tiles', ['cols' => 'grid-cols-2 lg:grid-cols-5', 'items' => [
+                ['Visits Today', number_format($websiteExtra['today'] ?? 0), 'since midnight', 'text-violet-600'],
+                ['Return Visits', number_format($websiteExtra['returnVisits'] ?? 0), 'by people who came back', 'text-gray-900'],
+                ['Visits per Visitor', number_format($websiteExtra['perVisitor'] ?? 0, 1), 'on average', 'text-gray-900'],
+                ['Busiest Day', $wBusy ? number_format($wBusy['visits']) : '—', $wBusy ? $wBusy['label'] : 'no visits yet', 'text-gray-900'],
+                ['vs Range Before', $wChange === null ? '—' : (($wChange > 0 ? '+' : '') . $wChange . '%'), number_format($websiteExtra['prevVisits'] ?? 0) . ' visits then', $wChange === null ? 'text-gray-900' : ($wChange >= 0 ? 'text-emerald-600' : 'text-red-500')],
+            ]])
+
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 <div class="sa-card p-5 xl:col-span-2 min-w-0">
                     <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
@@ -373,6 +554,35 @@
                         </div>
                     </dl>
                 </div>
+            </div>
+
+            {{-- The visits by day of the week, over the range. --}}
+            @php
+                $wDays = $websiteExtra['weekdays'] ?? [];
+                $wTop  = max(1, (int) max($wDays ?: [0]));
+                $wSum  = (int) array_sum($wDays);
+            @endphp
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Visits by Weekday</h3>
+                        <p class="sa-card-sub">Which days people visit most, in this range</p>
+                    </div>
+                    <span class="sa-chip">{{ number_format($wSum) }} visits</span>
+                </div>
+                @if ($wSum > 0)
+                    <div class="grid grid-cols-7 gap-2 sm:gap-4 items-end h-44">
+                        @foreach ($wDays as $day => $count)
+                            <div class="flex flex-col items-center justify-end h-full min-w-0">
+                                <span class="text-xs font-semibold text-gray-700 tabular-nums mb-1">{{ number_format($count) }}</span>
+                                <div class="w-full max-w-[44px] rounded-lg" style="height: {{ max(4, round($count / $wTop * 100)) }}%; background: {{ $count === $wTop ? '#0d9488' : '#99e0d3' }}"></div>
+                                <span class="mt-2 text-xs text-gray-500">{{ $day }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-gray-400 py-8 text-center">No visits in this range yet</p>
+                @endif
             </div>
 
             <div class="sa-card overflow-hidden">
@@ -463,6 +673,108 @@
                 </div>
             </div>
 
+            {{-- Schools by what they have paid, the biggest dues and the
+                 payments themselves (2026-11-19). --}}
+            @php
+                $fStatus = $feeExtra['status'] ?? ['full' => 0, 'part' => 0, 'none' => 0];
+                $fDues   = $feeExtra['topDues'] ?? [];
+                $fDueTop = max(1, (float) max(array_column($fDues, 'remaining') ?: [0]));
+            @endphp
+            @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
+                ['Payments Received', number_format($feeExtra['receipts'] ?? 0), 'receipts in all', 'text-gray-900'],
+                ['Payments This Month', number_format($feeExtra['paymentsThisMonth'] ?? 0), $inr($feeStats['collectedThisMonth'] ?? 0) . ' received', 'text-violet-600'],
+                ['Average Payment', $inr($feeExtra['avgPayment'] ?? 0), 'a receipt', 'text-gray-900'],
+                ['Largest Payment', $inr($feeExtra['largestPayment'] ?? 0), 'one receipt', 'text-gray-900'],
+            ]])
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Schools by Payment</h3>
+                        <p class="sa-card-sub">Paid in full, part paid, nothing paid{{ !empty($feeStats['year']) ? ' · ' . $feeStats['year'] : '' }}</p>
+                    </div>
+                    @if (array_sum($fStatus) > 0)
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => [
+                                ['label' => 'Paid in full', 'value' => (int) $fStatus['full'], 'color' => '#0d9488'],
+                                ['label' => 'Part paid', 'value' => (int) $fStatus['part'], 'color' => '#f59e0b'],
+                                ['label' => 'Nothing paid', 'value' => (int) $fStatus['none'], 'color' => '#f43f5e'],
+                            ],
+                            'center' => number_format(array_sum($fStatus)), 'centerLabel' => 'Schools', 'size' => 140, 'legend' => true,
+                            'format' => fn ($v) => number_format($v),
+                        ])
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No fee structures yet</p>
+                    @endif
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Highest Dues</h3>
+                            <p class="sa-card-sub">The schools with the most still to pay</p>
+                        </div>
+                        @if ($can('super-admin.fees'))
+                            <a href="{{ route('super-admin.fees') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Fees →</a>
+                        @endif
+                    </div>
+                    @if (count($fDues))
+                        <div class="space-y-3.5">
+                            @foreach ($fDues as $d)
+                                <div class="min-w-0">
+                                    <div class="flex items-baseline justify-between gap-3 text-sm">
+                                        <p class="font-medium text-gray-800 truncate" title="{{ $d['name'] }}">{{ $d['name'] }}</p>
+                                        <p class="font-semibold text-red-500 tabular-nums whitespace-nowrap">{{ $inr($d['remaining']) }}</p>
+                                    </div>
+                                    <div class="mt-1.5 flex items-center gap-3">
+                                        <div class="flex-1 h-1.5 rounded-full bg-gray-100"><div class="h-1.5 rounded-full" style="width: {{ round($d['remaining'] / $fDueTop * 100) }}%; background: {{ $loop->first ? '#f43f5e' : '#fda4af' }}"></div></div>
+                                        <span class="text-[11px] text-gray-400 tabular-nums whitespace-nowrap">{{ $d['pct'] }}% paid</span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No dues — every school has paid</p>
+                    @endif
+                </div>
+
+                <div class="sa-card overflow-hidden min-w-0">
+                    <div class="px-5 pt-5 pb-3">
+                        <h3 class="sa-card-title">Latest Payments</h3>
+                        <p class="sa-card-sub">The most recent fee received</p>
+                    </div>
+                    @if (count($feeRecent))
+                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 border-t border-gray-100">
+                            @foreach ($feeRecent as $r)
+                                <div class="px-5 py-3 flex items-center gap-3">
+                                    <span class="an-av">{{ $initial($r['name']) }}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $r['name'] }}">{{ $r['name'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate">{{ $r['date'] }} · {{ $r['mode'] }}@if ($r['number']) · #{{ $r['number'] }}@endif</p>
+                                    </div>
+                                    <span class="text-sm font-semibold text-emerald-600 whitespace-nowrap tabular-nums">{{ $inr($r['amount']) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-10 text-center border-t border-gray-100">No payments yet</p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="sa-card p-5">
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                    <div>
+                        <h3 class="sa-card-title">Payments per Month</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">How many receipts were made · {{ $windowLabel }}</p>
+                    </div>
+                    <span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 inline-block"></span> Payments</span>
+                </div>
+                <div class="h-48 relative" wire:ignore wire:key="chart-feeCountChart">
+                    <canvas id="feeCountChart"></canvas>
+                </div>
+            </div>
+
             @if (count($schoolFeeList) > 0)
                 <div class="sa-card overflow-hidden">
                     <div class="px-5 pt-5 pb-3">
@@ -547,6 +859,54 @@
                     @else
                         <p class="text-sm text-gray-400 py-8 text-center">No paid records yet</p>
                     @endif
+                </div>
+            </div>
+
+            {{-- The payable month's bill against what has been paid, and the
+                 people on the payroll (2026-11-19). --}}
+            @php $pPct = (float) ($payrollExtra['paidPct'] ?? 0); @endphp
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="sa-card p-5 min-w-0 lg:col-span-2">
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
+                        <div>
+                            <h3 class="sa-card-title">{{ $payrollStats['payableMonth'] ?? '—' }} Payroll Progress</h3>
+                            <p class="sa-card-sub">The month's salary bill against what has been paid for it</p>
+                        </div>
+                        <span class="sa-chip">{{ $pPct }}% paid</span>
+                    </div>
+                    <div class="an-meter" style="height: 12px"><i style="width: {{ min(100, $pPct) }}%; background: #0d9488"></i></div>
+                    <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        @foreach ([
+                            ['Salary bill', $inr($payrollStats['totalMonthlySalaryBill'] ?? 0), 'text-gray-900'],
+                            ['Paid', $inr($payrollStats['totalPaidAmount'] ?? 0), 'text-emerald-600'],
+                            ['Left to pay', $inr($payrollExtra['leftToPay'] ?? 0), ($payrollExtra['leftToPay'] ?? 0) > 0 ? 'text-red-500' : 'text-gray-900'],
+                            ['People paid', number_format($payrollStats['paidThisMonth'] ?? 0) . ' / ' . number_format($payrollStats['totalEmployees'] ?? 0), 'text-gray-900'],
+                        ] as [$label, $val, $tone])
+                            <div class="rounded-xl bg-gray-50 px-4 py-3 min-w-0">
+                                <p class="text-xs text-gray-500 truncate">{{ $label }}</p>
+                                <p class="mt-1 text-base font-semibold tabular-nums {{ $tone }} break-words">{{ $val }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                        <p class="text-gray-500">Payments this year <span class="font-semibold text-gray-900 tabular-nums">{{ number_format($payrollExtra['paymentsThisYear'] ?? 0) }}</span></p>
+                        <p class="text-gray-500">Average a month <span class="font-semibold text-gray-900 tabular-nums">{{ $inr($payrollExtra['avgMonth'] ?? 0) }}</span></p>
+                        <p class="text-gray-500">Paid this year <span class="font-semibold text-gray-900 tabular-nums">{{ $inr($payrollStats['paidThisYear'] ?? 0) }}</span></p>
+                    </div>
+                </div>
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Employees</h3>
+                        <p class="sa-card-sub">Active and inactive on the payroll</p>
+                    </div>
+                    @include('livewire.super-admin.partials.dash-donut', [
+                        'segments' => [
+                            ['label' => 'Active', 'value' => (int) ($payrollExtra['active'] ?? 0), 'color' => '#0d9488'],
+                            ['label' => 'Inactive', 'value' => (int) ($payrollExtra['inactive'] ?? 0), 'color' => '#e5e7eb'],
+                        ],
+                        'center' => number_format($payrollStats['totalEmployees'] ?? 0), 'centerLabel' => 'People', 'size' => 140, 'legend' => true,
+                        'format' => fn ($v) => number_format($v),
+                    ])
                 </div>
             </div>
 
@@ -689,6 +1049,52 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- What is coming up, and this month by kind (2026-11-19). --}}
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <div class="sa-card p-5 lg:col-span-2 min-w-0">
+                        <div class="mb-2">
+                            <h3 class="sa-card-title">Coming Up</h3>
+                            <p class="sa-card-sub">Today and the next seven days · tasks still to do</p>
+                        </div>
+                        @if (count($calendarUpcoming))
+                            <div>
+                                @foreach ($calendarUpcoming as $e)
+                                    @php $kind = ['meeting' => ['blue', 'users'], 'task' => ['amber', 'check-circle'], 'event' => ['teal', 'sparkles']][$e['type']] ?? ['teal', 'calendar-days']; @endphp
+                                    <div class="an-row">
+                                        <span class="an-av"><x-icon name="{{ $kind[1] }}" class="w-4 h-4" /></span>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-800 truncate" title="{{ $e['title'] }}">{{ $e['title'] }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $e['when'] }}@if ($e['where']) · {{ $e['where'] }}@endif</p>
+                                        </div>
+                                        <span class="an-tag {{ $kind[0] }}">{{ ucfirst($e['type']) }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400 py-8 text-center">Nothing in the next seven days</p>
+                        @endif
+                    </div>
+                    <div class="sa-card p-5 min-w-0">
+                        <div class="mb-4">
+                            <h3 class="sa-card-title">{{ $cal['month'] }} by Kind</h3>
+                            <p class="sa-card-sub">Meetings, tasks and events this month</p>
+                        </div>
+                        @if (($cal['meetings'] + $cal['tasks'] + $cal['events']) > 0)
+                            @include('livewire.super-admin.partials.dash-donut', [
+                                'segments' => [
+                                    ['label' => 'Meetings', 'value' => (int) $cal['meetings'], 'color' => '#3b82f6'],
+                                    ['label' => 'Tasks', 'value' => (int) $cal['tasks'], 'color' => '#f59e0b'],
+                                    ['label' => 'Events', 'value' => (int) $cal['events'], 'color' => '#8b5cf6'],
+                                ],
+                                'center' => number_format($cal['meetings'] + $cal['tasks'] + $cal['events']), 'centerLabel' => 'This month', 'size' => 140, 'legend' => true,
+                                'format' => fn ($v) => number_format($v),
+                            ])
+                        @else
+                            <p class="text-sm text-gray-400 py-8 text-center">Nothing this month yet</p>
+                        @endif
+                    </div>
+                </div>
             </section>
         @endif
 
@@ -721,16 +1127,103 @@
                     <canvas id="enquiryMonthlyChart"></canvas>
                 </div>
             </div>
+
+            {{-- Demo requests by status, the reply rates, where they come
+                 from, and the latest enquiries (2026-11-19). --}}
+            @php $eStatus = $enquiryExtra['status'] ?? []; @endphp
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Demo Requests by Status</h3>
+                        <p class="sa-card-sub">{{ number_format($enquiryExtra['upcomingMeetings'] ?? 0) }} demo {{ ($enquiryExtra['upcomingMeetings'] ?? 0) === 1 ? 'meeting' : 'meetings' }} booked ahead</p>
+                    </div>
+                    @if (array_sum($eStatus) > 0)
+                        @include('livewire.super-admin.partials.dash-donut', [
+                            'segments' => [
+                                ['label' => 'Pending', 'value' => (int) ($eStatus['pending'] ?? 0), 'color' => '#f59e0b'],
+                                ['label' => 'Booked', 'value' => (int) ($eStatus['booked'] ?? 0), 'color' => '#3b82f6'],
+                                ['label' => 'Completed', 'value' => (int) ($eStatus['completed'] ?? 0), 'color' => '#0d9488'],
+                                ['label' => 'Cancelled', 'value' => (int) ($eStatus['cancelled'] ?? 0), 'color' => '#e5e7eb'],
+                            ],
+                            'center' => number_format(array_sum($eStatus)), 'centerLabel' => 'Demos', 'size' => 140, 'legend' => true,
+                            'format' => fn ($v) => number_format($v),
+                        ])
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No demo requests yet</p>
+                    @endif
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Answered</h3>
+                        <p class="sa-card-sub">The share of each kind that has a reply</p>
+                    </div>
+                    <div class="space-y-4">
+                        @foreach ([
+                            ['Demo requests', (float) ($enquiryStats['demo']['replyRate'] ?? 0), $enquiryStats['demo']['replied'] ?? 0, $enquiryStats['demo']['total'] ?? 0],
+                            ['Contact messages', (float) ($enquiryStats['contact']['replyRate'] ?? 0), $enquiryStats['contact']['replied'] ?? 0, $enquiryStats['contact']['total'] ?? 0],
+                            ['All enquiries', $pctOf($enquiryStats['combined']['replied'] ?? 0, $enquiryStats['combined']['total'] ?? 0), $enquiryStats['combined']['replied'] ?? 0, $enquiryStats['combined']['total'] ?? 0],
+                        ] as [$label, $pct, $done, $all])
+                            <div class="min-w-0">
+                                <div class="flex items-baseline justify-between gap-3 text-sm">
+                                    <p class="font-medium text-gray-800 truncate">{{ $label }}</p>
+                                    <p class="whitespace-nowrap tabular-nums"><span class="font-semibold text-gray-900">{{ $pct }}%</span> <span class="text-xs text-gray-400">· {{ number_format($done) }} of {{ number_format($all) }}</span></p>
+                                </div>
+                                <div class="an-meter mt-1.5"><i style="width: {{ min(100, $pct) }}%; background: #0d9488"></i></div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Top Cities</h3>
+                        <p class="sa-card-sub">Where the demo requests come from</p>
+                    </div>
+                    @include('livewire.super-admin.partials.an-bars', ['rows' => $enquiryExtra['cities'] ?? [], 'empty' => 'No cities given yet'])
+                </div>
+            </div>
+
+            <div class="sa-card p-5 min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-2">
+                    <div>
+                        <h3 class="sa-card-title">Latest Enquiries</h3>
+                        <p class="sa-card-sub">Demo requests and contact messages, newest first</p>
+                    </div>
+                    @if ($can('super-admin.enquiries'))
+                        <a href="{{ route('super-admin.enquiries') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Enquiries →</a>
+                    @endif
+                </div>
+                @if (count($enquiryRecent))
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                        @foreach ($enquiryRecent as $e)
+                            <div class="an-row" style="border-top: 1px solid #f0f3f2">
+                                <span class="an-av">{{ $initial($e['name']) }}</span>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-800 truncate" title="{{ $e['name'] }}">{{ $e['name'] }}</p>
+                                    <p class="text-xs text-gray-400 truncate">{{ $e['kind'] }} · {{ $e['school'] }} · {{ $e['ago'] }}</p>
+                                </div>
+                                <span class="an-tag {{ $e['replied'] || in_array($e['status'], ['Booked', 'Completed'], true) ? 'green' : ($e['status'] === 'Cancelled' ? '' : 'amber') }}">{{ $e['status'] }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-gray-400 py-8 text-center">No enquiries yet</p>
+                @endif
+            </div>
         </section>
 
         {{-- ═══════════════════════ SUPPORT ═══════════════════════ --}}
         <section class="space-y-4" data-an="support" x-show="tab === 'support'" style="display: none">
 
-            @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
+            @php [$sChg, $sDir] = $delta($supportStats['thisMonth'] ?? 0, $supportExtra['lastMonth'] ?? 0); @endphp
+            @include('livewire.super-admin.partials.analytics-tiles', ['cols' => 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-6', 'items' => [
                 ['Total Tickets', number_format($supportStats['total'] ?? 0), ($supportStats['avgPerMonth'] ?? 0) . ' a month on average', 'text-gray-900'],
                 ['Pending', number_format($supportStats['pending'] ?? 0), 'not replied', 'text-red-500'],
                 ['Replied', number_format($supportStats['replied'] ?? 0), $supportReplyRate . '% reply rate', 'text-emerald-600'],
                 ['This Month', number_format($supportStats['thisMonth'] ?? 0), number_format($supportStats['thisWeek'] ?? 0) . ' this week', 'text-gray-900'],
+                ['Last Month', number_format($supportExtra['lastMonth'] ?? 0), 'this month ' . $sChg, 'text-gray-900'],
+                ['Oldest Waiting', ($supportStats['pending'] ?? 0) > 0 ? number_format($supportExtra['oldestPendingDays'] ?? 0) . ' d' : '—', ($supportStats['pending'] ?? 0) > 0 ? 'days since asked' : 'nothing waiting', ($supportExtra['oldestPendingDays'] ?? 0) > 3 ? 'text-red-500' : 'text-gray-900'],
             ]])
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -761,6 +1254,74 @@
                         ])
                     </div>
                     <p class="text-xs text-gray-400 mt-4 text-center">{{ number_format($supportStats['replied'] ?? 0) }} of {{ number_format($supportStats['total'] ?? 0) }} tickets replied</p>
+                </div>
+            </div>
+
+            {{-- Who writes, about what, and the latest tickets (2026-11-19). --}}
+            @php $sSchools = $supportExtra['schools'] ?? []; @endphp
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-2">
+                        <h3 class="sa-card-title">Schools Writing Most</h3>
+                        <p class="sa-card-sub">Tickets from each school, and how many wait</p>
+                    </div>
+                    @if (count($sSchools))
+                        <div>
+                            @foreach ($sSchools as $row)
+                                <div class="an-row">
+                                    <span class="an-av">{{ $initial($row['name']) }}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
+                                        <p class="text-xs text-gray-400">{{ number_format($row['count']) }} {{ $row['count'] === 1 ? 'ticket' : 'tickets' }}</p>
+                                    </div>
+                                    @if ($row['pending'] > 0)
+                                        <span class="an-tag rose">{{ number_format($row['pending']) }} waiting</span>
+                                    @else
+                                        <span class="an-tag green">All replied</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No tickets yet</p>
+                    @endif
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Topics</h3>
+                        <p class="sa-card-sub">What the tickets are about</p>
+                    </div>
+                    @include('livewire.super-admin.partials.an-bars', ['rows' => $supportExtra['topics'] ?? [], 'empty' => 'No tickets yet'])
+                </div>
+
+                <div class="sa-card p-5 min-w-0">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Latest Tickets</h3>
+                            <p class="sa-card-sub">Newest first</p>
+                        </div>
+                        @if ($can('super-admin.support'))
+                            <a href="{{ route('super-admin.support') }}" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Support →</a>
+                        @endif
+                    </div>
+                    @if (count($supportRecent))
+                        <div>
+                            @foreach ($supportRecent as $t)
+                                <div class="an-row" style="align-items: flex-start">
+                                    <span class="an-av">{{ $initial($t['school']) }}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800 truncate" title="{{ $t['school'] }}">{{ $t['school'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate" title="{{ $t['text'] }}">{{ $t['topic'] }}@if ($t['text']) · {{ $t['text'] }}@endif</p>
+                                        <p class="text-[11px] text-gray-400 mt-0.5">{{ $t['ago'] }}</p>
+                                    </div>
+                                    <span class="an-tag {{ $t['replied'] ? 'green' : 'amber' }}">{{ $t['replied'] ? 'Replied' : 'Pending' }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No tickets yet</p>
+                    @endif
                 </div>
             </div>
         </section>
@@ -862,6 +1423,12 @@
                     type: 'line',
                     data: { labels: p.labels, datasets: [area('Collected', p.fee.collected, VIOLET)] },
                     options: options(true)
+                }),
+
+                feeCountChart: p => ({
+                    type: 'bar',
+                    data: { labels: p.labels, datasets: [bar('Payments', p.fee.count, INK)] },
+                    options: options()
                 }),
 
                 // ── Payroll ──

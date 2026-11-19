@@ -73,11 +73,67 @@ class QuickLinks extends Component
             usort($links, fn($a, $b) => $a['order'] <=> $b['order']);
         }
 
+        // The page has no top bar on a computer (components.layouts.app), as
+        // the Super Admin's Quick Links (2026-11-19): what the bar held comes
+        // onto the page's own header — the session, Ask AI, the clock,
+        // notifications and messages (Profile and Logout are on the
+        // sidebar's user card).
+        $user = auth()->user();
+
         return view('livewire.admin.quick-links', [
-            'orderedLinks' => $links,
-            'columns'      => $this->safeColumns(),
-            'rows'         => $this->safeRows(),
-            'organization' => $this->organization,
+            'orderedLinks'        => $links,
+            'columns'             => $this->safeColumns(),
+            'rows'                => $this->safeRows(),
+            'organization'        => $this->organization,
+            'sessionLabel'        => \App\Models\AcademicSession::currentLabel(),
+            'unreadNotifications' => $this->unreadNotifications(),
+            'unreadMessages'      => $this->unreadMessages(),
+            'assistantEnabled'    => $user
+                && in_array($user->role, (array) config('gemini.roles', []), true)
+                && app(\App\Services\Gemini\GeminiAssistant::class)->available(),
         ]);
+    }
+
+    /** Re-render the bell's badge when notifications are read. */
+    #[\Livewire\Attributes\On('notifications-updated')]
+    public function refreshNotifications(): void
+    {
+        //
+    }
+
+    private function unreadNotifications(): int
+    {
+        try {
+            return (int) auth()->user()?->unreadNotifications()->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /** Unread panel-to-panel chat messages (as the top bar counts them). */
+    private function unreadMessages(): int
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return 0;
+        }
+
+        try {
+            $conversationIds = \App\Models\Chat\Conversation::whereHas(
+                'participants',
+                fn ($q) => $q->where('user_id', $user->id)
+            )->pluck('id');
+
+            if ($conversationIds->isEmpty()) {
+                return 0;
+            }
+
+            return \App\Models\Chat\Message::whereIn('conversation_id', $conversationIds)
+                ->where('sender_id', '!=', $user->id)
+                ->whereNull('read_at')
+                ->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 }

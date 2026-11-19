@@ -17,7 +17,9 @@
     are written from it. Nothing moves for people who ask for reduced motion
     (the finished step is shown instead).
 
-    Params: $variant ('login' | 'otp' | 'reset' | 'newpass'), optional $subtitle.
+    Params: $variant ('login' | 'otp' | 'reset' | 'newpass'), optional $subtitle;
+    optional $amTitle (the window's heading), $amPath (its address after the
+    host), $amHeadline (the caption's heading) and $amEmail (the address typed).
 --}}
 @php
     $variant = in_array($variant ?? 'login', ['login', 'otp', 'reset', 'newpass'], true) ? ($variant ?? 'login') : 'login';
@@ -77,6 +79,18 @@
         'newpass' => ['Almost done', 'Choose a strong new password'],
     ][$variant];
     $subtitle = $subtitle ?? $caption[1];
+
+    // Another panel's screens (the school admin's login and reset, 2026-11-19)
+    // name their own window: its heading, the address after the host, the
+    // email typed in, and the caption under the picture.
+    if (!empty($amTitle))    { $spec['title'] = $amTitle; }
+    if (!empty($amPath))     { $spec['path'] = $amPath; }
+    if (!empty($amHeadline)) { $caption[0] = $amHeadline; }
+    if (!empty($amEmail) && !empty($spec['fields'][0]) && str_contains($spec['fields'][0][2], '@')) {
+        // Same length as the address it replaces would keep the timeline's pace;
+        // a different length only types a little faster or slower.
+        $spec['fields'][0][2] = $amEmail;
+    }
 
     // Keyframe writers.
     $grey = '#d6dedb'; $teal = '#0d9488';

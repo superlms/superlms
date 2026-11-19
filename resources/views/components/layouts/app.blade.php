@@ -8,8 +8,10 @@
          Default is EXPANDED (the width every functionality screen is laid out for);
          collapse to the icon rail only when the user explicitly chose it.
          The Super Admin's sidebar has no menu button: it is always open, and
-         it leaves the saved preference (the school panels') alone. --}}
-    @if (Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true))
+         it leaves the saved preference (the accounts panel's) alone. The
+         school admin's sidebar is in the Super Admin's style since 2026-11-19:
+         always open as well. --}}
+    @if (Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true))
     <script>document.documentElement.classList.add('sidebar-expanded');</script>
     @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
@@ -225,11 +227,13 @@
      Kept at body level so every page inherits the same state.
      lms-no-topbar: no top bar on md+ (see the style above) on every super
      admin page — its Quick Links carries the bar's buttons on its own header
-     (2026-11-18) — and on every admin page but Quick Links. --}}
+     (2026-11-18) — and, in the same style since 2026-11-19, on every school
+     admin page, its Quick Links included. --}}
 @php
     $lmsNoTopbar = Auth::check()
-        && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true)
-        && !request()->routeIs('admin.quick-links');
+        && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true);
+    // The sidebar is always open (no menu button) for these panels: nothing to remember.
+    $lmsSideFixed = Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true);
     // The panels' own touches (partials.panel-ui): login-style fields and button
     // spinners on the Super Admin's and the school admin's panels; dropping a
     // file on a picker on the Super Admin's.
@@ -240,7 +244,7 @@
       x-data="{ offcanvas: false, sidebarOpen: document.documentElement.classList.contains('sidebar-expanded') }"
       x-effect="document.body.classList.toggle('drawer-open', offcanvas);
                 document.documentElement.classList.toggle('sidebar-expanded', sidebarOpen);
-                @if (!$lmsSuperAdmin) try { localStorage.setItem('lmsSidebar', sidebarOpen ? 'open' : 'closed'); } catch (e) {} @endif"
+                @if (!$lmsSideFixed) try { localStorage.setItem('lmsSidebar', sidebarOpen ? 'open' : 'closed'); } catch (e) {} @endif"
       x-on:keydown.escape.window="offcanvas = false">
 
     <x-notifications position="top-end" />

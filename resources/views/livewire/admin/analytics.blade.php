@@ -1,10 +1,34 @@
-<div class="min-h-screen bg-gray-50">
-    {{-- The Super Admin's dashboard look (2026-11-04): KPI cards lead Key
-         Metrics, every section's tiles and cards are the soft cards, line
-         charts are smooth with a fading fill, bars rounded, all in violet /
-         ink, and the fee's position is the one dark card. The figures and
-         filters are as before. --}}
+{{-- The Super Admin's dashboard look (2026-11-04): KPI cards lead Key
+     Metrics, every section's tiles and cards are the soft cards, line charts
+     are smooth with a fading fill, bars rounded, and the fee's position is the
+     one dark card. The figures and filters are as before.
+     Since 2026-11-19 in the Super Admin Analytics' exact style (user's ask):
+     Home's skin and header row, teal, and each functionality's figures on a
+     section of its own, picked with the chips under the header (the URL's
+     #hash keeps the one open). Every section is drawn hidden and x-show opens
+     the picked one, so a re-render (a filter, the admission year) keeps it
+     open: Livewire's morph leaves an element x-show has shown alone. --}}
+@php
+    $wa = $this->whatsAppAnalytics();
+    $anTabs = array_filter([
+        'metrics'    => ['Key Metrics', 'squares-2x2'],
+        'attendance' => ['Attendance', 'clipboard-document-check'],
+        'performance'=> ['Performance', 'trophy'],
+        'admissions' => ['Admissions & Enquiries', 'user-plus'],
+        'fee'        => ['Fee', 'banknotes'],
+        'whatsapp'   => $wa ? ['WhatsApp', 'chat-bubble-left-right'] : null,
+        'operations' => ['Operations', 'arrows-right-left'],
+    ]);
+@endphp
+<div class="sa-skin sa-home min-h-screen"
+    x-data="{
+        tabs: {{ \Illuminate\Support\Js::from(array_keys($anTabs)) }},
+        tab: 'metrics',
+        init() { const h = location.hash.slice(1); if (this.tabs.includes(h)) this.tab = h; },
+        go(t) { this.tab = t; history.replaceState(null, '', '#' + t); this.$nextTick(() => window.dispatchEvent(new Event('resize'))); },
+    }">
     @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
 
     @php
         $inr     = fn ($v) => '₹' . number_format((float) $v, 0);
@@ -38,8 +62,9 @@
 
         $splitMarked = ($studentPieData['present'] ?? 0) + ($studentPieData['absent'] ?? 0);
 
+        $tilesAccent = 'teal';   // the stat tiles' marks in Home's teal (partials.analytics-tiles)
         $avatar = fn ($name) => mb_strtoupper(mb_substr(trim((string) $name) ?: '?', 0, 1));
-        $barTone = fn (float $pct, float $good, float $fair) => $pct >= $good ? '#7c3aed' : ($pct >= $fair ? '#f59e0b' : '#f43f5e');
+        $barTone = fn (float $pct, float $good, float $fair) => $pct >= $good ? '#0d9488' : ($pct >= $fair ? '#f59e0b' : '#f43f5e');
 
         // Every chart's figures (see partials.dash-charts-js).
         $chartPayload = [
@@ -63,27 +88,37 @@
          charts below are updated in place from it. --}}
     <div class="hidden" data-sa-charts="adminAnalytics" data-payload="{{ json_encode($chartPayload) }}"></div>
 
-    {{-- ══════════════════════════════════════════════════════════
-         HEADER — title and date (the figures lead Key Metrics).
-    ══════════════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-15">
-            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Analytics</h1>
-                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
-            </div>
+    {{-- ══════════════════════════════ HEADER ══════════════════════════════
+         The Super Admin Analytics' header row: the title and date and a Live
+         clock; under it a chip for each functionality's figures. --}}
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>Analytics</h1>
+            <p>{{ now()->format('l, d M Y') }}</p>
+        </div>
+        <div class="sk-right">
+            <span wire:ignore class="sk-pill live"
+                x-data="{ t: '', tick() { this.t = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); } }"
+                x-init="tick(); setInterval(() => tick(), 15000)">Live · <span class="tabular-nums" x-text="t"></span></span>
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-8">
+    <nav class="an-chips" aria-label="Analytics sections">
+        @foreach ($anTabs as $key => [$label, $icon])
+            <button type="button" class="an-chip" :class="tab === '{{ $key }}' && 'on'" x-on:click="go('{{ $key }}')" :aria-pressed="tab === '{{ $key }}'">
+                <x-icon name="{{ $icon }}" /> {{ $label }}
+            </button>
+        @endforeach
+    </nav>
+
+    <div class="p-4 sm:p-6 pt-4 sm:pt-5">
 
         {{-- ═══════════════════════ KEY METRICS ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Key Metrics" />
+        <section class="space-y-4" data-an="metrics" x-show="tab === 'metrics'" style="display: none">
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Student Attendance', 'value' => $stuMarked ? ($kpis['student_rate'] ?? 0) . '%' : '—', 'icon' => 'clipboard-document-check', 'color' => 'violet',
+                    'label' => 'Student Attendance', 'value' => $stuMarked ? ($kpis['student_rate'] ?? 0) . '%' : '—', 'icon' => 'clipboard-document-check', 'color' => 'teal',
                     'series' => array_values(array_filter($stuPcts, fn ($v) => $v !== null)), 'trend' => $stuTrend, 'flat' => false, 'compare' => $stuAgainst,
                     'sub' => $stuMarked
                         ? number_format($studentPieData['present'] ?? 0) . ' present · ' . number_format($studentPieData['absent'] ?? 0) . ' absent today'
@@ -91,19 +126,19 @@
                     'href' => null,
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Teacher Attendance', 'value' => $tchMarked ? ($kpis['teacher_rate'] ?? 0) . '%' : '—', 'icon' => 'academic-cap', 'color' => 'sky',
+                    'label' => 'Teacher Attendance', 'value' => $tchMarked ? ($kpis['teacher_rate'] ?? 0) . '%' : '—', 'icon' => 'academic-cap', 'color' => 'teal',
                     'series' => array_values(array_filter($tchPcts, fn ($v) => $v !== null)), 'trend' => $tchTrend, 'flat' => false, 'compare' => $tchAgainst,
                     'sub' => $tchMarked ? 'Today' : 'Not marked yet today',
                     'href' => null,
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Fee Collection', 'value' => ($kpis['collect_rate'] ?? 0) . '%', 'icon' => 'banknotes', 'color' => 'amber',
+                    'label' => 'Fee Collection', 'value' => ($kpis['collect_rate'] ?? 0) . '%', 'icon' => 'banknotes', 'color' => 'teal',
                     'series' => $monthly['fee'] ?? [], 'trend' => $trendOf($monthly['fee'] ?? []), 'flat' => true, 'compare' => 'vs last month',
                     'sub' => $short($feeStats['collected'] ?? 0) . ' of ' . $short($feeStats['totalFee'] ?? 0) . ' total fee collected',
                     'href' => null,
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Total Students', 'value' => number_format($statsData['totalStudents'] ?? 0), 'icon' => 'users', 'color' => 'emerald',
+                    'label' => 'Total Students', 'value' => number_format($statsData['totalStudents'] ?? 0), 'icon' => 'users', 'color' => 'teal',
                     'series' => $monthly['students'] ?? [], 'trend' => $trendOf($monthly['students'] ?? []), 'flat' => true, 'compare' => 'vs last month',
                     'sub' => number_format($kpis['new_admissions'] ?? 0) . ' new in the last 30 days',
                     'href' => null,
@@ -122,8 +157,7 @@
         </section>
 
         {{-- ═══════════════════════ ATTENDANCE ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Attendance" />
+        <section class="space-y-4" data-an="attendance" x-show="tab === 'attendance'" style="display: none">
 
             {{-- Rate trend + student split --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -134,7 +168,7 @@
                             <p class="sa-card-sub">Daily % · last 30 days</p>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-gray-500">
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Students</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Students</span>
                             <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#111827"></span>Teachers</span>
                         </div>
                     </div>
@@ -152,7 +186,7 @@
                     @if ($splitMarked > 0)
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Present', 'value' => (int) ($studentPieData['present'] ?? 0), 'color' => '#7c3aed'],
+                                ['label' => 'Present', 'value' => (int) ($studentPieData['present'] ?? 0), 'color' => '#0d9488'],
                                 ['label' => 'Absent', 'value' => (int) ($studentPieData['absent'] ?? 0), 'color' => '#f43f5e'],
                             ],
                             'center' => ($studentPieData['presentPct'] ?? 0) . '%', 'centerLabel' => 'Present', 'size' => 140,
@@ -169,7 +203,7 @@
                  is the average of its days' percentages. --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 @foreach ([
-                    ['Student Attendance Volume', 'adminStuVolumeChart', '#7c3aed'],
+                    ['Student Attendance Volume', 'adminStuVolumeChart', '#0d9488'],
                     ['Teacher Attendance Volume', 'adminTchVolumeChart', '#111827'],
                 ] as [$title, $canvas, $dot])
                     <div class="sa-card p-5 min-w-0">
@@ -195,7 +229,7 @@
                         <p class="sa-card-sub">Average of each day's attendance % · overall</p>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-gray-500">
-                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>85%+</span>
+                        <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>85%+</span>
                         <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#f59e0b"></span>70–85%</span>
                         <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#f43f5e"></span>Below 70%</span>
                     </div>
@@ -221,8 +255,7 @@
         </section>
 
         {{-- ═══════════════════════ PERFORMANCE ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Student Performance" />
+        <section class="space-y-4" data-an="performance" x-show="tab === 'performance'" style="display: none">
 
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <span class="text-xs font-medium text-gray-400 uppercase tracking-wide mr-1">Filter</span>
@@ -290,8 +323,7 @@
         </section>
 
         {{-- ═══════════════════════ ADMISSIONS & ENQUIRIES ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Admissions & Enquiries" />
+        <section class="space-y-4" data-an="admissions" x-show="tab === 'admissions'" style="display: none">
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {{-- Admissions trend: one bar for each date students were admitted on,
@@ -377,8 +409,7 @@
         </section>
 
         {{-- ═══════════════════════ FEE ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Fee" />
+        <section class="space-y-4" data-an="fee" x-show="tab === 'fee'" style="display: none">
 
             @include('livewire.super-admin.partials.analytics-tiles', ['cols' => 'grid-cols-2 lg:grid-cols-4', 'big' => true, 'items' => [
                 ['Total Fee', $inr($feeStats['totalFee'] ?? 0), 'academic + transport + dues', 'text-gray-900'],
@@ -395,7 +426,7 @@
                             <h3 class="sa-card-title">Monthly Collection</h3>
                             <p class="sa-card-sub">Academic and transport fee collected · last 12 months</p>
                         </div>
-                        <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short(array_sum($monthly['fee'] ?? [])) }} in 12 months</span>
+                        <span class="sa-chip"><span class="sa-dot" style="background:#0d9488"></span>{{ $short(array_sum($monthly['fee'] ?? [])) }} in 12 months</span>
                     </div>
                     <div class="h-64 relative" wire:ignore wire:key="chart-adminFeeMonthlyChart">
                         <canvas id="adminFeeMonthlyChart"></canvas>
@@ -410,7 +441,7 @@
                     <div class="flex justify-center my-5">
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Collected', 'value' => (float) ($feeStats['collected'] ?? 0), 'color' => '#a78bfa'],
+                                ['label' => 'Collected', 'value' => (float) ($feeStats['collected'] ?? 0), 'color' => '#5eead4'],
                                 ['label' => 'Remaining', 'value' => (float) ($feeStats['remaining'] ?? 0), 'color' => 'rgba(255,255,255,.14)'],
                             ],
                             'center' => ($kpis['collect_rate'] ?? 0) . '%', 'centerLabel' => 'Collected', 'size' => 140, 'legend' => false, 'dark' => true, 'format' => null,
@@ -418,7 +449,7 @@
                     </div>
                     <dl class="mt-auto space-y-2.5 text-sm">
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Collected</dt>
+                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Collected</dt>
                             <dd class="font-semibold tabular-nums">{{ $inr($feeStats['collected'] ?? 0) }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-2">
@@ -446,8 +477,8 @@
                             <p class="sa-card-sub">Collected vs remaining</p>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-gray-500">
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Collected</span>
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#c4b5fd"></span>Remaining</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Collected</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#99e0d3"></span>Remaining</span>
                         </div>
                     </div>
                     <div class="h-64 relative" wire:ignore wire:key="chart-adminFeeClassChart">
@@ -505,8 +536,8 @@
                             <p class="sa-card-sub">Collected vs remaining</p>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-gray-500">
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Collected</span>
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#c4b5fd"></span>Remaining</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Collected</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#99e0d3"></span>Remaining</span>
                         </div>
                     </div>
                     @if (count($transportClassData['labels'] ?? []))
@@ -527,8 +558,8 @@
                             <p class="sa-card-sub">Collected vs remaining · fare × each student's months</p>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-gray-500">
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#7c3aed"></span>Collected</span>
-                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#c4b5fd"></span>Remaining</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#0d9488"></span>Collected</span>
+                            <span class="flex items-center gap-1.5"><span class="sa-dot" style="background:#99e0d3"></span>Remaining</span>
                         </div>
                     </div>
                     @if (count($transportRouteData['labels'] ?? []))
@@ -548,16 +579,14 @@
              The school's messages: the last 30 days or a month — each kind
              day by day, what the charged ones came to, delivery and the
              messages themselves. To read: the Super Admin turns them on. --}}
-        @if ($wa = $this->whatsAppAnalytics())
-            <section class="space-y-4">
-                <x-admin.section-heading title="WhatsApp" />
+        @if ($wa)
+            <section class="space-y-4" data-an="whatsapp" x-show="tab === 'whatsapp'" style="display: none">
                 @include('livewire.partials.whatsapp-analytics', ['wa' => $wa, 'waEditable' => false, 'waKey' => 'admin'])
             </section>
         @endif
 
         {{-- ═══════════════════════ OPERATIONS ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Operations" />
+        <section class="space-y-4" data-an="operations" x-show="tab === 'operations'" style="display: none">
 
             {{-- Arrangement --}}
             <div class="sa-card min-w-0 overflow-hidden">
@@ -633,7 +662,7 @@
     @include('livewire.super-admin.partials.dash-charts-js')
     <script>
         (function () {
-            const VIOLET = '#7c3aed', INK = '#111827', SOFT = '#c4b5fd';
+            const VIOLET = '#0d9488', INK = '#111827', SOFT = '#99e0d3';   // Home's teal (the names are older than the colours)
             const num   = v => Number(v || 0).toLocaleString('en-IN');
             const inr   = v => '₹' + num(v);
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;

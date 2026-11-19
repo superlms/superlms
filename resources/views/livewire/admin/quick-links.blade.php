@@ -1,102 +1,97 @@
-<div class="bg-gray-50">
+{{-- School Admin → Quick Links in the Super Admin's exact style (user's ask of
+     2026-11-19, livewire.super-admin.partials.home-skin, sk-ql): no top bar on
+     a computer — the page's own header is one 60px row with a line under it,
+     level with the sidebar's divider: the title, the session, Filter by /
+     Sort, the search (filters the tiles as you type; Enter opens the first),
+     Ask AI (the website's ask pill — Enter opens the assistant as the
+     website's popup), the day · date · time, the bell and Messages. Profile
+     and Logout are on the sidebar's user card. Every screen a white tile on a
+     white page that fills with its own pastel under the pointer. --}}
+<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
+    @include('livewire.super-admin.partials.home-skin')
 
-    {{-- ─── Filter bar — Quick Links heading + Sort + the day, date and time,
-         in the Super Admin's Quick Links look: one compact row. ─── --}}
-    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-1.5 sm:py-2 sticky top-0 z-30">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:min-h-8">
+    {{-- ─── Header row ─── --}}
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>Quick Links</h1>
+            <span class="sk-bar-div" aria-hidden="true"></span>
+            <span class="sk-pill" title="Current session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</span>
+        </div>
 
-            {{-- Page heading (first item in the filter row). --}}
-            <h1 class="text-base font-semibold text-gray-900 mr-1">Quick Links</h1>
+        <div class="sk-bar-filter">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            <span>Filter by:</span>
+            <select wire:model.live="sort" class="sk-select" aria-label="Sort">
+                <option value="sidebar">Sidebar order</option>
+                <option value="asc">A–Z</option>
+            </select>
+        </div>
 
-            {{-- Divider --}}
-            <span class="hidden sm:block h-4 w-px bg-gray-200"></span>
+        <label class="sk-search">
+            <x-icon name="magnifying-glass" />
+            <span class="sr-only">Search pages</span>
+            <input type="text" x-model="q" placeholder="Search pages..." autocomplete="off"
+                x-on:keydown.escape="q = ''"
+                x-on:keydown.enter.prevent="const t = [...$root.querySelectorAll('.sk-tile')].find(el => el.style.display !== 'none'); if (t) t.click()">
+            <button type="button" x-show="q" x-on:click="q = ''" style="display: none" aria-label="Clear"><x-icon name="x-mark" class="w-3.5 h-3.5" /></button>
+        </label>
 
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="hidden sm:inline">Filter by:</span>
-                <span class="sm:hidden">Filters</span>
-            </div>
+        <div class="sk-right">
+            @if ($assistantEnabled)
+                {{-- Ask AI — type and press Enter: the assistant opens as the
+                     website's popup with the question asked; empty, it just opens. --}}
+                <form class="sk-ask" x-data="{ ask: '' }" :class="ask.trim() && 'has-text'"
+                    x-on:submit.prevent="if (ask.trim()) { $dispatch('gemini-ask', { q: ask.trim() }); ask = ''; } else { $dispatch('gemini-toggle'); }">
+                    <img src="{{ \App\Support\Platform::logoUrl() }}" alt="">
+                    <input type="text" x-model="ask" placeholder="Ask AI…" aria-label="Ask AI" autocomplete="off">
+                    <button type="submit" title="Ask AI" aria-label="Ask AI">
+                        <svg fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    </button>
+                </form>
+            @endif
 
-            <div class="flex items-center gap-1.5">
-                <span class="text-xs text-gray-500">Sort</span>
-                <select wire:model.live="sort"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="sidebar">Sidebar</option>
-                    <option value="asc">A–Z</option>
-                </select>
-            </div>
+            {{-- Live day · date · time (client clock, ticks every second). --}}
+            <span wire:ignore class="sk-clock"
+                x-data="{ day: '', date: '', time: '', tick() { const n = new Date(); this.day = n.toLocaleDateString('en-IN', { weekday: 'long' }); this.date = n.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); this.time = n.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); } }"
+                x-init="tick(); setInterval(() => tick(), 1000)">
+                <b class="day" x-text="day"></b><i>·</i><span x-text="date"></span><i>·</i><b class="tabular-nums" x-text="time"></b>
+            </span>
 
-            {{-- Live date / day / time clock (client-side, updates every second). --}}
-            <div wire:ignore
-                 x-data="{
-                    day: '', date: '', time: '',
-                    tick() {
-                        const now = new Date();
-                        this.day  = now.toLocaleDateString('en-IN', { weekday: 'long' });
-                        this.date = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                        this.time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                    }
-                 }"
-                 x-init="tick(); setInterval(() => tick(), 1000)"
-                 class="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
-                <span class="text-gray-800 font-semibold" x-text="day"></span>
-                <span class="text-gray-300">·</span>
-                <span x-text="date"></span>
-                <span class="text-gray-300">·</span>
-                <span class="tabular-nums text-gray-800 font-semibold" x-text="time"></span>
+            <div class="sk-actions">
+                <button type="button" class="sk-btn" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
+                    <x-icon name="bell-alert" />
+                    @if ($unreadNotifications > 0)
+                        <span class="sk-badge">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
+                    @endif
+                </button>
+                @if (\Illuminate\Support\Facades\Route::has('admin.messages'))
+                    <a href="{{ route('admin.messages', ['organization' => $organization]) }}" class="sk-btn" title="Messages" aria-label="Messages"
+                        x-data="{ count: {{ (int) $unreadMessages }} }" x-on:chat-sync.window="count = $event.detail.unread">
+                        <x-icon name="chat-bubble-oval-left-ellipsis" />
+                        <span class="sk-badge" x-show="count > 0" x-cloak x-text="count > 99 ? '99+' : count" @if ($unreadMessages <= 0) style="display: none" @endif>{{ $unreadMessages > 99 ? '99+' : $unreadMessages }}</span>
+                    </a>
+                @endif
             </div>
         </div>
     </div>
 
-    {{-- ─── Tile grid ───
-         - On phones: 3 columns, comfy padding (mobile-app feel).
-         - On sm+: respects user's columns choice via the inline custom property. --}}
-    <div class="p-3 sm:p-4 md:p-5"
-         style="--ql-cols: {{ $columns }}; --ql-rows: {{ $rows }};">
-        <div class="ql-grid grid gap-2.5 sm:gap-3 md:gap-3.5">
-            @foreach ($orderedLinks as $link)
-                <a href="{{ route($link['route'], ['organization' => $organization]) }}"
-                   wire:key="ql-{{ $link['route'] }}"
-                   class="ql-tile group flex flex-col items-center justify-start
-                          rounded-2xl sm:rounded-xl border border-gray-200 bg-white
-                          hover:bg-gray-50 hover:border-gray-300
-                          active:scale-[0.97] transition
-                          p-2.5 sm:p-2 md:p-2.5 overflow-hidden min-w-0">
-                    <div class="w-11 h-11 sm:w-9 sm:h-9 md:w-10 md:h-10 mb-1.5 sm:mb-1
-                                bg-{{ $link['color'] }}-100 rounded-full
-                                flex items-center justify-center shrink-0">
-                        <x-icon name="{{ $link['icon'] }}"
-                                class="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-{{ $link['color'] }}-600" />
-                    </div>
-                    <span class="block w-full text-[11px] sm:text-[11px] md:text-xs leading-tight
-                                 font-medium text-center text-gray-800 break-words"
-                          style="overflow-wrap: anywhere; word-break: break-word;">
-                        {{ $link['title'] }}
-                    </span>
-                </a>
-            @endforeach
+    {{-- ─── The tiles ─── --}}
+    <div class="sk-body flex-1 min-h-0 flex flex-col">
+        <div class="sk-panel flex-1 min-h-0">
+            <div class="sk-tiles" :class="q && 'is-filtering'">
+                @php $tints = [['#dff3ee', '#0f766e'], ['#dde9fb', '#2563eb'], ['#e9e2fb', '#7c3aed'], ['#f8edd0', '#b45309'], ['#f6dcd8', '#c2410c'], ['#e3efdc', '#4d7c0f']]; @endphp
+                @foreach ($orderedLinks as $i => $link)
+                    @php [$tint, $ink] = $tints[$i % count($tints)]; @endphp
+                    <a href="{{ route($link['route'], ['organization' => $organization]) }}" wire:key="ql-{{ $link['route'] }}" class="sk-tile" style="--i: {{ $i }}; --tint: {{ $tint }}; --ink: {{ $ink }};"
+                        x-show="!q || {{ \Illuminate\Support\Js::from(mb_strtolower($link['title'])) }}.includes(q.trim().toLowerCase())">
+                        <span class="sk-tile-ic"><x-icon name="{{ $link['icon'] }}" /></span>
+                        <span>{{ $link['title'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+            <p class="sk-empty" x-show="q && ![...$root.querySelectorAll('.sk-tile')].some(el => el.textContent.toLowerCase().includes(q.trim().toLowerCase()))" style="display: none">
+                No pages found for “<span x-text="q"></span>”
+            </p>
         </div>
     </div>
-
-    {{-- Adaptive grid: phones lock to 3 cols regardless of the desktop pick so
-         tiles stay tappable. sm uses 4, md+ honors the user's --ql-cols. --}}
-    <style>
-        .ql-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-        @media (min-width: 640px) {
-            .ql-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
-        }
-        @media (min-width: 768px) {
-            .ql-grid {
-                grid-template-columns: repeat(var(--ql-cols, 6), minmax(0, 1fr));
-            }
-        }
-    </style>
 </div>

@@ -61,6 +61,27 @@ class Analytics extends Component
     public array $supportStats   = [];
     public array $supportMonthly = [];
 
+    // ── More detail on every section (user's ask of 2026-11-19) ──────────────
+    /** Schools: the newest ones, how they split by state / board / medium, and a few ratios. */
+    public array $schoolExtra   = [];
+    public array $schoolGroups  = [];
+    public array $newestSchools = [];
+    /** Website: today, the period before, the busiest day and the weekdays. */
+    public array $websiteExtra = [];
+    /** Fee: schools by payment status, the biggest dues and the latest payments. */
+    public array $feeExtra  = [];
+    public array $feeRecent = [];
+    /** Payroll: active against inactive, payments this year, the month's progress. */
+    public array $payrollExtra = [];
+    /** Calendar: what is coming up in the next seven days. */
+    public array $calendarUpcoming = [];
+    /** Enquiries: demo statuses, meetings booked, cities and the latest ones. */
+    public array $enquiryExtra  = [];
+    public array $enquiryRecent = [];
+    /** Support: last month, the oldest waiting, the schools and topics, the latest tickets. */
+    public array $supportExtra  = [];
+    public array $supportRecent = [];
+
     // The signed-in person's own Calendar; empty (and off the page) for a
     // sub-super-admin who was not given Calendar.
     public array $calendarStats   = [];
@@ -236,6 +257,44 @@ class Analytics extends Component
             '2000+' => $schoolsWithCounts->where('students_count', '>=', 2000)->count(),
         ];
 
+        // A few more figures on the schools (2026-11-19).
+        $lastMonthRange = [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()];
+        $this->schoolExtra = [
+            'newLastMonth'       => Organization::whereBetween('created_at', $lastMonthRange)->count(),
+            'avgTeachers'        => $totalSchools > 0 ? round($totalTeachers / $totalSchools, 1) : 0,
+            'studentsPerTeacher' => $totalTeachers > 0 ? round($totalStudents / $totalTeachers, 1) : 0,
+            'emptySchools'       => $schoolsWithCounts->where('students_count', 0)->count(),
+            'largest'            => (int) ($schoolsWithCounts->max('students_count') ?? 0),
+            'teachersThisMonth'  => User::where('role', 'teacher')->where('created_at', '>=', now()->startOfMonth())->count(),
+            'teachersLastMonth'  => User::where('role', 'teacher')->whereBetween('created_at', $lastMonthRange)->count(),
+        ];
+
+        // Schools by state, board and medium: the biggest few, then the rest.
+        $this->schoolGroups = [
+            'state'  => $this->groupSchools('state'),
+            'board'  => $this->groupSchools('education_board'),
+            'medium' => $this->groupSchools('medium'),
+        ];
+
+        // The schools that joined last, with their size.
+        $this->newestSchools = Organization::select('id', 'name', 'logo', 'status', 'created_at')
+            ->withCount([
+                'users as students_count' => fn($q) => $q->where('role', 'user'),
+                'users as teachers_count' => fn($q) => $q->where('role', 'teacher'),
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get()
+            ->map(fn($o) => [
+                'name'     => $o->name,
+                'logo'     => $o->logo,
+                'active'   => (bool) $o->status,
+                'students' => (int) $o->students_count,
+                'teachers' => (int) $o->teachers_count,
+                'joined'   => $o->created_at?->format('d M Y') ?? '—',
+            ])->toArray();
+
         // Monthly registrations + schools onboarded (aggregate queries)
         $this->monthlyRegistrations = [
             'labels'   => $this->monthLabels(),
@@ -264,6 +323,45 @@ class Analytics extends Component
             'fiveStar'     => (int) ($ratingRows[5] ?? 0),
             'distribution' => $dist,
         ];
+    }
+
+    /**
+     * The schools counted by one of their own fields (state, board, medium):
+     * the six biggest by name — spelt the same whatever its case — then the
+     * rest as "Others", and the ones with nothing filled in as "Not set".
+     */
+    private function groupSchools(string $column): array
+    {
+        // A board's short name (CBSE, ICSE…) or a two-letter state (UP, MP) in
+        // capitals; any other name in title case.
+        $acronyms = ['cbse', 'icse', 'isc', 'ib', 'igcse', 'nios', 'cisce', 'ssc', 'hsc', 'bseb', 'rbse', 'mpbse', 'cgbse', 'jac',
+                     'pseb', 'hbse', 'gseb', 'wbbse', 'upmsp', 'jkbose', 'tbse', 'bse', 'cie', 'ncert'];
+        $label = function (string $v) use ($acronyms): string {
+            if ($v === '') {
+                return 'Not set';
+            }
+            $lower = mb_strtolower($v);
+
+            return mb_strlen($v) <= 2 || in_array($lower, $acronyms, true) ? mb_strtoupper($v) : \Illuminate\Support\Str::title($lower);
+        };
+
+        $counts = Organization::query()->pluck($column)
+            ->map(fn($v) => $label(trim((string) $v)))
+            ->countBy()
+            ->sortDesc();
+
+        $notSet = (int) ($counts['Not set'] ?? 0);
+        $named  = $counts->except('Not set');
+        $rows   = $named->take(6)->map(fn($c, $label) => ['label' => (string) $label, 'count' => (int) $c])->values()->all();
+        $rest   = (int) $named->slice(6)->sum();
+        if ($rest > 0) {
+            $rows[] = ['label' => 'Others', 'count' => $rest];
+        }
+        if ($notSet > 0) {
+            $rows[] = ['label' => 'Not set', 'count' => $notSet];
+        }
+
+        return $rows;
     }
 
     /**
@@ -392,6 +490,41 @@ class Analytics extends Component
             'pct'       => $s['pct'],
         ])->values()->toArray();
 
+        // Schools by how much of the year's fee they have paid, the biggest
+        // dues, and the payments themselves (2026-11-19).
+        $bySchool     = $year['by_school'];
+        $receiptCount = SuperAdminFeeReceipt::where('amount', '>', 0)->count();
+        $receiptSum   = (float) SuperAdminFeeReceipt::where('amount', '>', 0)->sum('amount');
+        $this->feeExtra = [
+            'status' => [
+                'full' => $bySchool->filter(fn($r) => $r['expected'] > 0 && $r['remaining'] <= 0.005)->count(),
+                'part' => $bySchool->filter(fn($r) => $r['collected'] > 0 && $r['remaining'] > 0.005)->count(),
+                'none' => $bySchool->filter(fn($r) => $r['expected'] > 0 && $r['collected'] <= 0)->count(),
+            ],
+            'topDues' => $bySchool->filter(fn($r) => $r['remaining'] > 0.005)
+                ->sortByDesc('remaining')->take(5)
+                ->map(fn($r) => ['name' => $r['name'], 'remaining' => (float) $r['remaining'], 'expected' => (float) $r['expected'], 'pct' => $r['pct']])
+                ->values()->all(),
+            'receipts'          => $receiptCount,
+            'avgPayment'        => $receiptCount > 0 ? round($receiptSum / $receiptCount) : 0,
+            'paymentsThisMonth' => SuperAdminFeeReceipt::where('amount', '>', 0)
+                ->whereDate('payment_date', '>=', $thisMonth->toDateString())->count(),
+            'largestPayment'    => (float) (SuperAdminFeeReceipt::max('amount') ?? 0),
+        ];
+        $this->feeRecent = SuperAdminFeeReceipt::with('organization:id,name')
+            ->where('amount', '>', 0)
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get()
+            ->map(fn($r) => [
+                'name'   => $r->organization?->name ?? 'Unknown',
+                'amount' => (float) $r->amount,
+                'mode'   => $r->payment_mode ? ucwords(str_replace('_', ' ', $r->payment_mode)) : '—',
+                'date'   => $r->payment_date?->format('d M Y') ?? '—',
+                'number' => $r->receipt_number,
+            ])->toArray();
+
         $this->feeMonthly = [
             'labels'    => $this->monthLabels(),
             'collected' => $this->monthlySeries(SuperAdminFeeReceipt::query(), 'amount', 'payment_date'),
@@ -509,6 +642,19 @@ class Analytics extends Component
                 'payment_date'
             ),
         ];
+
+        // Active against inactive, payments this year, and how far the
+        // payable month's bill has been paid (2026-11-19).
+        $activeEmployees = SuperAdminEmployee::where('is_active', true)->count();
+        $paidMonths      = array_values(array_filter($this->payrollMonthly['paid'], fn($v) => $v > 0));
+        $this->payrollExtra = [
+            'active'           => $activeEmployees,
+            'inactive'         => max(0, $totalEmployees - $activeEmployees),
+            'paymentsThisYear' => SuperAdminSalaryPayment::paid()->where('month', 'like', now()->format('Y') . '-%')->count(),
+            'paidPct'          => $totalMonthlySalaryBill > 0 ? min(100, round($totalPaidAmount / $totalMonthlySalaryBill * 100, 1)) : 0,
+            'leftToPay'        => max(0, $totalMonthlySalaryBill - $totalPaidAmount),
+            'avgMonth'         => $paidMonths ? round(array_sum($paidMonths) / count($paidMonths)) : 0,
+        ];
     }
 
     // ─── Enquiries ────────────────────────────────────────────────────────────
@@ -557,6 +703,48 @@ class Analytics extends Component
             'demo'    => $this->monthlySeries(WebsiteDemo::query()),
             'contact' => $this->monthlySeries(WebsiteContact::query()),
         ];
+
+        // Demo requests by status, meetings booked, where they come from, and
+        // the latest enquiries of both kinds (2026-11-19).
+        $statusRows = WebsiteDemo::query()
+            ->selectRaw("LOWER(COALESCE(NULLIF(TRIM(status), ''), 'pending')) as s, COUNT(*) as c")
+            ->groupBy('s')
+            ->pluck('c', 's');
+        $status = array_fill_keys(array_keys(WebsiteDemo::STATUSES), 0);
+        foreach ($statusRows as $key => $count) {
+            $status[array_key_exists($key, $status) ? $key : 'pending'] += (int) $count;
+        }
+        $lastMonthRange = [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()];
+        $this->enquiryExtra = [
+            'status'           => $status,
+            'upcomingMeetings' => WebsiteDemo::where('meeting_at', '>=', now())->count(),
+            'demoLastMonth'    => WebsiteDemo::whereBetween('created_at', $lastMonthRange)->count(),
+            'contactLastMonth' => WebsiteContact::whereBetween('created_at', $lastMonthRange)->count(),
+            'cities'           => WebsiteDemo::query()->pluck('city')
+                ->map(fn($c) => trim((string) $c))->filter()
+                ->map(fn($c) => \Illuminate\Support\Str::title(mb_strtolower($c)))
+                ->countBy()->sortDesc()->take(5)
+                ->map(fn($c, $city) => ['label' => (string) $city, 'count' => (int) $c])->values()->all(),
+        ];
+
+        $replied = fn($row) => trim((string) $row->remark) !== '';
+        $demos = WebsiteDemo::orderByDesc('created_at')->limit(6)
+            ->get(['id', 'full_name', 'school_name', 'city', 'remark', 'status', 'created_at'])
+            ->map(fn($d) => [
+                'kind' => 'Demo', 'name' => $d->full_name ?: 'Someone', 'school' => $d->school_name ?: ($d->city ?: '—'),
+                'status' => $d->statusLabel(), 'replied' => $replied($d), 'at' => $d->created_at,
+            ]);
+        $contacts = WebsiteContact::orderByDesc('created_at')->limit(6)
+            ->get(['id', 'full_name', 'school_name', 'subject', 'remark', 'created_at'])
+            ->map(fn($c) => [
+                'kind' => 'Contact', 'name' => $c->full_name ?: 'Someone', 'school' => $c->school_name ?: ($c->subject ?: '—'),
+                'status' => $replied($c) ? 'Replied' : 'Pending', 'replied' => $replied($c), 'at' => $c->created_at,
+            ]);
+        $this->enquiryRecent = $demos->concat($contacts)
+            ->sortByDesc(fn($r) => $r['at']?->timestamp ?? 0)
+            ->take(6)
+            ->map(fn($r) => array_merge($r, ['ago' => $r['at']?->diffForHumans() ?? '—', 'at' => null]))
+            ->values()->all();
     }
 
     // ─── Support ──────────────────────────────────────────────────────────────
@@ -582,6 +770,47 @@ class Analytics extends Component
             'avgPerMonth' => round($total / $monthsActive, 1),
         ];
 
+        // Last month, the oldest ticket still waiting, the schools that write
+        // most, the topics and the latest tickets (2026-11-19).
+        $oldestPending = ContactSuperAdmin::where(fn($q) => $q->whereNull('super_admin_reply')->orWhere('super_admin_reply', ''))
+            ->min('created_at');
+        $topSchools = ContactSuperAdmin::query()
+            ->selectRaw("organization_id, COUNT(*) as c, SUM(CASE WHEN super_admin_reply IS NULL OR super_admin_reply = '' THEN 1 ELSE 0 END) as p")
+            ->groupBy('organization_id')
+            ->orderByDesc('c')
+            ->limit(5)
+            ->get();
+        $schoolNames = Organization::whereIn('id', $topSchools->pluck('organization_id')->filter())->pluck('name', 'id');
+        $this->supportExtra = [
+            'lastMonth'         => ContactSuperAdmin::whereBetween('created_at', [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()])->count(),
+            'oldestPendingDays' => $oldestPending ? (int) floor(Carbon::parse($oldestPending)->diffInDays(now())) : 0,
+            'schools'           => $topSchools->map(fn($r) => [
+                'name'    => $schoolNames[$r->organization_id] ?? 'Unknown school',
+                'count'   => (int) $r->c,
+                'pending' => (int) $r->p,
+            ])->values()->all(),
+            'topics'            => ContactSuperAdmin::query()
+                ->selectRaw("COALESCE(NULLIF(TRIM(topic), ''), 'Other') as t, COUNT(*) as c")
+                ->groupBy('t')
+                ->orderByDesc('c')
+                ->limit(6)
+                ->get()
+                ->map(fn($r) => ['label' => \Illuminate\Support\Str::headline((string) $r->t), 'count' => (int) $r->c])
+                ->values()->all(),
+        ];
+        $this->supportRecent = ContactSuperAdmin::with('organization:id,name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get()
+            ->map(fn($t) => [
+                'school'  => $t->organization?->name ?? 'Unknown school',
+                'topic'   => $t->topic ? \Illuminate\Support\Str::headline((string) $t->topic) : 'Query',
+                'text'    => \Illuminate\Support\Str::limit(trim(strip_tags((string) $t->admin_query)), 70),
+                'replied' => trim((string) $t->super_admin_reply) !== '',
+                'ago'     => $t->created_at?->diffForHumans() ?? '—',
+            ])->toArray();
+
         $this->supportMonthly = [
             'labels'  => $this->monthLabels(),
             'total'   => $this->monthlySeries(ContactSuperAdmin::query()),
@@ -606,7 +835,7 @@ class Analytics extends Component
      */
     private function loadCalendar(): void
     {
-        $this->calendarStats = $this->calendarMonthly = [];
+        $this->calendarStats = $this->calendarMonthly = $this->calendarUpcoming = [];
 
         $user = auth()->user();
         if (! $user || ! Route::has('super-admin.calendar') || ! $user->canAccessSuperAdminRoute('super-admin.calendar')) {
@@ -671,6 +900,34 @@ class Analytics extends Component
             'tasks'    => $series('task'),
             'events'   => $series('event'),
         ];
+
+        // What is coming up: today and the next seven days, tasks still to do
+        // (2026-11-19).
+        $this->calendarUpcoming = $mine()
+            ->whereDate('date', '>=', $today)
+            ->whereDate('date', '<=', now()->addDays(7)->toDateString())
+            ->where(fn($q) => $q->where('type', '!=', 'task')->orWhere('is_done', false))
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->limit(6)
+            ->get(['type', 'title', 'date', 'start_time', 'with_whom', 'location'])
+            ->map(function ($e) use ($today) {
+                $time = null;
+                if ($e->start_time) {
+                    try {
+                        $time = Carbon::parse($e->start_time)->format('g:i A');
+                    } catch (\Throwable $ex) {
+                        $time = null;
+                    }
+                }
+
+                return [
+                    'type'  => (string) $e->type,
+                    'title' => $e->title ?: ucfirst((string) $e->type),
+                    'when'  => ($e->date->toDateString() === $today ? 'Today' : $e->date->format('D, d M')) . ($time ? ' · ' . $time : ''),
+                    'where' => $e->with_whom ?: $e->location,
+                ];
+            })->toArray();
     }
 
     // ─── Website traffic ──────────────────────────────────────────────────────
@@ -727,6 +984,28 @@ class Analytics extends Component
             $cursor->addDay();
         }
 
+        // The period just before, of the same length; today; the busiest day;
+        // and the visits by weekday (2026-11-19).
+        $wholeDays  = max(1, (int) floor($days));
+        $prevVisits = WebsiteVisit::whereBetween('created_at', [$from->copy()->subDays($wholeDays), $from->copy()->subSecond()])->count();
+        $weekdays   = array_fill(1, 7, 0);
+        $busiest    = null;
+        foreach ($daily as $d => $row) {
+            $weekdays[Carbon::parse($d)->dayOfWeekIso] += (int) $row->visits;
+            if (!$busiest || (int) $row->visits > $busiest['visits']) {
+                $busiest = ['label' => Carbon::parse($d)->format('D, d M'), 'visits' => (int) $row->visits];
+            }
+        }
+        $this->websiteExtra = [
+            'today'        => WebsiteVisit::where('created_at', '>=', now()->startOfDay())->count(),
+            'prevVisits'   => $prevVisits,
+            'changePct'    => $prevVisits > 0 ? round(($totalVisits - $prevVisits) / $prevVisits * 100, 1) : null,
+            'returnVisits' => max(0, $totalVisits - $uniqueVisitors),
+            'perVisitor'   => $uniqueVisitors > 0 ? round($totalVisits / $uniqueVisitors, 1) : 0,
+            'busiest'      => $busiest,
+            'weekdays'     => array_combine(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], array_values($weekdays)),
+        ];
+
         $this->websiteStats = [
             'totalVisits'    => $totalVisits,
             'uniqueVisitors' => $uniqueVisitors,
@@ -777,6 +1056,7 @@ class Analytics extends Component
                 'amount'       => $this->creditMonthly['amount'] ?? [],
             ],
             'fee'      => [
+                'count'     => $this->feeMonthly['payments'] ?? [],
                 'collected' => $this->feeMonthly['collected'] ?? [],
                 'payments'  => $this->feeMonthly['payments'] ?? [],
                 'modes'     => $this->feeModes,

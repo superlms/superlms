@@ -10,10 +10,11 @@
     as the superlms.in website's ask popup — a rounded card under the page's
     header at the right, in the website's colours (.gem-pop below); the
     header's Ask AI pill sends a `gemini-ask` event with the question, which
-    opens the popup and asks it at once.
+    opens the popup and asks it at once. The school admin's panel has the
+    same Ask AI since 2026-11-19 (its Quick Links has the same header).
 --}}
 @php
-    $gemPop   = auth()->check() && in_array(auth()->user()->role, ['super-admin', 'sub-super-admin'], true);
+    $gemPop   = auth()->check() && in_array(auth()->user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true);
     $gemTitle = $gemPop ? 'Ask AI' : 'Super Assist';
 @endphp
 <div>
