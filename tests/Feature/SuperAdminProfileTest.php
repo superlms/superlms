@@ -102,6 +102,32 @@ class SuperAdminProfileTest extends TestCase
         $this->assertStringStartsWith('Up to 5 numbers', OtpNumbers::add($this->boss, '9000000005'));
     }
 
+    /**
+     * Profile in Home / Analytics' look (2026-11-19): Home's header, a chip a
+     * part, every card a plain white one (no dark card) and no violet; the
+     * main super admin also gets Platform and Website, a sub super admin not.
+     */
+    public function test_profile_is_in_the_home_and_analytics_look(): void
+    {
+        $this->actingAs($this->boss);
+        $html = Livewire::test(Profile::class)->html();
+
+        $this->assertStringContainsString('class="sa-skin sa-home min-h-screen"', $html);
+        $this->assertStringContainsString('class="sk-head"', $html);
+        preg_match_all('/data-pf="([a-z]+)"/', $html, $sections);
+        $this->assertSame(['account', 'security', 'activity', 'platform', 'website'], $sections[1]);
+        preg_match_all('/x-on:click="go\(\'([a-z]+)\'\)"/', $html, $chips);
+        $this->assertSame($sections[1], array_values(array_unique(array_slice($chips[1], 0, 5))));
+        $this->assertStringNotContainsString('class="sa-card-dark', $html);
+        $this->assertDoesNotMatchRegularExpression('/class="[^"]*\b(bg|text|border|ring)-(violet|indigo)-\d/', $html);
+        $this->assertStringContainsString('Platform at a Glance', $html);
+
+        $sub = User::forceCreate(['name' => 'Priya', 'email' => 'priya@superlms.in', 'role' => 'sub-super-admin']);
+        $this->actingAs($sub);
+        preg_match_all('/data-pf="([a-z]+)"/', Livewire::test(Profile::class)->html(), $subSections);
+        $this->assertSame(['account', 'security', 'activity'], $subSections[1]);
+    }
+
     /** The super admin sets their own name on Profile (2026-11-19): Quick Links greets it. */
     public function test_the_super_admin_changes_their_own_name(): void
     {

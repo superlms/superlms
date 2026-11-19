@@ -1,32 +1,57 @@
-<div class="min-h-screen bg-gray-50">
+{{-- Super Admin → My Profile in Home / Analytics' look (user's ask,
+     2026-11-19): Home's skin and header, a chip for each part under it, every
+     card a plain white one (the dark account card is gone) and Home's teal in
+     place of the panel's violet. The fields are the login's (a grey edge, teal
+     while typing and once typed). Each part is drawn hidden and x-show opens
+     the picked one; the URL's #hash keeps it. --}}
+@php
+    $pfTabs = array_filter([
+        'account'  => ['Account', 'user-circle'],
+        'security' => ['Sign-in & Password', 'lock-closed'],
+        'activity' => ['Login Activity', 'finger-print'],
+        'platform' => $isMain ? ['Platform', 'building-office-2'] : null,
+        'website'  => $isMain ? ['Website', 'globe-alt'] : null,
+    ]);
+@endphp
+<div class="sa-skin sa-home min-h-screen"
+    x-data="{
+        tabs: {{ \Illuminate\Support\Js::from(array_keys($pfTabs)) }},
+        tab: 'account',
+        init() {
+            let h = location.hash.slice(1);
+            if (h === 'otp-numbers') h = 'security';
+            if (this.tabs.includes(h)) this.tab = h;
+        },
+        go(t) { this.tab = t; history.replaceState(null, '', '#' + t); this.$nextTick(() => window.dispatchEvent(new Event('resize'))); },
+    }">
     @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
 
-    {{-- Profile's own look (2026-11-04): every field carries its name on its
-         border, and chips are one family — a soft tint, a hairline border,
-         an icon or a dot. --}}
+    {{-- Profile's own bits on Home's skin: the fields carry their name on the
+         border, in the login's look; chips are one family. --}}
     <style>
         /* In Tailwind's components layer, so utilities (pl-10, pr-11 …) still win. */
         @layer components {
         .pf-field { position: relative; display: block; }
         .pf-input {
-            width: 100%; border: 1px solid #e5e7eb; border-radius: .75rem; background: #fff;
-            padding: .8rem .95rem .7rem; font-size: .875rem; line-height: 1.25rem; color: #111827;
-            transition: border-color .15s, box-shadow .15s;
+            width: 100%; height: 2.875rem; border: 1.5px solid #d6dedb; border-radius: 9999px; background: #fff;
+            padding: 0 1.125rem; font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; font-size: .9375rem; color: #111827;
+            transition: border-color .15s, color .15s;
         }
-        .pf-input::placeholder { color: #c3c7cf; }
-        .pf-input:hover { border-color: #d5d9e0; }
-        .pf-input:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 4px rgba(139, 92, 246, .12); }
-        textarea.pf-input { resize: vertical; min-height: 5.75rem; }
+        textarea.pf-input { height: auto; min-height: 5.75rem; border-radius: 1.125rem; padding: .85rem 1.125rem .7rem; resize: vertical; line-height: 1.45; }
+        .pf-input::placeholder { color: #9ca3af; }
+        .pf-input:focus { outline: none; box-shadow: none; border-color: #0d9488; }
+        .pf-input.sa-filled { border-color: #0d9488; color: #0d9488; }
         .pf-label {
-            position: absolute; left: .7rem; top: 0; transform: translateY(-50%);
-            max-width: calc(100% - 1.4rem); padding: 0 .35rem; background: #fff;
-            font-size: .6875rem; font-weight: 600; line-height: 1rem; letter-spacing: .01em; color: #6b7280;
+            position: absolute; left: 1rem; top: 0; transform: translateY(-50%);
+            max-width: calc(100% - 2rem); padding: 0 .375rem; background: #fff;
+            font-size: .75rem; font-weight: 600; line-height: 1rem; color: #6b7280;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; transition: color .15s;
         }
-        .pf-field:focus-within .pf-label { color: #7c3aed; }
-        .pf-field.has-error .pf-input { border-color: #fda4af; }
-        .pf-field.has-error .pf-label { color: #e11d48; }
-        .pf-err { margin-top: .35rem; font-size: .75rem; line-height: 1rem; color: #e11d48; }
+        .pf-field:focus-within .pf-label, .pf-field:has(.sa-filled) .pf-label { color: #0f766e; }
+        .pf-field.has-error .pf-input { border-color: #dc2626; color: #dc2626; }
+        .pf-field.has-error .pf-label { color: #dc2626; }
+        .pf-err { margin: .35rem 0 0 1.125rem; font-size: .75rem; line-height: 1rem; color: #dc2626; }
 
         .pf-chip {
             display: inline-flex; align-items: center; gap: .35rem; height: 1.5rem; padding: 0 .6rem;
@@ -35,15 +60,45 @@
         }
         .pf-chip > svg { width: .8rem; height: .8rem; flex-shrink: 0; }
         .pf-chip.pf-dot::before { content: ''; width: .375rem; height: .375rem; border-radius: 9999px; background: currentColor; }
-        .pf-chip.pf-violet  { background: #f5f3ff; color: #6d28d9; border-color: #e9e3fe; }
+        .pf-chip.pf-teal    { background: #effaf7; color: #0f766e; border-color: #d8f3ec; }
         .pf-chip.pf-sky     { background: #f0f9ff; color: #0369a1; border-color: #dff1fd; }
         .pf-chip.pf-emerald { background: #ecfdf5; color: #047857; border-color: #d3f5e5; }
         .pf-chip.pf-amber   { background: #fffbeb; color: #b45309; border-color: #fdefc8; }
         .pf-chip.pf-rose    { background: #fff1f2; color: #be123c; border-color: #ffe1e5; }
-        .pf-chip.pf-gray    { background: #f8fafc; color: #475569; border-color: #e9edf2; }
-        .pf-chip.pf-glass   { background: rgba(255, 255, 255, .08); color: #ede9fe; border-color: rgba(255, 255, 255, .16); }
+        .pf-chip.pf-gray    { background: #f6f8f7; color: #4b5b56; border-color: #e8edeb; }
 
-        .pf-icon { width: 2.25rem; height: 2.25rem; border-radius: .75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pf-icon { width: 2.25rem; height: 2.25rem; border-radius: .75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #effaf7; color: #0d9488; }
+        .pf-icon svg { width: 1rem; height: 1rem; }
+        /* A light pill button (Choose image, Cancel …). */
+        .pf-ghost { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3e8e6; background: #fff; font-size: 13.5px; font-weight: 500; color: #44544f; white-space: nowrap; cursor: pointer; transition: border-color .2s, color .2s, background .2s; }
+        .pf-ghost:hover { border-color: #b1e6db; color: #0f766e; background: #effaf7; }
+        .pf-round { width: 32px; height: 32px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; color: #8b9893; transition: background .2s, color .2s; flex-shrink: 0; }
+        .pf-round:hover { background: #effaf7; color: #0f766e; }
+        .pf-round.danger:hover { background: #fff1f2; color: #e11d48; }
+        .pf-round svg { width: 16px; height: 16px; }
+        /* Figures in one card, split by hairlines (no small cards). */
+        .pf-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #eef1f0; border-radius: 16px; overflow: hidden; }
+        .pf-figs > * { padding: 12px 14px; min-width: 0; border-left: 1px solid #eef1f0; }
+        .pf-figs > :first-child { border-left: 0; }
+        .pf-figs .l { font-size: 11.5px; color: #6b7c76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pf-figs .v { font-size: 17px; font-weight: 600; color: #0c2620; margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .pf-figs .v small { font-size: 11.5px; font-weight: 400; color: #95a39e; }
+        .pf-glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .pf-glance > * { padding: 16px 18px; border-top: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; min-width: 0; display: block; transition: background .2s; }
+        .pf-glance > :nth-child(-n+3) { border-top: 0; }
+        .pf-glance > :nth-child(3n+1) { border-left: 0; }
+        .pf-glance > a:hover { background: #f8fbfa; }
+        @media (max-width: 639px) {
+            .pf-glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .pf-glance > * { border-left: 1px solid #f0f3f2 !important; border-top: 1px solid #f0f3f2 !important; }
+            .pf-glance > :nth-child(2n+1) { border-left: 0 !important; }
+            .pf-glance > :nth-child(-n+2) { border-top: 0 !important; }
+        }
+        .pf-two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 1024px) { .pf-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+        .pf-main { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 1280px) { .pf-main { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
+        @media (min-width: 1280px) { .pf-main.wide-first { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
         }
     </style>
 
@@ -63,10 +118,11 @@
         if (!empty($user->gender)) {
             $accountRows[] = ['user', 'Gender', ucfirst((string) $user->gender)];
         }
-        $accountRows[] = ['clock', 'Last login', $user->last_login_at ? $user->last_login_at->format('d M Y, h:i A') : 'Never'];
+        $lastLogin = $user->last_login_at ? $user->last_login_at->format('d M Y, h:i A') : 'Never';
+        $accountRows[] = ['clock', 'Last login', $lastLogin];
 
         $tones = [
-            'violet'  => ['#f5f3ff', '#7c3aed'],
+            'teal'    => ['#effaf7', '#0d9488'],
             'sky'     => ['#f0f9ff', '#0284c7'],
             'emerald' => ['#ecfdf5', '#059669'],
             'amber'   => ['#fffbeb', '#d97706'],
@@ -81,7 +137,7 @@
         ];
 
         // Login activity: a chip per role and per way in.
-        $roleChip = fn ($role) => $role === 'super-admin' ? ['violet', 'Super Admin'] : ['sky', \Illuminate\Support\Str::headline((string) $role ?: 'Unknown')];
+        $roleChip = fn ($role) => $role === 'super-admin' ? ['teal', 'Super Admin'] : ['sky', \Illuminate\Support\Str::headline((string) $role ?: 'Unknown')];
         $methodChip = [
             'otp'        => ['emerald', 'shield-check', 'Password + OTP'],
             'password'   => ['amber', 'key', 'Password'],
@@ -93,6 +149,7 @@
             $d = \Carbon\Carbon::parse($day);
             return $d->isToday() ? 'Today' : ($d->isYesterday() ? 'Yesterday' : $d->format('l, d M Y'));
         };
+        $mine = collect($logins['rows'])->where('email', \App\Models\User::cleanEmail((string) $user->email))->count();
 
         // Platform details form: key => [icon, placeholder, input type, columns]
         $detailFields = [
@@ -105,557 +162,591 @@
             'company_website' => ['globe-alt',         'https://superlms.in',         'url',   2],
             'company_address' => ['map-pin',           'Building, street, city, state, PIN', 'textarea', 2],
         ];
+
+        // The 15 days' sign-ins as bars (Account and Login Activity share them).
+        $bars = function () use ($logins, $dayMax) {
+            $html = '<div class="flex items-end gap-1 sm:gap-1.5 h-20">';
+            foreach ($logins['days'] as $d) {
+                $h  = $d['count'] ? max(10, round($d['count'] / $dayMax * 100)) : 6;
+                $bg = $d['count'] ? ($d['today'] ? '#0d9488' : '#99e0d3') : '#eef2f1';
+                $html .= '<div class="flex-1 min-w-0 h-full flex flex-col justify-end" title="' . e($d['label'] . ' · ' . $d['count'] . ' ' . \Illuminate\Support\Str::plural('login', $d['count'])) . '">'
+                    . '<div class="w-full rounded-md" style="height: ' . $h . '%; background: ' . $bg . '"></div></div>';
+            }
+            $html .= '</div><div class="mt-1.5 flex gap-1 sm:gap-1.5">';
+            foreach ($logins['days'] as $d) {
+                $html .= '<span class="flex-1 min-w-0 text-center text-[10px] tabular-nums ' . ($d['today'] ? 'font-semibold text-teal-700' : 'text-gray-400') . '">' . e($d['short']) . '</span>';
+            }
+
+            return $html . '</div>';
+        };
     @endphp
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
-            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">My Profile</h1>
-                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ $roleLabel }} · {{ $user->email }}</p>
-            </div>
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>My Profile</h1>
+            <p>{{ $roleLabel }} · {{ $user->email }}</p>
+        </div>
+        <div class="sk-right">
+            <span class="sk-pill" title="Your last sign-in"><x-icon name="clock" class="w-3.5 h-3.5" /> Last login · {{ $lastLogin }}</span>
+            <span class="sk-pill" style="color:#0f766e;background:#effaf7;border-color:#d8f3ec"><x-icon name="shield-check" class="w-3.5 h-3.5" /> {{ $roleLabel }}</span>
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-5">
+    <nav class="an-chips" aria-label="Profile sections">
+        @foreach ($pfTabs as $key => [$label, $icon])
+            <button type="button" class="an-chip" :class="tab === '{{ $key }}' && 'on'" x-on:click="go('{{ $key }}')" :aria-pressed="tab === '{{ $key }}'">
+                <x-icon name="{{ $icon }}" /> {{ $label }}
+            </button>
+        @endforeach
+    </nav>
 
-        {{-- ═══════════════ Account (dark) · OTP numbers · password ═══════════════
-             Three across from xl; below that the account card takes a row of
-             its own and the other two share the next. --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    <div class="p-4 sm:p-6 pt-4 sm:pt-5">
 
-            {{-- Account --}}
-            <div class="sa-card-dark p-5 sm:p-6 md:col-span-2 xl:col-span-1 min-w-0 flex flex-col">
-                <div class="flex items-center gap-4 min-w-0">
-                    <div class="relative flex-shrink-0">
-                        <div class="w-20 h-20 rounded-2xl overflow-hidden bg-white/10 ring-4 ring-white/10 flex items-center justify-center">
-                            @if ($photoUrl)
-                                <img src="{{ $photoUrl }}" class="w-full h-full object-cover" alt="">
-                            @else
-                                <span class="text-3xl font-semibold text-white">{{ $initial }}</span>
-                            @endif
-                        </div>
-                        <label title="Change photo" aria-label="Change photo"
-                            class="absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-full bg-white text-indigo-900 shadow-lg flex items-center justify-center cursor-pointer hover:bg-violet-50 transition-colors">
-                            <x-icon name="camera" class="w-4 h-4" />
-                            <input type="file" wire:model="photo" accept="image/*" class="hidden">
-                        </label>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        {{-- Your name: what Quick Links greets and the sidebar's card shows. --}}
-                        @if ($editingName)
-                            <form wire:submit="saveName" class="flex items-center gap-1.5 min-w-0" data-name-form>
-                                <label for="pf-name" class="sr-only">Your name</label>
-                                <input id="pf-name" type="text" wire:model="newName" maxlength="60" autocomplete="name" placeholder="Your name"
-                                    x-init="$el.focus(); $el.select()" x-on:keydown.escape="$wire.cancelNameEdit()"
-                                    class="min-w-0 flex-1 h-9 px-3.5 rounded-full bg-white/95 text-gray-900 text-sm border-0 focus:ring-2 focus:ring-teal-300">
-                                <button type="submit" title="Save name" aria-label="Save name"
-                                    class="w-9 h-9 rounded-full bg-white text-teal-700 flex items-center justify-center flex-shrink-0 hover:bg-teal-50">
-                                    <x-icon name="check" class="w-4 h-4" />
-                                </button>
-                                <button type="button" wire:click="cancelNameEdit" title="Cancel" aria-label="Cancel"
-                                    class="w-9 h-9 rounded-full text-white/70 flex items-center justify-center flex-shrink-0 hover:bg-white/10 hover:text-white">
-                                    <x-icon name="x-mark" class="w-4 h-4" />
-                                </button>
-                            </form>
-                            @error('newName') <p class="mt-1.5 text-xs text-rose-300">{{ $message }}</p> @enderror
-                        @else
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <h2 class="text-lg font-semibold text-white leading-tight truncate" title="{{ $user->name }}">{{ $user->name }}</h2>
-                                <button type="button" wire:click="startNameEdit" title="Change your name" aria-label="Change your name"
-                                    class="w-7 h-7 rounded-full text-white/60 flex items-center justify-center flex-shrink-0 hover:bg-white/10 hover:text-white">
-                                    <x-icon name="pencil-square" class="w-4 h-4" />
-                                </button>
+        {{-- ═══════════════════════════ ACCOUNT ═══════════════════════════ --}}
+        <section class="space-y-5" data-pf="account" x-show="tab === 'account'" style="display: none">
+            <div class="pf-main">
+
+                {{-- You --}}
+                <div class="sa-card p-5 sm:p-6 min-w-0 flex flex-col" data-pf-account>
+                    <div class="flex items-center gap-4 min-w-0">
+                        <div class="relative flex-shrink-0">
+                            <div class="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center" style="background:#effaf7">
+                                @if ($photoUrl)
+                                    <img src="{{ $photoUrl }}" class="w-full h-full object-cover" alt="">
+                                @else
+                                    <span class="text-3xl font-semibold" style="color:#0d9488">{{ $initial }}</span>
+                                @endif
                             </div>
-                        @endif
-                        <p class="text-sm text-white/60 truncate mt-0.5" title="{{ $user->email }}">{{ $user->email }}</p>
-                        <span class="pf-chip pf-glass mt-2">
-                            <x-icon name="shield-check" />
-                            {{ $roleLabel }}
-                        </span>
+                            <label title="Change photo" aria-label="Change photo"
+                                class="absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-full text-white shadow-lg flex items-center justify-center cursor-pointer transition-colors" style="background:#0d9488">
+                                <x-icon name="camera" class="w-4 h-4" />
+                                <input type="file" wire:model="photo" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            {{-- Your name: what Quick Links greets and the sidebar's card shows. --}}
+                            @if ($editingName)
+                                <form wire:submit="saveName" class="flex items-center gap-1.5 min-w-0" data-name-form>
+                                    <label class="pf-field flex-1 min-w-0 {{ $errors->has('newName') ? 'has-error' : '' }}">
+                                        <input id="pf-name" type="text" wire:model="newName" maxlength="60" autocomplete="name" placeholder="Your name"
+                                            x-init="$el.focus(); $el.select()" x-on:keydown.escape="$wire.cancelNameEdit()" class="pf-input" style="height: 2.5rem">
+                                        <span class="pf-label">Your name</span>
+                                    </label>
+                                    <button type="submit" title="Save name" aria-label="Save name" class="pf-round" style="background:#0d9488;color:#fff">
+                                        <x-icon name="check" />
+                                    </button>
+                                    <button type="button" wire:click="cancelNameEdit" title="Cancel" aria-label="Cancel" class="pf-round">
+                                        <x-icon name="x-mark" />
+                                    </button>
+                                </form>
+                                @error('newName') <p class="pf-err">{{ $message }}</p> @enderror
+                            @else
+                                <div class="flex items-center gap-1 min-w-0">
+                                    <h2 class="sk-display text-lg font-bold leading-tight truncate" title="{{ $user->name }}">{{ $user->name }}</h2>
+                                    <button type="button" wire:click="startNameEdit" title="Change your name" aria-label="Change your name" class="pf-round">
+                                        <x-icon name="pencil-square" />
+                                    </button>
+                                </div>
+                            @endif
+                            <p class="text-sm text-gray-500 truncate mt-0.5" title="{{ $user->email }}">{{ $user->email }}</p>
+                            <span class="pf-chip pf-teal mt-2"><x-icon name="shield-check" /> {{ $roleLabel }}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div wire:loading wire:target="photo" class="mt-4 text-xs text-white/60">Uploading photo…</div>
-                @error('photo') <p class="mt-4 text-xs text-rose-300">{{ $message }}</p> @enderror
-                @if ($photo && !$errors->has('photo'))
-                    <div class="mt-4 flex items-center gap-2" wire:loading.remove wire:target="photo">
-                        <button wire:click="savePhoto" wire:loading.attr="disabled" wire:target="savePhoto"
-                            class="px-3.5 py-2 rounded-lg bg-white text-indigo-950 text-sm font-semibold hover:bg-violet-50 disabled:opacity-60 transition-colors">
-                            <span wire:loading.remove wire:target="savePhoto">Save photo</span>
-                            <span wire:loading wire:target="savePhoto">Saving…</span>
-                        </button>
-                        <button wire:click="cancelPhoto" class="px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10 transition-colors">Cancel</button>
-                    </div>
-                @endif
+                    <div wire:loading wire:target="photo" class="mt-4 text-xs text-gray-400">Uploading photo…</div>
+                    @error('photo') <p class="mt-4 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    @if ($photo && !$errors->has('photo'))
+                        <div class="mt-4 flex items-center gap-2" wire:loading.remove wire:target="photo">
+                            <button wire:click="savePhoto" wire:loading.attr="disabled" wire:target="savePhoto" class="sk-cta">
+                                <span wire:loading.remove wire:target="savePhoto">Save photo</span>
+                                <span wire:loading wire:target="savePhoto">Saving…</span>
+                            </button>
+                            <button wire:click="cancelPhoto" class="pf-ghost">Cancel</button>
+                        </div>
+                    @endif
 
-                {{-- Where the sign-in code goes, and how often this account came in. --}}
-                <div class="mt-6 grid grid-cols-3 gap-2.5">
-                    <div class="rounded-xl bg-white/[.06] ring-1 ring-white/[.08] px-3 py-2.5 min-w-0">
-                        <p class="text-[11px] text-white/50 truncate">OTP numbers</p>
-                        <p class="text-base font-semibold tabular-nums mt-0.5">{{ count($numbers) }}<span class="text-xs font-normal text-white/40"> / {{ $maxNumbers }}</span></p>
+                    {{-- Where the sign-in code goes, and how often this account came in. --}}
+                    <div class="pf-figs mt-5">
+                        <div>
+                            <p class="l">OTP numbers</p>
+                            <p class="v">{{ count($numbers) }} <small>of {{ $maxNumbers }}</small></p>
+                        </div>
+                        <div>
+                            <p class="l">Code by</p>
+                            <p class="v" style="font-size:14px; margin-top:4px">{{ count($numbers) ? 'Email + WhatsApp' : 'Email' }}</p>
+                        </div>
+                        <div title="Your sign-ins in the last 15 days">
+                            <p class="l">Logins</p>
+                            <p class="v">{{ $mine }} <small>· 15 days</small></p>
+                        </div>
                     </div>
-                    <div class="rounded-xl bg-white/[.06] ring-1 ring-white/[.08] px-3 py-2.5 min-w-0">
-                        <p class="text-[11px] text-white/50 truncate">Code by</p>
-                        <p class="text-sm font-semibold mt-1 leading-snug break-words">{{ count($numbers) ? 'Email + WhatsApp' : 'Email' }}</p>
-                    </div>
-                    @php $mine = collect($logins['rows'])->where('email', \App\Models\User::cleanEmail((string) $user->email))->count(); @endphp
-                    <div class="rounded-xl bg-white/[.06] ring-1 ring-white/[.08] px-3 py-2.5 min-w-0">
-                        <p class="text-[11px] text-white/50 truncate" title="Your sign-ins in the last 15 days">Logins</p>
-                        <p class="text-base font-semibold tabular-nums mt-0.5">{{ $mine }}<span class="text-xs font-normal text-white/40"> · 15d</span></p>
-                    </div>
-                </div>
 
-                <div class="mt-auto pt-6">
-                    <dl class="pt-5 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-x-8 gap-y-3 text-sm">
+                    <dl class="mt-5 space-y-3 text-sm">
                         @foreach ($accountRows as [$icon, $label, $value])
                             <div class="flex items-center justify-between gap-3 min-w-0">
-                                <dt class="flex items-center gap-2 text-white/60 whitespace-nowrap">
-                                    <x-icon name="{{ $icon }}" class="w-4 h-4 text-white/40" />
+                                <dt class="flex items-center gap-2 text-gray-500 whitespace-nowrap">
+                                    <x-icon name="{{ $icon }}" class="w-4 h-4 text-gray-400" />
                                     {{ $label }}
                                 </dt>
-                                <dd class="font-semibold tabular-nums text-right truncate" title="{{ $value }}">{{ $value }}</dd>
+                                <dd class="font-semibold text-gray-900 tabular-nums text-right truncate" title="{{ $value }}">{{ $value }}</dd>
                             </div>
                         @endforeach
                     </dl>
+
+                    @if (!empty($grantedAccess))
+                        <div class="mt-5 pt-5 border-t border-gray-100">
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400 mb-2">Your access</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach ($grantedAccess as $perm)
+                                    <span class="pf-chip pf-teal"><x-icon name="check" /> {{ $perm }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
-                @if (!empty($grantedAccess))
-                    <div class="mt-5 pt-5 border-t border-white/10">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-white/50 mb-2">Your access</p>
+                {{-- The last 15 days' sign-ins, and the latest few. --}}
+                <div class="sa-card p-5 min-w-0 flex flex-col">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                        <div class="flex items-start gap-3 min-w-0">
+                            <span class="pf-icon"><x-icon name="finger-print" /></span>
+                            <div class="min-w-0">
+                                <h3 class="sa-card-title">Sign-ins</h3>
+                                <p class="sa-card-sub">{{ $logins['all'] ? 'Everyone on the Super Admin panel' : 'Your sign-ins' }} · since {{ $logins['since'] }}</p>
+                            </div>
+                        </div>
                         <div class="flex flex-wrap gap-1.5">
-                            @foreach ($grantedAccess as $perm)
-                                <span class="pf-chip pf-glass">
-                                    <x-icon name="check" />
-                                    {{ $perm }}
-                                </span>
-                            @endforeach
+                            <span class="pf-chip pf-teal"><x-icon name="arrow-right-on-rectangle" />{{ $logins['total'] }} {{ \Illuminate\Support\Str::plural('login', $logins['total']) }}</span>
+                            <span class="pf-chip pf-emerald pf-dot">{{ $logins['today'] }} today</span>
                         </div>
                     </div>
-                @endif
+                    {!! $bars() !!}
+
+                    <div class="mt-5 pt-4 border-t border-gray-100 flex-1">
+                        <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400 mb-1">Latest</p>
+                        @forelse (array_slice($logins['rows'], 0, 4) as $row)
+                            @php
+                                [$rTone]                = $roleChip($row['role']);
+                                [$mTone, $mIcon, $mLbl] = $methodChip[$row['method']] ?? ['gray', 'question-mark-circle', ucfirst((string) $row['method'] ?: 'Unknown')];
+                            @endphp
+                            <div class="an-row">
+                                <span class="an-av" style="background: {{ $tones[$rTone][0] }}; color: {{ $tones[$rTone][1] }}">{{ strtoupper(mb_substr($row['name'], 0, 1)) }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
+                                    <p class="text-xs text-gray-400 truncate">{{ $row['browser'] }}@if ($row['os']) · {{ $row['os'] }}@endif · {{ $row['ago'] }}</p>
+                                </div>
+                                <span class="pf-chip pf-{{ $mTone }} hidden sm:inline-flex"><x-icon name="{{ $mIcon }}" />{{ $mLbl }}</span>
+                            </div>
+                        @empty
+                            <p class="py-6 text-center text-sm text-gray-400">No sign-ins in the last 15 days yet.</p>
+                        @endforelse
+                    </div>
+                    <div class="pt-3">
+                        <button type="button" class="pf-ghost" x-on:click="go('activity')">All login activity <x-icon name="arrow-right" class="w-3.5 h-3.5" /></button>
+                    </div>
+                </div>
             </div>
 
-            {{-- OTP numbers --}}
-            <div id="otp-numbers" class="sa-card p-5 min-w-0 flex flex-col">
-                <div class="flex items-start gap-3 mb-5">
-                    <span class="pf-icon" style="background:#f5f3ff;color:#7c3aed"><x-icon name="device-phone-mobile" class="w-4 h-4" /></span>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="sa-card-title">OTP Numbers</h3>
-                        <p class="sa-card-sub">The sign-in code goes to your email and, on WhatsApp, to the primary number only</p>
+            @if ($isMain)
+                {{-- The platform at a glance: one card, its figures split by hairlines. --}}
+                <div class="sa-card min-w-0 overflow-hidden">
+                    <div class="px-5 pt-5 pb-4 flex items-start justify-between gap-3">
+                        <div class="flex items-start gap-3 min-w-0">
+                            <span class="pf-icon"><x-icon name="squares-2x2" /></span>
+                            <div class="min-w-0">
+                                <h3 class="sa-card-title">Platform at a Glance</h3>
+                                <p class="sa-card-sub">{{ $platform['name'] }} today</p>
+                            </div>
+                        </div>
                     </div>
-                    <span class="pf-chip pf-violet tabular-nums">{{ count($numbers) }} of {{ $maxNumbers }}</span>
+                    <div class="pf-glance border-t border-gray-100">
+                        @foreach ([
+                            ['Schools',        $platform['schools'],  'On ' . $platform['name'],                 'building-office-2', route('super-admin.schools')],
+                            ['Active schools', $platform['active'],   'of ' . $platform['schools'] . ' schools', 'check-badge',       route('super-admin.schools')],
+                            ['Students',       $platform['students'], 'Across all schools',                      'users',             route('super-admin.students')],
+                            ['Teachers',       $platform['teachers'], 'Across all schools',                      'academic-cap',      route('super-admin.teachers')],
+                            ['School admins',  $platform['admins'],   'Admins and sub-admins',                   'identification',    null],
+                            ['Super admins',   $platform['super'],    'You and your team',                       'shield-check',      null],
+                        ] as [$label, $value, $sub, $icon, $href])
+                            <{{ $href ? 'a' : 'div' }} @if ($href) href="{{ $href }}" @endif>
+                                <p class="flex items-center gap-2 text-xs font-medium text-gray-500 truncate"><x-icon name="{{ $icon }}" class="w-4 h-4 text-teal-600" /> {{ $label }}</p>
+                                <p class="sk-display text-2xl font-bold mt-1.5 tabular-nums">{{ $value }}</p>
+                                <p class="text-xs text-gray-400 mt-0.5 truncate" title="{{ $sub }}">{{ $sub }}</p>
+                            </{{ $href ? 'a' : 'div' }}>
+                        @endforeach
+                    </div>
                 </div>
+            @endif
+        </section>
 
-                <div class="space-y-2.5">
-                    @forelse ($numbers as $n)
-                        @php $key = $n['primary'] ? 'p' : (string) $n['id']; @endphp
-                        <div wire:key="otp-number-{{ $key }}"
-                            class="rounded-xl border px-3.5 py-3 {{ $editing === $key ? 'border-violet-200 bg-white' : ($n['primary'] ? 'border-violet-100 bg-violet-50/60' : 'border-gray-100 bg-gray-50/70') }}">
-                            @if ($editing === $key)
-                                <div class="flex items-start gap-2 pt-1.5">
-                                    <div class="flex-1 min-w-0">
-                                        <label class="pf-field {{ $errors->has('editNumber') ? 'has-error' : '' }}">
-                                            <input type="tel" wire:model="editNumber" wire:keydown.enter="saveEdit" inputmode="tel" maxlength="16" class="pf-input">
-                                            <span class="pf-label">{{ $n['primary'] ? 'Primary number' : 'Number' }}</span>
-                                        </label>
-                                        @error('editNumber') <p class="pf-err">{{ $message }}</p> @enderror
+        {{-- ═══════════════════════ SIGN-IN & PASSWORD ═══════════════════════ --}}
+        <section data-pf="security" x-show="tab === 'security'" style="display: none">
+            <div class="pf-two">
+                {{-- OTP numbers --}}
+                <div id="otp-numbers" class="sa-card p-5 min-w-0 flex flex-col">
+                    <div class="flex items-start gap-3 mb-5">
+                        <span class="pf-icon"><x-icon name="device-phone-mobile" /></span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="sa-card-title">OTP Numbers</h3>
+                            <p class="sa-card-sub">The sign-in code goes to your email and, on WhatsApp, to the primary number only</p>
+                        </div>
+                        <span class="pf-chip pf-teal tabular-nums">{{ count($numbers) }} of {{ $maxNumbers }}</span>
+                    </div>
+
+                    <div>
+                        @forelse ($numbers as $n)
+                            @php $key = $n['primary'] ? 'p' : (string) $n['id']; @endphp
+                            <div wire:key="otp-number-{{ $key }}" class="an-row">
+                                @if ($editing === $key)
+                                    <div class="flex items-start gap-2 pt-2 w-full">
+                                        <div class="flex-1 min-w-0">
+                                            <label class="pf-field {{ $errors->has('editNumber') ? 'has-error' : '' }}">
+                                                <input type="tel" wire:model="editNumber" wire:keydown.enter="saveEdit" inputmode="tel" maxlength="16" class="pf-input">
+                                                <span class="pf-label">{{ $n['primary'] ? 'Primary number' : 'Number' }}</span>
+                                            </label>
+                                            @error('editNumber') <p class="pf-err">{{ $message }}</p> @enderror
+                                        </div>
+                                        <button wire:click="saveEdit" wire:loading.attr="disabled" class="sk-cta" style="height: 2.875rem">Save</button>
+                                        <button wire:click="cancelEdit" title="Cancel" aria-label="Cancel" class="pf-round" style="width: 2.875rem; height: 2.875rem"><x-icon name="x-mark" /></button>
                                     </div>
-                                    <button wire:click="saveEdit" wire:loading.attr="disabled"
-                                        class="h-11 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-medium transition-colors">Save</button>
-                                    <button wire:click="cancelEdit" title="Cancel" aria-label="Cancel"
-                                        class="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                                        <x-icon name="x-mark" class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            @else
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <span class="w-9 h-9 rounded-xl bg-white shadow-sm ring-1 ring-black/[.03] flex items-center justify-center flex-shrink-0 {{ $n['primary'] ? 'text-violet-600' : 'text-gray-400' }}">
-                                        <x-icon name="device-phone-mobile" class="w-4 h-4" />
-                                    </span>
+                                @else
+                                    <span class="an-av" style="{{ $n['primary'] ? '' : 'background:#f3f5f4;color:#8b9893' }}"><x-icon name="device-phone-mobile" class="w-4 h-4" /></span>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-semibold text-gray-900 tabular-nums truncate">{{ \App\Support\OtpNumbers::format($n['phone']) }}</p>
                                         <div class="mt-1">
                                             @if ($n['primary'])
                                                 <span class="pf-chip pf-emerald pf-dot">Primary · gets the OTP</span>
                                             @else
-                                                <button wire:click="makePrimary({{ $n['id'] }})" class="pf-chip pf-gray hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 transition-colors">
+                                                <button wire:click="makePrimary({{ $n['id'] }})" class="pf-chip pf-gray hover:bg-teal-50 hover:text-teal-700 transition-colors">
                                                     <x-icon name="star" />
                                                     Make primary
                                                 </button>
                                             @endif
                                         </div>
                                     </div>
-                                    <div class="flex items-center gap-0.5 flex-shrink-0">
-                                        <button wire:click="startEdit('{{ $key }}')" title="Edit" aria-label="Edit"
-                                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-800 hover:bg-white transition-colors">
-                                            <x-icon name="pencil-square" class="w-4 h-4" />
-                                        </button>
-                                        <button wire:click="deleteNumber('{{ $key }}')"
-                                            wire:confirm="Delete {{ \App\Support\OtpNumbers::format($n['phone']) }}?{{ $n['primary'] ? ' The next number becomes primary.' : '' }}"
-                                            title="Delete" aria-label="Delete"
-                                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-rose-600 hover:bg-white transition-colors">
-                                            <x-icon name="trash" class="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    @empty
-                        <p class="py-8 text-center text-sm text-gray-400">No number yet — the code goes by email only. Add one below.</p>
-                    @endforelse
-                </div>
-
-                <div class="mt-auto pt-5">
-                    <div class="pt-5 border-t border-gray-100">
-                        @if (count($numbers) < $maxNumbers)
-                            <div class="flex items-start gap-2">
-                                <div class="flex-1 min-w-0">
-                                    <label class="pf-field {{ $errors->has('newNumber') ? 'has-error' : '' }}">
-                                        <input type="tel" wire:model="newNumber" wire:keydown.enter="addNumber" inputmode="tel" maxlength="16"
-                                            placeholder="10-digit mobile number" class="pf-input">
-                                        <span class="pf-label">Add a number</span>
-                                    </label>
-                                    @error('newNumber') <p class="pf-err">{{ $message }}</p> @enderror
-                                </div>
-                                <button wire:click="addNumber" wire:loading.attr="disabled" wire:target="addNumber"
-                                    class="h-11 inline-flex items-center gap-1 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-medium transition-colors">
-                                    <x-icon name="plus" class="w-4 h-4" />
-                                    Add
-                                </button>
+                                    <button wire:click="startEdit('{{ $key }}')" title="Edit" aria-label="Edit" class="pf-round"><x-icon name="pencil-square" /></button>
+                                    <button wire:click="deleteNumber('{{ $key }}')"
+                                        wire:confirm="Delete {{ \App\Support\OtpNumbers::format($n['phone']) }}?{{ $n['primary'] ? ' The next number becomes primary.' : '' }}"
+                                        title="Delete" aria-label="Delete" class="pf-round danger"><x-icon name="trash" /></button>
+                                @endif
                             </div>
-                        @else
-                            <p class="text-xs text-gray-400">All {{ $maxNumbers }} numbers are in use — delete one to add another.</p>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            {{-- Password --}}
-            <div class="sa-card p-5 min-w-0 flex flex-col">
-                <div class="flex items-start gap-3 mb-5">
-                    <span class="pf-icon" style="background:#f3f4f6;color:#111827"><x-icon name="lock-closed" class="w-4 h-4" /></span>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="sa-card-title">Change Password</h3>
-                        <p class="sa-card-sub">At least 8 characters with upper and lower case, a number and a symbol</p>
-                    </div>
-                </div>
-
-                <div class="space-y-5">
-                    @foreach ($passwords as [$model, $field, $label, $shown, $autocomplete])
-                        <div>
-                            <label class="pf-field {{ $errors->has($model) ? 'has-error' : '' }}">
-                                <input type="{{ $shown ? 'text' : 'password' }}" wire:model="{{ $model }}" autocomplete="{{ $autocomplete }}"
-                                    @if ($field === 'confirm') wire:keydown.enter="updatePassword" @endif
-                                    class="pf-input pr-11">
-                                <span class="pf-label">{{ $label }}</span>
-                                <button type="button" wire:click="togglePasswordVisibility('{{ $field }}')"
-                                    title="{{ $shown ? 'Hide' : 'Show' }}" aria-label="{{ $shown ? 'Hide' : 'Show' }} password"
-                                    class="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-gray-700">
-                                    <x-icon name="{{ $shown ? 'eye-slash' : 'eye' }}" class="w-4 h-4" />
-                                </button>
-                            </label>
-                            @error($model) <p class="pf-err">{{ $message }}</p> @enderror
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="mt-auto pt-5">
-                    <button wire:click="updatePassword" wire:loading.attr="disabled" wire:target="updatePassword"
-                        class="w-full h-11 rounded-xl bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-semibold transition-colors">
-                        <span wire:loading.remove wire:target="updatePassword">Update Password</span>
-                        <span wire:loading wire:target="updatePassword">Updating…</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {{-- ═══════════════ Login activity — last 15 days ═══════════════ --}}
-        <div class="sa-card min-w-0 overflow-hidden">
-            <div class="p-5 flex flex-col lg:flex-row lg:items-end gap-5">
-                <div class="flex items-start gap-3 lg:w-80 flex-shrink-0">
-                    <span class="pf-icon" style="background:#ecfdf5;color:#059669"><x-icon name="finger-print" class="w-4 h-4" /></span>
-                    <div class="min-w-0">
-                        <h3 class="sa-card-title">Login Activity</h3>
-                        <p class="sa-card-sub">{{ $logins['all'] ? 'Every sign-in to the Super Admin panel' : 'Your sign-ins to the Super Admin panel' }} · since {{ $logins['since'] }}</p>
-                        <div class="mt-3 flex flex-wrap gap-1.5">
-                            <span class="pf-chip pf-violet"><x-icon name="arrow-right-on-rectangle" />{{ $logins['total'] }} {{ \Illuminate\Support\Str::plural('login', $logins['total']) }}</span>
-                            <span class="pf-chip pf-emerald pf-dot">{{ $logins['today'] }} today</span>
-                            @if ($logins['all'])
-                                <span class="pf-chip pf-sky"><x-icon name="users" />{{ count($logins['accounts']) }} {{ \Illuminate\Support\Str::plural('account', count($logins['accounts'])) }}</span>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Sign-ins a day, the last 15 days --}}
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-end gap-1 sm:gap-1.5 h-20">
-                        @foreach ($logins['days'] as $d)
-                            <div class="flex-1 min-w-0 h-full flex flex-col justify-end" title="{{ $d['label'] }} · {{ $d['count'] }} {{ \Illuminate\Support\Str::plural('login', $d['count']) }}">
-                                <div class="w-full rounded-md transition-all"
-                                    style="height: {{ $d['count'] ? max(10, round($d['count'] / $dayMax * 100)) : 6 }}%; background: {{ $d['count'] ? ($d['today'] ? '#7c3aed' : '#c4b5fd') : '#f1f2f6' }}"></div>
-                            </div>
-                        @endforeach
-                    </div>
-                    <div class="mt-1.5 flex gap-1 sm:gap-1.5">
-                        @foreach ($logins['days'] as $d)
-                            <span class="flex-1 min-w-0 text-center text-[10px] tabular-nums {{ $d['today'] ? 'font-semibold text-violet-600' : 'text-gray-400' }}">{{ $d['short'] }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-
-            @if ($logins['all'] && count($logins['accounts']) > 0)
-                <div class="px-5 pb-4 flex flex-wrap gap-2">
-                    @foreach ($logins['accounts'] as $acc)
-                        @php [$tone] = $roleChip($acc['role']); @endphp
-                        <span class="inline-flex items-center gap-2 h-8 pl-1 pr-3 rounded-full border border-gray-100 bg-gray-50/80 max-w-full" title="{{ $acc['email'] }} · last {{ $acc['last'] }}">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0" style="background: {{ $tones[$tone][0] }}; color: {{ $tones[$tone][1] }}">{{ strtoupper(mb_substr($acc['name'], 0, 1)) }}</span>
-                            <span class="text-xs font-medium text-gray-700 truncate">{{ $acc['name'] }}</span>
-                            <span class="text-[11px] font-semibold text-gray-400 tabular-nums">{{ $acc['count'] }}</span>
-                        </span>
-                    @endforeach
-                </div>
-            @endif
-
-            <div class="border-t border-gray-100 overflow-x-auto max-h-[28rem] overflow-y-auto">
-                <table class="w-full text-sm min-w-[760px]">
-                    <thead class="sticky top-0 z-10 bg-white text-gray-400 text-[11px] uppercase tracking-wide">
-                        <tr class="border-b border-gray-100">
-                            <th class="px-5 py-2.5 text-left font-medium">Time</th>
-                            <th class="px-3 py-2.5 text-left font-medium">Who</th>
-                            <th class="px-3 py-2.5 text-left font-medium">Email</th>
-                            <th class="px-3 py-2.5 text-left font-medium">Signed in with</th>
-                            <th class="px-3 py-2.5 text-left font-medium">Device</th>
-                            <th class="px-5 py-2.5 text-left font-medium">IP</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($loginDays as $day => $rows)
-                            <tr wire:key="login-day-{{ $day }}">
-                                <td colspan="6" class="px-5 pt-3.5 pb-1.5 bg-gray-50/60 border-b border-gray-100">
-                                    <span class="text-xs font-semibold text-gray-700">{{ $dayName($day) }}</span>
-                                    <span class="text-[11px] text-gray-400 ml-1">· {{ $rows->count() }} {{ \Illuminate\Support\Str::plural('login', $rows->count()) }}</span>
-                                </td>
-                            </tr>
-                            @foreach ($rows as $row)
-                                @php
-                                    [$rTone, $rLabel]       = $roleChip($row['role']);
-                                    [$mTone, $mIcon, $mLbl] = $methodChip[$row['method']] ?? ['gray', 'question-mark-circle', ucfirst((string) $row['method'] ?: 'Unknown')];
-                                @endphp
-                                <tr wire:key="login-{{ $row['id'] }}" class="border-b border-gray-50 hover:bg-gray-50/70">
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <p class="font-semibold text-gray-900 tabular-nums">{{ $row['time'] }}</p>
-                                        <p class="text-[11px] text-gray-400">{{ $row['ago'] }}</p>
-                                    </td>
-                                    <td class="px-3 py-3">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style="background: {{ $tones[$rTone][0] }}; color: {{ $tones[$rTone][1] }}">{{ strtoupper(mb_substr($row['name'], 0, 1)) }}</span>
-                                            <div class="min-w-0">
-                                                <p class="font-medium text-gray-800 truncate max-w-[11rem]" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
-                                                <span class="pf-chip pf-{{ $rTone }} mt-0.5" style="height:1.25rem">{{ $rLabel }}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-3 text-gray-600 truncate max-w-[14rem]" title="{{ $row['email'] }}">{{ $row['email'] }}</td>
-                                    <td class="px-3 py-3"><span class="pf-chip pf-{{ $mTone }}"><x-icon name="{{ $mIcon }}" />{{ $mLbl }}</span></td>
-                                    <td class="px-3 py-3">
-                                        <div class="flex items-center gap-2 text-gray-600 whitespace-nowrap">
-                                            <x-icon name="{{ $row['mobile'] ? 'device-phone-mobile' : 'computer-desktop' }}" class="w-4 h-4 text-gray-400" />
-                                            {{ $row['browser'] }}@if ($row['os'])<span class="text-gray-400"> · {{ $row['os'] }}</span>@endif
-                                        </div>
-                                    </td>
-                                    <td class="px-5 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{{ $row['ip'] }}</td>
-                                </tr>
-                            @endforeach
                         @empty
-                            <tr>
-                                <td colspan="6" class="px-5 py-12 text-center text-sm text-gray-400">No sign-ins in the last 15 days yet — every login from now on is listed here.</td>
-                            </tr>
+                            <p class="py-8 text-center text-sm text-gray-400">No number yet — the code goes by email only. Add one below.</p>
                         @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        @if ($isMain)
-            {{-- ═══════════════ Platform details · logo ═══════════════ --}}
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-                {{-- Platform details --}}
-                <div class="sa-card p-5 xl:col-span-2 min-w-0 flex flex-col">
-                    <div class="flex items-start gap-3 mb-6">
-                        <span class="pf-icon" style="background:#f0f9ff;color:#0284c7"><x-icon name="building-office-2" class="w-4 h-4" /></span>
-                        <div class="flex-1 min-w-0">
-                            <h3 class="sa-card-title">Platform Details</h3>
-                            <p class="sa-card-sub">Who runs {{ $details['platform_name'] ?? 'SuperLMS' }} — invoices use these where Store's own settings are blank</p>
-                        </div>
-                        @if (!empty($details['company_gstin']))
-                            <span class="pf-chip pf-emerald hidden sm:inline-flex"><x-icon name="check-badge" />GST registered</span>
-                        @endif
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
-                        @foreach ($detailFields as $key => [$icon, $placeholder, $type, $cols])
-                            <div class="{{ $cols === 2 ? 'sm:col-span-2' : '' }} min-w-0">
-                                <label class="pf-field {{ $errors->has('details.' . $key) ? 'has-error' : '' }}">
-                                    <x-icon name="{{ $icon }}" class="w-4 h-4 text-gray-400 absolute left-3.5 {{ $type === 'textarea' ? 'top-3.5' : 'top-1/2 -translate-y-1/2' }} pointer-events-none" />
-                                    @if ($type === 'textarea')
-                                        <textarea wire:model="details.{{ $key }}" rows="3" maxlength="500" placeholder="{{ $placeholder }}" class="pf-input pl-10"></textarea>
-                                    @else
-                                        <input type="{{ $type }}" wire:model="details.{{ $key }}" placeholder="{{ $placeholder }}"
-                                            @if (in_array($key, ['company_cin', 'company_gstin'], true)) style="text-transform: uppercase" maxlength="{{ $key === 'company_cin' ? 25 : 20 }}" @endif
-                                            @if ($type === 'tel') inputmode="tel" maxlength="16" @endif
-                                            class="pf-input pl-10 {{ in_array($key, ['company_cin', 'company_gstin', 'company_mobile'], true) ? 'tabular-nums tracking-wide' : '' }}">
-                                    @endif
-                                    <span class="pf-label">{{ $detailLabels[$key] }}</span>
-                                </label>
-                                @error('details.' . $key) <p class="pf-err">{{ $message }}</p> @enderror
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-6 pt-5 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <p class="text-xs text-gray-400">CIN 21 characters · GSTIN 15 · mobile 10 digits</p>
-                        <button wire:click="saveDetails" wire:loading.attr="disabled" wire:target="saveDetails"
-                            class="h-11 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors">
-                            <span wire:loading.remove wire:target="saveDetails">Save Details</span>
-                            <span wire:loading wire:target="saveDetails">Saving…</span>
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Platform logo --}}
-                <div class="sa-card p-5 min-w-0 flex flex-col">
-                    <div class="flex items-start gap-3 mb-5">
-                        <span class="pf-icon" style="background:#f5f3ff;color:#7c3aed"><x-icon name="photo" class="w-4 h-4" /></span>
-                        <div class="flex-1 min-w-0">
-                            <h3 class="sa-card-title">Platform Logo</h3>
-                            <p class="sa-card-sub">Login pages, sidebars and the website · PNG, JPG, WEBP or SVG up to 2 MB</p>
-                        </div>
-                        <span class="pf-chip {{ $customLogo ? 'pf-violet' : 'pf-gray' }} pf-dot">{{ $customLogo ? 'Custom' : 'Original' }}</span>
-                    </div>
-
-                    <div class="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4 flex items-center justify-center gap-4 min-h-[9.5rem]">
-                        <div class="text-center">
-                            <div class="w-24 h-24 rounded-xl bg-white ring-1 ring-gray-100 flex items-center justify-center p-2">
-                                <img src="{{ $logoUrl }}" alt="Current logo" class="max-w-full max-h-full object-contain">
-                            </div>
-                            <p class="text-[11px] text-gray-400 mt-1.5">Current</p>
-                        </div>
-                        @if ($logoPreview)
-                            <x-icon name="arrow-right" class="w-5 h-5 text-gray-300 flex-shrink-0" />
-                            <div class="text-center">
-                                <div class="w-24 h-24 rounded-xl bg-white border-2 border-violet-300 flex items-center justify-center p-2">
-                                    <img src="{{ $logoPreview }}" alt="New logo" class="max-w-full max-h-full object-contain">
-                                </div>
-                                <p class="text-[11px] font-medium text-violet-600 mt-1.5">New</p>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div wire:loading wire:target="logo" class="mt-3 text-xs text-gray-400">Uploading…</div>
-                    @error('logo') <p class="mt-3 text-xs text-rose-500">{{ $message }}</p> @enderror
-
-                    <div class="mt-4 flex flex-wrap items-center gap-2">
-                        <label class="h-10 inline-flex items-center gap-1.5 px-3.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors">
-                            <x-icon name="arrow-up-tray" class="w-4 h-4" />
-                            Choose image or SVG
-                            <input type="file" wire:model="logo" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
-                        </label>
-                        @if ($logo && !$errors->has('logo'))
-                            <button wire:click="saveLogo" wire:loading.attr="disabled" wire:target="saveLogo"
-                                class="h-10 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-medium transition-colors">
-                                <span wire:loading.remove wire:target="saveLogo">Save Logo</span>
-                                <span wire:loading wire:target="saveLogo">Saving…</span>
-                            </button>
-                        @endif
-                        @if ($customLogo)
-                            <button wire:click="resetLogo" wire:confirm="Go back to the original SuperLMS logo?"
-                                class="h-10 px-3 text-sm text-gray-500 hover:text-gray-800">Use original logo</button>
-                        @endif
                     </div>
 
                     <div class="mt-auto pt-5">
-                        <div class="rounded-xl bg-violet-50/70 ring-1 ring-violet-100 px-3.5 py-3 min-w-0">
-                            <p class="text-[11px] font-medium text-violet-500">Website</p>
-                            <a href="{{ $platform['website'] }}" target="_blank" rel="noopener"
-                                class="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-violet-800 hover:text-violet-950 min-w-0">
-                                <span class="truncate">{{ $platform['website'] }}</span>
-                                <x-icon name="arrow-top-right-on-square" class="w-3.5 h-3.5 flex-shrink-0" />
-                            </a>
+                        <div class="pt-5 border-t border-gray-100">
+                            @if (count($numbers) < $maxNumbers)
+                                <div class="flex items-start gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <label class="pf-field {{ $errors->has('newNumber') ? 'has-error' : '' }}">
+                                            <input type="tel" wire:model="newNumber" wire:keydown.enter="addNumber" inputmode="tel" maxlength="16"
+                                                placeholder="10-digit mobile number" class="pf-input">
+                                            <span class="pf-label">Add a number</span>
+                                        </label>
+                                        @error('newNumber') <p class="pf-err">{{ $message }}</p> @enderror
+                                    </div>
+                                    <button wire:click="addNumber" wire:loading.attr="disabled" wire:target="addNumber" class="sk-cta" style="height: 2.875rem">
+                                        <x-icon name="plus" class="w-4 h-4" />
+                                        Add
+                                    </button>
+                                </div>
+                            @else
+                                <p class="text-xs text-gray-400">All {{ $maxNumbers }} numbers are in use — delete one to add another.</p>
+                            @endif
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {{-- ═══════════════ Platform at a glance ═══════════════ --}}
-            <div>
-                <div class="flex items-baseline justify-between gap-3 mb-3">
-                    <h3 class="sa-card-title">Platform at a Glance</h3>
-                    <p class="text-xs text-gray-400 truncate">{{ $platform['name'] }}</p>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-5">
-                    @foreach ([
-                        ['Schools',       $platform['schools'],  'On ' . $platform['name'],                'building-office-2', 'violet',  route('super-admin.schools')],
-                        ['Active schools', $platform['active'],  'of ' . $platform['schools'] . ' schools', 'check-badge',       'emerald', route('super-admin.schools')],
-                        ['Students',      $platform['students'], 'Across all schools',                     'users',             'sky',     route('super-admin.students')],
-                        ['Teachers',      $platform['teachers'], 'Across all schools',                     'academic-cap',      'amber',   route('super-admin.teachers')],
-                        ['School admins', $platform['admins'],   'Admins and sub-admins',                  'identification',    'rose',    null],
-                        ['Super admins',  $platform['super'],    'You and your team',                      'shield-check',      'ink',     null],
-                    ] as [$label, $value, $sub, $icon, $tone, $href])
-                        @php [$tint, $ink] = $tones[$tone]; @endphp
-                        <{{ $href ? 'a' : 'div' }} @if ($href) href="{{ $href }}" @endif class="sa-card px-4 py-4 min-w-0">
-                            <div class="flex items-center justify-between gap-2">
-                                <p class="text-xs font-medium text-gray-500 truncate" title="{{ $label }}">{{ $label }}</p>
-                                <span class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background: {{ $tint }}; color: {{ $ink }}">
-                                    <x-icon name="{{ $icon }}" class="w-3.5 h-3.5" />
-                                </span>
-                            </div>
-                            <p class="text-2xl leading-none font-semibold mt-2.5 tabular-nums text-gray-900">{{ $value }}</p>
-                            <p class="text-xs text-gray-400 mt-1.5 truncate" title="{{ $sub }}">{{ $sub }}</p>
-                        </{{ $href ? 'a' : 'div' }}>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- ═══════════════ Website data ═══════════════ --}}
-            <div class="sa-card p-5 min-w-0">
-                <div class="flex items-start gap-3 mb-5">
-                    <span class="pf-icon" style="background:#fffbeb;color:#d97706"><x-icon name="globe-alt" class="w-4 h-4" /></span>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="sa-card-title">Website Data</h3>
-                        <p class="sa-card-sub">What superlms.in shows and has collected</p>
+                {{-- Password --}}
+                <div class="sa-card p-5 min-w-0 flex flex-col">
+                    <div class="flex items-start gap-3 mb-6">
+                        <span class="pf-icon"><x-icon name="lock-closed" /></span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="sa-card-title">Change Password</h3>
+                            <p class="sa-card-sub">At least 8 characters with upper and lower case, a number and a symbol</p>
+                        </div>
                     </div>
-                    {{-- The look every visitor gets; both designs are kept in full. --}}
-                    <div class="flex items-center gap-1 p-1 rounded-xl bg-gray-100 flex-shrink-0" title="Which design superlms.in is shown in">
-                        <span class="hidden sm:inline px-2 text-[11px] font-medium text-gray-500">Design</span>
-                        @foreach (['new' => 'New', 'classic' => 'Classic'] as $key => $label)
-                            <button type="button" wire:click="setWebsiteDesign('{{ $key }}')"
-                                @if ($websiteDesign !== $key) wire:confirm="Show superlms.in in the {{ strtolower($label) }} design to every visitor?" @endif
-                                class="h-8 px-3 rounded-lg text-xs font-semibold transition-colors {{ $websiteDesign === $key ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-800' }}">{{ $label }}</button>
+
+                    <div class="space-y-5">
+                        @foreach ($passwords as [$model, $field, $label, $shown, $autocomplete])
+                            <div>
+                                <label class="pf-field {{ $errors->has($model) ? 'has-error' : '' }}">
+                                    <input type="{{ $shown ? 'text' : 'password' }}" wire:model="{{ $model }}" autocomplete="{{ $autocomplete }}"
+                                        @if ($field === 'confirm') wire:keydown.enter="updatePassword" @endif
+                                        class="pf-input pr-12">
+                                    <span class="pf-label">{{ $label }}</span>
+                                    <button type="button" wire:click="togglePasswordVisibility('{{ $field }}')"
+                                        title="{{ $shown ? 'Hide' : 'Show' }}" aria-label="{{ $shown ? 'Hide' : 'Show' }} password"
+                                        class="absolute inset-y-0 right-1.5 w-10 flex items-center justify-center text-gray-400 hover:text-teal-700">
+                                        <x-icon name="{{ $shown ? 'eye-slash' : 'eye' }}" class="w-4 h-4" />
+                                    </button>
+                                </label>
+                                @error($model) <p class="pf-err">{{ $message }}</p> @enderror
+                            </div>
                         @endforeach
                     </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                    @foreach ($websiteData as $row)
-                        <{{ $row['url'] ? 'a' : 'div' }} @if ($row['url']) href="{{ $row['url'] }}" @endif
-                            class="group rounded-xl bg-gray-50/80 ring-1 ring-gray-100 px-4 py-3.5 min-w-0 transition-colors {{ $row['url'] ? 'hover:bg-violet-50 hover:ring-violet-100' : '' }}">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="w-8 h-8 rounded-lg bg-white shadow-sm ring-1 ring-black/[.03] text-violet-600 flex items-center justify-center flex-shrink-0">
-                                    <x-icon name="{{ $row['icon'] }}" class="w-4 h-4" />
-                                </span>
-                                @if ($row['url'])
-                                    <x-icon name="arrow-right" class="w-3.5 h-3.5 text-gray-300 group-hover:text-violet-600 transition-colors flex-shrink-0" />
-                                @endif
-                            </div>
-                            <p class="text-xs font-medium text-gray-500 truncate mt-3">{{ $row['label'] }}</p>
-                            <p class="text-xl leading-tight font-semibold text-gray-900 tabular-nums mt-0.5">{{ $row['count'] }}</p>
-                            <p class="text-[11px] text-gray-400 mt-0.5 truncate">{{ $row['latest'] ? 'Latest ' . $row['latest'] : 'None yet' }}</p>
-                        </{{ $row['url'] ? 'a' : 'div' }}>
-                    @endforeach
+
+                    <div class="mt-auto pt-6">
+                        <button wire:click="updatePassword" wire:loading.attr="disabled" wire:target="updatePassword" class="sk-cta w-full justify-center" style="height: 2.875rem">
+                            <span wire:loading.remove wire:target="updatePassword">Update Password</span>
+                            <span wire:loading wire:target="updatePassword">Updating…</span>
+                        </button>
+                    </div>
                 </div>
             </div>
+        </section>
+
+        {{-- ═══════════════════════════ LOGIN ACTIVITY ═══════════════════════════ --}}
+        <section data-pf="activity" x-show="tab === 'activity'" style="display: none">
+            <div class="sa-card min-w-0 overflow-hidden">
+                <div class="p-5 flex flex-col lg:flex-row lg:items-end gap-5">
+                    <div class="flex items-start gap-3 lg:w-80 flex-shrink-0">
+                        <span class="pf-icon"><x-icon name="finger-print" /></span>
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Login Activity</h3>
+                            <p class="sa-card-sub">{{ $logins['all'] ? 'Every sign-in to the Super Admin panel' : 'Your sign-ins to the Super Admin panel' }} · since {{ $logins['since'] }}</p>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                <span class="pf-chip pf-teal"><x-icon name="arrow-right-on-rectangle" />{{ $logins['total'] }} {{ \Illuminate\Support\Str::plural('login', $logins['total']) }}</span>
+                                <span class="pf-chip pf-emerald pf-dot">{{ $logins['today'] }} today</span>
+                                @if ($logins['all'])
+                                    <span class="pf-chip pf-sky"><x-icon name="users" />{{ count($logins['accounts']) }} {{ \Illuminate\Support\Str::plural('account', count($logins['accounts'])) }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Sign-ins a day, the last 15 days --}}
+                    <div class="flex-1 min-w-0">{!! $bars() !!}</div>
+                </div>
+
+                @if ($logins['all'] && count($logins['accounts']) > 0)
+                    <div class="px-5 pb-4 flex flex-wrap gap-2">
+                        @foreach ($logins['accounts'] as $acc)
+                            @php [$tone] = $roleChip($acc['role']); @endphp
+                            <span class="inline-flex items-center gap-2 h-8 pl-1 pr-3 rounded-full border border-gray-100 bg-gray-50/80 max-w-full" title="{{ $acc['email'] }} · last {{ $acc['last'] }}">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0" style="background: {{ $tones[$tone][0] }}; color: {{ $tones[$tone][1] }}">{{ strtoupper(mb_substr($acc['name'], 0, 1)) }}</span>
+                                <span class="text-xs font-medium text-gray-700 truncate">{{ $acc['name'] }}</span>
+                                <span class="text-[11px] font-semibold text-gray-400 tabular-nums">{{ $acc['count'] }}</span>
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="border-t border-gray-100 overflow-x-auto max-h-[32rem] overflow-y-auto">
+                    <table class="w-full text-sm min-w-[760px]">
+                        <thead class="sticky top-0 z-10 bg-white text-gray-400 text-[11px] uppercase tracking-wide">
+                            <tr class="border-b border-gray-100">
+                                <th class="px-5 py-2.5 text-left font-medium">Time</th>
+                                <th class="px-3 py-2.5 text-left font-medium">Who</th>
+                                <th class="px-3 py-2.5 text-left font-medium">Email</th>
+                                <th class="px-3 py-2.5 text-left font-medium">Signed in with</th>
+                                <th class="px-3 py-2.5 text-left font-medium">Device</th>
+                                <th class="px-5 py-2.5 text-left font-medium">IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($loginDays as $day => $rows)
+                                <tr wire:key="login-day-{{ $day }}">
+                                    <td colspan="6" class="px-5 pt-3.5 pb-1.5 bg-gray-50/60 border-b border-gray-100">
+                                        <span class="text-xs font-semibold text-gray-700">{{ $dayName($day) }}</span>
+                                        <span class="text-[11px] text-gray-400 ml-1">· {{ $rows->count() }} {{ \Illuminate\Support\Str::plural('login', $rows->count()) }}</span>
+                                    </td>
+                                </tr>
+                                @foreach ($rows as $row)
+                                    @php
+                                        [$rTone, $rLabel]       = $roleChip($row['role']);
+                                        [$mTone, $mIcon, $mLbl] = $methodChip[$row['method']] ?? ['gray', 'question-mark-circle', ucfirst((string) $row['method'] ?: 'Unknown')];
+                                    @endphp
+                                    <tr wire:key="login-{{ $row['id'] }}" class="border-b border-gray-50 hover:bg-gray-50/70">
+                                        <td class="px-5 py-3 whitespace-nowrap">
+                                            <p class="font-semibold text-gray-900 tabular-nums">{{ $row['time'] }}</p>
+                                            <p class="text-[11px] text-gray-400">{{ $row['ago'] }}</p>
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style="background: {{ $tones[$rTone][0] }}; color: {{ $tones[$rTone][1] }}">{{ strtoupper(mb_substr($row['name'], 0, 1)) }}</span>
+                                                <div class="min-w-0">
+                                                    <p class="font-medium text-gray-800 truncate max-w-[11rem]" title="{{ $row['name'] }}">{{ $row['name'] }}</p>
+                                                    <span class="pf-chip pf-{{ $rTone }} mt-0.5" style="height:1.25rem">{{ $rLabel }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-3 text-gray-600 truncate max-w-[14rem]" title="{{ $row['email'] }}">{{ $row['email'] }}</td>
+                                        <td class="px-3 py-3"><span class="pf-chip pf-{{ $mTone }}"><x-icon name="{{ $mIcon }}" />{{ $mLbl }}</span></td>
+                                        <td class="px-3 py-3">
+                                            <div class="flex items-center gap-2 text-gray-600 whitespace-nowrap">
+                                                <x-icon name="{{ $row['mobile'] ? 'device-phone-mobile' : 'computer-desktop' }}" class="w-4 h-4 text-gray-400" />
+                                                {{ $row['browser'] }}@if ($row['os'])<span class="text-gray-400"> · {{ $row['os'] }}</span>@endif
+                                            </div>
+                                        </td>
+                                        <td class="px-5 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{{ $row['ip'] }}</td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-5 py-12 text-center text-sm text-gray-400">No sign-ins in the last 15 days yet — every login from now on is listed here.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        @if ($isMain)
+            {{-- ═══════════════════════════ PLATFORM ═══════════════════════════ --}}
+            <section data-pf="platform" x-show="tab === 'platform'" style="display: none">
+                <div class="pf-main wide-first">
+
+                    {{-- Platform details --}}
+                    <div class="sa-card p-5 min-w-0 flex flex-col">
+                        <div class="flex items-start gap-3 mb-6">
+                            <span class="pf-icon"><x-icon name="building-office-2" /></span>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="sa-card-title">Platform Details</h3>
+                                <p class="sa-card-sub">Who runs {{ $details['platform_name'] ?? 'SuperLMS' }} — invoices use these where Store's own settings are blank</p>
+                            </div>
+                            @if (!empty($details['company_gstin']))
+                                <span class="pf-chip pf-emerald hidden sm:inline-flex"><x-icon name="check-badge" />GST registered</span>
+                            @endif
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+                            @foreach ($detailFields as $key => [$icon, $placeholder, $type, $cols])
+                                <div class="{{ $cols === 2 ? 'sm:col-span-2' : '' }} min-w-0">
+                                    <label class="pf-field {{ $errors->has('details.' . $key) ? 'has-error' : '' }}">
+                                        <x-icon name="{{ $icon }}" class="w-4 h-4 text-gray-400 absolute left-4 {{ $type === 'textarea' ? 'top-3.5' : 'top-1/2 -translate-y-1/2' }} pointer-events-none" />
+                                        @if ($type === 'textarea')
+                                            <textarea wire:model="details.{{ $key }}" rows="3" maxlength="500" placeholder="{{ $placeholder }}" class="pf-input pl-11"></textarea>
+                                        @else
+                                            <input type="{{ $type }}" wire:model="details.{{ $key }}" placeholder="{{ $placeholder }}"
+                                                @if (in_array($key, ['company_cin', 'company_gstin'], true)) style="text-transform: uppercase" maxlength="{{ $key === 'company_cin' ? 25 : 20 }}" @endif
+                                                @if ($type === 'tel') inputmode="tel" maxlength="16" @endif
+                                                class="pf-input pl-11 {{ in_array($key, ['company_cin', 'company_gstin', 'company_mobile'], true) ? 'tabular-nums tracking-wide' : '' }}">
+                                        @endif
+                                        <span class="pf-label">{{ $detailLabels[$key] }}</span>
+                                    </label>
+                                    @error('details.' . $key) <p class="pf-err">{{ $message }}</p> @enderror
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-6 pt-5 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <p class="text-xs text-gray-400">CIN 21 characters · GSTIN 15 · mobile 10 digits</p>
+                            <button wire:click="saveDetails" wire:loading.attr="disabled" wire:target="saveDetails" class="sk-cta" style="height: 2.75rem; padding: 0 22px">
+                                <span wire:loading.remove wire:target="saveDetails">Save Details</span>
+                                <span wire:loading wire:target="saveDetails">Saving…</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Platform logo --}}
+                    <div class="sa-card p-5 min-w-0 flex flex-col">
+                        <div class="flex items-start gap-3 mb-5">
+                            <span class="pf-icon"><x-icon name="photo" /></span>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="sa-card-title">Platform Logo</h3>
+                                <p class="sa-card-sub">Login pages, sidebars and the website · PNG, JPG, WEBP or SVG up to 2 MB</p>
+                            </div>
+                            <span class="pf-chip {{ $customLogo ? 'pf-teal' : 'pf-gray' }} pf-dot">{{ $customLogo ? 'Custom' : 'Original' }}</span>
+                        </div>
+
+                        <div class="rounded-2xl p-4 flex items-center justify-center gap-4 min-h-[9.5rem]" style="background:#f6f8f7">
+                            <div class="text-center">
+                                <div class="w-24 h-24 rounded-2xl bg-white flex items-center justify-center p-2" style="box-shadow: 0 1px 2px rgba(12,38,32,.05)">
+                                    <img src="{{ $logoUrl }}" alt="Current logo" class="max-w-full max-h-full object-contain">
+                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1.5">Current</p>
+                            </div>
+                            @if ($logoPreview)
+                                <x-icon name="arrow-right" class="w-5 h-5 text-gray-300 flex-shrink-0" />
+                                <div class="text-center">
+                                    <div class="w-24 h-24 rounded-2xl bg-white flex items-center justify-center p-2" style="border: 2px solid #5eead4">
+                                        <img src="{{ $logoPreview }}" alt="New logo" class="max-w-full max-h-full object-contain">
+                                    </div>
+                                    <p class="text-[11px] font-medium mt-1.5" style="color:#0f766e">New</p>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div wire:loading wire:target="logo" class="mt-3 text-xs text-gray-400">Uploading…</div>
+                        @error('logo') <p class="mt-3 text-xs text-rose-600">{{ $message }}</p> @enderror
+
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <label class="pf-ghost">
+                                <x-icon name="arrow-up-tray" class="w-4 h-4" />
+                                Choose image or SVG
+                                <input type="file" wire:model="logo" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
+                            </label>
+                            @if ($logo && !$errors->has('logo'))
+                                <button wire:click="saveLogo" wire:loading.attr="disabled" wire:target="saveLogo" class="sk-cta">
+                                    <span wire:loading.remove wire:target="saveLogo">Save Logo</span>
+                                    <span wire:loading wire:target="saveLogo">Saving…</span>
+                                </button>
+                            @endif
+                            @if ($customLogo)
+                                <button wire:click="resetLogo" wire:confirm="Go back to the original SuperLMS logo?" class="text-sm text-gray-500 hover:text-teal-700 px-2">Use original logo</button>
+                            @endif
+                        </div>
+
+                        <div class="mt-auto pt-5">
+                            <div class="rounded-2xl px-4 py-3 min-w-0" style="background:#effaf7">
+                                <p class="text-[11px] font-medium" style="color:#0d9488">Website</p>
+                                <a href="{{ $platform['website'] }}" target="_blank" rel="noopener"
+                                    class="mt-0.5 flex items-center gap-1.5 text-sm font-semibold min-w-0" style="color:#0f4a43">
+                                    <span class="truncate">{{ $platform['website'] }}</span>
+                                    <x-icon name="arrow-top-right-on-square" class="w-3.5 h-3.5 flex-shrink-0" />
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {{-- ═══════════════════════════ WEBSITE ═══════════════════════════ --}}
+            <section data-pf="website" x-show="tab === 'website'" style="display: none">
+                <div class="sa-card min-w-0 overflow-hidden">
+                    <div class="p-5 flex flex-wrap items-start justify-between gap-3">
+                        <div class="flex items-start gap-3 min-w-0">
+                            <span class="pf-icon"><x-icon name="globe-alt" /></span>
+                            <div class="min-w-0">
+                                <h3 class="sa-card-title">Website Data</h3>
+                                <p class="sa-card-sub">What superlms.in shows and has collected</p>
+                            </div>
+                        </div>
+                        {{-- The look every visitor gets; both designs are kept in full. --}}
+                        <div class="flex items-center gap-1 p-1 rounded-full flex-shrink-0" style="background:#eef2f1" title="Which design superlms.in is shown in">
+                            <span class="hidden sm:inline px-2 text-[11px] font-medium text-gray-500">Design</span>
+                            @foreach (['new' => 'New', 'classic' => 'Classic'] as $key => $label)
+                                <button type="button" wire:click="setWebsiteDesign('{{ $key }}')"
+                                    @if ($websiteDesign !== $key) wire:confirm="Show superlms.in in the {{ strtolower($label) }} design to every visitor?" @endif
+                                    class="h-8 px-3.5 rounded-full text-xs font-semibold transition-colors {{ $websiteDesign === $key ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-800' }}"
+                                    @if ($websiteDesign === $key) style="color:#0f766e" @endif>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <table class="an-cmp" style="margin: 0 20px 8px; width: calc(100% - 40px)">
+                        <thead><tr><th>What</th><th>Count</th><th>Latest</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach ($websiteData as $row)
+                                <tr>
+                                    <td><span class="flex items-center gap-2.5"><span class="pf-icon" style="width:28px;height:28px;border-radius:9px"><x-icon name="{{ $row['icon'] }}" /></span>{{ $row['label'] }}</span></td>
+                                    <td class="font-semibold">{{ $row['count'] }}</td>
+                                    <td class="text-gray-500">{{ $row['latest'] ?: 'None yet' }}</td>
+                                    <td style="width: 1%">
+                                        @if ($row['url'])
+                                            <a href="{{ $row['url'] }}" class="pf-round" title="Open {{ $row['label'] }}" aria-label="Open {{ $row['label'] }}"><x-icon name="arrow-right" /></a>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         @endif
     </div>
 </div>
