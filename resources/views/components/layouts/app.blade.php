@@ -33,9 +33,10 @@
          from its first frame (at the end of the page the old buttons and
          fields showed for a moment while a page loaded — 2026-11-19). --}}
     @include('partials.panel-ui-styles')
-    @if (in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true))
-        @include('partials.super-admin-theme')
-    @endif
+    {{-- The website's look for the Super Admin's and (since 2026-11-20) the
+         school admin's pages: 60px header rows, teal pill buttons, the
+         login's fields. --}}
+    @include('partials.super-admin-theme')
     @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     @endif
@@ -361,7 +362,7 @@
     @if ($lmsPanelUi)
         @include('partials.panel-ui')
     @endif
-    {{-- (Super Admin: the website's look on every page — partials.super-admin-theme, in the <head>.) --}}
+    {{-- (Both panels: the website's look on every page — partials.super-admin-theme, in the <head>.) --}}
     {{-- ─── Super Admin: the lists' skeletons, shown while their page loads ─── --}}
     @if ($lmsSuperAdmin)
         @include('livewire.super-admin.partials.list-skeletons')

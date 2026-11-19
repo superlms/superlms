@@ -34,9 +34,31 @@ class PanelUiTest extends TestCase
         $head   = substr($layout, 0, strpos($layout, '</head>'));
 
         $this->assertStringContainsString("@include('partials.panel-ui-styles')", $head);
-        $this->assertMatchesRegularExpression("/@if \(in_array\(Auth::user\(\)->role, \['super-admin', 'sub-super-admin'\], true\)\)\s*@include\('partials\.super-admin-theme'\)\s*@endif/", $head);
+        $this->assertStringContainsString("@include('partials.super-admin-theme')", $head);
         $this->assertSame(1, substr_count($layout, "@include('partials.super-admin-theme')"));
         $this->assertStringNotContainsString('<style>', view('partials.panel-ui')->render());
+        // Both looks sit in the <head> block of the four panel roles only.
+        $block = substr($head, strpos($head, "in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true)"));
+        $block = substr($block, 0, strpos($block, '@else'));
+        $this->assertStringContainsString("@include('partials.super-admin-theme')", $block);
+    }
+
+    /**
+     * The school admin's panel in the Super Admin's look too (2026-11-20):
+     * the website's look is on body.lms-ui (both panels), not body.lms-sa,
+     * and finds a page's header row by its title (the school admin's rows
+     * have no sm:min-h-9).
+     */
+    public function test_the_website_look_is_on_both_panels(): void
+    {
+        $css = view('partials.super-admin-theme')->render();
+
+        $this->assertStringContainsString('body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)) {', $css);
+        $this->assertStringContainsString('body.lms-ui #main-scroll :is(button, a, [role="button"], input[type="submit"], input[type="button"])', $css);
+        $this->assertStringContainsString('html body.lms-ui #main-scroll label', $css);
+        $this->assertStringContainsString('body.lms-ui .sa-home .sk-head { height: 60px;', $css);
+        // Only the Super Admin's list skeletons stay its own.
+        $this->assertSame(1, substr_count($css, 'body.lms-sa'));
     }
 
     public function test_it_is_on_the_super_admin_and_school_admin_panels(): void
