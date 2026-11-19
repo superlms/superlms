@@ -85,11 +85,21 @@
     .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: 1px solid #eef1f0; -webkit-backdrop-filter: none; backdrop-filter: none; }
     .sk-ql .sk-title { align-items: center; gap: 10px; flex: none; }
     .sk-ql .sk-clock, .sk-ql .sk-actions, .sk-ql .sk-session { flex: none; }
-    .sk-ql .sk-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
-    /* 2026-11-19: the title greets the role — "Welcome!" in the teal. */
-    .sk-ql .sk-title .sk-hi { color: var(--sk-teal); }
-    .sk-ql .sk-search { flex: 1 1 180px; min-width: 140px; max-width: 300px; }
-    .sk-ql .sk-search input { height: 36px; background: #fbfcfc; }
+    /* 2026-11-19 (user's ask): "Welcome! <role>" all in the ink, not bold —
+       Geist (Plus Jakarta is only loaded 600–800). */
+    .sk-ql .sk-title h1 { font-family: 'Geist', system-ui, sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.015em; color: var(--sk-ink); }
+    .sk-ql .sk-title .sk-hi { color: inherit; }
+    /* Search and Ask AI side by side, both a little bigger, no empty space
+       between them: each grows (up to a cap); any space left over goes
+       between Ask AI and the clock. The search is a full pill. */
+    .sk-ql .sk-search { flex: 1 1 260px; min-width: 140px; max-width: 420px; }
+    .sk-ql .sk-search > svg { left: 16px; width: 17px; height: 17px; }
+    .sk-ql .sk-search input { height: 40px; padding-left: 42px; border-radius: 100px; background: #fbfcfc; font-size: 14px; }
+    .sk-ql .sk-search > button { right: 9px; width: 24px; height: 24px; border-radius: 50%; }
+    .sk-ql .sk-right > .sk-clock { margin-left: auto; }
+    .sk-ql .sk-ask { flex: 1 1 260px; max-width: 400px; height: 40px; padding: 0 4px 0 14px; }
+    .sk-ql .sk-ask input { font-size: 14px; }
+    .sk-ql .sk-ask button { width: 32px; height: 32px; }
     .sk-ql .sk-pill, .sk-ql .sk-select { height: 32px; }
     .sk-ql .sk-right { flex-wrap: nowrap; gap: 10px; }
     /* The time, and the date under it in small type. */
@@ -109,11 +119,12 @@
     .sk-ql .sk-bell:hover svg { animation: sk-ring .7s ease; transform-origin: 50% 4px; }
     @keyframes sk-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
     .sk-ql .sk-badge { top: -3px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; line-height: 1; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 6px -1px rgba(244,63,94,.5); }
-    .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+    .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
     @media (min-width: 1024px) and (max-width: 1109px) { .sk-ql .sk-session { display: none; } }
     @media (prefers-reduced-motion: reduce) { .sk-ql .sk-bell:hover svg { animation: none; } }
     @media (max-width: 1023px) {
         .sk-ql .sk-head { height: auto; min-height: 60px; flex-wrap: wrap; padding: 10px 14px; }
+        .sk-ql .sk-right { justify-content: flex-end; }
         .sk-clock { display: none; }
     }
 
