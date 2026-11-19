@@ -64,8 +64,20 @@ class SuperAdminPagesLookTest extends TestCase
         // renders on the bare test database.
         $html = Livewire::test(Reports::class)->html();
 
+        // Since 2026-11-19 in Analytics' look: Home's header with the month
+        // and Export, a chip a section, and four headline cards where there
+        // were 21 small ones — today and the month (with all time) are tables.
+        $this->assertStringContainsString('class="sa-skin sa-home min-h-screen"', $html);
+        $this->assertStringContainsString('class="sk-head"', $html);
+        preg_match_all('/data-rp="([a-z]+)"/', $html, $sections);
+        $this->assertSame(['overview', 'fees', 'revenue', 'registrations', 'support', 'days'], $sections[1]);
+        preg_match_all('/x-on:click="go\(\'([a-z]+)\'\)"/', $html, $chips);
+        $this->assertSame($sections[1], $chips[1]);
+        $this->assertSame(4, substr_count($html, 'sa-card sa-kpi'));
+        $this->assertStringNotContainsString('All-Time Totals', $html);
+        $this->assertStringNotContainsString('class="sa-card-dark', $html);
         preg_match_all('/<h2[^>]*>([^<]+)<\/h2>/', $html, $m);
-        $this->assertSame(['Today', 'Oct 2026', 'All-Time Totals'], array_map('trim', $m[1]));
+        $this->assertSame(['Oct 2026', 'Today', 'Oct 2026 in Figures'], array_map('trim', $m[1]));
         // Since Reports took the Home's look (8a9dd51), Day by Day is a card
         // of its own — its title a card title, with the month as a CSV.
         $this->assertMatchesRegularExpression('/<h3 class="sa-card-title">Day by Day<\/h3>.*?wire:click="exportCsv" title="Download this month as a CSV"/s', $html);

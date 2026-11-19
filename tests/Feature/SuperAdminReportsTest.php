@@ -116,7 +116,8 @@ class SuperAdminReportsTest extends TestCase
     {
         $html = Livewire::test(Reports::class)->html();
 
-        $today = substr($html, strpos($html, '>Today</h2>'), strpos($html, 'Click a figure') - strpos($html, '>Today</h2>'));
+        // Since 2026-11-19 today is one table (Today · Yesterday · Change).
+        $today = substr($html, strpos($html, 'data-rp-today'), strpos($html, 'data-rp-month') - strpos($html, 'data-rp-today'));
         $this->assertStringContainsString('New Students', $today);
         $this->assertStringNotContainsString('text-gray-300', $today);
     }
@@ -173,8 +174,9 @@ class SuperAdminReportsTest extends TestCase
         $this->assertSame(2, $stats['activeDays']);
 
         $text = strip_tags($page->html());
-        foreach (['Month at a Glance', 'Platform Revenue · Day by Day', 'Revenue by School', 'Fees by Payment Mode',
-                  'Registrations · Day by Day', 'Support Tickets', 'Website Enquiries', 'All-Time Totals', 'Day by Day'] as $part) {
+        foreach (['Oct 2026 in Figures', 'Days with activity', 'Best revenue day', 'Platform Revenue · Day by Day', 'Revenue by School',
+                  'Fees by Payment Mode', 'Revenue by Payment Mode', 'Registrations · Day by Day', 'Who Joined', 'Support Tickets',
+                  'Website Enquiries', 'All time', 'Day by Day'] as $part) {
             $this->assertStringContainsString($part, $text);
         }
 
@@ -192,8 +194,9 @@ class SuperAdminReportsTest extends TestCase
         $page = Livewire::test(Reports::class);
         $this->assertEquals(500, $page->get('yesterday')['revenue']);
         $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
-        $this->assertStringContainsString('+₹14,500 vs yesterday', $text);
-        $this->assertStringContainsString('Same as yesterday', $text);
+        // Today's table: the figure, yesterday's, and the change.
+        $this->assertStringContainsString('Platform Revenue ₹15,000 ₹500 +₹14,500', $text);
+        $this->assertStringContainsString('New Students 0 0 Same', $text);
     }
 
     public function test_the_month_downloads_as_a_csv(): void
