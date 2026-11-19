@@ -60,16 +60,17 @@ class QuickLinks extends Component
         }
 
         // The page has no top bar on a computer (components.layouts.app), so
-        // what the bar held comes onto the page's own header: the session, the
-        // assistant, notifications, Profile and Logout.
+        // what the bar held comes onto the page's own header. Since 2026-11-19
+        // it greets the role ("Welcome! Super Admin"), has no session pill, and
+        // has Messages — the schools' queries on Support — beside the bell.
         $user        = auth()->user();
-        $sessionLink = $user?->canAccessSuperAdminRoute('super-admin.sessions') ?? false;
+        $supportLink = $user?->canAccessSuperAdminRoute('super-admin.support') ?? false;
 
         return view('livewire.super-admin.quick-links', [
             'orderedLinks'        => $links,
-            'sessionLabel'        => \App\Models\AcademicSession::currentLabel(),
-            'sessionLink'         => $sessionLink,
-            'sessionList'         => $sessionLink ? \App\Models\AcademicSession::switchable() : collect(),
+            'roleLabel'           => $user?->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin',
+            'supportLink'         => $supportLink,
+            'pendingQueries'      => $supportLink ? $this->pendingQueries() : 0,
             'unreadNotifications' => $this->unreadNotifications(),
             'assistantEnabled'    => $user
                 && in_array($user->role, (array) config('gemini.roles', []), true)
@@ -82,6 +83,16 @@ class QuickLinks extends Component
     public function refreshNotifications(): void
     {
         //
+    }
+
+    /** Schools' queries on Support the Super Admin has not answered yet. */
+    private function pendingQueries(): int
+    {
+        try {
+            return \App\Models\Admin\ContactSuperAdmin::where('super_admin_reply', false)->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     private function unreadNotifications(): int

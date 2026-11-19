@@ -12,53 +12,18 @@
      Filter by / Sort, the search, Ask AI (the website's ask pill; Enter opens
      the assistant as the website's popup), the clock and the bell; Profile
      and Logout left for the sidebar's user card. Each tile fills with its own
-     pastel under the pointer. --}}
+     pastel under the pointer.
+     2026-11-19 (user's ask): the title is "Welcome! Super Admin"; no session
+     pill and no Filter by / Sort (tiles keep the sidebar's order); the time
+     with the date under it in small type; Messages then Notifications in the
+     corner, each in a soft circle. --}}
 <div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}
     <div class="sk-head">
         <div class="sk-title">
-            <h1>Quick Links</h1>
-            <span class="sk-bar-div" aria-hidden="true"></span>
-
-            {{-- The current academic session — pick another (Session then asks
-                 for its two codes) or open Session. --}}
-            @if ($sessionLink && $sessionList->count() > 1)
-                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false" x-on:keydown.escape.window="open = false">
-                    <button type="button" class="sk-pill" x-on:click="open = !open" :aria-expanded="open" title="Current session — switch it here">
-                        <x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}
-                        <x-icon name="chevron-down" class="w-3 h-3" />
-                    </button>
-                    <div class="sk-menu" x-show="open" x-transition style="display: none" role="listbox">
-                        <p class="sk-menu-h">Current session</p>
-                        @foreach ($sessionList as $s)
-                            @if ($s->is_current)
-                                <div class="cur" role="option" aria-selected="true"><span class="flex-1">{{ $s->name }}<small>{{ $s->durationLabel() }}</small></span><x-icon name="check" class="w-4 h-4" /></div>
-                            @else
-                                <a role="option" href="{{ route('super-admin.sessions', ['switch' => $s->id]) }}"
-                                    title="Make {{ $s->name }} current — needs a code from the Super Admin's email and one from WhatsApp">
-                                    <span class="flex-1">{{ $s->name }}<small>{{ $s->durationLabel() }}</small></span><x-icon name="lock-closed" class="w-3.5 h-3.5 text-gray-300" />
-                                </a>
-                            @endif
-                        @endforeach
-                        <a class="foot" href="{{ route('super-admin.sessions') }}">Manage sessions <x-icon name="chevron-right" class="w-3.5 h-3.5" /></a>
-                    </div>
-                </div>
-            @elseif ($sessionLink)
-                <a href="{{ route('super-admin.sessions') }}" class="sk-pill" title="Current session — change it on Session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</a>
-            @else
-                <span class="sk-pill" title="Current session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</span>
-            @endif
-        </div>
-
-        <div class="sk-bar-filter">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-            <span>Filter by:</span>
-            <select wire:model.live="sort" class="sk-select" aria-label="Sort">
-                <option value="sidebar">Sidebar order</option>
-                <option value="asc">A–Z</option>
-            </select>
+            <h1><span class="sk-hi">Welcome!</span> {{ $roleLabel }}</h1>
         </div>
 
         <label class="sk-search">
@@ -84,16 +49,22 @@
                 </form>
             @endif
 
-            {{-- Live day · date · time, as on the school admin's Quick Links (client clock, ticks every second). --}}
-            <span wire:ignore class="sk-clock"
-                x-data="{ day: '', date: '', time: '', tick() { const n = new Date(); this.day = n.toLocaleDateString('en-IN', { weekday: 'long' }); this.date = n.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); this.time = n.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); } }"
-                x-init="tick(); setInterval(() => tick(), 1000)">
-                <b class="day" x-text="day"></b><i>·</i><span x-text="date"></span><i>·</i><b class="tabular-nums" x-text="time"></b>
-            </span>
+            @include('livewire.super-admin.partials.ql-clock')
 
+            {{-- In the corner: Messages (the schools' queries on Support, the
+                 badge counting those not yet answered), then Notifications —
+                 each in a soft circle. --}}
             <div class="sk-actions">
-                <button type="button" class="sk-btn" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
-                    <x-icon name="bell-alert" />
+                @if ($supportLink)
+                    <a href="{{ route('super-admin.support') }}" class="sk-btn" title="Messages — queries from schools" aria-label="Messages">
+                        <x-icon name="chat-bubble-oval-left-ellipsis" />
+                        @if ($pendingQueries > 0)
+                            <span class="sk-badge">{{ $pendingQueries > 99 ? '99+' : $pendingQueries }}</span>
+                        @endif
+                    </a>
+                @endif
+                <button type="button" class="sk-btn sk-bell" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
+                    <x-icon name="bell" />
                     @if ($unreadNotifications > 0)
                         <span class="sk-badge">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
                     @endif

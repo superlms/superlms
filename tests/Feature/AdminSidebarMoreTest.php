@@ -215,7 +215,11 @@ class AdminSidebarMoreTest extends TestCase
             ->assertSeeHtml('class="sk-head"')
             ->assertSeeHtml("Livewire.dispatch('open-notifications')")
             ->assertSeeHtml('class="sk-tile"')
-            ->assertSee('Filter by:')
+            // 2026-11-19: "Welcome! School Admin", no Filter by; the time over
+            // the date, then the session, then Messages before the bell.
+            ->assertSeeHtml('<h1><span class="sk-hi">Welcome!</span> School Admin</h1>')
+            ->assertDontSee('Filter by:')
+            ->assertSeeHtmlInOrder(['class="sk-clock"', 'class="sk-pill sk-session"', 'class="sk-actions"', 'class="sk-btn sk-bell"'])
             ->assertDontSeeHtml('ql-grid');
 
         Livewire::test(\App\Livewire\Components\NavBar::class)

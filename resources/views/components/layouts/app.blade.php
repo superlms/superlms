@@ -13,6 +13,22 @@
          always open as well. --}}
     @if (Auth::check() && in_array(Auth::user()->role, ['super-admin', 'sub-super-admin', 'admin', 'sub-admin'], true))
     <script>document.documentElement.classList.add('sidebar-expanded');</script>
+    {{-- The Super Admin's and the school admin's panels are in the website's
+         fonts (user's ask of 2026-11-19): Geist for the text and Plus Jakarta
+         Sans for the headings, as superlms.in. Only the face changes — every
+         size stays as it was. (The panel's own 'Instrument Sans' was never
+         loaded, so the pages fell back to the system's font.) --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body.lms-ui {
+            --font-sans: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --lms-display: 'Plus Jakarta Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            font-family: var(--font-sans);
+        }
+        body.lms-ui :is(h1, h2, h3) { font-family: var(--lms-display); }
+    </style>
     @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     @endif

@@ -77,11 +77,13 @@ class QuickLinks extends Component
         // the Super Admin's Quick Links (2026-11-19): what the bar held comes
         // onto the page's own header — the session, Ask AI, the clock,
         // notifications and messages (Profile and Logout are on the
-        // sidebar's user card).
+        // sidebar's user card). Since 2026-11-19 it greets the role
+        // ("Welcome! School Admin") in place of the page's name.
         $user = auth()->user();
 
         return view('livewire.admin.quick-links', [
             'orderedLinks'        => $links,
+            'roleLabel'           => $user?->role === 'sub-admin' ? 'Sub Admin' : 'School Admin',
             'columns'             => $this->safeColumns(),
             'rows'                => $this->safeRows(),
             'organization'        => $this->organization,

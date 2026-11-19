@@ -50,9 +50,10 @@ class SuperAdminPagesLookTest extends TestCase
         $html = Livewire::test(QuickLinks::class)->html();
 
         $this->assertStringNotContainsString('links</span>', $html);
-        // Since the header took the school admin's look (2026-11-18): day · date · time, as there.
+        // Since 2026-11-19: the time, with the (short) day and date under it in small type.
         $this->assertStringContainsString('class="sk-clock"', $html);
-        $this->assertStringContainsString("weekday: 'long'", $html);
+        $this->assertMatchesRegularExpression('/<b class="tabular-nums" x-text="time"><\/b>\s*<small x-text="date"><\/small>/', $html);
+        $this->assertStringContainsString("weekday: 'short'", $html);
         $this->assertStringContainsString('toLocaleTimeString', $html);
         $this->assertStringNotContainsString('bg-indigo-50 border border-indigo-100', $html);
     }

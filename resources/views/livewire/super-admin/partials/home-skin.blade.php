@@ -75,31 +75,43 @@
     /* ── Quick Links page (sk-ql), user's ask of 2026-11-18 (later): a white
           page; the header as the school admin's — one white row with a line
           under it, 60px tall so that line runs on from the sidebar's divider
-          under the logo — holding the title, the session, Sort, the search,
-          Ask AI, the clock and the bell (Profile and Logout are on the
+          under the logo — holding (since 2026-11-19) "Welcome! <role>", the
+          search, Ask AI, the time over the date, the school admin's session,
+          then Messages and the bell in circles (Profile and Logout are on the
           sidebar's user card). The tiles: white, a hairline edge; under the
           pointer each lifts and fills with its own pastel (the website's
           panels), its icon turning white with a little bounce. ── */
     .sa-skin.sk-ql { background: #fff; min-height: calc(100vh - var(--lms-nav-h, 0px)); }
     .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: 1px solid #eef1f0; -webkit-backdrop-filter: none; backdrop-filter: none; }
     .sk-ql .sk-title { align-items: center; gap: 10px; flex: none; }
-    .sk-ql .sk-bar-filter, .sk-ql .sk-clock, .sk-ql .sk-actions { flex: none; }
+    .sk-ql .sk-clock, .sk-ql .sk-actions, .sk-ql .sk-session { flex: none; }
     .sk-ql .sk-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
-    .sk-bar-div { width: 1px; height: 18px; background: #e5eae8; flex: none; }
-    .sk-bar-filter { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #44544f; white-space: nowrap; }
-    .sk-bar-filter > svg { width: 14px; height: 14px; color: #8b9893; }
+    /* 2026-11-19: the title greets the role — "Welcome!" in the teal. */
+    .sk-ql .sk-title .sk-hi { color: var(--sk-teal); }
     .sk-ql .sk-search { flex: 1 1 180px; min-width: 140px; max-width: 300px; }
     .sk-ql .sk-search input { height: 36px; background: #fbfcfc; }
     .sk-ql .sk-pill, .sk-ql .sk-select { height: 32px; }
-    .sk-ql .sk-right { flex-wrap: nowrap; gap: 8px; }
-    .sk-clock { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: #6b7c76; white-space: nowrap; }
-    .sk-clock b { color: var(--sk-ink); font-weight: 600; }
-    .sk-clock i { font-style: normal; color: #c3ccc8; }
-    .sk-ql .sk-actions { border-left: 0; padding-left: 0; margin-left: 0; }
-    .sk-ql .sk-btn { width: 34px; height: 34px; }
+    .sk-ql .sk-right { flex-wrap: nowrap; gap: 10px; }
+    /* The time, and the date under it in small type. */
+    .sk-clock { display: inline-flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; padding: 0 2px; line-height: 1.15; white-space: nowrap; }
+    .sk-clock b { font-size: 13px; font-weight: 600; color: var(--sk-ink); letter-spacing: -.005em; }
+    .sk-clock small { font-size: 10.5px; font-weight: 500; color: #8b9893; }
+    /* Messages and Notifications: a soft mint circle each, the icon in the
+       ink; under the pointer the circle fills teal and the icon turns white
+       (the bell rings a little). The count sits on the circle's rim. */
+    .sk-ql .sk-actions { gap: 8px; border-left: 1px solid var(--sk-line); padding-left: 12px; margin-left: 2px; }
+    .sk-ql .sk-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #e3ece9; background: #f3f8f6; color: #1f3a33;
+        box-shadow: 0 1px 2px rgba(12,38,32,.05); transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s; }
+    .sk-ql .sk-btn svg { width: 19px; height: 19px; }
+    .sk-ql .sk-btn svg * { stroke-width: 1.7px; }
+    .sk-ql .sk-btn:hover { background: var(--sk-teal); border-color: var(--sk-teal); color: #fff; transform: translateY(-1px); box-shadow: 0 10px 20px -10px rgba(13,148,136,.7); }
+    .sk-ql .sk-btn:focus-visible { outline: 2px solid var(--sk-teal); outline-offset: 2px; }
+    .sk-ql .sk-bell:hover svg { animation: sk-ring .7s ease; transform-origin: 50% 4px; }
+    @keyframes sk-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
+    .sk-ql .sk-badge { top: -3px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; line-height: 1; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 6px -1px rgba(244,63,94,.5); }
     .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
-    @media (max-width: 1439px) { .sk-clock .day, .sk-clock .day + i { display: none; } }
-    @media (max-width: 1279px) { .sk-bar-filter > span { display: none; } }
+    @media (min-width: 1024px) and (max-width: 1109px) { .sk-ql .sk-session { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .sk-ql .sk-bell:hover svg { animation: none; } }
     @media (max-width: 1023px) {
         .sk-ql .sk-head { height: auto; min-height: 60px; flex-wrap: wrap; padding: 10px 14px; }
         .sk-clock { display: none; }

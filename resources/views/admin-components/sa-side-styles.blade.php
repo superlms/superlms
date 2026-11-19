@@ -9,7 +9,7 @@
        instead of the browser's wide one. --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
     @media (min-width: 768px) {
         html.sidebar-expanded { --lms-sb: 226px; }
@@ -20,14 +20,16 @@
     .sa-side {
         --sa-ink: #0c2620; --sa-text: #44544f; --sa-icon: #5f716b; --sa-line: #eef1f0; --sa-divider: #e3e9e7;
         --sa-teal: #0d9488; --sa-teal-50: #e4f6f2; --sa-on: #edf1f0; --sa-hover: #f3f6f5;
-        font-family: 'Geist', 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif;
         background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
     }
 
     /* Logo · SUPERLMS, centred, a little shorter (4px less); under it a divider
-       like the one over the user card (inset 12px), only very faint. */
-    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 18px 15px; flex-shrink: 0; border-bottom: 1px solid transparent; }
-    .sa-brand::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 1px; background: rgba(12, 38, 32, .05); pointer-events: none; }
+       across the sidebar's full width (user's ask of 2026-11-19), in the colour
+       of Quick Links' header line, so the two read as one line. The row is
+       exactly 60px, as that header, so the two lines meet on the same pixel. */
+    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; padding: 0 18px; flex-shrink: 0; border-bottom: 1px solid transparent; }
+    .sa-brand::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--sa-line); pointer-events: none; }
     .sa-brand-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }

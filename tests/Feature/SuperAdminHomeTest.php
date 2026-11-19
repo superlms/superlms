@@ -83,7 +83,7 @@ class SuperAdminHomeTest extends TestCase
     /**
      * Quick Links (2026-11-18, later): no top bar on a computer, so the page's
      * own header — the school admin's kind, a white row with a line under it —
-     * carries Filter by / Sort, the search, the notifications and Ask AI (the
+     * carries the search, Messages, the notifications and Ask AI (the
      * website's ask pill opening the assistant); Profile and Logout moved to
      * the sidebar's user card. Each tile carries its own pastel for the hover.
      */
@@ -97,7 +97,14 @@ class SuperAdminHomeTest extends TestCase
             ->assertSeeHtml('class="sk-tile"')
             ->assertSeeHtml('--tint: #dff3ee')
             ->assertSeeHtml('placeholder="Search pages..."')
-            ->assertSeeHtml('Filter by:')
+            // 2026-11-19: "Welcome! Super Admin" in place of the page's name,
+            // no session pill and no Filter by / Sort.
+            ->assertSeeHtml('<h1><span class="sk-hi">Welcome!</span> Super Admin</h1>')
+            ->assertDontSeeHtml('Filter by:')
+            ->assertDontSeeHtml('wire:model.live="sort"')
+            ->assertDontSeeHtml('title="Current session')
+            // In the corner: Messages (Support's queries) and then the bell.
+            ->assertSeeHtmlInOrder(['class="sk-clock"', 'href="' . route('super-admin.support') . '" class="sk-btn"', 'class="sk-btn sk-bell"'])
             ->assertSeeHtml("Livewire.dispatch('open-notifications')")
             ->assertDontSeeHtml("Livewire.dispatch('open-logout-confirm')")
             ->assertDontSeeHtml('title="Profile"')

@@ -6,25 +6,18 @@
      Ask AI (the website's ask pill — Enter opens the assistant as the
      website's popup), the day · date · time, the bell and Messages. Profile
      and Logout are on the sidebar's user card. Every screen a white tile on a
-     white page that fills with its own pastel under the pointer. --}}
+     white page that fills with its own pastel under the pointer.
+     2026-11-19 (user's ask): the title is "Welcome! School Admin"; no Filter
+     by / Sort (tiles keep the sidebar's order); the time with the date under
+     it, then the session, then Messages and Notifications in soft circles —
+     as the Super Admin's. --}}
 <div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}
     <div class="sk-head">
         <div class="sk-title">
-            <h1>Quick Links</h1>
-            <span class="sk-bar-div" aria-hidden="true"></span>
-            <span class="sk-pill" title="Current session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</span>
-        </div>
-
-        <div class="sk-bar-filter">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-            <span>Filter by:</span>
-            <select wire:model.live="sort" class="sk-select" aria-label="Sort">
-                <option value="sidebar">Sidebar order</option>
-                <option value="asc">A–Z</option>
-            </select>
+            <h1><span class="sk-hi">Welcome!</span> {{ $roleLabel }}</h1>
         </div>
 
         <label class="sk-search">
@@ -50,20 +43,14 @@
                 </form>
             @endif
 
-            {{-- Live day · date · time (client clock, ticks every second). --}}
-            <span wire:ignore class="sk-clock"
-                x-data="{ day: '', date: '', time: '', tick() { const n = new Date(); this.day = n.toLocaleDateString('en-IN', { weekday: 'long' }); this.date = n.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); this.time = n.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); } }"
-                x-init="tick(); setInterval(() => tick(), 1000)">
-                <b class="day" x-text="day"></b><i>·</i><span x-text="date"></span><i>·</i><b class="tabular-nums" x-text="time"></b>
-            </span>
+            {{-- The time with the date under it, as the Super Admin's. --}}
+            @include('livewire.super-admin.partials.ql-clock')
 
+            {{-- The current session, just before the icons. --}}
+            <span class="sk-pill sk-session" title="Current session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</span>
+
+            {{-- In the corner: Messages, then Notifications — each in a soft circle. --}}
             <div class="sk-actions">
-                <button type="button" class="sk-btn" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
-                    <x-icon name="bell-alert" />
-                    @if ($unreadNotifications > 0)
-                        <span class="sk-badge">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
-                    @endif
-                </button>
                 @if (\Illuminate\Support\Facades\Route::has('admin.messages'))
                     <a href="{{ route('admin.messages', ['organization' => $organization]) }}" class="sk-btn" title="Messages" aria-label="Messages"
                         x-data="{ count: {{ (int) $unreadMessages }} }" x-on:chat-sync.window="count = $event.detail.unread">
@@ -71,6 +58,12 @@
                         <span class="sk-badge" x-show="count > 0" x-cloak x-text="count > 99 ? '99+' : count" @if ($unreadMessages <= 0) style="display: none" @endif>{{ $unreadMessages > 99 ? '99+' : $unreadMessages }}</span>
                     </a>
                 @endif
+                <button type="button" class="sk-btn sk-bell" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
+                    <x-icon name="bell" />
+                    @if ($unreadNotifications > 0)
+                        <span class="sk-badge">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
+                    @endif
+                </button>
             </div>
         </div>
     </div>
