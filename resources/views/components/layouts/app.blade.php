@@ -354,6 +354,11 @@
     @if ($lmsPanelUi)
         @include('partials.panel-ui')
     @endif
+    {{-- ─── Super Admin: the website's look on every page — 60px header rows level
+         with the sidebar's divider, teal pill buttons, the login's fields ─── --}}
+    @if ($lmsSuperAdmin)
+        @include('partials.super-admin-theme')
+    @endif
     {{-- ─── Super Admin: the lists' skeletons, shown while their page loads ─── --}}
     @if ($lmsSuperAdmin)
         @include('livewire.super-admin.partials.list-skeletons')

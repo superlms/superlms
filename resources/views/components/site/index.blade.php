@@ -3,6 +3,41 @@
 @section('title', "India's #1 School Management Platform")
 
 @php
+    // The hero's swiping features (2026-11-19, user's ask): a photo of a school
+    // using each one (AI-made pictures, public/site/hero/<img>.webp), its name
+    // and a line on it, and a small live note on the picture.
+    $heroSlides = [
+        ['img' => 'attendance', 'tag' => 'Attendance', 'ic' => 'calendar-check', 'tint' => 'mint',
+         't' => 'Attendance in seconds',
+         'd' => 'Mark it by mobile, QR or biometric — parents get an SMS or WhatsApp the moment a child is absent.',
+         'note' => 'Absent alert sent', 'noteSub' => 'to 3 parents · just now', 'noteIc' => 'bell',
+         'alt' => 'A teacher marking attendance on a tablet in a classroom'],
+        ['img' => 'fees', 'tag' => 'Fee Management', 'ic' => 'wallet', 'tint' => 'sand',
+         't' => 'Fees, collected online',
+         'd' => 'Online and offline collection, late fines and instant receipts — every rupee tracked.',
+         'note' => '₹12,500 received', 'noteSub' => 'Receipt sent on WhatsApp', 'noteIc' => 'receipt',
+         'alt' => 'A parent paying school fees on a phone with her son'],
+        ['img' => 'learning', 'tag' => 'Digital Learning', 'ic' => 'library', 'tint' => 'sky',
+         't' => 'Learning, anytime',
+         'd' => 'Notes, videos and PDFs subject-wise, with homework and quizzes in one app.',
+         'note' => 'New chapter uploaded', 'noteSub' => 'Class 10 · Science', 'noteIc' => 'book-open',
+         'alt' => 'Students learning on a laptop in a school computer lab'],
+        ['img' => 'exams', 'tag' => 'Exams & Results', 'ic' => 'award', 'tint' => 'lilac',
+         't' => 'Exams & report cards',
+         'd' => 'Datesheets, admit cards, marks entry and report cards in one click.',
+         'note' => 'Results published', 'noteSub' => 'Class 9 · Term 1', 'noteIc' => 'check-circle',
+         'alt' => 'A student writing an exam in a calm exam hall'],
+        ['img' => 'alerts', 'tag' => 'Parent Connect', 'ic' => 'message', 'tint' => 'blush',
+         't' => 'Parents always in the loop',
+         'd' => 'Announcements, homework and fee reminders by app, SMS and WhatsApp.',
+         'note' => 'Message delivered', 'noteSub' => 'to 1,240 parents', 'noteIc' => 'whatsapp',
+         'alt' => 'A father reading a school message on his phone at the school gate'],
+    ];
+
+    // The slider shows once every photo is in place; until then the hero keeps
+    // the product mockup it had.
+    $heroReady = collect($heroSlides)->every(fn ($s) => is_file(public_path('site/hero/' . $s['img'] . '.webp')));
+
     $features = [
         ['t' => 'Smart Analytics', 'tag' => 'Analytics', 'ic' => 'chart', 'm' => 'analytics', 'p' => 'mint',
          'd' => 'Real-time performance tracking, subject-wise trend analysis, attendance heatmaps and detailed admin, teacher & student reports with exportable dashboards.'],
@@ -82,9 +117,50 @@
                 </div>
             </div>
 
+            {{-- The main features, one after another: each a school photo with
+                 its name and a line on it; they swipe on by themselves (paused
+                 under the pointer), and can be swiped, or picked below. --}}
+            @if (!$heroReady)
             <div class="hero-visual rv rv-r" style="--rd:.15s">
                 @include('components.site.mock.hero-dashboard')
             </div>
+            @else
+            <div class="hero-visual rv rv-r" style="--rd:.15s">
+                <div class="hs" data-hero-slider aria-roledescription="carousel" aria-label="SUPERLMS main features">
+                    <div class="hs-frame">
+                        <div class="hs-track">
+                            @foreach ($heroSlides as $i => $s)
+                                <figure class="hs-slide hs-{{ $s['tint'] }}" role="group" aria-roledescription="slide" aria-label="{{ $i + 1 }} of {{ count($heroSlides) }}: {{ $s['tag'] }}">
+                                    <img src="{{ asset('site/hero/' . $s['img'] . '.webp') }}" alt="{{ $s['alt'] }}" width="1200" height="900"
+                                        loading="{{ $i ? 'lazy' : 'eager' }}" fetchpriority="{{ $i ? 'low' : 'high' }}" decoding="async" draggable="false"
+                                        onerror="this.remove()">
+                                    <span class="hs-ic" aria-hidden="true"><x-site.icon :name="$s['ic']" /></span>
+                                    <div class="hs-note">
+                                        <span class="hs-note-ic"><x-site.icon :name="$s['noteIc']" /></span>
+                                        <span><b>{{ $s['note'] }}</b><small>{{ $s['noteSub'] }}</small></span>
+                                    </div>
+                                    <figcaption class="hs-cap">
+                                        <span class="hs-tag"><x-site.icon :name="$s['ic']" /> {{ $s['tag'] }}</span>
+                                        <h3>{{ $s['t'] }}</h3>
+                                        <p>{{ $s['d'] }}</p>
+                                    </figcaption>
+                                </figure>
+                            @endforeach
+                        </div>
+                        <div class="hs-bars" aria-hidden="true">
+                            @foreach ($heroSlides as $i => $s)<i><b></b></i>@endforeach
+                        </div>
+                    </div>
+                    <div class="hs-tabs" role="tablist" aria-label="Features">
+                        @foreach ($heroSlides as $i => $s)
+                            <button type="button" role="tab" aria-selected="{{ $i ? 'false' : 'true' }}" class="{{ $i ? '' : 'is-on' }}" data-hs-go="{{ $i }}">
+                                <x-site.icon :name="$s['ic']" /> {{ $s['tag'] }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
     </section>
 

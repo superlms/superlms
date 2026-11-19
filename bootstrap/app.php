@@ -63,7 +63,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // when its file has come (App\Http\Middleware\DownloadReady); the page's
         // script reads that cookie, so it is sent as it is, not encrypted.
         $middleware->web(append: [\App\Http\Middleware\DownloadReady::class]);
-        $middleware->encryptCookies(except: [\App\Http\Middleware\DownloadReady::COOKIE]);
+
+        // A browser that opens a panel's login (or any panel page) is one of
+        // the platform's own users: the website's visitor count leaves it out
+        // (App\Http\Middleware\MarkPanelBrowser, TrackWebsiteVisit). Its
+        // cookies, and the website's visitor id, are plain ids, not secrets.
+        $middleware->web(append: [\App\Http\Middleware\MarkPanelBrowser::class]);
+        $middleware->encryptCookies(except: [
+            \App\Http\Middleware\DownloadReady::COOKIE,
+            \App\Http\Middleware\MarkPanelBrowser::COOKIE,
+            \App\Http\Middleware\TrackWebsiteVisit::VISITOR_COOKIE,
+        ]);
 
         // Guests: web panels go to their own login screen; API keeps its JSON 403.
         $middleware->redirectGuestsTo(function (Request $request) {

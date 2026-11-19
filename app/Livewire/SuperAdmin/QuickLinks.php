@@ -61,14 +61,18 @@ class QuickLinks extends Component
 
         // The page has no top bar on a computer (components.layouts.app), so
         // what the bar held comes onto the page's own header. Since 2026-11-19
-        // it greets the role ("Welcome! Super Admin"), has no session pill, and
-        // has Messages — the schools' queries on Support — beside the bell.
+        // it has no session pill, and has Messages — the schools' queries on
+        // Support — beside the bell. It greets the person signed in by name
+        // ("Welcome! Amit Dagur"), the super admin and a sub super admin alike
+        // (user's ask, 2026-11-19); the role only when no name is on record.
         $user        = auth()->user();
+        $roleLabel   = $user?->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin';
         $supportLink = $user?->canAccessSuperAdminRoute('super-admin.support') ?? false;
 
         return view('livewire.super-admin.quick-links', [
             'orderedLinks'        => $links,
-            'roleLabel'           => $user?->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin',
+            'roleLabel'           => $roleLabel,
+            'welcomeName'         => trim((string) $user?->name) ?: $roleLabel,
             'supportLink'         => $supportLink,
             'pendingQueries'      => $supportLink ? $this->pendingQueries() : 0,
             'unreadNotifications' => $this->unreadNotifications(),

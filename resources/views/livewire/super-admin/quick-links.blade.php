@@ -16,14 +16,15 @@
      2026-11-19 (user's ask): the title is "Welcome! Super Admin"; no session
      pill and no Filter by / Sort (tiles keep the sidebar's order); the time
      with the date under it in small type; Messages then Notifications in the
-     corner, each in a soft circle. --}}
+     corner, each in a soft circle. Later that day: "Welcome! <their name>"
+     for the super admin and every sub super admin. --}}
 <div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}
     <div class="sk-head">
         <div class="sk-title">
-            <h1><span class="sk-hi">Welcome!</span> {{ $roleLabel }}</h1>
+            <h1 title="{{ $roleLabel }}"><span class="sk-hi">Welcome!</span> {{ $welcomeName }}</h1>
         </div>
 
         <label class="sk-search">

@@ -521,36 +521,37 @@
                     </div>
                 </div>
 
-                {{-- The range's visitors, on the page's one dark card: new people
-                     against visits by people who came back. --}}
+                {{-- The range's visitors: new people against visits by people
+                     who came back. A white card like the rest of the tab (user's
+                     ask, 2026-11-19 — it was the page's one dark card). --}}
                 @php
                     $visits  = (int) ($websiteStats['totalVisits'] ?? 0);
                     $uniques = (int) ($websiteStats['uniqueVisitors'] ?? 0);
                 @endphp
-                <div class="sa-card-dark p-5 min-w-0 flex flex-col">
-                    <h3 class="text-[15px] font-semibold text-white">Visitors</h3>
-                    <p class="text-xs text-white/50 mt-0.5">People and their visits in this range</p>
+                <div class="sa-card p-5 min-w-0 flex flex-col" data-visitors-card>
+                    <h3 class="sa-card-title">Visitors</h3>
+                    <p class="sa-card-sub">People and their visits in this range</p>
                     <div class="flex justify-center my-5">
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Unique visitors', 'value' => $uniques, 'color' => '#5eead4'],
+                                ['label' => 'Unique visitors', 'value' => $uniques, 'color' => '#0d9488'],
                                 ['label' => 'Return visits', 'value' => max(0, $visits - $uniques), 'color' => '#38bdf8'],
                             ],
-                            'center' => number_format($uniques), 'centerLabel' => 'People', 'size' => 140, 'legend' => false, 'dark' => true,
+                            'center' => number_format($uniques), 'centerLabel' => 'People', 'size' => 140, 'legend' => false,
                         ])
                     </div>
                     <dl class="mt-auto space-y-2.5 text-sm">
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Unique visitors</dt>
-                            <dd class="font-semibold tabular-nums">{{ number_format($uniques) }}</dd>
+                            <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#0d9488"></span>Unique visitors</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($uniques) }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#38bdf8"></span>Return visits</dt>
-                            <dd class="font-semibold tabular-nums">{{ number_format(max(0, $visits - $uniques)) }}</dd>
+                            <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#38bdf8"></span>Return visits</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ number_format(max(0, $visits - $uniques)) }}</dd>
                         </div>
-                        <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
-                            <dt class="text-white/60">Visits a day</dt>
-                            <dd class="font-semibold tabular-nums">{{ number_format($websiteStats['avgPerDay'] ?? 0) }}</dd>
+                        <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-gray-100">
+                            <dt class="text-gray-500">Visits a day</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($websiteStats['avgPerDay'] ?? 0) }}</dd>
                         </div>
                     </dl>
                 </div>

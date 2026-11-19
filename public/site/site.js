@@ -126,6 +126,78 @@
     $$('.rv, .steps, .mk').forEach(function (el) { el.classList.add('in'); });
   }
 
+  /* ── Hero: the main features, swiping ([data-hero-slider], 2026-11-19) ──
+     The next slide comes when the current bar has filled (its animation's
+     end), so pausing the bar (pointer over it, or off screen) pauses the
+     slider too. Swipe or drag sideways, pick a pill, or use the arrow keys. */
+  $$('[data-hero-slider]').forEach(function (root) {
+    var frame = $('.hs-frame', root), track = $('.hs-track', root);
+    var slides = $$('.hs-slide', root), bars = $$('.hs-bars i', root), tabs = $$('[data-hs-go]', root);
+    var n = slides.length, cur = 0;
+    if (!frame || !track || n < 2) { if (slides[0]) slides[0].classList.add('is-on'); return; }
+    root.style.setProperty('--hs-dur', '5.5s');
+
+    function show(i) {
+      cur = (i + n) % n;
+      track.style.transform = 'translateX(' + (-cur * 100) + '%)';
+      slides.forEach(function (s, k) {
+        s.classList.toggle('is-on', k === cur);
+        s.setAttribute('aria-hidden', k === cur ? 'false' : 'true');
+      });
+      bars.forEach(function (b, k) { b.classList.remove('is-on'); b.classList.toggle('is-done', k < cur); });
+      var bar = bars[cur];
+      if (bar) { void bar.offsetWidth; bar.classList.add('is-on'); }
+      tabs.forEach(function (t, k) {
+        t.classList.toggle('is-on', k === cur);
+        t.setAttribute('aria-selected', k === cur ? 'true' : 'false');
+      });
+    }
+    bars.forEach(function (b, k) {
+      var fill = b.firstElementChild;
+      if (fill) fill.addEventListener('animationend', function () { if (k === cur) show(cur + 1); });
+    });
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { show(parseInt(t.getAttribute('data-hs-go'), 10) || 0); });
+    });
+
+    // Paused under the pointer, and while off screen.
+    var hover = false, away = false;
+    function sync() { root.classList.toggle('is-paused', hover || away); }
+    frame.addEventListener('mouseenter', function () { hover = true; sync(); });
+    frame.addEventListener('mouseleave', function () { hover = false; sync(); });
+    if ('IntersectionObserver' in w) {
+      new IntersectionObserver(function (es) { away = !es[0].isIntersecting; sync(); }).observe(root);
+    }
+
+    // Swipe / drag sideways.
+    var x0 = null, dx = 0, width = 1;
+    frame.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      x0 = e.clientX; dx = 0; width = frame.offsetWidth || 1;
+      root.classList.add('is-drag');
+      try { frame.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    frame.addEventListener('pointermove', function (e) {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      track.style.transform = 'translateX(calc(' + (-cur * 100) + '% + ' + dx + 'px))';
+    });
+    function end() {
+      if (x0 === null) return;
+      x0 = null;
+      root.classList.remove('is-drag');
+      show(Math.abs(dx) > Math.min(80, width * .15) ? cur + (dx < 0 ? 1 : -1) : cur);
+    }
+    frame.addEventListener('pointerup', end);
+    frame.addEventListener('pointercancel', end);
+    root.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { show(cur + 1); e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { show(cur - 1); e.preventDefault(); }
+    });
+
+    show(0);
+  });
+
   /* ── Tabs: [data-tabs] > [data-tab=i] buttons + [data-panel=i] panels ── */
   $$('[data-tabs]').forEach(function (root) {
     var btns = $$('[data-tab]', root), panels = $$('[data-panel]', root);

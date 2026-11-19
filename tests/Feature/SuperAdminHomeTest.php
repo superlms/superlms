@@ -71,6 +71,15 @@ class SuperAdminHomeTest extends TestCase
         $this->assertContains('super-admin.credit', array_column(config('menu.super-admin'), 'link'));
     }
 
+    public function test_quick_links_greet_a_sub_super_admin_by_name_too(): void
+    {
+        $user = $this->signIn('sub-super-admin', ['super-admin.quick-links']);
+        $user->name = 'Amit Dagur';
+
+        Livewire::test(QuickLinks::class)
+            ->assertSeeHtml('<h1 title="Sub Super Admin"><span class="sk-hi">Welcome!</span> Amit Dagur</h1>');
+    }
+
     public function test_quick_links_have_no_credit_tile(): void
     {
         $this->signIn();
@@ -97,9 +106,10 @@ class SuperAdminHomeTest extends TestCase
             ->assertSeeHtml('class="sk-tile"')
             ->assertSeeHtml('--tint: #dff3ee')
             ->assertSeeHtml('placeholder="Search pages..."')
-            // 2026-11-19: "Welcome! Super Admin" in place of the page's name,
-            // no session pill and no Filter by / Sort.
-            ->assertSeeHtml('<h1><span class="sk-hi">Welcome!</span> Super Admin</h1>')
+            // 2026-11-19: "Welcome!" and the signed-in person's name in place
+            // of the page's name (the role in its title), no session pill and
+            // no Filter by / Sort.
+            ->assertSeeHtml('<h1 title="Super Admin"><span class="sk-hi">Welcome!</span> Super</h1>')
             ->assertDontSeeHtml('Filter by:')
             ->assertDontSeeHtml('wire:model.live="sort"')
             ->assertDontSeeHtml('title="Current session')
