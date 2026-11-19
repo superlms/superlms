@@ -14,9 +14,13 @@
         teal glow and a little lift under the pointer. Red ones stay red,
         light ones stay light with a teal edge under the pointer.
      3. Forms: the fields take the Super Admin login's look — a light grey
-        edge while empty, teal while being typed in, and once filled the edge
-        AND the typed words teal (the name on the border teal too); red while
-        wrong. The words are in the login's face (Geist, 15px). --}}
+        edge, teal while being typed in, and what the person typed or picked
+        teal, edge and words (the name on the border too); red while wrong.
+        Every empty field reads the same light grey (hints, "Select …", empty
+        dates) and a value the form came with reads ink. The words are in the
+        login's face (Geist, 15px).
+     Included in the page's <head> (components.layouts.app), so a page never
+     shows the old buttons or fields while it loads. --}}
 @php
     $in   = 'body.lms-ui.lms-sa #main-scroll';
     // As partials.panel-ui: a box to fill (not a tick, a file, …) that is not
@@ -102,43 +106,67 @@
     /* Every box: the login's face, and teal (not blue) while in use. */
     body.lms-sa #main-scroll {!! $any !!} { font-family: 'Geist', 'Segoe UI', system-ui, -apple-system, sans-serif; }
     body.lms-sa #main-scroll {!! $any !!}:focus { --tw-ring-color: rgba(13,148,136,.28) !important; border-color: var(--sa-t) !important; }
-    /* A field with its name on the border (partials.panel-ui): grey edge while empty … */
+    /* A field with its name on the border (partials.panel-ui), every one in
+       the same three colours (user's ask, 2026-11-19 — some read dark, some
+       light, some teal before anything was typed):
+         · nothing in it yet — a typed box's hint, a dropdown still on its
+           "Select …", an empty date, a locked box: all the hint's light grey;
+         · a value it came with (an edit form, a default such as "No"): ink;
+         · what the person typed or picked here: teal, edge and words, as the
+           login. */
     {!! $in !!} {!! $name !!} + {!! $box !!} {
-        border-color: var(--sa-line2) !important; color: #111827;
-        font-size: .9375rem; letter-spacing: normal;
+        border-color: var(--sa-line2) !important; color: #111827; -webkit-text-fill-color: #111827;
+        font-size: .9375rem; font-weight: 400; letter-spacing: normal;
     }
-    {!! $in !!} {!! $name !!} + {!! $box !!}::placeholder { color: #9ca3af; }
-    /* … teal while typing … */
+    {!! $in !!} {!! $name !!} + {!! $box !!}::placeholder { color: #9ca3af; -webkit-text-fill-color: #9ca3af; opacity: 1; }
+    {!! $in !!} {!! $name !!} + {!! $box !!}:is(select):has(option:checked:is([value=""], :disabled)),
+    {!! $in !!} {!! $name !!} + {!! $box !!}.sa-empty { color: #9ca3af; -webkit-text-fill-color: #9ca3af; }
+    {!! $in !!} {!! $name !!} + {!! $box !!}.sa-empty::-webkit-datetime-edit { color: #9ca3af; }
+    {!! $in !!} {!! $name !!} + select option { color: #111827; }
+    /* Teal while typing … */
     {!! $in !!} {!! $name !!} + {!! $box !!}:focus { border-color: var(--sa-t) !important; }
     {!! $in !!} {!! $name !!}:has(+ {!! $box !!}:focus) { color: var(--sa-t7) !important; }
-    /* … and once filled, the edge and the words teal, as the login. */
+    /* … and what was typed or picked here, the edge and the words teal. */
     {!! $in !!} {!! $name !!} + {!! $box !!}.sa-filled { border-color: var(--sa-t) !important; color: var(--sa-t); -webkit-text-fill-color: var(--sa-t); }
     {!! $in !!} {!! $name !!}:has(+ {!! $box !!}.sa-filled) { color: var(--sa-t7) !important; }
     {!! $in !!} {!! $name !!} + {!! $box !!}:-webkit-autofill { border-color: var(--sa-t) !important; -webkit-text-fill-color: var(--sa-t); -webkit-box-shadow: 0 0 0 1000px #fff inset !important; }
     /* Red while wrong (as before). */
     {!! $in !!} {!! $name !!} + {!! $box !!}[class*="border-red"] { border-color: #dc2626 !important; color: #dc2626; -webkit-text-fill-color: #dc2626; }
     {!! $in !!} {!! $name !!}:has(+ {!! $box !!}[class*="border-red"]) { color: #dc2626 !important; }
-    {!! $in !!} {!! $name !!} + {!! $box !!}:disabled { border-color: #e5e7eb !important; color: #6b7280; -webkit-text-fill-color: #6b7280; }
-    /* Other boxes (search, filters): once something is typed, the words teal too. */
+    {!! $in !!} {!! $name !!} + {!! $box !!}:disabled { border-color: #e5e7eb !important; color: #9ca3af; -webkit-text-fill-color: #9ca3af; }
+    /* Other boxes (search, filters): what is typed there in teal too. */
     body.lms-sa #main-scroll {!! $any !!}.sa-filled:not(:disabled) { color: var(--sa-t7); }
+
+    /* A list's skeleton while its page loads: its buttons already pills. */
+    body.lms-sa .lms-skeleton .sa-skel:is(.h-7, .h-8, .h-9, .h-10) { border-radius: 9999px !important; }
 </style>
 <script>
-    // Marks every box that holds something (.sa-filled) — as the login does —
-    // when typed in, when Livewire redraws a part of the page, and when a
-    // form opens with its values.
+    // Marks every box: .sa-empty while nothing is in it, and .sa-filled once
+    // the person has typed or picked something there themselves (a value the
+    // form came with stays ink) — kept when Livewire redraws a part of the
+    // page, dropped when the page puts another value in the box.
+    // (In the <head>: it waits for the page before it looks at anything.)
     (function () {
         if (window.__saTheme) return;
         window.__saTheme = true;
         var SEL = '#main-scroll :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"], [type="submit"], [type="button"]), select, textarea)';
+        var typed = new WeakMap();   // box → the value the person last gave it
         function mark(el) {
             var v = el.value == null ? '' : String(el.value);
-            el.classList.toggle('sa-filled', v.trim() !== '');
+            var empty = v.trim() === '';
+            el.classList.toggle('sa-empty', empty);
+            el.classList.toggle('sa-filled', !empty && typed.has(el) && typed.get(el) === v);
         }
         function scan() { document.querySelectorAll(SEL).forEach(mark); }
         var queued = false;
         function soon() { if (queued) return; queued = true; requestAnimationFrame(function () { queued = false; scan(); }); }
         ['input', 'change'].forEach(function (t) {
-            document.addEventListener(t, function (e) { if (e.target && e.target.matches && e.target.matches(SEL)) mark(e.target); }, true);
+            document.addEventListener(t, function (e) {
+                var el = e.target;
+                if (!el || !el.matches || !el.matches(SEL)) return;
+                if (e.isTrusted) typed.set(el, el.value == null ? '' : String(el.value));
+                mark(el);
+            }, true);
         });
         document.addEventListener('livewire:init', function () {
             Livewire.hook('morph.updated', function (p) { if (p.el && p.el.matches && p.el.matches(SEL)) mark(p.el); });

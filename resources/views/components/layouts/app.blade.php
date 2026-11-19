@@ -29,6 +29,13 @@
         }
         body.lms-ui :is(h1, h2, h3) { font-family: var(--lms-display); }
     </style>
+    {{-- The panels' looks, here in the <head> so every page is drawn in them
+         from its first frame (at the end of the page the old buttons and
+         fields showed for a moment while a page loaded — 2026-11-19). --}}
+    @include('partials.panel-ui-styles')
+    @if (in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true))
+        @include('partials.super-admin-theme')
+    @endif
     @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     @endif
@@ -354,11 +361,7 @@
     @if ($lmsPanelUi)
         @include('partials.panel-ui')
     @endif
-    {{-- ─── Super Admin: the website's look on every page — 60px header rows level
-         with the sidebar's divider, teal pill buttons, the login's fields ─── --}}
-    @if ($lmsSuperAdmin)
-        @include('partials.super-admin-theme')
-    @endif
+    {{-- (Super Admin: the website's look on every page — partials.super-admin-theme, in the <head>.) --}}
     {{-- ─── Super Admin: the lists' skeletons, shown while their page loads ─── --}}
     @if ($lmsSuperAdmin)
         @include('livewire.super-admin.partials.list-skeletons')

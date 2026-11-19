@@ -18,9 +18,25 @@ class PanelUiTest extends TestCase
         return file_get_contents(resource_path('views/components/layouts/app.blade.php'));
     }
 
+    /** The styles (in the page's <head> since 2026-11-19) and the script. */
     private function partial(): string
     {
-        return view('partials.panel-ui')->render();
+        return view('partials.panel-ui-styles')->render() . view('partials.panel-ui')->render();
+    }
+
+    /**
+     * The panels' looks are in the <head> (2026-11-19): at the end of the page
+     * the old buttons and fields showed for a moment while a page loaded.
+     */
+    public function test_the_looks_are_in_the_head_so_a_page_never_shows_the_old_ones(): void
+    {
+        $layout = $this->layout();
+        $head   = substr($layout, 0, strpos($layout, '</head>'));
+
+        $this->assertStringContainsString("@include('partials.panel-ui-styles')", $head);
+        $this->assertMatchesRegularExpression("/@if \(in_array\(Auth::user\(\)->role, \['super-admin', 'sub-super-admin'\], true\)\)\s*@include\('partials\.super-admin-theme'\)\s*@endif/", $head);
+        $this->assertSame(1, substr_count($layout, "@include('partials.super-admin-theme')"));
+        $this->assertStringNotContainsString('<style>', view('partials.panel-ui')->render());
     }
 
     public function test_it_is_on_the_super_admin_and_school_admin_panels(): void

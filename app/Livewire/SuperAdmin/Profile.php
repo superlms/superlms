@@ -109,6 +109,40 @@ class Profile extends Component
         $this->resetValidation('photo');
     }
 
+    // ─── Name ─────────────────────────────────────────────────────────────────
+    // The name Quick Links greets ("Welcome! Amit Dagur") and the sidebar's
+    // card shows (2026-11-19): the Super Admin had no way to set their own.
+
+    public bool $editingName = false;
+    public string $newName   = '';
+
+    public function startNameEdit(): void
+    {
+        $this->newName     = (string) Auth::user()->name;
+        $this->editingName = true;
+        $this->resetValidation('newName');
+    }
+
+    public function cancelNameEdit(): void
+    {
+        $this->reset('editingName', 'newName');
+        $this->resetValidation('newName');
+    }
+
+    public function saveName(): void
+    {
+        $this->newName = trim(preg_replace('/\s+/', ' ', $this->newName));
+        $this->validate(
+            ['newName' => ['required', 'string', 'min:2', 'max:60']],
+            ['newName.required' => 'Please enter your name.']
+        );
+
+        Auth::user()->update(['name' => $this->newName]);
+
+        $this->reset('editingName', 'newName');
+        $this->notification()->success('Name updated');
+    }
+
     public function updatePassword(): void
     {
         $this->validate([

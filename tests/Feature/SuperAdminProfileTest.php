@@ -102,6 +102,42 @@ class SuperAdminProfileTest extends TestCase
         $this->assertStringStartsWith('Up to 5 numbers', OtpNumbers::add($this->boss, '9000000005'));
     }
 
+    /** The super admin sets their own name on Profile (2026-11-19): Quick Links greets it. */
+    public function test_the_super_admin_changes_their_own_name(): void
+    {
+        $this->actingAs($this->boss);
+
+        Livewire::test(Profile::class)
+            ->assertSeeHtml('wire:click="startNameEdit"')
+            ->call('startNameEdit')
+            ->assertSet('newName', 'Main')
+            ->set('newName', '  ')->call('saveName')
+            ->assertHasErrors(['newName' => 'required'])
+            ->set('newName', '  Amit   Dagur ')->call('saveName')
+            ->assertHasNoErrors()
+            ->assertSet('editingName', false);
+
+        $this->assertSame('Amit Dagur', $this->boss->fresh()->name);
+        Livewire::test(\App\Livewire\SuperAdmin\QuickLinks::class)
+            ->assertSeeHtml('<span class="sk-hi">Welcome!</span> Amit Dagur</h1>');
+    }
+
+    /** The logins still on the placeholder "Super Admin" take the super admin's name, once. */
+    public function test_the_migration_names_the_super_admin_logins_still_called_super_admin(): void
+    {
+        $this->boss->forceFill(['name' => 'Super Admin'])->save();
+        $other = User::forceCreate(['name' => 'Super Admin', 'email' => 'other@example.com', 'role' => 'super-admin']);
+        $named = User::forceCreate(['name' => 'Priya Verma', 'email' => 'priya@example.com', 'role' => 'super-admin']);
+        $sub   = User::forceCreate(['name' => 'Super Admin', 'email' => 'sub@example.com', 'role' => 'sub-super-admin']);
+
+        (require base_path('database/migrations/2026_11_19_210000_name_the_super_admin_logins.php'))->up();
+
+        $this->assertSame('Amit Dagur', $this->boss->fresh()->name);
+        $this->assertSame('Amit Dagur', $other->fresh()->name);
+        $this->assertSame('Priya Verma', $named->fresh()->name);
+        $this->assertSame('Super Admin', $sub->fresh()->name);
+    }
+
     public function test_the_profile_page_manages_the_numbers(): void
     {
         $this->actingAs($this->boss);

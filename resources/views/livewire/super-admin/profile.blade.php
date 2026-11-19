@@ -141,8 +141,33 @@
                             <input type="file" wire:model="photo" accept="image/*" class="hidden">
                         </label>
                     </div>
-                    <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-white leading-tight truncate" title="{{ $user->name }}">{{ $user->name }}</h2>
+                    <div class="min-w-0 flex-1">
+                        {{-- Your name: what Quick Links greets and the sidebar's card shows. --}}
+                        @if ($editingName)
+                            <form wire:submit="saveName" class="flex items-center gap-1.5 min-w-0" data-name-form>
+                                <label for="pf-name" class="sr-only">Your name</label>
+                                <input id="pf-name" type="text" wire:model="newName" maxlength="60" autocomplete="name" placeholder="Your name"
+                                    x-init="$el.focus(); $el.select()" x-on:keydown.escape="$wire.cancelNameEdit()"
+                                    class="min-w-0 flex-1 h-9 px-3.5 rounded-full bg-white/95 text-gray-900 text-sm border-0 focus:ring-2 focus:ring-teal-300">
+                                <button type="submit" title="Save name" aria-label="Save name"
+                                    class="w-9 h-9 rounded-full bg-white text-teal-700 flex items-center justify-center flex-shrink-0 hover:bg-teal-50">
+                                    <x-icon name="check" class="w-4 h-4" />
+                                </button>
+                                <button type="button" wire:click="cancelNameEdit" title="Cancel" aria-label="Cancel"
+                                    class="w-9 h-9 rounded-full text-white/70 flex items-center justify-center flex-shrink-0 hover:bg-white/10 hover:text-white">
+                                    <x-icon name="x-mark" class="w-4 h-4" />
+                                </button>
+                            </form>
+                            @error('newName') <p class="mt-1.5 text-xs text-rose-300">{{ $message }}</p> @enderror
+                        @else
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <h2 class="text-lg font-semibold text-white leading-tight truncate" title="{{ $user->name }}">{{ $user->name }}</h2>
+                                <button type="button" wire:click="startNameEdit" title="Change your name" aria-label="Change your name"
+                                    class="w-7 h-7 rounded-full text-white/60 flex items-center justify-center flex-shrink-0 hover:bg-white/10 hover:text-white">
+                                    <x-icon name="pencil-square" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @endif
                         <p class="text-sm text-white/60 truncate mt-0.5" title="{{ $user->email }}">{{ $user->email }}</p>
                         <span class="pf-chip pf-glass mt-2">
                             <x-icon name="shield-check" />
