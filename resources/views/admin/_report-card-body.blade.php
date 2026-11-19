@@ -34,6 +34,13 @@
 --}}
 
 @php
+    // A school under two names: the name and logo of the card's own class
+    // (App\Support\SchoolBrand); the address and the rest stay the school's.
+    $organization = \App\Support\SchoolBrand::org(
+        $organization ?? null,
+        ($reportCard->standard_id ?? null) ?: ($reportCard->studentDetail->standard_id ?? null),
+    );
+
     // ── Pre-compute per-subject and per-exam aggregates ────────────────
     $t1Exams = $term1Exams ?? collect();
     $t2Exams = $term2Exams ?? collect();

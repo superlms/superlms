@@ -9,6 +9,7 @@ use App\Models\Admin\TeacherIdCard;
 use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
+use App\Support\SchoolBrand;
 use BaconQrCode\Common\ErrorCorrectionLevel;
 use BaconQrCode\Encoder\Encoder;
 use Illuminate\Support\Facades\Log;
@@ -298,6 +299,13 @@ class IdCardService
     {
         $organization = $card->organization;
         $info = $organization?->schoolInfo;
+
+        // A student's card carries the name and logo of the student's class
+        // (a school under two names — App\Support\SchoolBrand); staff cards
+        // carry the school's own.
+        if ($type === 'student' && $card->studentDetail) {
+            $organization = SchoolBrand::org($organization, $card->studentDetail->standard_id);
+        }
 
         $school = [
             'name'    => $organization->name ?? 'School',

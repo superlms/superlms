@@ -156,6 +156,10 @@
 
             {{-- ════════════════ CLASSES (List) ════════════════ --}}
             @if ($activeTab === 'standard')
+                @php
+                    // A school under two names: each class shows which one its documents carry.
+                    $wingNames = $this->wingOptions;
+                @endphp
                 @if ($filteredStandards->count())
                     <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -177,6 +181,11 @@
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredStandards->firstItem() + $idx }}</div>
                                 <div class="col-span-3">
                                     <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}</p>
+                                    @if ($wingNames)
+                                        <p class="text-[11px] text-gray-500 truncate" title="Name on this class's documents">
+                                            {{ $wingNames[\App\Support\SchoolBrand::wingOf($std)] ?? '' }}
+                                        </p>
+                                    @endif
                                 </div>
                                 <div class="col-span-1 text-sm text-gray-700 truncate">{{ $std->code ?: '—' }}</div>
                                 <div class="col-span-1 text-sm text-gray-700">{{ $std->order ?? '—' }}</div>
@@ -458,6 +467,24 @@
                                 <input type="checkbox" wire:model.defer="standardActive" class="rounded"> Active
                             </label>
                         </div>
+                        {{-- The school runs under two names: which one this class's ID cards,
+                             admit cards, report cards and receipts carry (App\Support\SchoolBrand). --}}
+                        @if ($wingOpts = $this->wingOptions)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Wing <span class="text-red-500">*</span></label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    @foreach ($wingOpts as $wingKey => $wingName)
+                                        <label wire:key="wing-opt-{{ $wingKey }}"
+                                            class="flex items-center gap-2.5 px-3.5 py-2.5 border rounded-md text-sm cursor-pointer transition-colors {{ (int) $standardWing === (int) $wingKey ? 'border-purple-500 bg-purple-50 text-purple-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                                            <input type="radio" wire:model.live="standardWing" value="{{ $wingKey }}" class="text-purple-600 focus:ring-purple-500">
+                                            <span class="truncate">{{ $wingName }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <p class="mt-1.5 text-xs text-gray-500">This class's ID cards, admit cards, report cards and fee receipts show this name and its logo.</p>
+                                @error('standardWing')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
                     @endif
 
                     {{-- ─── SECTION fields ─── --}}

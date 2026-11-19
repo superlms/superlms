@@ -155,6 +155,9 @@ class ProgressReport
      */
     public static function head(Organization $org, Exam $exam, Standard $standard, Section $section): array
     {
+        // A school under two names: the class's name and logo (SchoolBrand).
+        $org = SchoolBrand::org($org, $standard);
+
         $website = trim((string) (SchoolInfo::where('organization_id', $org->id)->value('website_url') ?? ''));
         $website = $website !== '' ? rtrim(preg_replace('#^https?://#i', '', $website), '/') : '';
 

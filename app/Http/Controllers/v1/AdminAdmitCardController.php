@@ -280,7 +280,8 @@ class AdminAdmitCardController extends ApiController
         elseif ($card->seat_number) $seating = 'S(' . $card->seat_number . ')';
         elseif ($card->room_number) $seating = 'R(' . $card->room_number . ')';
 
-        $org = $card->organization;
+        // A school under two names: the name of the card's class (App\Support\SchoolBrand).
+        $org = \App\Support\SchoolBrand::org($card->organization, $card->standard_id ?: $card->studentDetail?->standard_id);
 
         return $this->success(['card' => [
             'id'                => $card->id,

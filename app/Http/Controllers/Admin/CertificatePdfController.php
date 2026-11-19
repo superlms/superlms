@@ -89,6 +89,10 @@ class CertificatePdfController extends Controller
     /** View data for a certificate — the row plus its school's masthead. */
     private function certData(Certificate $cert): array
     {
+        // A school under two names: the student's class's name and logo
+        // (App\Support\SchoolBrand) — the copy is only printed, never saved.
+        $cert->setRelation('organization', \App\Support\SchoolBrand::org($cert->organization, $cert->student?->standard_id));
+
         return [
             'cert'    => $cert,
             'contact' => $this->contactLine($cert->organization_id, $cert->organization),
@@ -98,6 +102,9 @@ class CertificatePdfController extends Controller
     /** Same masthead for the transfer certificate. */
     private function tcData(TransferCertificate $tc): array
     {
+        // As certData: the student's class's name and logo.
+        $tc->setRelation('organization', \App\Support\SchoolBrand::org($tc->organization, $tc->student?->standard_id));
+
         return [
             'tc'      => $tc,
             'contact' => $this->contactLine($tc->organization_id, $tc->organization),

@@ -49,7 +49,8 @@ class TransportReceipt
 
         return [
             'payment'      => $payment,
-            'org'          => $payment->organization,
+            // A school under two names: the student's class's name and logo (SchoolBrand).
+            'org'          => SchoolBrand::org($payment->organization, $student?->standard_id),
             'student'      => $student,
             'route'        => $route,
             'yearTotal'    => $yearTotal,

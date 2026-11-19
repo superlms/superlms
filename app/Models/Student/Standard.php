@@ -14,7 +14,9 @@ class Standard extends Model
 {
     use HasCommonScopes;
 
-    protected $fillable = ['name', 'code', 'organization_id', 'file_path', 'board', 'order', 'is_active'];
+    // wing: 1 = the school's own name on this class's documents, 2 = its second
+    // name and logo (App\Support\SchoolBrand).
+    protected $fillable = ['name', 'code', 'organization_id', 'file_path', 'board', 'wing', 'order', 'is_active'];
 
     /**
      * The order the Standard page lists classes in: each class's Order, then

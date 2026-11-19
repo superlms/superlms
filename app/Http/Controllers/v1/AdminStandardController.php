@@ -11,12 +11,14 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\SchoolBrand;
 use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
 use App\Support\SubjectMove;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -44,6 +46,20 @@ class AdminStandardController extends ApiController
     private function orgBoard(int $orgId): string
     {
         return (string) (Organization::find($orgId)?->education_board ?? '');
+    }
+
+    /**
+     * The wing a request sets on a class (App\Support\SchoolBrand) — only for a
+     * school with a second name, and only when the request sends one.
+     */
+    private function requestedWing(Request $request, int $orgId): ?int
+    {
+        if (!$request->filled('wing') || !Schema::hasColumn('standards', 'wing')
+            || !SchoolBrand::hasSecond(Organization::find($orgId))) {
+            return null;
+        }
+
+        return (int) $request->input('wing') === SchoolBrand::SECOND ? SchoolBrand::SECOND : SchoolBrand::MAIN;
     }
 
     private function absUrl(?string $v): ?string
@@ -89,6 +105,8 @@ class AdminStandardController extends ApiController
         return $this->success([
             'classes'   => $classes,
             'board'     => $this->orgBoard($user->organization_id),
+            // A school under two names: {"1": own name, "2": second name}; empty otherwise.
+            'wings'     => (object) SchoolBrand::options(Organization::find($user->organization_id)),
             // What the panel's Add Class suggests for the code — the admin can change it.
             'next_code' => StudentNumbers::nextStandardCode($user->organization_id),
         ], 'Academic lookups fetched.');
@@ -103,6 +121,8 @@ class AdminStandardController extends ApiController
             'name'           => $s->name,
             'code'           => $s->code,
             'board'          => $s->board,
+            // 1 = the school's own name on this class's documents, 2 = its second name.
+            'wing'           => SchoolBrand::wingOf($s),
             'order'          => $s->order,
             'is_active'      => (bool) $s->is_active,
             'sections_count' => $s->sections_count ?? null,
@@ -155,6 +175,7 @@ class AdminStandardController extends ApiController
             'code'      => 'nullable|string|max:10',
             'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
+            'wing'      => 'nullable|in:1,2',
         ], [
             'code.max'    => 'Class code may not be longer than 10 characters.',
             'order.regex' => 'Display order must be a whole number.',
@@ -180,7 +201,9 @@ class AdminStandardController extends ApiController
         // class holds moves that class down one.
         $order = StandardOrder::parse($request->input('order')) ?? StandardOrder::next($orgId);
 
-        $s = DB::transaction(function () use ($request, $orgId, $code, $order) {
+        $wing = $this->requestedWing($request, $orgId);
+
+        $s = DB::transaction(function () use ($request, $orgId, $code, $order, $wing) {
             StandardOrder::makeRoom($orgId, $order);
 
             return Standard::create([
@@ -190,7 +213,7 @@ class AdminStandardController extends ApiController
                 'order'           => $order,
                 'is_active'       => $request->boolean('is_active', true),
                 'organization_id' => $orgId,
-            ]);
+            ] + ($wing ? ['wing' => $wing] : []));
         });
 
         return $this->success($this->shapeStandard($s), 'Class created successfully!');
@@ -211,6 +234,7 @@ class AdminStandardController extends ApiController
             'code'      => 'required|string|max:10',
             'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
+            'wing'      => 'nullable|in:1,2',
         ], [
             'code.required' => 'Please enter a class code.',
             'code.max'      => 'Class code may not be longer than 10 characters.',
@@ -226,7 +250,9 @@ class AdminStandardController extends ApiController
 
         $order = StandardOrder::parse($request->input('order')) ?? (int) $s->order;
 
-        DB::transaction(function () use ($request, $s, $orgId, $order) {
+        $wing = $this->requestedWing($request, $orgId);
+
+        DB::transaction(function () use ($request, $s, $orgId, $order, $wing) {
             StandardOrder::makeRoom($orgId, $order, $s->id);
 
             $s->update([
@@ -236,7 +262,7 @@ class AdminStandardController extends ApiController
                 'board'     => $s->board ?: $this->orgBoard($orgId),
                 'order'     => $order,
                 'is_active' => $request->boolean('is_active', $s->is_active),
-            ]);
+            ] + ($wing ? ['wing' => $wing] : []));
         });
 
         return $this->success($this->shapeStandard($s->fresh()), 'Class updated successfully!');

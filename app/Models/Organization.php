@@ -21,6 +21,9 @@ class Organization extends Model
 
     protected $fillable = [
         'name',
+        // A second name and logo, for the classes set to it (App\Support\SchoolBrand).
+        'second_name',
+        'second_logo',
         'email',
         'mobile_number',
         'state',

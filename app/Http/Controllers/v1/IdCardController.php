@@ -361,11 +361,16 @@ class IdCardController extends Controller
                 'guardian_phone' => $studentDetail->guardian?->phone ?? null,
             ];
 
-            // Organization details
+            // Organization details — named as the card's class names it
+            // (a school under two names: App\Support\SchoolBrand).
+            $brand = \App\Support\SchoolBrand::org(
+                $studentDetail->organization,
+                $admitCard->standard_id ?: $studentDetail->standard_id,
+            );
             $admitCardData['organization'] = [
                 'id' => $studentDetail->organization->id,
-                'name' => $studentDetail->organization->name,
-                'logo_url' => $studentDetail->organization->logo ?? null,
+                'name' => $brand->name,
+                'logo_url' => $brand->logo ?? null,
                 'address' => $studentDetail->organization->address,
                 'phone' => $studentDetail->organization->phone ?? null,
                 'email' => $studentDetail->organization->email ?? null,
@@ -472,7 +477,10 @@ class IdCardController extends Controller
                     'center' => $admitCard->exam_center,
                 ],
                 'organization' => [
-                    'name' => $admitCard->organization->name,
+                    'name' => \App\Support\SchoolBrand::name(
+                        $admitCard->organization,
+                        $admitCard->standard_id ?: $admitCard->studentDetail->standard_id,
+                    ),
                 ]
             ];
 

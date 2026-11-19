@@ -739,7 +739,8 @@ class ExamController extends ApiController
             ];
         })->values();
 
-        $org = $admitCard->organization;
+        // A school under two names: the name of the card's class (App\Support\SchoolBrand).
+        $org = \App\Support\SchoolBrand::org($admitCard->organization, $admitCard->standard_id ?: $student->standard_id);
 
         return [
             'id'                   => $admitCard->id,

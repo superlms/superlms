@@ -571,6 +571,71 @@
                         @else
                             <p class="text-center py-12 text-sm text-gray-400">Custom Fee is not set up yet.</p>
                         @endif
+
+                        {{-- Second name & logo: a school under two names (say a Public School for
+                             Nursery–5 and an Inter College for 6–12). The school sets each class to
+                             one of the two (Admin → Class → Wing); that class's ID cards, admit cards,
+                             report cards, receipts and certificates carry its name and logo
+                             (App\Support\SchoolBrand). The address and the rest stay as they are. --}}
+                        @php
+                            $snPreview = null;
+                            if ($secondLogo) {
+                                try { $snPreview = $secondLogo->temporaryUrl(); } catch (\Throwable $e) { $snPreview = null; }
+                            }
+                            $snShown   = $snPreview ?: $existingSecondLogo;
+                            $snClasses = $this->secondWingClassCount();
+                        @endphp
+                        <div class="border border-gray-200 rounded-md" wire:key="second-name-{{ $detailSchool->id }}">
+                            <div class="px-4 py-3 flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium text-gray-800">Second Name &amp; Logo</span>
+                                @if (filled($detailSchool->second_name))
+                                    <span class="text-xs text-emerald-600">On · {{ $snClasses }} {{ \Illuminate\Support\Str::plural('class', $snClasses) }} set to it</span>
+                                @else
+                                    <span class="text-xs text-gray-400">Off</span>
+                                @endif
+                            </div>
+                            <div class="px-4 py-3 border-t border-gray-100 space-y-3">
+                                <p class="text-xs text-gray-500 leading-relaxed">
+                                    For a school that runs under two names. When the school adds or edits a class it picks
+                                    <strong class="text-gray-700">{{ $detailSchool->name }}</strong> or this name; the ID cards,
+                                    admit cards, report cards, fee receipts and certificates of that class show the name and logo it picked.
+                                    The address, phone, bank and receipt numbers stay the school's own. Leave the name blank to use one name for every class.
+                                </p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:items-start">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Second School Name</label>
+                                        <input type="text" wire:model.defer="secondName" maxlength="255"
+                                            placeholder="e.g. ABC Inter College"
+                                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        @error('secondName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Second Logo</label>
+                                        <div class="flex items-center gap-3">
+                                            @if ($snShown)
+                                                <img src="{{ $snShown }}" alt="" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                            @else
+                                                <div class="w-12 h-12 rounded-full bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center flex-shrink-0 text-[10px] text-gray-400">Logo</div>
+                                            @endif
+                                            <input type="file" wire:model="secondLogo" accept="image/*" class="flex-1 min-w-0 text-sm">
+                                            @if ($snShown)
+                                                <button type="button" wire:click="removeSecondLogo" class="text-xs text-red-500 hover:underline flex-shrink-0">Remove</button>
+                                            @endif
+                                        </div>
+                                        <div wire:loading wire:target="secondLogo" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                                        @error('secondLogo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                        <p class="mt-1 text-[11px] text-gray-400">No second logo: those classes keep the school's own logo.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-4 py-2.5 border-t border-gray-100 flex justify-end">
+                                <button type="button" wire:click="saveSecondName" wire:loading.attr="disabled" wire:target="saveSecondName,secondLogo"
+                                    class="px-4 py-1.5 text-sm font-medium rounded-md bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-60">
+                                    <span wire:loading.remove wire:target="saveSecondName">Save Second Name</span>
+                                    <span wire:loading wire:target="saveSecondName">Saving…</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 @endif
 

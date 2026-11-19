@@ -11,11 +11,13 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\User;
+use App\Support\SchoolBrand;
 use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
 use App\Support\SubjectMove;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -49,6 +51,10 @@ class Standard extends Component
     public $standardBoard  = '';
     public $standardOrder  = '';
     public $standardActive = true;
+    // Which of the school's two names this class's documents carry (1 = its
+    // own, 2 = the second one the Super Admin set) — App\Support\SchoolBrand.
+    // Only asked when the school has a second name.
+    public $standardWing   = 1;
 
     // View modal
     public $showViewModal  = false;
@@ -115,6 +121,12 @@ class Standard extends Component
     private function resolveOrgBoard(): string
     {
         return (string) (Organization::find(Auth::user()->organization_id)?->education_board ?? '');
+    }
+
+    /** The school's two names for the class form's Wing picker; empty when it has one. */
+    public function getWingOptionsProperty(): array
+    {
+        return SchoolBrand::options(Organization::find(Auth::user()->organization_id));
     }
 
     // Watch file uploads to generate previews
@@ -334,6 +346,7 @@ class Standard extends Component
     {
         $this->reset(['standardName', 'standardCode', 'standardOrder']);
         $this->standardActive = true;
+        $this->standardWing   = SchoolBrand::MAIN;
         $this->standardBoard  = $this->resolveOrgBoard();
         // Suggest the next code in sequence — the admin can overwrite it.
         $this->standardCode   = StudentNumbers::nextStandardCode(Auth::user()->organization_id);
@@ -434,6 +447,7 @@ class Standard extends Component
             'standardName'  => 'required|string|max:255',
             'standardCode'  => 'required|string|max:10',
             'standardOrder' => ['nullable', StandardOrder::RULE],
+            'standardWing'  => 'nullable|in:1,2',
         ], [
             'standardCode.required' => 'Please enter a class code.',
             'standardCode.max'      => 'Class code may not be longer than 10 characters.',
@@ -474,6 +488,12 @@ class Standard extends Component
             'is_active'       => $this->standardActive,
             'organization_id' => $orgId,
         ];
+
+        // The name its documents carry — only when the school has two; a
+        // school with one leaves every class as it is.
+        if ($this->wingOptions && Schema::hasColumn('standards', 'wing')) {
+            $data['wing'] = (int) $this->standardWing === SchoolBrand::SECOND ? SchoolBrand::SECOND : SchoolBrand::MAIN;
+        }
 
         // No two classes share an order: whoever holds it moves down one.
         DB::transaction(function () use ($orgId, $order, $data) {
@@ -686,6 +706,7 @@ class Standard extends Component
             $this->standardBoard  = $s->board ?: $this->resolveOrgBoard();
             $this->standardOrder  = $s->order;
             $this->standardActive = $s->is_active;
+            $this->standardWing   = SchoolBrand::wingOf($s);
             $this->addType        = 'class';
             $this->openForm       = true;
         }

@@ -62,7 +62,9 @@ class FeeReceipt
 
         return [
             'payment'    => $payment,
-            'org'        => $payment->organization,
+            // A school under two names: the name and logo of the class the fee
+            // was paid in (SchoolBrand).
+            'org'        => SchoolBrand::org($payment->organization, $payment->standard_id ?: $student?->standard_id),
             'student'    => $student,
             'yearTotal'  => $net,
             'concession' => round(max(0, $gross - $net), 2),

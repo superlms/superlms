@@ -29,8 +29,10 @@ class FeeReceiptController extends Controller
             'studentDetail.user', 'studentDetail.standard', 'studentDetail.section', 'organization',
         ])->where('organization_id', $orgId)->findOrFail($id);
 
-        $org     = $payment->organization;
         $student = $payment->studentDetail;
+        // A school under two names: the name and logo of the class the fee was
+        // paid in (App\Support\SchoolBrand).
+        $org     = \App\Support\SchoolBrand::org($payment->organization, $payment->standard_id ?: $student?->standard_id);
 
         // ── What the student owes, net of concession ─────────────────────────
         $structures = FeeStructure::where('organization_id', $orgId)

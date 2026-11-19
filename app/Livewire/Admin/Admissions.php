@@ -730,6 +730,9 @@ class Admissions extends Component
 
         $org  = Organization::with('schoolInfo')->find($this->orgId());
         $info = $org?->schoolInfo;
+        // A school under two names: the name and logo of the class applied for
+        // (App\Support\SchoolBrand).
+        $org  = \App\Support\SchoolBrand::org($org, $enquiry->standard_id);
 
         $school = [
             'name'    => $org?->name,

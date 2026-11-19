@@ -17,7 +17,8 @@ class GatePassSlip
 
     public static function pdf(StudentGatePass $pass): \Barryvdh\DomPDF\PDF
     {
-        $org = $pass->organization;
+        // A school under two names: the slip's class's name and logo (SchoolBrand).
+        $org = SchoolBrand::org($pass->organization, $pass->standard_id ?: $pass->studentDetail?->standard_id);
         $website = trim((string) (SchoolInfo::where('organization_id', $pass->organization_id)->value('website_url') ?? ''));
 
         $fontDir = PdfFonts::cacheDir();

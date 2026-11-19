@@ -9,6 +9,8 @@
     // line, both set flush left, and nothing else.
     $org     = $admitCard->organization ?: $organization;
     $student = $admitCard->studentDetail;
+    // A school under two names: the name of the card's own class (App\Support\SchoolBrand).
+    $org     = \App\Support\SchoolBrand::org($org, $admitCard->standard_id ?: $student?->standard_id);
 
     // Papers in the order the student sits them.
     $papers = collect($admitCard->subjects ?? [])

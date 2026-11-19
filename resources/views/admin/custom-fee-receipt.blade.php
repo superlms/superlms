@@ -7,6 +7,10 @@
     @include('admin.partials.receipt-style')
 </head>
 <body>
+@php
+    // A school under two names: the student's class's name and logo (App\Support\SchoolBrand).
+    $org = \App\Support\SchoolBrand::org($org ?? null, $student->standard_id ?? null);
+@endphp
 <div class="sheet">
 
     {{-- ══════════ MASTHEAD — logo, then name, then address, then contacts ══════════ --}}

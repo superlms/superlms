@@ -213,6 +213,7 @@ class Schools extends Component
         $this->selectedTeacherId  = null;
         $this->showCustomFeeConfirm = false;
         $this->showBiometricConfirm = false;
+        $this->loadSecondName();
     }
 
     public function backToList(): void
@@ -629,6 +630,95 @@ class Schools extends Component
         if ($tab === 'modules') {
             $this->loadModuleStates();
         }
+        if ($tab === 'custom_fee') {
+            $this->loadSecondName();
+        }
+    }
+
+    // ─── Second name & logo (Custom Fee tab) ──────────────────────────────────
+    // A school under two names (e.g. a Public School for Nursery–5 and an
+    // Inter College for 6–12): the classes the school sets to the second name
+    // print it and this logo on their documents (App\Support\SchoolBrand).
+    // The address and the rest stay the school's own.
+    public string $secondName          = '';
+    public        $secondLogo          = null;   // a new upload
+    public ?string $existingSecondLogo = null;
+
+    private function loadSecondName(): void
+    {
+        $this->resetErrorBag(['secondName', 'secondLogo']);
+        $this->secondLogo         = null;
+        $this->secondName         = (string) ($this->detailSchool?->second_name ?? '');
+        $this->existingSecondLogo = $this->detailSchool?->second_logo ?: null;
+    }
+
+    /** How many of the school's classes are set to the second name. */
+    public function secondWingClassCount(): int
+    {
+        if (!$this->detailSchool || !Schema::hasColumn('standards', 'wing')) {
+            return 0;
+        }
+
+        return \App\Models\Student\Standard::where('organization_id', $this->detailSchool->id)
+            ->where('wing', \App\Support\SchoolBrand::SECOND)->count();
+    }
+
+    public function saveSecondName(): void
+    {
+        if (!$this->detailSchool) {
+            return;
+        }
+
+        $this->validate([
+            'secondName' => 'nullable|string|max:255',
+            'secondLogo' => 'nullable|image|max:2048',
+        ], [
+            'secondLogo.image' => 'The second logo must be an image.',
+            'secondLogo.max'   => 'The second logo may not be larger than 2 MB.',
+        ]);
+
+        $name = trim($this->secondName);
+        if ($name === '' && $this->secondLogo) {
+            $this->addError('secondName', 'Enter the second name to go with this logo.');
+            return;
+        }
+
+        $logoUrl = $this->existingSecondLogo;
+        if ($this->secondLogo) {
+            try {
+                $path = $this->secondLogo->store('superadmin/schools/logos', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $logoUrl = Storage::disk('s3')->url($path);
+            } catch (\Throwable $e) {
+                Log::error('School second logo upload failed', [
+                    'school' => $this->detailSchool->id,
+                    'error'  => $e->getMessage(),
+                ]);
+                $this->addError('secondLogo', 'The logo could not be uploaded. Please try again.');
+                return;
+            }
+        }
+
+        // No second name: one name for every class again (the classes keep
+        // their setting, so it comes back as it was if a name is put back).
+        Organization::whereKey($this->detailSchool->id)->update([
+            'second_name' => $name !== '' ? $name : null,
+            'second_logo' => $name !== '' ? $logoUrl : null,
+        ]);
+
+        $this->detailSchool = Organization::withCount([
+            'students as total_students',
+            'teachers as total_teachers',
+        ])->find($this->detailSchool->id);
+        $this->loadSecondName();
+
+        $this->notification()->success($name !== '' ? 'Second name and logo saved.' : 'Second name removed.');
+    }
+
+    public function removeSecondLogo(): void
+    {
+        $this->secondLogo         = null;
+        $this->existingSecondLogo = null;
     }
 
     // ─── Module access (per-school feature toggles) ────────────────────────────
