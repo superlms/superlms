@@ -38,11 +38,14 @@ class SuperAdminAnalyticsTest extends TestCase
     {
         $html = Livewire::test(AnalyticsWithFigures::class)->html();
 
-        preg_match_all('/<h2[^>]*>([^<]+)<\/h2>/', $html, $m);
-        $this->assertSame(
-            ['Key Metrics', 'Schools', 'Website', 'Fee', 'Payroll', 'Calendar', 'Enquiries', 'Support'],
-            array_map('trim', $m[1])
-        );
+        // Home's look with a chip a functionality (2026-11-18): each section is
+        // its chip's, all on the page, the picked one shown (Overview first).
+        preg_match_all('/data-an="([a-z]+)"/', $html, $m);
+        $this->assertSame(['overview', 'schools', 'website', 'fee', 'payroll', 'calendar', 'enquiries', 'support'], $m[1]);
+        preg_match_all('/x-on:click="go\(\'([a-z]+)\'\)"/', $html, $chips);
+        $this->assertSame($m[1], $chips[1]);
+        $this->assertStringContainsString('class="sa-skin sa-home min-h-screen"', $html);
+        $this->assertStringContainsString('class="sk-head"', $html);
 
         // No tab strip, and nothing of Credit on the page.
         $this->assertStringNotContainsString('setTab(', $html);
@@ -90,7 +93,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         // The header is the title, the date and the months picker — no
         // Schools / Students / Rating figures (2026-10-13).
-        $header = substr($html, 0, strpos($html, 'Key Metrics'));
+        $header = substr($html, 0, strpos($html, '<nav class="an-chips"'));
         $this->assertStringContainsString('Analytics', $header);
         $this->assertStringContainsString('wire:model.live="months"', $header);
         foreach (['>Schools<', '>Students<', '>Rating<'] as $figure) {

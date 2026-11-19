@@ -5,7 +5,17 @@
     notification bell) and flips this open with a `gemini-toggle` browser event,
     so opening it costs no server round-trip. The panel covers the whole
     window, top bar and sidebar included (fixed, inset 0, above both layers).
+
+    For the super admin (user's ask of 2026-11-18) it is "Ask AI" and opens
+    as the superlms.in website's ask popup — a rounded card under the page's
+    header at the right, in the website's colours (.gem-pop below); the
+    header's Ask AI pill sends a `gemini-ask` event with the question, which
+    opens the popup and asks it at once.
 --}}
+@php
+    $gemPop   = auth()->check() && in_array(auth()->user()->role, ['super-admin', 'sub-super-admin'], true);
+    $gemTitle = $gemPop ? 'Ask AI' : 'Super Assist';
+@endphp
 <div>
     @if ($enabled)
         <div x-data="{
@@ -294,6 +304,7 @@
             x-on:gemini-run.window="$wire.run()"
             x-on:gemini-scroll.window="scrollDown()"
             x-on:gemini-toggle.window="shown ? hide() : show()"
+            x-on:gemini-ask.window="show(); $wire.prompt = $event.detail.q; $wire.submit();"
             x-on:keydown.escape.window="if (shown) hide()"
             wire:key="gemini-assistant">
 
@@ -330,6 +341,35 @@
                            color: #6b7280; background: #fff; border: 1px solid #e5e7eb; white-space: nowrap; }
                 .gem-act:hover { color: #111827; background: #f9fafb; border-color: #d1d5db; }
 
+                /* ── The super admin's Ask AI: the website's ask popup ── */
+                .gem-pop { font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; }
+                .gem-pop .gem-shade { background: rgba(12,38,32,.06); -webkit-backdrop-filter: none; backdrop-filter: none; }
+                .gem-pop .gem-box { top: 72px; right: 20px; bottom: auto; width: min(460px, calc(100vw - 24px)); max-width: none; height: min(640px, calc(100vh - 96px));
+                    border-radius: 26px; border: 1px solid #e5eae8; overflow: hidden; transform-origin: 100% 0;
+                    box-shadow: 0 44px 90px -30px rgba(12,38,32,.45), 0 10px 24px -12px rgba(12,38,32,.18); animation: gem-pop-in .3s cubic-bezier(.2,.7,.2,1) both; }
+                @keyframes gem-pop-in { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: none; } }
+                .gem-pop .gem-head { gap: 10px; padding: 14px 12px 12px 16px; border-color: #e5eae8; }
+                .gem-pop .gem-head > img { width: 36px; height: 36px; padding: 7px; border-radius: 12px; background: #effaf7; }
+                .gem-pop .gem-title { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-size: 15.5px; font-weight: 800; letter-spacing: -.02em; color: #0c2620; }
+                .gem-pop .gem-sub { color: #6b7c76; }
+                .gem-pop .gem-sub > span:first-child::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #0d9488; vertical-align: 1px; }
+                .gem-pop .gem-stream { background: #fff; padding: 18px 16px; }
+                .gem-pop .gem-intro p:first-child { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: #0c2620; }
+                .gem-pop .gem-intro { text-align: left; padding: 4px 0 6px; }
+                .gem-pop .gem-intro p + p { padding: 0; font-size: 14px; color: #6b7c76; }
+                .gem-pop .gem-sugs { display: flex; flex-wrap: wrap; gap: 8px; }
+                .gem-pop .gem-sug { width: auto; height: auto; padding: 9px 13px; border: 0; border-radius: 14px; background: #f4f6f5; font-size: 13.5px; color: #0c2620; line-height: 1.35; transition: background .2s, color .2s, transform .2s; }
+                .gem-pop .gem-sug:hover { background: #effaf7; color: #115e56; transform: translateY(-1px); }
+                .gem-pop .gem-user { background: #eceff0; color: #0c2620; border-radius: 18px 18px 6px 18px; font-size: 14px; }
+                .gem-pop .gem-bot { border: 0; background: #f4f6f5; border-radius: 18px 18px 18px 6px; font-size: 14px; color: #2b433b; }
+                .gem-pop .gem-md a { color: #0f766e; }
+                .gem-pop .gem-composer { padding: 10px 12px 12px; border-color: #e5eae8; }
+                .gem-pop .gem-input { border-radius: 22px; border-color: #e3e8e6; padding: 9px 14px; font-size: 14px; }
+                .gem-pop .gem-input:focus { border-color: #b1e6db; box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
+                .gem-pop .gem-send { border-radius: 50%; background: #0c2620; }
+                .gem-pop .gem-send:hover { background: #0d9488; }
+                .gem-pop .gem-tool { border-radius: 50%; background: #f4f6f5; }
+                @media (max-width: 767px) { .gem-pop .gem-box { top: 64px; right: 12px; height: calc(100vh - 80px); height: calc(100dvh - 80px); } }
             </style>
 
             {{-- ───────────── Chat panel ─────────────
@@ -339,19 +379,19 @@
                 {{-- Over the whole window, as the lms-cover popups sit: the
                      panel runs the full height at the right, and the top bar
                      and the sidebar are dimmed and blurred with the page. --}}
-                <div class="fixed inset-0 z-[9999] overflow-hidden" x-show="shown" style="display: none">
-                    <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" x-on:click="hide()"></div>
-                    <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+                <div class="fixed inset-0 z-[9999] overflow-hidden {{ $gemPop ? 'gem-pop' : '' }}" x-show="shown" style="display: none">
+                    <div class="gem-shade absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" x-on:click="hide()"></div>
+                    <div class="gem-box absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
                     {{-- Header --}}
-                    <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="gem-head flex items-center gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
                         <img src="{{ \App\Support\Platform::logoUrl() }}" alt=""
                             width="36" height="36" class="w-9 h-9 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
-                            <h2 class="text-lg font-semibold text-gray-900 leading-tight">Super Assist</h2>
+                            <h2 class="gem-title text-lg font-semibold text-gray-900 leading-tight">{{ $gemTitle }}</h2>
                             {{-- One line does double duty: what the panel can see, and the
                                  last copy/download result, so a chip never acts silently. --}}
-                            <p class="text-xs mt-0.5 truncate">
+                            <p class="gem-sub text-xs mt-0.5 truncate">
                                 <span x-show="! toast" class="text-gray-500">{{ config('gemini.brand', 'Super LMS') }} · {{ $scopeLabel }} data only</span>
                                 <span x-show="toast" x-cloak x-text="toast" class="text-blue-600 font-medium"></span>
                             </p>
@@ -383,18 +423,18 @@
                     </div>
 
                     {{-- Stream --}}
-                    <div x-ref="stream" x-init="scrollDown()" class="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gray-50">
+                    <div x-ref="stream" x-init="scrollDown()" class="gem-stream flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gray-50">
                         @if (empty($messages))
-                            <div class="text-center pt-8 pb-4">
-                                <p class="text-base font-semibold text-gray-700">Ask about your LMS data</p>
+                            <div class="gem-intro text-center pt-8 pb-4">
+                                <p class="text-base font-semibold text-gray-700">{{ $gemPop ? 'Hi! Ask me anything' : 'Ask about your LMS data' }}</p>
                                 <p class="text-xs text-gray-400 mt-1 px-6">Students, fees, attendance, staff, certificates — type or speak, in English or Hindi.</p>
                             </div>
                             {{-- Two-up: a single column of short prompts looked
                                  stranded once the panel got this wide. --}}
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div class="gem-sugs grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 @foreach ($suggestions as $i => $suggestion)
                                     <button type="button" wire:click="useSuggestion({{ $i }})"
-                                        class="w-full h-full text-left px-3.5 py-2.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50">
+                                        class="gem-sug w-full h-full text-left px-3.5 py-2.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50">
                                         {{ $suggestion }}
                                     </button>
                                 @endforeach
@@ -404,7 +444,7 @@
                         @foreach ($messages as $i => $message)
                             @if ($message['role'] === 'user')
                                 <div wire:key="gm-{{ $i }}" data-gem-row x-show="! clearing" class="flex flex-col items-end">
-                                    <div data-gem-bubble class="max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-blue-600 text-white text-[13px] leading-relaxed whitespace-pre-wrap break-words">{{ $message['text'] }}</div>
+                                    <div data-gem-bubble class="gem-user max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-blue-600 text-white text-[13px] leading-relaxed whitespace-pre-wrap break-words">{{ $message['text'] }}</div>
                                     <div class="mt-1 flex items-center gap-1">
                                         <button type="button" class="gem-act" x-on:click="copyMessage($el)">Copy</button>
                                     </div>
@@ -419,7 +459,7 @@
                                     $hasLink  = str_contains($rendered, '<a href');
                                 @endphp
                                 <div wire:key="gm-{{ $i }}" data-gem-row x-show="! clearing" class="flex flex-col items-start">
-                                    <div data-gem-bubble class="gem-md max-w-[90%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-[13px] leading-relaxed text-gray-700 break-words overflow-x-auto">
+                                    <div data-gem-bubble class="gem-md gem-bot max-w-[90%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-[13px] leading-relaxed text-gray-700 break-words overflow-x-auto">
                                         {!! $rendered !!}
                                     </div>
                                     <div class="mt-1 flex flex-wrap items-center gap-1">
@@ -456,7 +496,7 @@
                     </div>
 
                     {{-- Composer --}}
-                    <div class="border-t border-gray-200 px-6 py-3.5 flex-shrink-0 bg-white">
+                    <div class="gem-composer border-t border-gray-200 px-6 py-3.5 flex-shrink-0 bg-white">
                         @if (! $unlimited && $remaining === 0)
                             {{-- Out of questions: say so, and say exactly when it comes back. --}}
                             <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
@@ -477,11 +517,11 @@
                                 x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $wire.submit(); }"
                                 x-bind:disabled="$wire.pending"
                                 placeholder="{{ 'Ask about students, fees, attendance…' }}"
-                                class="flex-1 resize-none max-h-28 px-3 py-2 border border-gray-300 rounded-xl text-[13px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"></textarea>
+                                class="gem-input flex-1 resize-none max-h-28 px-3 py-2 border border-gray-300 rounded-xl text-[13px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"></textarea>
 
                             {{-- Copy the question you typed, before or after sending. --}}
                             <button type="button" x-on:click="copyInput()" title="Copy what you typed"
-                                class="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-200">
+                                class="gem-tool w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-200">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             </button>
 
@@ -495,7 +535,7 @@
                             </template>
 
                             <button type="button" wire:click="submit" wire:loading.attr="disabled" wire:target="submit,run"
-                                class="w-9 h-9 flex items-center justify-center rounded-xl text-white flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                class="gem-send w-9 h-9 flex items-center justify-center rounded-xl text-white flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                                 title="Send">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </button>

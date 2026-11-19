@@ -371,39 +371,22 @@
 
     {{-- ── Super Admin Logout Modal ──
          In the superlms.in website's card look (its "pcards", user's ask of
-         2026-11-18): a white card whose top is a pastel stage holding a small
-         white panel — signing out, who is signed in, how the next sign-in
-         goes — and under it the question in the display face, with the
-         website's pill buttons. A click outside or Esc cancels. --}}
+         2026-11-18): a white card whose top is a pastel stage holding a white
+         panel with only the question and one line under it (no icons or other
+         text, user's ask), then the website's pill buttons. A click outside or
+         Esc cancels. --}}
     @if ($showSuperAdminLogoutModal)
-        @php
-            $loUser = auth()->user();
-            $loName = trim((string) ($loUser->name ?? '')) ?: 'Super Admin';
-            $loRole = $loUser->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin';
-        @endphp
+        @php $loRole = auth()->user()->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin'; @endphp
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
         <style>
             .lo-shade { background: rgba(12, 38, 32, .32); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: lo-fade .2s ease both; }
             .lo-card { width: 100%; max-width: 380px; border-radius: 26px; background: #fff; overflow: hidden; font-family: 'Geist', 'Segoe UI', system-ui, sans-serif;
                 box-shadow: 0 2px 4px rgba(12,38,32,.05), 0 44px 90px -30px rgba(12,38,32,.45); animation: lo-pop .35s cubic-bezier(.2,.7,.2,1) both; }
-            .lo-stage { height: 196px; margin: 10px 10px 0; padding: 22px 22px 0; border-radius: 20px; overflow: hidden; display: flex; align-items: flex-start; justify-content: center;
-                background: linear-gradient(160deg, #fde6cf 0%, #f7c9a0 100%); }
-            .lo-panel { width: 100%; height: calc(100% + 30px); padding: 16px; border-radius: 16px 16px 0 0; background: #fff; box-shadow: 0 12px 30px -16px rgba(12,38,32,.35); }
-            .lo-head { display: flex; align-items: center; gap: 10px; }
-            .lo-ic { width: 32px; height: 32px; flex: none; border-radius: 10px; display: grid; place-items: center; background: #fff1f2; color: #f0506e; }
-            .lo-ic svg { width: 17px; height: 17px; }
-            .lo-head b, .lo-who b { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.25; color: #0c2620; }
-            .lo-head small, .lo-who small { display: block; font-size: 11.5px; line-height: 1.3; color: #6b7c76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .lo-who { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: #f4f6f5; min-width: 0; }
-            .lo-who > span:last-child { min-width: 0; }
-            .lo-av { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid #e5eae8; }
-            .lo-av img { width: 20px; height: 20px; object-fit: contain; }
-            .lo-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 12px; border-radius: 12px; background: #f4f6f5; font-size: 12px; font-weight: 500; color: #2b433b; }
-            .lo-row svg { width: 14px; height: 14px; flex: none; color: #0d9488; }
-            .lo-body { padding: 22px 26px 26px; text-align: center; }
-            .lo-body h3 { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; color: #0c2620; text-wrap: balance; }
-            .lo-body p { margin-top: 8px; font-size: 14px; line-height: 1.6; color: #6b7c76; }
-            .lo-btns { display: flex; gap: 10px; margin-top: 22px; }
+            .lo-stage { margin: 10px 10px 0; padding: 26px 22px 0; border-radius: 20px; overflow: hidden; background: linear-gradient(160deg, #fde6cf 0%, #f7c9a0 100%); }
+            .lo-panel { margin-bottom: -16px; padding: 26px 22px 40px; border-radius: 16px 16px 0 0; background: #fff; text-align: center; box-shadow: 0 12px 30px -16px rgba(12,38,32,.35); }
+            .lo-panel h3 { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; color: #0c2620; text-wrap: balance; }
+            .lo-panel p { margin-top: 8px; font-size: 14px; line-height: 1.6; color: #6b7c76; text-wrap: balance; }
+            .lo-btns { display: flex; gap: 10px; padding: 20px 22px 22px; }
             .lo-btn { flex: 1; height: 46px; border-radius: 999px; border: 1px solid transparent; font-size: 15px; font-weight: 500; letter-spacing: -.01em; transition: background .2s, border-color .2s, box-shadow .25s, transform .25s cubic-bezier(.2,.7,.2,1); }
             .lo-btn.ghost { background: #fff; color: #0c2620; border-color: #e5eae8; }
             .lo-btn.ghost:hover { border-color: #d6dedb; box-shadow: 0 1px 2px rgba(12,38,32,.06), 0 1px 3px rgba(12,38,32,.05); }
@@ -420,30 +403,16 @@
             <div class="lo-card" role="dialog" aria-modal="true" aria-labelledby="lo-title">
                 <div class="lo-stage">
                     <div class="lo-panel">
-                        <div class="lo-head">
-                            <span class="lo-ic"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></span>
-                            <span><b>Sign out</b><small>{{ $loRole }} panel</small></span>
-                        </div>
-                        <div class="lo-who">
-                            <span class="lo-av"><img src="{{ \App\Support\Platform::logoUrl() }}" alt=""></span>
-                            <span><b>{{ $loName }}</b><small>{{ $loUser->email }}</small></span>
-                        </div>
-                        <div class="lo-row">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-                            Next sign-in: password + OTP
-                        </div>
+                        <h3 id="lo-title">Logout from the {{ $loRole }} panel?</h3>
+                        <p>You’ll be signed out on this device. Sign in again any time with your email, password and OTP.</p>
                     </div>
                 </div>
-                <div class="lo-body">
-                    <h3 id="lo-title">Logout from the {{ $loRole }} panel?</h3>
-                    <p>You’ll be signed out on this device. Sign in again any time with your email, password and OTP.</p>
-                    <div class="lo-btns">
-                        <button type="button" wire:click="$set('showSuperAdminLogoutModal', false)" class="lo-btn ghost">Cancel</button>
-                        <button type="button" wire:click="superAdminLogout" wire:loading.attr="disabled" class="lo-btn danger">
-                            <span wire:loading.remove wire:target="superAdminLogout">Yes, Logout</span>
-                            <span wire:loading wire:target="superAdminLogout">Logging out…</span>
-                        </button>
-                    </div>
+                <div class="lo-btns">
+                    <button type="button" wire:click="$set('showSuperAdminLogoutModal', false)" class="lo-btn ghost">Cancel</button>
+                    <button type="button" wire:click="superAdminLogout" wire:loading.attr="disabled" class="lo-btn danger">
+                        <span wire:loading.remove wire:target="superAdminLogout">Yes, Logout</span>
+                        <span wire:loading wire:target="superAdminLogout">Logging out…</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -92,7 +92,12 @@
         $n = mb_strlen($text);
         $kf[] = "@keyframes {$v}-f{$i} { 0%, " . ($click - .5) . "% { border-color: {$grey}; box-shadow: none; } {$click}%, {$leave}% { border-color: {$teal}; box-shadow: 0 0 0 3px rgba(13,148,136,.14); } "
             . ($leave + .5) . "%, 95% { border-color: {$teal}; box-shadow: none; } 96%, 100% { border-color: {$grey}; box-shadow: none; } }";
-        $kf[] = "@keyframes {$v}-t{$i} { 0%, {$from}% { width: 0; animation-timing-function: steps({$n}, end); } {$to}%, 95% { width: {$n}ch; animation-timing-function: step-end; } 96%, 100% { width: 0; } }";
+        // Typed a character at a time, in the form's own face (Geist): each
+        // character opens at its moment and they all close together for the loop.
+        for ($j = 0; $j < $n; $j++) {
+            $at = round($from + ($to - $from) * ($j + 1) / $n, 2);
+            $kf[] = "@keyframes {$v}-t{$i}-{$j} { 0%, " . ($at - .01) . "% { max-width: 0; } {$at}%, 95% { max-width: 1em; } 95.01%, 100% { max-width: 0; } }";
+        }
         $kf[] = "@keyframes {$v}-p{$i} { 0%, " . ($from - .5) . "% { opacity: 1; } {$from}%, 95% { opacity: 0; } 96%, 100% { opacity: 1; } }";
         $kf[] = "@keyframes {$v}-c{$i} { 0%, " . ($click - .5) . "% { opacity: 0; } {$click}%, {$leave}% { opacity: 1; } " . ($leave + .5) . "%, 100% { opacity: 0; } }";
     }
@@ -118,7 +123,8 @@
         /* Laid out at 300px (the pointer's stops are in that frame) and zoomed to fit the panel. */
         .am { position: relative; width: 300px; zoom: 1.12; margin: 0 auto; text-align: left; font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; animation: am-in .6s cubic-bezier(.2,.7,.2,1) both; }
         @keyframes am-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
-        .am-win { position: relative; border-radius: 18px; background: #fff; border: 1px solid #e5eae8; overflow: hidden; box-shadow: 0 30px 60px -28px rgba(12,38,32,.35), 0 8px 18px -10px rgba(12,38,32,.12); }
+        /* A soft, feathered edge (no hard line): the window sits in the panel rather than on it. */
+        .am-win { position: relative; border-radius: 18px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(12,38,32,.035), 0 30px 70px -32px rgba(12,38,32,.32), 0 0 40px -12px rgba(255,255,255,.9); }
         .am-bar { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #eef1f0; background: #fbfcfc; }
         .am-dots { display: flex; gap: 5px; }
         .am-dots i { width: 8px; height: 8px; border-radius: 50%; background: #e3e8e6; }
@@ -135,12 +141,13 @@
         .am-f + .am-f { margin-top: 10px; }
         .am-f label { position: absolute; top: 0; left: 12px; transform: translateY(-50%); padding: 0 4px; background: #fff; font-size: 9px; font-weight: 600; line-height: 1; color: #6b7c76; }
         .am-ph { position: absolute; left: 14px; font-size: 11.5px; color: #a3b0ab; white-space: nowrap; }
-        .am-typed { display: inline-block; width: 0; overflow: hidden; white-space: nowrap; vertical-align: middle; font-family: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace; font-size: 11.5px; line-height: 14px; color: #0d9488; }
+        .am-typed { display: inline-flex; align-items: center; white-space: pre; vertical-align: middle; font-size: 11.5px; line-height: 14px; font-weight: 500; color: #0d9488; }
+        .am-typed i { display: inline-block; max-width: 0; overflow: hidden; font-style: normal; }
         .am-caret { display: inline-block; width: 1.5px; height: 14px; margin-left: 1px; vertical-align: middle; background: #0d9488; opacity: 0; }
         .am-caret::after { content: ''; display: block; width: 100%; height: 100%; background: #fff; animation: am-blink 1s steps(2, start) infinite; }
         @keyframes am-blink { to { visibility: hidden; } }
         .am-boxes { display: flex; justify-content: center; gap: 7px; }
-        .am-box { width: 32px; height: 38px; border-radius: 10px; border: 1.5px solid #d6dedb; background: #fff; display: grid; place-items: center; font-family: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace; font-size: 15px; font-weight: 700; color: #0d9488; }
+        .am-box { width: 32px; height: 38px; border-radius: 10px; border: 1.5px solid #d6dedb; background: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #0d9488; }
         .am-box b { opacity: 0; }
         .am-meter { display: flex; gap: 4px; height: 4px; margin-top: 10px; }
         .am-meter i { flex: 1; border-radius: 99px; background: #eceff0; }
@@ -160,7 +167,9 @@
         .{{ $v }} .am-ripple { animation: {{ $v }}-rip 7s linear infinite; }
         @foreach ($spec['fields'] ?? [] as $i => $f)
         .{{ $v }} .am-f{{ $i }} { animation: {{ $v }}-f{{ $i }} 7s linear infinite; }
-        .{{ $v }} .am-f{{ $i }} .am-typed { animation: {{ $v }}-t{{ $i }} 7s linear infinite; }
+        @for ($j = 0; $j < mb_strlen($f[2]); $j++)
+        .{{ $v }} .am-f{{ $i }} .am-typed i:nth-child({{ $j + 1 }}) { animation: {{ $v }}-t{{ $i }}-{{ $j }} 7s linear infinite; }
+        @endfor
         .{{ $v }} .am-f{{ $i }} .am-ph { animation: {{ $v }}-p{{ $i }} 7s linear infinite; }
         .{{ $v }} .am-f{{ $i }} .am-caret { animation: {{ $v }}-c{{ $i }} 7s linear infinite; }
         @endforeach
@@ -179,7 +188,7 @@
         @media (prefers-reduced-motion: reduce) {
             .am, .am * { animation: none !important; }
             .am-cursor, .am-ph, .am-caret { display: none; }
-            .am-typed { width: auto; }
+            .am-typed i { max-width: none; }
             .am-box b, .am-toast { opacity: 1; }
             .am-f, .am-box { border-color: #0d9488; }
         }
@@ -207,7 +216,7 @@
                         <div class="am-f am-f{{ $i }}">
                             <label>{{ $label }}</label>
                             <span class="am-ph">{{ $ph }}</span>
-                            <span class="am-typed">{{ $text }}</span><span class="am-caret"></span>
+                            <span class="am-typed">@foreach (mb_str_split($text) as $ch)<i>{{ $ch }}</i>@endforeach</span><span class="am-caret"></span>
                         </div>
                     @endforeach
                     @if (!empty($spec['meter']))

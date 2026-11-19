@@ -72,24 +72,61 @@
     .sk-chip svg { width: 16px; height: 16px; color: var(--sk-teal); }
     .sk-empty { position: relative; padding: 48px 16px; text-align: center; color: var(--sk-muted); font-size: 14px; }
 
-    /* ── Quick Links page (sk-ql): a light cream is the whole page, edge to
-          edge; the header row sits on it with no line under it and none
-          between Sort and its buttons; white search, pills and buttons on the
-          cream; the tiles straight on the page, lined up with the header. ── */
-    .sa-skin.sk-ql { --sk-cream: #fcf7ed; background: radial-gradient(55% 60% at 95% 105%, rgba(255,255,255,.6), transparent 70%), var(--sk-cream); min-height: calc(100vh - var(--lms-nav-h, 0px)); }
-    .sk-ql .sk-head { background: rgba(252,247,237,.94); border-bottom: 0; padding: 18px 24px 8px; }
-    .sk-ql .sk-tile { border-color: #f4ecdb; box-shadow: 0 10px 24px -16px rgba(74,56,24,.3); }
-    .sk-ql .sk-tile:hover { border-color: var(--sk-teal-100); }
-    .sk-ql .sk-actions { border-left: 0; padding-left: 0; margin-left: 2px; }
-    .sk-ql .sk-search input { background: #fff; border-color: #fff; box-shadow: 0 1px 2px rgba(12,38,32,.04), 0 10px 24px -18px rgba(12,38,32,.35); }
-    .sk-ql .sk-search input:focus { border-color: var(--sk-teal); }
-    .sk-ql .sk-pill, .sk-ql .sk-select, .sk-ql .sk-btn { border-color: #fff; box-shadow: 0 1px 2px rgba(12,38,32,.05); }
-    .sk-ql .sk-pill.live { background: #fff; border-color: #fff; }
-    .sk-ql .sk-body { padding: 10px 24px 24px; }
+    /* ── Quick Links page (sk-ql), user's ask of 2026-11-18 (later): a white
+          page; the header as the school admin's — one white row with a line
+          under it, 60px tall so that line runs on from the sidebar's divider
+          under the logo — holding the title, the session, Sort, the search,
+          Ask AI, the clock and the bell (Profile and Logout are on the
+          sidebar's user card). The tiles: white, a hairline edge; under the
+          pointer each lifts and fills with its own pastel (the website's
+          panels), its icon turning white with a little bounce. ── */
+    .sa-skin.sk-ql { background: #fff; min-height: calc(100vh - var(--lms-nav-h, 0px)); }
+    .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: 1px solid #eef1f0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .sk-ql .sk-title { align-items: center; gap: 10px; flex: none; }
+    .sk-ql .sk-bar-filter, .sk-ql .sk-clock, .sk-ql .sk-actions { flex: none; }
+    .sk-ql .sk-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+    .sk-bar-div { width: 1px; height: 18px; background: #e5eae8; flex: none; }
+    .sk-bar-filter { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #44544f; white-space: nowrap; }
+    .sk-bar-filter > svg { width: 14px; height: 14px; color: #8b9893; }
+    .sk-ql .sk-search { flex: 1 1 180px; min-width: 140px; max-width: 300px; }
+    .sk-ql .sk-search input { height: 36px; background: #fbfcfc; }
+    .sk-ql .sk-pill, .sk-ql .sk-select { height: 32px; }
+    .sk-ql .sk-right { flex-wrap: nowrap; gap: 8px; }
+    .sk-clock { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: #6b7c76; white-space: nowrap; }
+    .sk-clock b { color: var(--sk-ink); font-weight: 600; }
+    .sk-clock i { font-style: normal; color: #c3ccc8; }
+    .sk-ql .sk-actions { border-left: 0; padding-left: 0; margin-left: 0; }
+    .sk-ql .sk-btn { width: 34px; height: 34px; }
+    .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+    @media (max-width: 1439px) { .sk-clock .day, .sk-clock .day + i { display: none; } }
+    @media (max-width: 1279px) { .sk-bar-filter > span { display: none; } }
+    @media (max-width: 1023px) {
+        .sk-ql .sk-head { height: auto; min-height: 60px; flex-wrap: wrap; padding: 10px 14px; }
+        .sk-clock { display: none; }
+    }
+
+    .sk-ql .sk-body { padding: 18px 20px 22px; }
     .sk-ql .sk-panel { background: transparent; border-radius: 0; padding: 0; overflow: visible; }
     .sk-ql .sk-panel::before { display: none; }
-    @media (max-width: 639px) { .sk-ql .sk-head { padding: 14px 14px 6px; } .sk-ql .sk-body { padding: 8px 14px 18px; } }
+    .sk-ql .sk-tile { border-color: #eef1f0; box-shadow: 0 1px 2px rgba(12,38,32,.04), 0 10px 24px -18px rgba(12,38,32,.3);
+        transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s, background-color .3s, border-color .3s; }
+    .sk-ql .sk-tile:hover { transform: translateY(-6px); background: var(--tint, #dff3ee); border-color: transparent; box-shadow: 0 26px 44px -24px rgba(12,38,32,.45); }
+    .sk-ql .sk-tile:hover .sk-tile-ic { background: #fff; color: var(--ink, #0f766e); transform: none; animation: sk-bounce .6s cubic-bezier(.2,.7,.2,1); box-shadow: 0 10px 20px -12px rgba(12,38,32,.45); }
+    .sk-ql .sk-tile:hover span { color: var(--ink, #0f766e); }
+    @keyframes sk-bounce { 0% { transform: scale(1); } 35% { transform: translateY(-4px) scale(1.1) rotate(-6deg); } 65% { transform: translateY(1px) scale(.97) rotate(3deg); } 100% { transform: none; } }
+    @media (max-width: 639px) { .sk-ql .sk-body { padding: 12px 14px 18px; } }
+    @media (prefers-reduced-motion: reduce) { .sk-ql .sk-tile:hover .sk-tile-ic { animation: none; } }
 
+    /* ── Ask AI: the website's "Ask anything" pill, in the header; Enter opens
+          the assistant as the website's popup with the question asked. ── */
+    .sk-ask { display: flex; align-items: center; gap: 8px; flex: 0 1 240px; min-width: 170px; height: 36px; padding: 0 4px 0 12px; border-radius: 999px; background: #fff; border: 1px solid #e3e8e6; transition: border-color .2s, box-shadow .2s; }
+    .sk-ask:focus-within { border-color: #b1e6db; box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
+    .sk-ask > img { width: 18px; height: 18px; object-fit: contain; flex: none; }
+    .sk-ask input, .sk-ask input:focus { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; font-size: 13.5px; color: var(--sk-ink); }
+    .sk-ask input::placeholder { color: #8e9b97; }
+    .sk-ask button { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #eceff0; color: #6b7c76; transition: background .2s, color .2s; }
+    .sk-ask button svg { width: 14px; height: 14px; }
+    .sk-ask.has-text button { background: #0c2620; color: #fff; }
     /* ── Header's main button ── */
     .sk-cta { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: 999px; background: var(--sk-teal); color: #fff; font-size: 13.5px; font-weight: 600; transition: background .2s, box-shadow .25s, transform .2s; white-space: nowrap; }
     .sk-cta:hover { background: var(--sk-teal-700); box-shadow: 0 10px 22px -10px rgba(13,148,136,.7); transform: translateY(-1px); }

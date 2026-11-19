@@ -34,8 +34,9 @@
 
     /* The card */
     .sa-auth-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 28px 16px; }
-    .sa-auth-card { width: 100%; max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; background: #fff; border: 1px solid var(--line); border-radius: 32px; overflow: hidden;
-        box-shadow: 0 44px 90px -30px rgba(12,38,32,.32), 0 14px 28px -14px rgba(12,38,32,.14); animation: sa-auth-rise .7s var(--ease) both; }
+    /* No hard border: a feathered, wide soft shadow, so the card reads as part of the page. */
+    .sa-auth-card { width: 100%; max-width: 1040px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; background: #fff; border-radius: 32px; overflow: hidden;
+        box-shadow: 0 0 0 1px rgba(12,38,32,.03), 0 40px 110px -40px rgba(12,38,32,.26), 0 0 70px -24px rgba(13,148,136,.16); animation: sa-auth-rise .7s var(--ease) both; }
     @keyframes sa-auth-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 
     /* Left: the website's mint band with the picture */

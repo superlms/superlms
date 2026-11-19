@@ -81,22 +81,33 @@ class SuperAdminHomeTest extends TestCase
     }
 
     /**
-     * Quick Links in the website's look (2026-11-18): no top bar on a computer,
-     * so its search, notifications, Profile and Logout sit on the page's own
-     * header, and every screen is a tile on the mint panel.
+     * Quick Links (2026-11-18, later): no top bar on a computer, so the page's
+     * own header — the school admin's kind, a white row with a line under it —
+     * carries Filter by / Sort, the search, the notifications and Ask AI (the
+     * website's ask pill opening the assistant); Profile and Logout moved to
+     * the sidebar's user card. Each tile carries its own pastel for the hover.
      */
     public function test_quick_links_carry_the_top_bars_buttons_on_their_own_header(): void
     {
+        config(['gemini.roles' => ['super-admin']]);
         $this->signIn();
 
-        Livewire::test(QuickLinks::class)
+        $page = Livewire::test(QuickLinks::class)
             ->assertSeeHtml('sa-skin')
             ->assertSeeHtml('class="sk-tile"')
+            ->assertSeeHtml('--tint: #dff3ee')
             ->assertSeeHtml('placeholder="Search pages..."')
+            ->assertSeeHtml('Filter by:')
             ->assertSeeHtml("Livewire.dispatch('open-notifications')")
-            ->assertSeeHtml("Livewire.dispatch('open-logout-confirm')")
-            ->assertSeeHtml(route('super-admin.profile'))
+            ->assertDontSeeHtml("Livewire.dispatch('open-logout-confirm')")
+            ->assertDontSeeHtml('title="Profile"')
+            ->assertDontSeeHtml('Super Assist')
             ->assertSee('Payroll');
+
+        // Ask AI shows wherever the assistant is switched on for the super admin.
+        if ($page->viewData('assistantEnabled')) {
+            $page->assertSeeHtml('placeholder="Ask AI…"')->assertSeeHtml("\$dispatch('gemini-ask'");
+        }
     }
 
     /**
@@ -161,12 +172,13 @@ class SuperAdminHomeTest extends TestCase
                 ->assertSeeHtml('<div class="sa-auth-logo">')     // the logo on its own, no box
                 ->assertDontSeeHtml('bg-violet-600');
         }
-        $screens['am-login']->assertSeeHtml('<span class="am-typed">admin@superlms.in</span>');
+        // Typed a character at a time in the form's own face (no monospace).
+        $screens['am-login']->assertSeeHtml('<i>a</i><i>d</i><i>m</i><i>i</i><i>n</i><i>@</i>')->assertDontSeeHtml('monospace');
         $screens['am-otp']->assertSeeHtml('Verify <span class="grad">OTP</span>')
             ->assertSeeHtml('class="am-box am-box5"');
     }
 
-    /** The logout confirm in the website's card look: a pastel stage with a small panel, the question, pill buttons. */
+    /** The logout confirm in the website's card look: a pastel stage with a panel holding only the question and one line, pill buttons. */
     public function test_the_logout_confirm_is_a_website_card(): void
     {
         $this->signIn();
@@ -178,7 +190,8 @@ class SuperAdminHomeTest extends TestCase
             ->assertSeeHtml('class="lo-card"')
             ->assertSeeHtml('class="lo-stage"')
             ->assertSee('Logout from the Super Admin panel?')
-            ->assertSee('super@example.com')
+            ->assertDontSee('super@example.com')                     // no icons or other text over the question
+            ->assertDontSeeHtml('lo-head')
             ->assertSeeHtml('wire:click="superAdminLogout"')
             ->assertDontSeeHtml('bg-red-500');
     }

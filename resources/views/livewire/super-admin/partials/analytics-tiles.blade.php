@@ -7,11 +7,13 @@
      is words rather than a number (a page's address) is set smaller over up
      to two lines, and the line under it wraps. --}}
 @php
+    // A page in Home's teal (Super Admin → Analytics) sets $tilesAccent = 'teal'.
+    $teal = ($tilesAccent ?? null) === 'teal';
     $mark = fn (string $tone) => match (true) {
         str_contains($tone, 'emerald') => '#10b981',
         str_contains($tone, 'red'), str_contains($tone, 'rose') => '#f43f5e',
-        str_contains($tone, 'violet') => '#7c3aed',
-        default => '#c4b5fd',
+        str_contains($tone, 'violet') => $teal ? '#0d9488' : '#7c3aed',
+        default => $teal ? '#99e0d3' : '#c4b5fd',
     };
 @endphp
 <div class="grid gap-4 {{ $cols ?? 'grid-cols-2 xl:grid-cols-4' }}">

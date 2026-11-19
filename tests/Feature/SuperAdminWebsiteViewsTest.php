@@ -138,6 +138,7 @@ class SuperAdminWebsiteViewsTest extends TestCase
         // 30 screens with Ledger and Messaging (2026-11-01), Store (2026-11-02), Session and School Data (2026-11-03)
         // and Calendar (2026-11-12) — the 6 columns × 5 rows full.
         $this->assertCount(30, $page->viewData('orderedLinks'));
-        $this->assertStringContainsString('md:grid-cols-6 md:grid-rows-5 md:auto-rows-fr', $page->html());
+        // Since the website look (277d3b0) the grid is the skin's .sk-tiles: 6 columns of equal rows on md+.
+        $this->assertStringContainsString('.sk-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: 1fr; height: 100%; }', $page->html());
     }
 }

@@ -1,4 +1,29 @@
-<div class="min-h-screen bg-gray-50">
+{{-- Analytics in Home's look (user's ask of 2026-11-18): the Home skin and
+     header, and each functionality's figures on a section of its own, picked
+     with the chips under the header (the URL's #hash keeps the one open).
+     Every section is drawn hidden and x-show opens the picked one, so a
+     re-render (the month window, the website range) keeps it open: Livewire's
+     morph leaves an element x-show has shown alone, and the hidden ones stay
+     hidden. --}}
+@php
+    $anTabs = array_filter([
+        'overview'  => ['Overview', 'squares-2x2'],
+        'schools'   => ['Schools', 'building-office-2'],
+        'website'   => ['Website', 'globe-alt'],
+        'fee'       => ['Fee', 'banknotes'],
+        'payroll'   => ['Payroll', 'credit-card'],
+        'calendar'  => !empty($calendarStats) ? ['Calendar', 'calendar-days'] : null,
+        'enquiries' => ['Enquiries', 'inbox-stack'],
+        'support'   => ['Support', 'lifebuoy'],
+    ]);
+@endphp
+<div class="sa-skin sa-home min-h-screen"
+    x-data="{
+        tabs: {{ \Illuminate\Support\Js::from(array_keys($anTabs)) }},
+        tab: 'overview',
+        init() { const h = location.hash.slice(1); if (this.tabs.includes(h)) this.tab = h; },
+        go(t) { this.tab = t; history.replaceState(null, '', '#' + t); this.$nextTick(() => window.dispatchEvent(new Event('resize'))); },
+    }">
 
     {{-- All chart data lives in this attribute. It is part of the Livewire DOM,
          so every morph (month-window or website-range change) refreshes it and
@@ -7,6 +32,19 @@
 
     {{-- The dashboard look (2026-11-03), shared with Home. --}}
     @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
+    <style>
+        .an-chips { display: flex; gap: 8px; padding: 16px 24px 2px; overflow-x: auto; scrollbar-width: none; }
+        .an-chips::-webkit-scrollbar { display: none; }
+        .an-chip { display: inline-flex; align-items: center; gap: 7px; flex: none; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid #e3e8e6; background: #fff; font-size: 13.5px; font-weight: 500; color: #44544f; white-space: nowrap; transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s; }
+        .an-chip svg { width: 16px; height: 16px; color: #8b9893; transition: color .2s; }
+        .an-chip:hover { border-color: #b1e6db; color: #0c2620; transform: translateY(-1px); }
+        .an-chip:hover svg { color: #0d9488; }
+        .an-chip.on { background: #0d9488; border-color: #0d9488; color: #fff; box-shadow: 0 10px 22px -12px rgba(13,148,136,.75); }
+        .an-chip.on svg { color: #fff; }
+        .sa-home .bg-violet-300 { background-color: #99e0d3 !important; }
+        @media (max-width: 639px) { .an-chips { padding: 12px 14px 2px; } }
+    </style>
 
     @php
         $inr = fn ($v) => '₹' . number_format((float) $v, 0);
@@ -17,7 +55,8 @@
             : 0;
         // The tabs are one page now: what each tab showed is a section below.
         $windowLabel = 'Last ' . $months . ' months';
-        $ring = ['#7c3aed', '#111827', '#a78bfa', '#38bdf8', '#f59e0b', '#10b981', '#cbd5e1'];
+        $tilesAccent = 'teal';   // the stat tiles' marks in Home's teal (partials.analytics-tiles)
+        $ring = ['#0d9488', '#111827', '#5eead4', '#38bdf8', '#f59e0b', '#10b981', '#cbd5e1'];
         // A payment-mode split as a donut's parts.
         $modeParts = fn (array $m) => array_map(
             fn ($label, $value, $i) => ['label' => $label, 'value' => (float) $value, 'color' => $ring[$i % count($ring)]],
@@ -26,32 +65,38 @@
         $initial = fn ($name) => strtoupper(mb_substr(trim((string) $name) ?: '?', 0, 1));
     @endphp
 
-    {{-- ══════════════════════════════════════════════════════════
-         HEADER — title, date and the window the monthly charts cover
-         (the Schools / Students / Rating figures left the header).
-    ══════════════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:min-h-15">
-            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
-                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Analytics</h1>
-                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <select wire:model.live="months" title="Months on the monthly charts"
-                    class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-400">
-                    <option value="6">Last 6 months</option>
-                    <option value="12">Last 12 months</option>
-                    <option value="24">Last 24 months</option>
-                </select>
-            </div>
+    {{-- ══════════════════════════════ HEADER ══════════════════════════════
+         Home's header row: the title and date, and the window the monthly
+         charts cover; under it a chip for each functionality's figures. --}}
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>Analytics</h1>
+            <p>{{ now()->format('l, d M Y') }}</p>
+        </div>
+        <div class="sk-right">
+            <span wire:ignore class="sk-pill live"
+                x-data="{ t: '', tick() { this.t = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); } }"
+                x-init="tick(); setInterval(() => tick(), 15000)">Live · <span class="tabular-nums" x-text="t"></span></span>
+            <select wire:model.live="months" title="Months on the monthly charts" class="sk-select" aria-label="Months on the monthly charts">
+                <option value="6">Last 6 months</option>
+                <option value="12">Last 12 months</option>
+                <option value="24">Last 24 months</option>
+            </select>
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-8">
+    <nav class="an-chips" aria-label="Analytics sections">
+        @foreach ($anTabs as $key => [$label, $icon])
+            <button type="button" class="an-chip" :class="tab === '{{ $key }}' && 'on'" x-on:click="go('{{ $key }}')" :aria-pressed="tab === '{{ $key }}'">
+                <x-icon name="{{ $icon }}" /> {{ $label }}
+            </button>
+        @endforeach
+    </nav>
+
+    <div class="p-4 sm:p-6 pt-4 sm:pt-5">
 
         {{-- ═══════════════════════ KEY METRICS ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Key Metrics" />
+        <section class="space-y-4" data-an="overview" x-show="tab === 'overview'" style="display: none">
 
             @php
                 $growth = $overviewStats['studentGrowthPct'] ?? 0;
@@ -61,22 +106,22 @@
                  and a sparkline over the months picked in the header. --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Total Schools', 'value' => number_format($overviewStats['totalSchools'] ?? 0), 'icon' => 'building-office-2', 'color' => 'violet',
+                    'label' => 'Total Schools', 'value' => number_format($overviewStats['totalSchools'] ?? 0), 'icon' => 'building-office-2', 'color' => 'teal',
                     'series' => $regs['schools'] ?? [], 'trend' => $trend($regs['schools'] ?? []),
                     'sub' => number_format($overviewStats['activeSchools'] ?? 0) . ' active · ' . number_format($overviewStats['inactiveSchools'] ?? 0) . ' inactive',
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Total Students', 'value' => number_format($overviewStats['totalStudents'] ?? 0), 'icon' => 'users', 'color' => 'sky',
+                    'label' => 'Total Students', 'value' => number_format($overviewStats['totalStudents'] ?? 0), 'icon' => 'users', 'color' => 'teal',
                     'series' => $regs['students'] ?? [], 'trend' => $trend($regs['students'] ?? []),
                     'sub' => number_format($overviewStats['activeStudents'] ?? 0) . ' active',
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Total Teachers', 'value' => number_format($overviewStats['totalTeachers'] ?? 0), 'icon' => 'academic-cap', 'color' => 'emerald',
+                    'label' => 'Total Teachers', 'value' => number_format($overviewStats['totalTeachers'] ?? 0), 'icon' => 'academic-cap', 'color' => 'teal',
                     'series' => $regs['teachers'] ?? [], 'trend' => $trend($regs['teachers'] ?? []),
                     'sub' => number_format($overviewStats['activeTeachers'] ?? 0) . ' active',
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Fee Collected', 'value' => $short($feeStats['totalCollected'] ?? 0), 'icon' => 'banknotes', 'color' => 'amber',
+                    'label' => 'Fee Collected', 'value' => $short($feeStats['totalCollected'] ?? 0), 'icon' => 'banknotes', 'color' => 'teal',
                     'series' => $feeMonthly['collected'] ?? [],
                     'trend' => \App\Support\DashboardChart::trend((float) ($feeStats['collectedThisMonth'] ?? 0), (float) ($feeStats['collectedLastMonth'] ?? 0)),
                     'sub' => ($feeStats['collectionRate'] ?? 0) . '% of ' . $short($feeStats['totalFeeToCollect'] ?? 0),
@@ -93,8 +138,7 @@
         </section>
 
         {{-- ═══════════════════════ SCHOOLS ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Schools" />
+        <section class="space-y-4" data-an="schools" x-show="tab === 'schools'" style="display: none">
 
             {{-- Registrations + schools onboarded --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -151,7 +195,7 @@
                                 <span class="text-xs text-gray-400 tabular-nums">{{ round($count / $allSchools * 100) }}%</span>
                             </div>
                             <div class="mt-2.5 h-1.5 rounded-full bg-white">
-                                <div class="h-1.5 rounded-full" style="width: {{ round($count / $bucketTop * 100) }}%; background: {{ $count === $bucketTop ? '#7c3aed' : '#c4b5fd' }}"></div>
+                                <div class="h-1.5 rounded-full" style="width: {{ round($count / $bucketTop * 100) }}%; background: {{ $count === $bucketTop ? '#0d9488' : '#99e0d3' }}"></div>
                             </div>
                         </div>
                     @endforeach
@@ -187,7 +231,7 @@
                                             </div>
                                             <div class="mt-1.5 flex items-center gap-3">
                                                 <div class="flex-1 h-1.5 rounded-full bg-gray-100">
-                                                    <div class="h-1.5 rounded-full" style="width: {{ round($s[$main] / $topMax * 100) }}%; background: {{ $loop->first ? '#7c3aed' : '#c4b5fd' }}"></div>
+                                                    <div class="h-1.5 rounded-full" style="width: {{ round($s[$main] / $topMax * 100) }}%; background: {{ $loop->first ? '#0d9488' : '#99e0d3' }}"></div>
                                                 </div>
                                                 <span class="text-[11px] text-gray-400 tabular-nums whitespace-nowrap">{{ number_format($s[$other]) }} {{ $other }}</span>
                                             </div>
@@ -214,7 +258,7 @@
                     </div>
                     @include('livewire.super-admin.partials.dash-donut', [
                         'segments' => [
-                            ['label' => 'Male', 'value' => (int) ($genderSplit['male'] ?? 0), 'color' => '#7c3aed'],
+                            ['label' => 'Male', 'value' => (int) ($genderSplit['male'] ?? 0), 'color' => '#0d9488'],
                             ['label' => 'Female', 'value' => (int) ($genderSplit['female'] ?? 0), 'color' => '#f472b6'],
                             ['label' => 'Other', 'value' => (int) ($genderSplit['other'] ?? 0), 'color' => '#fbbf24'],
                             ['label' => 'Not set', 'value' => (int) ($genderSplit['unknown'] ?? 0), 'color' => '#e5e7eb'],
@@ -248,8 +292,7 @@
         </section>
 
         {{-- ═══════════════════════ WEBSITE ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Website" />
+        <section class="space-y-4" data-an="website" x-show="tab === 'website'" style="display: none">
 
             {{-- Range: any dates within the last 90 days --}}
             <div class="flex flex-wrap items-center justify-end gap-2">
@@ -309,7 +352,7 @@
                     <div class="flex justify-center my-5">
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Unique visitors', 'value' => $uniques, 'color' => '#a78bfa'],
+                                ['label' => 'Unique visitors', 'value' => $uniques, 'color' => '#5eead4'],
                                 ['label' => 'Return visits', 'value' => max(0, $visits - $uniques), 'color' => '#38bdf8'],
                             ],
                             'center' => number_format($uniques), 'centerLabel' => 'People', 'size' => 140, 'legend' => false, 'dark' => true,
@@ -317,7 +360,7 @@
                     </div>
                     <dl class="mt-auto space-y-2.5 text-sm">
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Unique visitors</dt>
+                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Unique visitors</dt>
                             <dd class="font-semibold tabular-nums">{{ number_format($uniques) }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-2">
@@ -377,8 +420,7 @@
         </section>
 
         {{-- ═══════════════════════ FEE ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Fee" />
+        <section class="space-y-4" data-an="fee" x-show="tab === 'fee'" style="display: none">
 
             @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
                 ['To Collect', $inr($feeStats['totalFeeToCollect'] ?? 0), 'fee structures' . (!empty($feeStats['year']) ? ' · ' . $feeStats['year'] : ''), 'text-gray-900'],
@@ -465,8 +507,7 @@
         </section>
 
         {{-- ═══════════════════════ PAYROLL ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Payroll" />
+        <section class="space-y-4" data-an="payroll" x-show="tab === 'payroll'" style="display: none">
 
             @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
                 ['Employees', number_format($payrollStats['totalEmployees'] ?? 0), null, 'text-gray-900'],
@@ -525,7 +566,7 @@
                                 <p class="text-xs text-gray-500 truncate">{{ \Illuminate\Support\Str::headline((string) $type) }}</p>
                                 <p class="mt-1 text-xl font-semibold text-gray-900 tabular-nums">{{ number_format($row['count']) }}</p>
                                 <div class="mt-2 h-1.5 rounded-full bg-white">
-                                    <div class="h-1.5 rounded-full" style="width: {{ round($row['count'] / $typeTop * 100) }}%; background: {{ $row['count'] === $typeTop ? '#111827' : '#c4b5fd' }}"></div>
+                                    <div class="h-1.5 rounded-full" style="width: {{ round($row['count'] / $typeTop * 100) }}%; background: {{ $row['count'] === $typeTop ? '#111827' : '#99e0d3' }}"></div>
                                 </div>
                                 <p class="mt-2 text-xs text-gray-400 tabular-nums break-words">{{ $inr($row['salary']) }} a month</p>
                             </div>
@@ -594,8 +635,7 @@
                 $cal = $calendarStats;
                 $many = fn (int $n, string $word) => $n . ' ' . \Illuminate\Support\Str::plural($word, $n);
             @endphp
-            <section class="space-y-4">
-                <x-admin.section-heading title="Calendar" />
+            <section class="space-y-4" data-an="calendar" x-show="tab === 'calendar'" style="display: none">
 
                 @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
                     ['Meetings · ' . $cal['month'], number_format($cal['meetings']), number_format($cal['meetingsLast']) . ' last month', 'text-gray-900'],
@@ -653,8 +693,7 @@
         @endif
 
         {{-- ═══════════════════════ ENQUIRIES ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Enquiries" />
+        <section class="space-y-4" data-an="enquiries" x-show="tab === 'enquiries'" style="display: none">
 
             @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
                 ['Demo Requests', number_format($enquiryStats['demo']['total'] ?? 0), number_format($enquiryStats['demo']['thisMonth'] ?? 0) . ' this month · ' . number_format($enquiryStats['demo']['thisWeek'] ?? 0) . ' this week', 'text-gray-900'],
@@ -685,8 +724,7 @@
         </section>
 
         {{-- ═══════════════════════ SUPPORT ═══════════════════════ --}}
-        <section class="space-y-4">
-            <x-admin.section-heading title="Support" />
+        <section class="space-y-4" data-an="support" x-show="tab === 'support'" style="display: none">
 
             @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
                 ['Total Tickets', number_format($supportStats['total'] ?? 0), ($supportStats['avgPerMonth'] ?? 0) . ' a month on average', 'text-gray-900'],
@@ -716,7 +754,7 @@
                     <div class="flex-1 flex items-center justify-center">
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Replied', 'value' => (int) ($supportStats['replied'] ?? 0), 'color' => '#7c3aed'],
+                                ['label' => 'Replied', 'value' => (int) ($supportStats['replied'] ?? 0), 'color' => '#0d9488'],
                                 ['label' => 'Pending', 'value' => (int) ($supportStats['pending'] ?? 0), 'color' => '#e5e7eb'],
                             ],
                             'center' => $supportReplyRate . '%', 'centerLabel' => 'Replied', 'size' => 150, 'legend' => false,
@@ -740,7 +778,7 @@
         (function () {
             // The dashboard palette (2026-11-03): brand violet leads, ink and
             // soft violet follow.
-            const VIOLET = '#7c3aed', INK = '#111827', SOFT = '#c4b5fd';
+            const VIOLET = '#0d9488', INK = '#111827', SOFT = '#99e0d3';   // Home's teal (the names are older than the colours)
 
             const inr   = v => '₹' + Number(v).toLocaleString('en-IN');
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
