@@ -153,7 +153,11 @@ class PanelAppLockTest extends TestCase
             ->call('opened', 'closed')
             ->assertSet('step', 'otp')
             ->assertSet('otpSentTo', 'ad•••@example.com')
-            ->assertSee('Verify OTP');
+            ->assertSeeHtml('Verify <span class="grad">OTP</span>')
+            // The school admin app opens in its login's website look, not the old violet screen.
+            ->assertSeeHtml('class="sa-auth"')
+            ->assertSeeHtml('sa-auth-card')
+            ->assertDontSeeHtml('from-violet-50');
 
         $this->assertFalse(Auth::guard('admin')->check());
         $this->assertSame($sent + 1, $this->mails());
@@ -452,7 +456,13 @@ class PanelAppLockTest extends TestCase
         $app = $this->app('superadmin')->call('opened', 'closed')
             ->assertSet('step', 'otp')
             ->assertSet('otpOnWhatsApp', true)
-            ->assertSee('We have sent an OTP to your email address and primary registered mobile number');
+            ->assertSee('We have sent an OTP to your email address and primary registered mobile number')
+            // The Super Admin app's code screen is its login's website look.
+            ->assertSeeHtml('class="sa-auth"')
+            ->assertSeeHtml('sa-auth-card')
+            ->assertSeeHtml('sa-btn')
+            ->assertDontSeeHtml('from-violet-50')
+            ->assertDontSeeHtml('bg-violet-600');
         $wa = $sentOnWhatsApp();
         $this->assertCount(1, $wa);
         $this->assertSame('918864985914', $wa[0]['to']);

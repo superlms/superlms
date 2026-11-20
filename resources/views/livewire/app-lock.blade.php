@@ -1,34 +1,34 @@
 @php
-    // The accounts desk keeps its green; the other panels the brand violet.
-    $green = $panel === 'accounts';
-    $c = $green
-        ? [
-            'side'   => 'from-emerald-50 to-teal-50',
-            'text'   => 'text-emerald-600',
-            'link'   => 'text-emerald-600 hover:text-emerald-800',
-            'button' => 'bg-emerald-600 hover:bg-emerald-700',
-            'focus'  => 'focus:ring-emerald-500 focus:border-emerald-500',
-            'spin'   => 'border-emerald-200 border-t-emerald-600',
-        ]
-        : [
-            'side'   => 'from-violet-50 to-fuchsia-50',
-            'text'   => 'text-violet-600',
-            'link'   => 'text-violet-600 hover:text-violet-800',
-            'button' => 'bg-violet-600 hover:bg-violet-700',
-            'focus'  => 'focus:ring-violet-500 focus:border-violet-500',
-            'spin'   => 'border-violet-200 border-t-violet-600',
-        ];
+    // The screen an installed panel app opens on. The Super Admin and School
+    // Admin apps look exactly like their own sign-in (the superlms.in website
+    // look, partials.super-admin-auth-site): one rounded card, the step acted
+    // out in a small app window on the left, teal code boxes and a pill button
+    // on the right (user's ask of 2026-11-20 — the app's first opening still
+    // showed the old violet screen). The accounts desk keeps its green screen.
+    $site = $panel !== 'accounts';
+    $c = [
+        'side'   => 'from-emerald-50 to-teal-50',
+        'text'   => 'text-emerald-600',
+        'link'   => 'text-emerald-600 hover:text-emerald-800',
+        'button' => 'bg-emerald-600 hover:bg-emerald-700',
+        'focus'  => 'focus:ring-emerald-500 focus:border-emerald-500',
+        'spin'   => 'border-emerald-200 border-t-emerald-600',
+    ];
 
-    // The Super Admin app looks like the Super Admin login: thin code boxes,
-    // pill buttons, moving art. A super admin's code (this app, or a school's
-    // app opened on it) goes by email and to the primary mobile number.
-    $sa        = $panel === 'superadmin';
-    $superCode = $sa || $viaSuperAdmin;
+    // A super admin's code (this app, or a school's app opened on it) goes by
+    // email and to the primary mobile number.
+    $superCode = $panel === 'superadmin' || $viaSuperAdmin;
 @endphp
 
-<div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
-    @if ($sa)
+<div class="{{ $site ? 'sa-auth' : 'min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6' }}">
+    @if ($site)
         @include('partials.super-admin-auth-fields')
+        @include('partials.super-admin-auth-site')
+        <style>
+            .sa-auth .al-spin { width: 36px; height: 36px; margin: 0 auto 20px; border-radius: 999px; border: 4px solid var(--teal-100); border-top-color: var(--teal); animation: al-spin .8s linear infinite; }
+            @keyframes al-spin { to { transform: rotate(360deg); } }
+            .sa-auth .al-to { margin-top: 8px; font-size: 14px; }
+        </style>
     @endif
 
     {{-- This page waits for a code; the layout's background refresh (a silent
@@ -74,35 +74,44 @@
         };
     </script>
 
-    <div class="flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60">
+    <main class="{{ $site ? 'sa-auth-main' : '' }}" @unless ($site) style="display: contents" @endunless>
+    <div class="{{ $site ? 'sa-auth-card' : 'flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60' }}">
 
-        <!-- Left Side: illustration -->
-        <div class="hidden md:flex md:w-1/2 bg-gradient-to-br {{ $c['side'] }} flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', [
-                'variant'       => 'otp',
-                'scheme'        => $green ? 'emerald' : 'violet',
-                'animated'      => $sa,
-                'headingClass'  => $sa ? 'sa-title' : '',
-                'subtitleClass' => $sa ? 'sa-sub' : '',
-            ])
-        </div>
+        <!-- Left: the step acted out in a small app window (website look) / the illustration -->
+        @if ($site)
+            <div class="sa-auth-art">
+                @include('partials.super-admin-auth-motion', $panel === 'superadmin'
+                    ? ['variant' => 'otp']
+                    : ['variant' => 'otp', 'amPath' => 'login', 'amEmail' => 'admin@school.in'])
+            </div>
+        @else
+            <div class="hidden md:flex md:w-1/2 bg-gradient-to-br {{ $c['side'] }} flex-col items-center justify-center p-10">
+                @include('partials.auth-illustration', ['variant' => 'otp', 'scheme' => 'emerald'])
+            </div>
+        @endif
 
-        <!-- Right Side -->
-        <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-8 md:p-12">
+        <!-- Right: the form -->
+        <div class="{{ $site ? 'sa-auth-form' : 'w-full md:w-1/2 flex flex-col items-center justify-center p-6 sm:p-8 md:p-12' }}">
 
             <!-- Logo -->
-            <div class="mb-6 w-16 h-16 sm:w-20 sm:h-20">
+            <div class="{{ $site ? 'sa-auth-logo' : 'mb-6 w-16 h-16 sm:w-20 sm:h-20' }}">
                 <img src="{{ \App\Support\Platform::logoUrl() }}" alt="Logo"
-                    class="w-full h-full object-contain">
+                    @unless ($site) class="w-full h-full object-contain" @endunless>
             </div>
 
             {{-- ── Asking the browser whether the app is still open ── --}}
             @if ($step === 'checking')
                 <div class="text-center" wire:key="app-lock-checking"
                     x-data x-init="window.lmsPanelOpen(@js($openNames), state => $wire.opened(state))">
-                    <div class="mx-auto mb-5 h-9 w-9 rounded-full border-4 {{ $c['spin'] }} animate-spin"></div>
-                    <h1 class="{{ $sa ? 'sa-title' : 'font-bold text-gray-800' }} text-xl">Opening SuperLMS…</h1>
-                    <p class="text-gray-500 mt-1 text-sm">Just a moment</p>
+                    @if ($site)
+                        <div class="al-spin"></div>
+                        <h1 class="sa-title text-2xl md:text-3xl">Opening <span class="grad">SuperLMS</span>…</h1>
+                        <p class="sa-sub mt-3 text-sm">Just a moment</p>
+                    @else
+                        <div class="mx-auto mb-5 h-9 w-9 rounded-full border-4 {{ $c['spin'] }} animate-spin"></div>
+                        <h1 class="font-bold text-gray-800 text-xl">Opening SuperLMS…</h1>
+                        <p class="text-gray-500 mt-1 text-sm">Just a moment</p>
+                    @endif
                 </div>
             @endif
 
@@ -112,13 +121,17 @@
                     x-data="{ look() { window.lmsPanelOpen(@js($openNames), state => state === 'running' && $wire.recheck(state)) } }"
                     x-on:focus.window="look()"
                     x-on:visibilitychange.document="document.hidden || look()">
-                    <h1 class="{{ $sa ? 'sa-title md:text-3xl' : 'font-bold text-gray-800' }} text-2xl">Verify OTP</h1>
-                    @if ($superCode)
-                        <p class="{{ $sa ? 'sa-sub mt-2' : 'mt-1' }} text-gray-500 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    @if ($site)
+                        <h1 class="sa-title text-3xl md:text-4xl">Verify <span class="grad">OTP</span></h1>
                     @else
-                        <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
+                        <h1 class="font-bold text-gray-800 text-2xl">Verify OTP</h1>
                     @endif
-                    <p class="{{ $c['text'] }} text-sm font-medium mt-1">{{ $otpSentTo }}</p>
+                    @if ($superCode)
+                        <p class="sa-sub mt-3 text-sm">We have sent an OTP to your email address and primary registered mobile number</p>
+                    @else
+                        <p class="{{ $site ? 'sa-sub mt-3' : 'text-gray-500 mt-1' }} text-sm">Enter the 6-digit code sent to your email{{ $otpOnWhatsApp ? ' and WhatsApp' : '' }}</p>
+                    @endif
+                    <p class="{{ $site ? 'sa-accent al-to' : $c['text'] . ' text-sm font-medium mt-1' }}">{{ $otpSentTo }}</p>
                 </div>
 
                 <div class="w-full max-w-sm" wire:key="app-lock-otp">
@@ -146,11 +159,11 @@
                             }
                         }"
                         x-init="$watch('otp', () => { if (!allFilled()) submitting = false; }); $nextTick(() => $refs.otp0.focus())"
-                        @if ($sa)
+                        @if ($site)
                             @error('otp') data-invalid @enderror
                             x-on:input="$el.removeAttribute('data-invalid')"
                         @endif
-                        class="{{ $sa ? 'sa-otp ' : '' }}flex justify-center gap-2 sm:gap-3 mb-4">
+                        class="{{ $site ? 'sa-otp ' : '' }}flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"
@@ -158,7 +171,7 @@
                                 x-on:input="focusNext({{ $i }})"
                                 x-on:keydown="focusPrev({{ $i }}, $event)"
                                 inputmode="numeric" autocomplete="one-time-code" aria-label="Digit {{ $i + 1 }}"
-                                @if ($sa)
+                                @if ($site)
                                     :class="{ 'is-filled': String(otp[{{ $i }}] ?? '') !== '' }"
                                     class="sa-otp-box w-10 h-12 sm:w-11 sm:h-14 text-center text-lg sm:text-xl font-bold rounded-xl"
                                 @else
@@ -176,7 +189,7 @@
                     <x-otp-lockout :until="$otpLockedUntil" />
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
-                        class="w-full py-3 {{ $c['button'] }} text-white font-medium {{ $sa ? 'rounded-full' : 'rounded-xl' }} transition duration-200 disabled:opacity-60 mb-4">
+                        class="{{ $site ? 'sa-btn' : 'w-full py-3 ' . $c['button'] . ' text-white font-medium rounded-xl transition duration-200 disabled:opacity-60' }} mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify &amp; Open</span>
                         <span wire:loading wire:target="verifyOtp">Verifying…</span>
                     </button>
@@ -199,14 +212,14 @@
                             $watch('until', () => sync());
                         ">
                         <template x-if="!canResend">
-                            <p class="text-sm text-gray-500">
+                            <p class="text-sm {{ $site ? 'sa-quiet' : 'text-gray-500' }}">
                                 Resend OTP in
-                                <span class="font-semibold {{ $c['text'] }}" x-text="label"></span>
+                                <span class="font-semibold {{ $site ? 'sa-accent' : $c['text'] }}" x-text="label"></span>
                             </p>
                         </template>
                         <template x-if="canResend">
                             <button wire:click="resendOtp" wire:loading.attr="disabled" wire:target="resendOtp"
-                                class="text-sm {{ $c['link'] }} font-medium hover:underline">
+                                class="text-sm {{ $site ? 'sa-accent' : $c['link'] . ' font-medium hover:underline' }}">
                                 Resend OTP
                             </button>
                         </template>
@@ -214,7 +227,7 @@
 
                     <div class="text-center mt-3">
                         <button wire:click="usePassword"
-                            class="text-sm text-gray-400 hover:text-gray-600 hover:underline">
+                            class="text-sm {{ $site ? 'sa-quiet' : 'text-gray-400 hover:text-gray-600 hover:underline' }}">
                             Sign in with email and password instead
                         </button>
                     </div>
@@ -223,4 +236,5 @@
 
         </div>
     </div>
+    </main>
 </div>
