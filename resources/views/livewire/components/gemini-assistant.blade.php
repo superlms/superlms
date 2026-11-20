@@ -405,7 +405,8 @@
                                 Unlimited
                             </span>
                         @else
-                            <span title="Questions left today, shared by every {{ $roleLabel }} login here. Resets {{ $resetsAt }}."
+                            {{-- data-ar-ignore: "Resets … (in N minutes)" changes every minute — not news for the page's auto-refresh. --}}
+                            <span data-ar-ignore title="Questions left today, shared by every {{ $roleLabel }} login here. Resets {{ $resetsAt }}."
                                 class="text-xs font-semibold px-2 py-1 rounded-md flex-shrink-0
                                        {{ $remaining === 0 ? 'bg-red-50 text-red-600' : ($remaining <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500') }}">
                                 {{ $remaining }}/{{ $dailyLimit }}
@@ -508,7 +509,7 @@
                                         All {{ $dailyLimit }} questions for the {{ $roleLabel }} logins of
                                         {{ $scopeLabel === 'This school' ? 'this school' : 'this panel' }} have been used today —
                                         the count is shared by everyone with this role.
-                                        Resets <span class="font-semibold">{{ $resetsAt }}</span>.
+                                        Resets <span data-ar-ignore class="font-semibold">{{ $resetsAt }}</span>.
                                     </p>
                                 </div>
                             </div>
@@ -541,7 +542,7 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </button>
                         </div>
-                        <p class="mt-1.5 text-[10px] text-gray-400 text-center" x-show="!listening">
+                        <p data-ar-ignore class="mt-1.5 text-[10px] text-gray-400 text-center" x-show="!listening">
                             @if ($unlimited)
                                 No daily question limit on this login
                             @else

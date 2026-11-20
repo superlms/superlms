@@ -21,6 +21,26 @@
         if (window.__lmsSoleSection) return;
         window.__lmsSoleSection = 1;
 
+        // Whether the page's code already holds this value — a page that picks
+        // the only section itself, in the same update (admin Standard's
+        // Subjects filter). The box just has not shown it yet; sending it
+        // again would only cost a second trip to the server.
+        function heldAlready(el, value) {
+            try {
+                var name = null;
+                for (var i = 0; i < el.attributes.length; i++) {
+                    if (el.attributes[i].name.indexOf('wire:model') === 0) { name = el.attributes[i].value; break; }
+                }
+                var root = el.closest('[wire\\:id]');
+                var wire = (name && root && window.Livewire) ? window.Livewire.find(root.getAttribute('wire:id')) : null;
+                if (!wire) return false;
+                var held = typeof wire.get === 'function' ? wire.get(name) : wire[name];
+                return held !== null && held !== undefined && String(held) === String(value);
+            } catch (e) {
+                return false;
+            }
+        }
+
         function apply() {
             document.querySelectorAll('select[data-sole-section]').forEach(function (el) {
                 var real = Array.prototype.filter.call(el.options, function (o) { return o.value !== ''; });
@@ -35,7 +55,9 @@
                     if (sep) sep.style.display = 'none';
                     if (el.getAttribute('data-sole-section') !== 'keep-all' && el.value !== only.value) {
                         el.value = only.value;
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                        if (!heldAlready(el, only.value)) {
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
                     }
                 } else {
                     if (box.style.display === 'none') box.style.display = '';

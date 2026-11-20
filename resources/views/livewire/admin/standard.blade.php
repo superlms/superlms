@@ -34,9 +34,9 @@
         <nav class="flex gap-1">
             @php
                 $tabs = [
-                    ['key' => 'standard', 'label' => 'Classes',  'color' => 'purple',  'count' => $filteredStandards->total()],
-                    ['key' => 'section',  'label' => 'Sections', 'color' => 'blue',    'count' => $filteredSections->total()],
-                    ['key' => 'subject',  'label' => 'Subjects', 'color' => 'emerald', 'count' => $filteredSubjects->total()],
+                    ['key' => 'standard', 'label' => 'Classes',  'color' => 'purple',  'count' => $tabCounts['standard']],
+                    ['key' => 'section',  'label' => 'Sections', 'color' => 'blue',    'count' => $tabCounts['section']],
+                    ['key' => 'subject',  'label' => 'Subjects', 'color' => 'emerald', 'count' => $tabCounts['subject']],
                 ];
             @endphp
             @foreach ($tabs as $tab)
@@ -87,7 +87,7 @@
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Select Class</option>
                     @foreach ($allStandards as $s)
-                        <option value="{{ $s->id }}">{{ $s->name }}</option>
+                        <option value="{{ $s->id }}">{{ $s->name }}@unless ($s->is_active) (Inactive)@endunless</option>
                     @endforeach
                 </select>
             @endif
@@ -97,7 +97,7 @@
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Select Class</option>
                     @foreach ($allStandards as $s)
-                        <option value="{{ $s->id }}">{{ $s->name }}</option>
+                        <option value="{{ $s->id }}">{{ $s->name }}@unless ($s->is_active) (Inactive)@endunless</option>
                     @endforeach
                 </select>
 
@@ -107,7 +107,7 @@
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                     <option value="">Select Section</option>
                     @foreach ($availableSections as $sec)
-                        <option value="{{ $sec->id }}">{{ $sec->name }}@if ($sec->code) ({{ $sec->code }})@endif</option>
+                        <option value="{{ $sec->id }}">{{ $sec->name }}@if ($sec->code) ({{ $sec->code }})@endif @unless ($sec->is_active) (Inactive)@endunless</option>
                     @endforeach
                 </select>
             @endif
@@ -145,14 +145,20 @@
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
 
-        <div wire:loading.flex class="justify-center py-16">
+        {{-- Only a new list (a filter, a search, a tab, a page) swaps the list
+             for the spinner. Before, every request did — opening View or Edit,
+             each letter of a subject's name, and the page's own background
+             refresh — so the list kept vanishing, and a class or section picked
+             meanwhile waited behind it. --}}
+        @php $listTargets = 'search,filterStandard,filterStatus,filterSubjectStandard,filterSection,perPage,showTab,drillIntoClass,drillIntoSection,resetFilters,gotoPage,setPage,nextPage,previousPage'; @endphp
+        <div wire:loading.flex wire:target="{{ $listTargets }}" class="justify-center py-16">
             <div class="text-center">
                 <div class="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
                 <p class="text-sm text-gray-500 mt-3">Loading...</p>
             </div>
         </div>
 
-        <div wire:loading.remove>
+        <div wire:loading.remove wire:target="{{ $listTargets }}">
 
             {{-- ════════════════ CLASSES (List) ════════════════ --}}
             @if ($activeTab === 'standard')
@@ -330,7 +336,8 @@
                                 </div>
                                 <div class="col-span-2 text-sm text-gray-700">{{ $subject->code }}</div>
                                 <div class="col-span-3 text-sm text-gray-600 truncate">
-                                    {{ $subject->standards->pluck('name')->implode(', ') ?: '—' }}
+                                    {{-- The class being looked at, and the subject's sections in it. --}}
+                                    {{ $subjectClassName ?: '—' }}
                                     {{-- In several sections: the first in full, the others by their last letter. --}}
                                     @if ($subject->sections->count())
                                         <span class="text-gray-400">· {{ \App\Support\SectionNames::joined($subject->sections->pluck('name')) }}</span>
@@ -371,14 +378,9 @@
                 @endif
             @endif
 
-            @php
-                $paginatedResult = $activeTab === 'standard'
-                    ? $filteredStandards
-                    : ($activeTab === 'section' ? $filteredSections : $filteredSubjects);
-            @endphp
-            @if ($paginatedResult->hasPages())
+            @if ($list->hasPages())
                 <div class="mt-6 pt-4 border-t border-gray-100">
-                    {{ $paginatedResult->links() }}
+                    {{ $list->links() }}
                 </div>
             @endif
 
@@ -500,8 +502,8 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
                                 <select wire:model.defer="selectedStandard" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                                     <option value="">Select Class</option>
-                                    @foreach ($standards as $s)
-                                        <option value="{{ $s->id }}">{{ $s->name }}</option>
+                                    @foreach ($allStandards as $s)
+                                        <option value="{{ $s->id }}">{{ $s->name }}@unless ($s->is_active) (Inactive)@endunless</option>
                                     @endforeach
                                 </select>
                                 @error('selectedStandard')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -525,8 +527,8 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
                                 <select wire:model.live="selectedStandardForSubject" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                                     <option value="">Select Class</option>
-                                    @foreach ($standards as $s)
-                                        <option value="{{ $s->id }}">{{ $s->name }}</option>
+                                    @foreach ($allStandards as $s)
+                                        <option value="{{ $s->id }}">{{ $s->name }}@unless ($s->is_active) (Inactive)@endunless</option>
                                     @endforeach
                                 </select>
                                 @error('selectedStandardForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -534,12 +536,13 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Sections <span class="text-red-500">*</span></label>
                                 <div class="border border-gray-300 rounded-md px-3 py-2 max-h-32 overflow-y-auto bg-white {{ !$selectedStandardForSubject ? 'opacity-60' : '' }}">
-                                    @if ($selectedStandardForSubject && $sections->count())
-                                        @foreach ($sections as $sec)
-                                            <label class="flex items-center gap-2 py-1 text-sm">
+                                    @if ($selectedStandardForSubject && $formSections->count())
+                                        @foreach ($formSections as $sec)
+                                            <label wire:key="subject-sec-{{ $sec->id }}" class="flex items-center gap-2 py-1 text-sm">
                                                 <input type="checkbox" wire:model="selectedSectionsForSubject" value="{{ $sec->id }}" class="rounded">
                                                 {{ $sec->name }}
                                                 @if ($sec->code) <span class="text-xs text-gray-400">({{ $sec->code }})</span> @endif
+                                                @unless ($sec->is_active) <span class="text-xs text-gray-400">(Inactive)</span> @endunless
                                             </label>
                                         @endforeach
                                     @else

@@ -15,9 +15,12 @@ use App\Support\SchoolBrand;
 use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
 use App\Support\SubjectMove;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -32,6 +35,11 @@ class Standard extends Component
     // without it every action went back to page 1 and the page links broke.
     use WireUiActions, WithFileUploads, WithPagination;
 
+    private const TABS      = ['standard', 'section', 'subject'];
+    private const PER_PAGES = [10, 25, 50, 100];
+
+    // Set only by the page's own edit buttons — never sent in by the browser.
+    #[Locked]
     public $editId       = null;
 
     // Unified add/edit slide-in: choose what to add first (Class / Section /
@@ -41,9 +49,10 @@ class Standard extends Component
 
     // Inline delete-confirm state (replaces WireUi dialog so the button always works)
     public bool $showDeleteConfirm = false;
+    #[Locked]
     public ?string $deleteTargetType = null; // 'class' | 'section' | 'subject'
+    #[Locked]
     public ?int $deleteTargetId       = null;
-    public $standards, $sections, $subjects;
 
     // Standard fields (board comes from organization — no UI input)
     public $standardName   = '';
@@ -85,7 +94,6 @@ class Standard extends Component
     public $selectedStandardForSubject   = null;
     public $selectedSectionsForSubject   = [];
     public $isMandatory                  = true;
-    public $existingSubjects             = [];
     // The class a subject being edited was opened in — picking another class
     // moves the subject out of this one.
     #[Locked]
@@ -96,6 +104,11 @@ class Standard extends Component
     public $subjectDetailImage;
     public $subjectDetailImageUrl;
     public $subjectDetailImagePreview    = null;
+
+    // The class / section / subject lists are no longer kept in the page's
+    // state: Livewire re-read every one of them (every subject of the school)
+    // on each click and filter, before doing what was asked. Each is read
+    // only when the page is drawn — see render().
 
     protected $listeners = [
         'onViewStandardAdmin',
@@ -112,21 +125,74 @@ class Standard extends Component
     public function mount(): void
     {
         $this->standardBoard = $this->resolveOrgBoard();
-        $this->loadStandards();
-        $this->loadAllSections();
-        $this->loadAllSubjects();
         $this->selectedSectionsForSubject = [];
+    }
+
+    private function orgId(): int
+    {
+        return (int) Auth::user()->organization_id;
     }
 
     private function resolveOrgBoard(): string
     {
-        return (string) (Organization::find(Auth::user()->organization_id)?->education_board ?? '');
+        return (string) (Organization::find($this->orgId())?->education_board ?? '');
     }
 
     /** The school's two names for the class form's Wing picker; empty when it has one. */
     public function getWingOptionsProperty(): array
     {
-        return SchoolBrand::options(Organization::find(Auth::user()->organization_id));
+        return SchoolBrand::options(Organization::find($this->orgId()));
+    }
+
+    // ─── This school's own rows only ──────────────────────────────────────────
+    // Every id below arrives from the browser, so each is looked up within the
+    // admin's own school: another school's class, section or subject is never
+    // shown, edited or deleted from here.
+
+    private function ownClass($id): ?StudentStandard
+    {
+        return $id ? StudentStandard::where('organization_id', $this->orgId())->find((int) $id) : null;
+    }
+
+    private function ownSection($id): ?Section
+    {
+        return $id ? Section::whereIn('standard_id', StudentStandard::where('organization_id', $this->orgId())->select('id'))
+            ->find((int) $id) : null;
+    }
+
+    private function ownSubject($id): ?Subject
+    {
+        return $id ? Subject::where('organization_id', $this->orgId())->find((int) $id) : null;
+    }
+
+    /** Every class of the school for the pickers — inactive ones too, so they can be found. */
+    private function classOptions(): Collection
+    {
+        return StudentStandard::where('organization_id', $this->orgId())
+            ->orderBy('order')->orderBy('id')->get(['id', 'name', 'is_active']);
+    }
+
+    /** A class's sections for the pickers — inactive ones too, so a saved tick is never lost. */
+    private function sectionsOf($standardId): Collection
+    {
+        if (!$standardId || !$this->ownClass($standardId)) {
+            return collect();
+        }
+
+        return Section::where('standard_id', (int) $standardId)->orderBy('id')->get(['id', 'standard_id', 'name', 'code', 'is_active']);
+    }
+
+    /** The class's one section, when it has just one — picked for the admin, no second step. */
+    private function soleSectionOf($standardId): ?int
+    {
+        $ids = $this->sectionsOf($standardId)->pluck('id');
+
+        return $ids->count() === 1 ? (int) $ids->first() : null;
+    }
+
+    private function perPage(): int
+    {
+        return in_array((int) $this->perPage, self::PER_PAGES, true) ? (int) $this->perPage : 25;
     }
 
     // Watch file uploads to generate previews
@@ -138,37 +204,48 @@ class Standard extends Component
 
     public function updated($property): void
     {
-        if ($property === 'selectedStandardForSubject' && $this->selectedStandardForSubject) {
-            $this->loadSectionsForSelectedStandard();
-            $this->loadExistingSubjectsForStandard();
+        // A field the admin has since filled no longer shows its old error
+        // ("The subject name field is required." under a typed name).
+        $this->resetErrorBag(Str::before($property, '.'));
+
+        if ($property === 'selectedStandardForSubject') {
             // Sections ticked under the previous class aren't this class's.
+            $ids = $this->sectionsOf($this->selectedStandardForSubject)->pluck('id')->map(fn ($id) => (int) $id)->all();
             $this->selectedSectionsForSubject = array_values(array_intersect(
                 array_map('intval', (array) $this->selectedSectionsForSubject),
-                $this->sections->pluck('id')->map(fn($id) => (int) $id)->all(),
+                $ids,
             ));
         }
         if ($property === 'filterSubjectStandard') {
-            $this->filterSection = '';
+            // A class with one section shows its subjects straight away: the
+            // section is picked here, in the same request, instead of by the
+            // browser in a second one after this one comes back.
+            $this->filterSection = $this->soleSectionOf($this->filterSubjectStandard) ?? '';
         }
     }
 
     public function updating($name, $value): void
     {
         if (in_array($name, ['search', 'filterStandard', 'filterStatus', 'filterSection', 'filterSubjectStandard', 'perPage'])) {
-            $this->closeModal();
+            if ($this->openForm) {
+                $this->closeModal();
+            }
             $this->resetPage();
         }
     }
 
     public function showTab(string $tab): void
     {
-        $this->activeTab = $tab;
+        $this->activeTab = in_array($tab, self::TABS, true) ? $tab : 'standard';
         $this->closeModal();
         $this->resetFilters();
     }
 
     public function drillIntoClass(int $standardId): void
     {
+        if (!$this->ownClass($standardId)) {
+            return;
+        }
         $this->resetPage();
         $this->activeTab      = 'section';
         $this->filterStandard = $standardId;
@@ -178,7 +255,7 @@ class Standard extends Component
 
     public function drillIntoSection(int $sectionId): void
     {
-        $section = Section::find($sectionId);
+        $section = $this->ownSection($sectionId);
         if ($section) {
             $this->resetPage();
             $this->activeTab             = 'subject';
@@ -189,59 +266,17 @@ class Standard extends Component
         }
     }
 
-    public function loadStandards(): void
-    {
-        $this->standards = StudentStandard::where('organization_id', Auth::user()->organization_id)
-            ->where('is_active', true)->orderBy('order')->orderBy('id')->get();
-    }
+    // ─── Lists ────────────────────────────────────────────────────────────────
 
-    public function loadAllSections(): void
+    private function emptyPage()
     {
-        $this->sections = Section::with('standard')
-            ->whereHas('standard', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
-            ->where('is_active', true)->orderBy('id')->get();
+        return Subject::whereRaw('1 = 0')->paginate($this->perPage());
     }
-
-    public function loadAllSubjects(): void
-    {
-        $this->subjects = Subject::where('organization_id', Auth::user()->organization_id)
-            ->where('is_active', true)->orderBy('id')->get();
-    }
-
-    public function loadSectionsForSelectedStandard(): void
-    {
-        $this->sections = Section::where('standard_id', $this->selectedStandardForSubject)
-            ->where('is_active', true)->orderBy('id')->get();
-    }
-
-    public function loadExistingSubjectsForStandard(): void
-    {
-        if (!$this->selectedStandardForSubject) {
-            $this->existingSubjects = [];
-            return;
-        }
-        $this->existingSubjects = StandardSubject::where('standard_id', $this->selectedStandardForSubject)
-            ->where('organization_id', Auth::user()->organization_id)
-            ->with('subject')
-            ->get()
-            ->map(fn($ss) => [
-                'id'           => $ss->subject->id,
-                'name'         => $ss->subject->name,
-                'code'         => $ss->subject->code,
-                'is_mandatory' => $ss->is_mandatory,
-                'sections'     => SectionSubject::where('subject_id', $ss->subject_id)
-                    ->where('standard_id', $this->selectedStandardForSubject)
-                    ->pluck('section_id')->toArray(),
-            ])->toArray();
-    }
-
-    // ─── Computed properties ──────────────────────────────────────────────────
 
     public function getFilteredStandardsProperty()
     {
-        $query = StudentStandard::withCount('sections')
-            ->with(['sections' => fn($q) => $q->orderBy('id')->select('id', 'standard_id', 'name')])
-            ->where('organization_id', Auth::user()->organization_id);
+        $query = StudentStandard::with(['sections' => fn($q) => $q->orderBy('id')->select('id', 'standard_id', 'name')])
+            ->where('organization_id', $this->orgId());
 
         if ($this->search) {
             $query->where(fn($q) =>
@@ -252,19 +287,17 @@ class Standard extends Component
         if ($this->filterStatus !== '') $query->where('is_active', $this->filterStatus === 'active');
 
         // By each class's Display Order.
-        return $query->orderBy('order')->orderBy('id')->paginate($this->perPage);
+        return $query->orderBy('order')->orderBy('id')->paginate($this->perPage());
     }
 
     public function getFilteredSectionsProperty()
     {
-        // Require a class filter — if none, return empty paginator
-        if (!$this->filterStandard) {
-            return Section::whereRaw('1 = 0')->paginate($this->perPage);
+        // Require a class filter (of this school) — if none, return empty paginator
+        if (!$this->filterStandard || !$this->ownClass($this->filterStandard)) {
+            return $this->emptyPage();
         }
 
-        $query = Section::with('standard')
-            ->whereHas('standard', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
-            ->where('standard_id', $this->filterStandard);
+        $query = Section::with('standard:id,name')->where('standard_id', (int) $this->filterStandard);
 
         if ($this->search) {
             $query->where(fn($q) =>
@@ -275,19 +308,41 @@ class Standard extends Component
         }
         if ($this->filterStatus !== '') $query->where('is_active', $this->filterStatus === 'active');
 
-        return $query->orderBy('id')->paginate($this->perPage);
+        return $query->orderBy('id')->paginate($this->perPage());
+    }
+
+    /** The class whose subjects are listed: the one picked, else the picked section's own. */
+    private function subjectListClassId(): int
+    {
+        $section = $this->ownSection($this->filterSection);
+        if (!$section) {
+            return 0;
+        }
+        // A section is listed under its own class only.
+        if ($this->filterSubjectStandard && (int) $this->filterSubjectStandard !== (int) $section->standard_id) {
+            return 0;
+        }
+
+        return (int) $section->standard_id;
     }
 
     public function getFilteredSubjectsProperty()
     {
         // Require a section filter — if none, return empty paginator
-        if (!$this->filterSection) {
-            return Subject::whereRaw('1 = 0')->paginate($this->perPage);
+        $classId = $this->filterSection ? $this->subjectListClassId() : 0;
+        if (!$classId) {
+            return $this->emptyPage();
         }
 
-        $query = Subject::with(['standards', 'sections'])
-            ->where('organization_id', Auth::user()->organization_id)
-            ->whereHas('sections', fn($q) => $q->where('section_id', $this->filterSection));
+        // The section's own subjects — its links saved for this class (the
+        // rule every other screen lists them by, Subject::taughtIn). A link
+        // left under the section by another class's subject no longer shows
+        // that subject here, and each row names this class's sections only.
+        $query = Subject::where('organization_id', $this->orgId())
+            ->taughtIn($classId, (int) $this->filterSection)
+            ->with(['sections' => fn($q) => $q->where('sections.standard_id', $classId)
+                ->wherePivot('standard_id', $classId)
+                ->orderBy('sections.id')]);
 
         if ($this->search) {
             $query->where(fn($q) =>
@@ -296,24 +351,30 @@ class Standard extends Component
                   ->orWhere('description', 'like', "%{$this->search}%")
             );
         }
-        if ($this->filterSubjectStandard) {
-            $query->whereHas('standards', fn($q) => $q->where('standard_id', $this->filterSubjectStandard));
-        }
         if ($this->filterStatus !== '') $query->where('is_active', $this->filterStatus === 'active');
 
-        return $query->orderBy('id')->paginate($this->perPage);
+        return $query->orderBy('subjects.id')->paginate($this->perPage());
     }
 
     public function getAvailableSectionsProperty()
     {
-        $query = Section::with('standard')
-            ->whereHas('standard', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
-            ->where('is_active', true);
+        // Nothing to pick until a class is picked.
+        return $this->sectionsOf($this->filterSubjectStandard);
+    }
 
-        if ($this->filterSubjectStandard) {
-            $query->where('standard_id', $this->filterSubjectStandard);
-        }
-        return $query->orderBy('id')->get();
+    /** The figure on each tab: the open tab's list, the others' plain totals. */
+    private function tabCounts($list): array
+    {
+        $counts = [
+            'standard' => StudentStandard::where('organization_id', $this->orgId())->count(),
+            'section'  => $this->filterStandard && $this->ownClass($this->filterStandard)
+                ? Section::where('standard_id', (int) $this->filterStandard)->count() : 0,
+            'subject'  => ($classId = $this->filterSection ? $this->subjectListClassId() : 0)
+                ? Subject::where('organization_id', $this->orgId())->taughtIn($classId, (int) $this->filterSection)->count() : 0,
+        ];
+        $counts[$this->activeTab] = $list->total();
+
+        return $counts;
     }
 
     public function resetFilters(): void
@@ -334,7 +395,7 @@ class Standard extends Component
             'subjectName', 'subjectCode', 'subjectActive',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
-            'subjectDetailImagePreview', 'existingSubjects', 'subjectFromStandard',
+            'subjectDetailImagePreview', 'subjectFromStandard',
         ]);
         $this->standardActive = true;
         $this->sectionActive = true;
@@ -349,7 +410,7 @@ class Standard extends Component
         $this->standardWing   = SchoolBrand::MAIN;
         $this->standardBoard  = $this->resolveOrgBoard();
         // Suggest the next code in sequence — the admin can overwrite it.
-        $this->standardCode   = StudentNumbers::nextStandardCode(Auth::user()->organization_id);
+        $this->standardCode   = StudentNumbers::nextStandardCode($this->orgId());
     }
 
     private function resetSectionFields(): void
@@ -364,7 +425,7 @@ class Standard extends Component
             'subjectName', 'subjectCode',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
-            'subjectDetailImagePreview', 'existingSubjects', 'subjectFromStandard',
+            'subjectDetailImagePreview', 'subjectFromStandard',
         ]);
         $this->subjectActive = true;
     }
@@ -379,6 +440,7 @@ class Standard extends Component
         $this->resetStandardFields();
         $this->resetSectionFields();
         $this->resetSubjectFields();
+        $this->resetValidation();
         $this->openForm = true;
     }
 
@@ -418,7 +480,7 @@ class Standard extends Component
     {
         $this->resetSectionFields();
         // Prefill class from drill-down filter if present
-        if ($this->filterStandard) {
+        if ($this->filterStandard && $this->ownClass($this->filterStandard)) {
             $this->selectedStandard = $this->filterStandard;
         }
     }
@@ -427,11 +489,9 @@ class Standard extends Component
     {
         $this->resetSubjectFields();
         // Prefill class/section from drill-down filters if present
-        if ($this->filterSubjectStandard) {
+        if ($this->filterSubjectStandard && $this->ownClass($this->filterSubjectStandard)) {
             $this->selectedStandardForSubject = $this->filterSubjectStandard;
-            $this->loadSectionsForSelectedStandard();
-            $this->loadExistingSubjectsForStandard();
-            if ($this->filterSection) {
+            if ($this->filterSection && $this->sectionsOf($this->filterSubjectStandard)->contains('id', (int) $this->filterSection)) {
                 $this->selectedSectionsForSubject = [(int) $this->filterSection];
             }
         }
@@ -441,7 +501,7 @@ class Standard extends Component
 
     public function saveStandard(): void
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = $this->orgId();
 
         $this->validate([
             'standardName'  => 'required|string|max:255',
@@ -453,6 +513,12 @@ class Standard extends Component
             'standardCode.max'      => 'Class code may not be longer than 10 characters.',
             'standardOrder.regex'   => 'Display order must be a whole number.',
         ]);
+
+        if ($this->editId && !$this->ownClass($this->editId)) {
+            $this->notification()->error('Class not found!', 'It may have been deleted. Please refresh the page.');
+            $this->closeModal();
+            return;
+        }
 
         // Same-name within org cannot exist
         $dupName = StudentStandard::where('organization_id', $orgId)
@@ -500,7 +566,7 @@ class Standard extends Component
             StandardOrder::makeRoom($orgId, $order, $this->editId ? (int) $this->editId : null);
 
             if ($this->editId) {
-                StudentStandard::find($this->editId)->update($data);
+                StudentStandard::where('organization_id', $orgId)->find($this->editId)->update($data);
             } else {
                 StudentStandard::create($data);
             }
@@ -516,10 +582,31 @@ class Standard extends Component
 
     public function saveSection(): void
     {
+        $orgId = $this->orgId();
+
         $this->validate([
             'sectionName'      => 'required|string|max:255',
-            'selectedStandard' => 'required|exists:standards,id',
+            'selectedStandard' => ['required', Rule::exists('standards', 'id')->where('organization_id', $orgId)],
+        ], [
+            'selectedStandard.required' => 'Please select a class.',
+            'selectedStandard.exists'   => 'Please select a class.',
         ]);
+
+        $section = $this->editId ? $this->ownSection($this->editId) : null;
+        if ($this->editId && !$section) {
+            $this->notification()->error('Section not found!', 'It may have been deleted. Please refresh the page.');
+            $this->closeModal();
+            return;
+        }
+
+        // Its students stay in the class they were admitted to, so a section
+        // with students cannot be moved under another class — they would be
+        // in this section but still in the old class.
+        if ($section && (int) $section->standard_id !== (int) $this->selectedStandard
+            && StudentDetail::where('section_id', $section->id)->exists()) {
+            $this->addError('selectedStandard', 'Students are assigned to this section. Move them to another section before changing its class.');
+            return;
+        }
 
         // Same name cannot duplicate within a class
         $dup = Section::where('standard_id', $this->selectedStandard)
@@ -536,19 +623,30 @@ class Standard extends Component
             'description'     => $this->sectionDescription,
             'standard_id'     => $this->selectedStandard,
             'is_active'       => $this->sectionActive,
-            'organization_id' => Auth::user()->organization_id,
+            'organization_id' => $orgId,
         ];
 
-        if ($this->editId) {
-            Section::find($this->editId)->update($data);
+        $creating = !$section;
+        if ($section) {
+            $section->update($data);
             $this->notification()->success('Section updated successfully!');
         } else {
             Section::create($data);
             $this->notification()->success('Section created successfully!');
         }
 
+        // Show the class the section was saved in, so it is there in the list.
+        $classId = (int) $this->selectedStandard;
         $this->closeModal();
-        $this->activeTab = 'section';
+        $this->activeTab      = 'section';
+        if ((int) $this->filterStandard !== $classId) {
+            $this->filterStandard = $classId;
+            $this->resetPage();
+        }
+        if ($creating) {
+            $this->search       = '';
+            $this->filterStatus = '';
+        }
         $this->mount();
     }
 
@@ -556,22 +654,32 @@ class Standard extends Component
 
     public function saveSubject(): void
     {
+        $org = $this->orgId();
+
         $this->validate([
             'subjectName'                  => 'required|string|max:255',
-            'selectedStandardForSubject'   => 'required|exists:standards,id',
+            'selectedStandardForSubject'   => ['required', Rule::exists('standards', 'id')->where('organization_id', $org)],
             'selectedSectionsForSubject'   => 'required|array|min:1',
             'selectedSectionsForSubject.*' => 'exists:sections,id',
             'subjectDetailImage'           => 'nullable|image|max:2048',
         ], [
+            'selectedStandardForSubject.required' => 'Please select a class.',
+            'selectedStandardForSubject.exists'   => 'Please select a class.',
             'selectedSectionsForSubject.required' => 'Please select at least one section.',
             'selectedSectionsForSubject.min'      => 'Please select at least one section.',
         ]);
 
-        $org = Auth::user()->organization_id;
+        if ($this->editId && !$this->ownSubject($this->editId)) {
+            $this->notification()->error('Subject not found!', 'It may have been deleted. Please refresh the page.');
+            $this->closeModal();
+            return;
+        }
+
         $toStandard = (int) $this->selectedStandardForSubject;
 
         $picked = array_unique(array_map('intval', $this->selectedSectionsForSubject));
-        if (count(SubjectMove::sectionsIn($picked, $toStandard)) !== count($picked)) {
+        $ownSections = SubjectMove::sectionsIn($picked, $toStandard);
+        if (count($ownSections) !== count($picked)) {
             $this->addError('selectedSectionsForSubject', 'Please select sections of the selected class.');
             return;
         }
@@ -606,7 +714,7 @@ class Standard extends Component
         if (!$this->editId) {
             $existing = Subject::where('organization_id', $org)
                 ->where('name', $this->subjectName)
-                ->whereHas('standards', fn($q) => $q->where('standard_id', $this->selectedStandardForSubject))
+                ->whereHas('standards', fn($q) => $q->where('standard_id', $toStandard))
                 ->first();
         }
 
@@ -615,9 +723,9 @@ class Standard extends Component
         // and repair the missing links.
         if ($existing) {
             $linked = SectionSubject::where('subject_id', $existing->id)
-                ->where('standard_id', $this->selectedStandardForSubject)
+                ->where('standard_id', $toStandard)
                 ->pluck('section_id')->map(fn($v) => (int) $v)->all();
-            $missing = array_diff(array_map('intval', $this->selectedSectionsForSubject), $linked);
+            $missing = array_diff($picked, $linked);
             if (empty($missing)) {
                 $this->addError('subjectName', 'A subject with this name already exists in the selected section(s).');
                 return;
@@ -626,30 +734,29 @@ class Standard extends Component
 
         $subjectData = [
             'name'            => $this->subjectName,
-            'organization_id' => Auth::user()->organization_id,
+            'organization_id' => $org,
             'is_active'       => $this->subjectActive,
         ];
 
         // No subject image: the icon is derived from the name at render time.
 
-        // Detail image upload
-        if ($this->subjectDetailImage) {
-            if ($this->editId) {
-                $old = Subject::find($this->editId)?->detail_image;
-                if ($old) Storage::disk('s3')->delete(parse_url($old, PHP_URL_PATH));
-            }
-            $path = $this->subjectDetailImage->store('admin/subjects/detail-images', 's3');
-            Storage::disk('s3')->setVisibility($path, 'public');
-            $subjectData['detail_image'] = Storage::disk('s3')->url($path);
-        } elseif ($this->subjectDetailImageUrl) {
-            $subjectData['detail_image'] = $this->subjectDetailImageUrl;
-        }
-
         try {
+            // Detail image upload
+            if ($this->subjectDetailImage) {
+                if ($this->editId) {
+                    $this->safeS3Delete(Subject::find($this->editId)?->detail_image);
+                }
+                $path = $this->subjectDetailImage->store('admin/subjects/detail-images', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $subjectData['detail_image'] = Storage::disk('s3')->url($path);
+            } elseif ($this->subjectDetailImageUrl) {
+                $subjectData['detail_image'] = $this->subjectDetailImageUrl;
+            }
+
             // One transaction so the subject and ALL its class/section links are
             // saved together — never a subject that exists but is linked to no
             // section (which is what left subjects invisible before).
-            DB::transaction(function () use ($org, $existing, $subjectData, $moving, $fromStandard) {
+            DB::transaction(function () use ($org, $existing, $subjectData, $moving, $fromStandard, $toStandard, $picked) {
                 if ($this->editId) {
                     $subject = Subject::find($this->editId);
                     $subject->update($subjectData);
@@ -659,7 +766,7 @@ class Standard extends Component
                     }
                     // Edit replaces this class's section links wholesale.
                     SectionSubject::where('subject_id', $subject->id)
-                        ->where('standard_id', $this->selectedStandardForSubject)->delete();
+                        ->where('standard_id', $toStandard)->delete();
                 } elseif ($existing) {
                     $existing->update($subjectData);   // reuse the same-name subject
                     $subject = $existing;
@@ -668,18 +775,18 @@ class Standard extends Component
                 }
 
                 StandardSubject::updateOrCreate(
-                    ['standard_id' => $this->selectedStandardForSubject, 'subject_id' => $subject->id],
-                    ['organization_id' => $org, 'is_mandatory' => $this->isMandatory]
+                    ['standard_id' => $toStandard, 'subject_id' => $subject->id],
+                    ['organization_id' => $org, 'is_mandatory' => (bool) $this->isMandatory]
                 );
 
                 // firstOrCreate → idempotent: no duplicate pivot rows, and any
                 // missing section link is repaired.
-                foreach ($this->selectedSectionsForSubject as $sectionId) {
+                foreach ($picked as $sectionId) {
                     SectionSubject::firstOrCreate(
                         [
-                            'section_id'  => (int) $sectionId,
+                            'section_id'  => $sectionId,
                             'subject_id'  => $subject->id,
-                            'standard_id' => $this->selectedStandardForSubject,
+                            'standard_id' => $toStandard,
                         ],
                         ['organization_id' => $org]
                     );
@@ -687,25 +794,41 @@ class Standard extends Component
             });
 
             $this->notification()->success($this->editId ? 'Subject updated successfully!' : 'Subject saved successfully!');
+
+            // Show it: stay on the section being viewed when the subject is in
+            // it, else go to its class and first section.
+            $creating = !$this->editId;
             $this->closeModal();
             $this->activeTab = 'subject';
+            $viewing = (int) $this->filterSection;
+            if (!in_array($viewing, $ownSections, true) || $this->subjectListClassId() !== $toStandard) {
+                $this->filterSubjectStandard = $toStandard;
+                $this->filterSection         = $ownSections[0];
+                $this->resetPage();
+            }
+            if ($creating) {
+                $this->search       = '';
+                $this->filterStatus = '';
+            }
             $this->mount();
         } catch (\Throwable $e) {
+            logger()->error('saveSubject failed: ' . $e->getMessage());
             $this->notification()->error('Error!', 'Failed to save subject: ' . $e->getMessage());
         }
     }
 
     public function editStandard(int $id): void
     {
-        $s = StudentStandard::find($id);
+        $s = $this->ownClass($id);
         if ($s) {
+            $this->resetValidation();
             $this->editId         = $id;
             $this->standardName   = $s->name;
             // A class from before codes existed opens with the next one suggested.
             $this->standardCode   = $s->code ?: StudentNumbers::nextStandardCode($s->organization_id);
             $this->standardBoard  = $s->board ?: $this->resolveOrgBoard();
             $this->standardOrder  = $s->order;
-            $this->standardActive = $s->is_active;
+            $this->standardActive = (bool) $s->is_active;
             $this->standardWing   = SchoolBrand::wingOf($s);
             $this->addType        = 'class';
             $this->openForm       = true;
@@ -714,14 +837,15 @@ class Standard extends Component
 
     public function editSection(int $id): void
     {
-        $s = Section::find($id);
+        $s = $this->ownSection($id);
         if ($s) {
+            $this->resetValidation();
             $this->editId             = $id;
             $this->sectionName        = $s->name;
             $this->sectionCode        = $s->code;
             $this->sectionDescription = $s->description;
             $this->selectedStandard   = $s->standard_id;
-            $this->sectionActive      = $s->is_active;
+            $this->sectionActive      = (bool) $s->is_active;
             $this->addType            = 'section';
             $this->openForm           = true;
         }
@@ -729,26 +853,23 @@ class Standard extends Component
 
     public function editSubject(int $id): void
     {
-        $subject = Subject::with(['standards', 'sections'])->find($id);
+        $subject = $this->ownSubject($id);
         if (!$subject) return;
 
+        $this->resetValidation();
         $this->editId               = $id;
         $this->subjectName          = $subject->name;
         $this->subjectCode          = $subject->code;
-        $this->subjectActive        = $subject->is_active;
+        $this->subjectActive        = (bool) $subject->is_active;
         $this->subjectDetailImageUrl = $subject->detail_image;
         $this->subjectDetailImagePreview = $subject->detail_image;
 
         // The class being viewed, when the subject is in it; else its first.
-        $ss = StandardSubject::where('subject_id', $id)
-            ->when($this->filterSubjectStandard, fn($q) => $q->orderByRaw('standard_id = ? desc', [(int) $this->filterSubjectStandard]))
-            ->orderBy('id')
-            ->first();
+        $ss = $this->subjectLink($id);
         $this->subjectFromStandard = $ss?->standard_id;
         if ($ss) {
             $this->selectedStandardForSubject = $ss->standard_id;
-            $this->isMandatory                = $ss->is_mandatory;
-            $this->loadSectionsForSelectedStandard();
+            $this->isMandatory                = (bool) $ss->is_mandatory;
             // Only this class's own sections: a link left behind by a section
             // since moved to another class (or deleted) has no box to untick,
             // and would fail the save's "sections of the selected class" check.
@@ -757,10 +878,18 @@ class Standard extends Component
                     ->where('standard_id', $ss->standard_id)->pluck('section_id')->all(),
                 (int) $ss->standard_id,
             );
-            $this->loadExistingSubjectsForStandard();
         }
         $this->addType  = 'subject';
         $this->openForm = true;
+    }
+
+    /** The subject's link to the class being viewed, when it is in it; else to its first class. */
+    private function subjectLink(int $subjectId): ?StandardSubject
+    {
+        return StandardSubject::where('subject_id', $subjectId)
+            ->when($this->filterSubjectStandard, fn($q) => $q->orderByRaw('standard_id = ? desc', [(int) $this->filterSubjectStandard]))
+            ->orderBy('id')
+            ->first();
     }
 
     public function onEditStandard(int $id): void  { $this->editStandard($id); }
@@ -817,7 +946,7 @@ class Standard extends Component
 
     public function performDeleteStandard(int $id): void
     {
-        $standard = StudentStandard::find($id);
+        $standard = $this->ownClass($id);
         if (!$standard) return;
 
         // Block delete while students are assigned to this class. Deleting is not
@@ -861,6 +990,11 @@ class Standard extends Component
             return;
         }
 
+        // The class being looked at is gone: back to the list of classes.
+        if ((int) $this->filterStandard === $id || (int) $this->filterSubjectStandard === $id) {
+            $this->resetFilters();
+        }
+
         $this->notification()->success('Class deleted successfully!');
         $this->mount();
         $this->dispatch('onStandardAddUpdate');
@@ -868,7 +1002,7 @@ class Standard extends Component
 
     public function performDeleteSection(int $id): void
     {
-        $section = Section::find($id);
+        $section = $this->ownSection($id);
         if (!$section) return;
 
         // Block delete while students are assigned to this section. The admin can
@@ -916,6 +1050,12 @@ class Standard extends Component
             return;
         }
 
+        // The section being looked at is gone: back to its class's sections.
+        if ((int) $this->filterSection === $id) {
+            $this->filterSection = '';
+            $this->resetPage();
+        }
+
         $this->notification()->success('Section and its subjects deleted successfully!');
         $this->mount();
         $this->dispatch('onStandardAddUpdate');
@@ -926,7 +1066,7 @@ class Standard extends Component
     {
         if (!$url) return;
         try {
-            Storage::disk('s3')->delete(parse_url($url, PHP_URL_PATH));
+            Storage::disk('s3')->delete(ltrim((string) parse_url($url, PHP_URL_PATH), '/'));
         } catch (\Throwable $e) {
             logger()->warning('safeS3Delete failed: ' . $e->getMessage());
         }
@@ -934,33 +1074,40 @@ class Standard extends Component
 
     public function performDeleteSubject(int $id): void
     {
-        try {
-            if (\App\Models\Admin\TeacherTimeTable::where('subject_id', $id)->exists()
-                || TeacherAssignment::where('subject_id', $id)->exists()) {
-                $this->notification()->warning('Cannot Delete!', 'This subject is used in timetable or assignments.');
-                return;
-            }
+        $subject = $this->ownSubject($id);
+        if (!$subject) return;
 
-            StandardSubject::where('subject_id', $id)->delete();
-            SectionSubject::where('subject_id', $id)->delete();
-
-            $subject = Subject::find($id);
-            if ($subject) {
-                if ($subject->image)        Storage::disk('s3')->delete(str_replace(Storage::disk('s3')->url(''), '', $subject->image));
-                if ($subject->detail_image) Storage::disk('s3')->delete(str_replace(Storage::disk('s3')->url(''), '', $subject->detail_image));
-                $subject->delete();
-            }
-
-            $this->notification()->success('Subject deleted successfully!');
-            $this->mount();
-        } catch (\Exception $e) {
-            $this->notification()->error('Failed to delete subject: ' . $e->getMessage());
+        if (\App\Models\Admin\TeacherTimeTable::where('subject_id', $id)->exists()
+            || TeacherAssignment::where('subject_id', $id)->exists()) {
+            $this->notification()->warning('Cannot Delete!', 'This subject is used in timetable or assignments.');
+            return;
         }
+
+        try {
+            // The subject and its links go together, or not at all — before, a
+            // storage error after the links were gone left a subject no section
+            // listed.
+            DB::transaction(function () use ($id, $subject) {
+                StandardSubject::where('subject_id', $id)->delete();
+                SectionSubject::where('subject_id', $id)->delete();
+                $subject->delete();
+            });
+        } catch (\Throwable $e) {
+            logger()->error('performDeleteSubject failed: ' . $e->getMessage());
+            $this->notification()->error('Could not delete subject', $e->getMessage());
+            return;
+        }
+
+        $this->safeS3Delete($subject->image);
+        $this->safeS3Delete($subject->detail_image);
+
+        $this->notification()->success('Subject deleted successfully!');
+        $this->mount();
     }
 
     public function onViewStandardAdmin(int $id): void
     {
-        $s = StudentStandard::withCount(['sections', 'subjects'])->find($id);
+        $s = $this->ownClass($id);
         if (!$s) { $this->notification()->error('Class not found!'); return; }
 
         $this->viewModalTitle = 'Class Details';
@@ -970,16 +1117,16 @@ class Standard extends Component
             'board'          => $s->board ?: $this->resolveOrgBoard(),
             'order'          => $s->order,
             'is_active'      => $s->is_active ? 'Active' : 'Inactive',
-            'sections_count' => $s->sections_count,
-            'subjects_count' => $s->subjects_count,
-            'created_at'     => $s->created_at->format('d M Y, h:i A'),
+            'sections_count' => Section::where('standard_id', $s->id)->count(),
+            'subjects_count' => Subject::where('organization_id', $this->orgId())->taughtIn($s->id)->count(),
+            'created_at'     => $s->created_at?->format('d M Y, h:i A'),
         ];
         $this->showViewModal = true;
     }
 
     public function onViewSectionAdmin(int $id): void
     {
-        $s = Section::with(['standard', 'subjects'])->find($id);
+        $s = $this->ownSection($id);
         if (!$s) { $this->notification()->error('Section not found!'); return; }
 
         $this->viewModalTitle = 'Section Details';
@@ -987,20 +1134,31 @@ class Standard extends Component
             'name'           => $s->name,
             'code'           => $s->code,
             'description'    => $s->description,
-            'class'          => $s->standard->name,
+            'class'          => $s->standard?->name,
             'is_active'      => $s->is_active ? 'Active' : 'Inactive',
-            'subjects_count' => $s->subjects->count(),
-            'created_at'     => $s->created_at->format('d M Y, h:i A'),
+            // Its own subjects — as the Subjects list counts them.
+            'subjects_count' => Subject::where('organization_id', $this->orgId())->taughtIn($s->standard_id, $s->id)->count(),
+            'created_at'     => $s->created_at?->format('d M Y, h:i A'),
         ];
         $this->showViewModal = true;
     }
 
     public function onViewSubjectAdmin(int $id): void
     {
-        $s = Subject::with(['standards', 'sections'])->find($id);
+        $s = $this->ownSubject($id);
         if (!$s) { $this->notification()->error('Subject not found!'); return; }
 
-        $standard = $s->standards->first();
+        // The class being viewed (or its first), with that class's own flag
+        // and sections — the pivot the list read carried no Mandatory flag,
+        // so every subject showed "No".
+        $link     = $this->subjectLink($id);
+        $standard = $link ? StudentStandard::find($link->standard_id) : null;
+        $sections = $standard
+            ? Section::where('standard_id', $standard->id)
+                ->whereIn('id', SectionSubject::where('subject_id', $id)->where('standard_id', $standard->id)->select('section_id'))
+                ->orderBy('id')->pluck('name')->unique()->implode(', ')
+            : '';
+
         $this->viewModalTitle = 'Subject Details';
         $this->viewData = [
             'name'         => $s->name,
@@ -1010,9 +1168,9 @@ class Standard extends Component
             'image'        => $s->image,
             'detail_image' => $s->detail_image,
             'class'        => $standard?->name ?? 'Not assigned',
-            'is_mandatory' => $standard ? ($standard->pivot?->is_mandatory ? 'Yes' : 'No') : 'N/A',
-            'sections'     => $s->sectionNames(),
-            'created_at'   => $s->created_at->format('d M Y, h:i A'),
+            'is_mandatory' => $link ? ($link->is_mandatory ? 'Yes' : 'No') : 'N/A',
+            'sections'     => $sections,
+            'created_at'   => $s->created_at?->format('d M Y, h:i A'),
         ];
         $this->showViewModal = true;
     }
@@ -1026,12 +1184,32 @@ class Standard extends Component
 
     public function render()
     {
+        // ?activeTab=anything-else opens on Classes rather than a blank page.
+        if (!in_array($this->activeTab, self::TABS, true)) {
+            $this->activeTab = 'standard';
+        }
+
+        // Only the open tab's list is read.
+        $list = match ($this->activeTab) {
+            'section' => $this->getFilteredSectionsProperty(),
+            'subject' => $this->getFilteredSubjectsProperty(),
+            default   => $this->getFilteredStandardsProperty(),
+        };
+
+        $subjectClassId = $this->activeTab === 'subject' && $this->filterSection ? $this->subjectListClassId() : 0;
+
         return view('livewire.admin.standard', [
-            'filteredStandards' => $this->filteredStandards,
-            'filteredSections'  => $this->filteredSections,
-            'filteredSubjects'  => $this->filteredSubjects,
-            'allStandards'      => $this->standards,
-            'availableSections' => $this->availableSections,
+            'list'              => $list,
+            'tabCounts'         => $this->tabCounts($list),
+            'filteredStandards' => $this->activeTab === 'standard' ? $list : null,
+            'filteredSections'  => $this->activeTab === 'section' ? $list : null,
+            'filteredSubjects'  => $this->activeTab === 'subject' ? $list : null,
+            'subjectClassName'  => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
+            'allStandards'      => $this->classOptions(),
+            'availableSections' => $this->getAvailableSectionsProperty(),
+            // The subject form's section boxes: the class picked there.
+            'formSections'      => $this->openForm && $this->addType === 'subject'
+                ? $this->sectionsOf($this->selectedStandardForSubject) : collect(),
         ]);
     }
 }

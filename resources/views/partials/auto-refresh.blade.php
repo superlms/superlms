@@ -115,6 +115,14 @@
                 doc.body.querySelectorAll('script, noscript, template, meta[name="csrf-token"], input[name="_token"]')
                     .forEach(function (el) { el.remove(); });
 
+                // Text that changes with the clock and not with the data — Ask
+                // AI's "resets in 23 hours 34 minutes" is on every panel page —
+                // is marked data-ar-ignore. Counted, it made every page read as
+                // changed once a minute and refresh all of itself; on Standard
+                // that blanked the list, and a class or section picked just
+                // then waited behind the refresh.
+                doc.body.querySelectorAll('[data-ar-ignore]').forEach(function (el) { el.remove(); });
+
                 doc.body.querySelectorAll('*').forEach(function (el) {
                     // Livewire snapshot/effect attributes differ on every render.
                     Array.prototype.slice.call(el.attributes).forEach(function (a) {

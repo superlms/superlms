@@ -380,6 +380,223 @@ class StandardSubjectsTest extends TestCase
         $this->assertSame([$oneA->id, $threeA->id], $this->sectionsOf($maths));
     }
 
+    public function test_a_section_lists_its_own_class_subjects_and_names_only_that_class_sections(): void
+    {
+        [$one, $oneA, $oneB] = $this->classWithSections('Class 1');
+        [$two, $twoA] = $this->classWithSections('Class 2');
+        $maths = $this->subjectIn('Maths', $one, [$oneA, $oneB]);
+        // Old data: class 1's Maths also linked under class 2's section A, and
+        // class 2's Hindi linked under class 1's section A for class 2.
+        SectionSubject::create(['section_id' => $twoA->id, 'subject_id' => $maths->id, 'standard_id' => $one->id, 'organization_id' => $this->org]);
+        $hindi = $this->subjectIn('Hindi', $two, [$twoA]);
+        SectionSubject::create(['section_id' => $oneA->id, 'subject_id' => $hindi->id, 'standard_id' => $two->id, 'organization_id' => $this->org]);
+
+        $page = $this->page();
+        $this->assertSame(['Maths'], $this->listed($page, $one, $oneA));
+        $this->assertSame(['Hindi'], $this->listed($page, $two, $twoA));
+
+        // The row names class 1's sections only, not class 2's A.
+        $row = $this->listedRows($page, $one, $oneA)[0];
+        $this->assertSame([$oneA->id, $oneB->id], $row->sections->pluck('id')->map(fn ($v) => (int) $v)->all());
+
+        Livewire::test(StandardPage::class)
+            ->call('drillIntoSection', $oneA->id)
+            ->assertSee('Maths')
+            ->assertDontSee('Hindi')
+            ->assertSee('Class 1');
+    }
+
+    /** @return array<int, Subject> */
+    private function listedRows(StandardPage $page, Standard $class, Section $section): array
+    {
+        $page->filterSubjectStandard = $class->id;
+        $page->filterSection = $section->id;
+
+        return $page->getFilteredSubjectsProperty()->items();
+    }
+
+    public function test_a_class_with_one_section_lists_its_subjects_in_one_step(): void
+    {
+        [$one, $oneA, $oneB] = $this->classWithSections('Class 1');
+        $single = Standard::create(['organization_id' => $this->org, 'name' => 'Class 9']);
+        $only = Section::create(['standard_id' => $single->id, 'organization_id' => $this->org, 'name' => 'A']);
+        $this->subjectIn('Physics', $single, [$only]);
+
+        Livewire::test(StandardPage::class)
+            ->call('showTab', 'subject')
+            ->set('filterSubjectStandard', $single->id)
+            ->assertSet('filterSection', $only->id)
+            ->assertSee('Physics')
+            // Two sections: the admin picks one.
+            ->set('filterSubjectStandard', $one->id)
+            ->assertSet('filterSection', '')
+            ->assertDontSee('Physics');
+    }
+
+    public function test_the_list_only_gives_way_to_the_spinner_for_a_new_list(): void
+    {
+        $html = Livewire::test(StandardPage::class)->html();
+
+        // Plain wire:loading.flex — the form Livewire keeps hidden until a request.
+        $this->assertMatchesRegularExpression('/wire:loading\.flex wire:target="[^"]*filterSection[^"]*"/', $html);
+        $this->assertMatchesRegularExpression('/wire:loading\.remove wire:target="[^"]*filterSubjectStandard[^"]*"/', $html);
+        $this->assertStringNotContainsString('wire:loading.flex class', $html);
+        $this->assertStringNotContainsString('<div wire:loading.remove>', $html);
+    }
+
+    public function test_the_clock_is_not_new_data_and_a_held_section_is_not_sent_again(): void
+    {
+        // Ask AI's "resets in N minutes" (on every panel page) made the
+        // background check see a changed page each minute and refresh it all.
+        $refresh = file_get_contents(resource_path('views/partials/auto-refresh.blade.php'));
+        $this->assertStringContainsString("querySelectorAll('[data-ar-ignore]').forEach(function (el) { el.remove(); })", $refresh);
+
+        // Every place the countdown is printed sits in a tag marked to be skipped.
+        $ask = file_get_contents(resource_path('views/livewire/components/gemini-assistant.blade.php'));
+        $found = 0;
+        for ($at = strpos($ask, '{{ $resetsAt }}'); $at !== false; $at = strpos($ask, '{{ $resetsAt }}', $at + 1)) {
+            $tagStart = strrpos(substr($ask, 0, $at), '<');
+            $this->assertStringContainsString('data-ar-ignore', substr($ask, $tagStart, strpos($ask, '>', $tagStart) - $tagStart));
+            $found++;
+        }
+        $this->assertGreaterThanOrEqual(3, $found);
+
+        // The section the page itself picked is shown, not sent a second time.
+        $sole = file_get_contents(resource_path('views/partials/sole-section.blade.php'));
+        $this->assertStringContainsString('if (!heldAlready(el, only.value)) {', $sole);
+    }
+
+    public function test_viewing_a_subject_shows_its_own_class_mandatory_flag_and_sections(): void
+    {
+        [$one, $oneA, $oneB] = $this->classWithSections('Class 1');
+        [$two, $twoA] = $this->classWithSections('Class 2');
+        $maths = $this->subjectIn('Maths', $one, [$oneA]);
+        SectionSubject::create(['section_id' => $twoA->id, 'subject_id' => $maths->id, 'standard_id' => $one->id, 'organization_id' => $this->org]);
+        $art = $this->subjectIn('Art', $one, [$oneA]);
+        StandardSubject::where('subject_id', $art->id)->update(['is_mandatory' => false]);
+
+        $page = $this->page();
+        $page->onViewSubjectAdmin($maths->id);
+        $this->assertSame('Yes', $page->viewData['is_mandatory']);
+        $this->assertSame('Class 1', $page->viewData['class']);
+        $this->assertSame('A', $page->viewData['sections']);
+
+        $page->onViewSubjectAdmin($art->id);
+        $this->assertSame('No', $page->viewData['is_mandatory']);
+
+        $page->onViewSectionAdmin($oneA->id);
+        $this->assertSame(2, $page->viewData['subjects_count']);
+        $page->onViewSectionAdmin($twoA->id);
+        $this->assertSame(0, $page->viewData['subjects_count']);
+    }
+
+    public function test_a_subject_saved_from_anywhere_is_shown_where_it_went(): void
+    {
+        [$one, $oneA, $oneB] = $this->classWithSections('Class 1');
+
+        // Added from the Classes tab, no section being looked at.
+        Livewire::test(StandardPage::class)
+            ->call('openAddForm')
+            ->set('addType', 'subject')
+            ->set('subjectName', 'Maths')
+            ->set('selectedStandardForSubject', $one->id)
+            ->set('selectedSectionsForSubject', [$oneB->id])
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('activeTab', 'subject')
+            ->assertSet('filterSubjectStandard', $one->id)
+            ->assertSet('filterSection', $oneB->id)
+            ->assertSee('Maths');
+
+        // A section added from the Classes tab: its class's sections are shown.
+        Livewire::test(StandardPage::class)
+            ->call('openAddForm')
+            ->set('addType', 'section')
+            ->set('sectionName', 'C')
+            ->set('selectedStandard', $one->id)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('activeTab', 'section')
+            ->assertSet('filterStandard', $one->id)
+            ->assertSee('Class 1');
+    }
+
+    public function test_a_filled_field_drops_its_old_error(): void
+    {
+        [$one] = $this->classWithSections('Class 1');
+
+        Livewire::test(StandardPage::class)
+            ->call('openAddForm')->set('addType', 'subject')
+            ->call('save')
+            ->assertHasErrors(['subjectName', 'selectedStandardForSubject', 'selectedSectionsForSubject'])
+            ->set('subjectName', 'Maths')
+            ->assertHasNoErrors(['subjectName'])
+            ->set('selectedStandardForSubject', $one->id)
+            ->assertHasNoErrors(['selectedStandardForSubject'])
+            ->assertHasErrors(['selectedSectionsForSubject']);
+    }
+
+    public function test_another_school_rows_cannot_be_reached(): void
+    {
+        $theirs = Standard::create(['organization_id' => 77, 'name' => 'Their Class']);
+        $theirSection = Section::create(['standard_id' => $theirs->id, 'organization_id' => 77, 'name' => 'Z']);
+        $theirSubject = Subject::create(['organization_id' => 77, 'name' => 'Their Maths']);
+        StandardSubject::create(['standard_id' => $theirs->id, 'subject_id' => $theirSubject->id, 'organization_id' => 77]);
+        SectionSubject::create(['section_id' => $theirSection->id, 'subject_id' => $theirSubject->id, 'standard_id' => $theirs->id, 'organization_id' => 77]);
+        [$one, $oneA] = $this->classWithSections('Class 1');
+
+        Livewire::test(StandardPage::class)
+            ->call('drillIntoSection', $theirSection->id)
+            ->assertSet('filterSection', '')
+            ->call('editSubject', $theirSubject->id)
+            ->assertSet('openForm', false)
+            ->call('onViewSubjectAdmin', $theirSubject->id)
+            ->assertSet('showViewModal', false)
+            ->call('performDeleteSubject', $theirSubject->id)
+            ->call('performDeleteSection', $theirSection->id)
+            ->call('performDeleteStandard', $theirs->id)
+            // Nor can a section be put under their class.
+            ->call('openAddForm')->set('addType', 'section')
+            ->set('sectionName', 'X')->set('selectedStandard', $theirs->id)
+            ->call('save')
+            ->assertHasErrors(['selectedStandard']);
+
+        $this->assertNotNull(Subject::find($theirSubject->id));
+        $this->assertNotNull(Section::find($theirSection->id));
+        $this->assertNotNull(Standard::find($theirs->id));
+        $this->assertSame(1, Section::where('standard_id', $theirs->id)->count());
+    }
+
+    public function test_a_section_with_students_keeps_its_class(): void
+    {
+        Schema::create('student_details', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id')->nullable();
+            $t->unsignedBigInteger('standard_id')->nullable();
+            $t->unsignedBigInteger('section_id')->nullable();
+            $t->timestamps();
+        });
+        [$one, $oneA, $oneB] = $this->classWithSections('Class 1');
+        $two = Standard::create(['organization_id' => $this->org, 'name' => 'Class 2']);
+        DB::table('student_details')->insert(['user_id' => 5, 'standard_id' => $one->id, 'section_id' => $oneA->id]);
+
+        Livewire::test(StandardPage::class)
+            ->call('editSection', $oneA->id)
+            ->set('sectionName', 'A2')
+            ->set('selectedStandard', $two->id)
+            ->call('save')
+            ->assertHasErrors(['selectedStandard']);
+        $this->assertSame($one->id, (int) Section::find($oneA->id)->standard_id);
+
+        // Renamed in its own class: fine. And one with no students may move.
+        Livewire::test(StandardPage::class)
+            ->call('editSection', $oneA->id)->set('sectionName', 'A2')->call('save')->assertHasNoErrors();
+        Livewire::test(StandardPage::class)
+            ->call('editSection', $oneB->id)->set('selectedStandard', $two->id)->call('save')->assertHasNoErrors();
+        $this->assertSame('A2', Section::find($oneA->id)->name);
+        $this->assertSame($two->id, (int) Section::find($oneB->id)->standard_id);
+    }
+
     public function test_a_subject_does_not_move_onto_a_same_named_one_or_into_another_class_sections(): void
     {
         [$one, $oneA] = $this->classWithSections('Class 1');
