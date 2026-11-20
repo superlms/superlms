@@ -463,7 +463,7 @@
     {{-- ─── Page header offset ───
          Measures the header rows above the filter bar into `--lms-hdr-top` so
          the CSS above can slide them out of view on scroll (not for the super
-         admin, whose headers stay whole at the top). Re-measured when the
+         admin or the school admin, whose headers stay whole at the top). Re-measured when the
          header changes size (tab switch, wrapping row) and after Livewire
          re-renders; there is no per-scroll state to get wrong. --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin']))
@@ -473,8 +473,11 @@
                 window.__lmsHdr = 1;
 
                 // The super admin's page headers stay whole at the top while
-                // the page scrolls under them: nothing slides away.
-                var PIN_ALL = {{ in_array(Auth::user()->role, ['super-admin', 'sub-super-admin'], true) ? 'true' : 'false' }};
+                // the page scrolls under them: nothing slides away. So do the
+                // school admin's, since that panel took the super admin's look
+                // (user's ask of 2026-11-20: the header no longer slides up).
+                // Only the accounts desk's title rows still slide away.
+                var PIN_ALL = {{ $lmsPanelUi ? 'true' : 'false' }};
 
                 function getHeader() {
                     var c = document.getElementById('main-scroll');

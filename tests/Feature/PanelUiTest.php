@@ -80,6 +80,22 @@ class PanelUiTest extends TestCase
         $this->assertStringContainsString("if (document.body.classList.contains('lms-sa')) {", $this->partial());
     }
 
+    /**
+     * The school admin's page headers stay whole at the top while the page
+     * scrolls, as the Super Admin's do — the title row used to slide up under
+     * the window's edge (user's ask of 2026-11-20). Only the accounts desk's
+     * still slide.
+     */
+    public function test_the_school_admin_header_stays_whole_on_scroll_as_the_super_admins(): void
+    {
+        $layout = $this->layout();
+
+        $this->assertStringContainsString("var PIN_ALL = {{ \$lmsPanelUi ? 'true' : 'false' }};", $layout);
+        $this->assertStringContainsString("if (PIN_ALL || header.hasAttribute('data-lms-pin')) return 0;", $layout);
+        // PIN_ALL is set where $lmsPanelUi (super admin + school admin) is known.
+        $this->assertLessThan(strpos($layout, 'var PIN_ALL'), strpos($layout, '$lmsPanelUi    ='));
+    }
+
     public function test_fields_take_the_login_look_but_filter_bars_and_rows_keep_theirs(): void
     {
         $css = $this->partial();
