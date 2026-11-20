@@ -219,7 +219,7 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                        <select wire:model.live="structureStandardId" @disabled($editingGroup)
+                        <select wire:model.live="structureStandardId" @disabled($editingGroup && !$structureLoaded)
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white disabled:bg-gray-50 disabled:text-gray-500">
                             <option value="">Select class…</option>
                             @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
@@ -234,7 +234,7 @@
                     </div>
                 </div>
 
-                @if ($editingGroup)
+                @if ($editingGroup && !$structureLoaded)
                     <p class="text-xs text-gray-400">
                         Editing <strong class="text-gray-600">{{ $editGroupSectionId ? 'one section' : 'the All Sections' }}</strong> structure —
                         saving replaces every fee head below.
@@ -244,15 +244,31 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Sections <span class="text-gray-400 font-normal">(leave empty to apply to all)</span></label>
                         <div class="border border-gray-200 rounded-md p-3 max-h-32 overflow-y-auto space-y-1.5">
                             @forelse ($formSections as $sec)
-                                <label class="flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="checkbox" value="{{ $sec->id }}" wire:model="structureSectionIds" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <label class="flex items-center gap-2 text-sm text-gray-700" wire:key="form-sec-{{ $sec->id }}">
+                                    <input type="checkbox" value="{{ $sec->id }}" wire:model.live="structureSectionIds" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                     {{ $sec->name }}
+                                    @if (in_array((int) $sec->id, $formAdded, true))
+                                        <span class="ml-auto text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Already added</span>
+                                    @endif
                                 </label>
                             @empty
                                 <p class="text-xs text-gray-400">Select a class to load its sections (or leave empty for all).</p>
                             @endforelse
                         </div>
                     </div>
+
+                    {{-- The class (or the one section ticked) already has a structure: it is shown below. --}}
+                    @if ($structureLoaded)
+                        <div class="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800">
+                            <svg class="w-4 h-4 mt-px flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <span>
+                                Fee structure already added for
+                                <strong>{{ $standards->firstWhere('id', $editGroupStandardId)?->name ?? 'this class' }}
+                                    — {{ $editGroupSectionId ? ($formSections->firstWhere('id', $editGroupSectionId)?->name ?? 'this section') : 'All Sections' }}</strong>.
+                                Its fee heads are below — change them and press Update Structure.
+                            </span>
+                        </div>
+                    @endif
                 @endif
 
                 {{-- Serial · fee name · amount, any number of rows at once --}}

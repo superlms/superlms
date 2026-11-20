@@ -50,6 +50,13 @@ trait HandlesFeeStructures
     public bool $editingGroup   = false;
     public $editGroupStandardId = null;
     public $editGroupSectionId  = null; // null = the "All Sections" bucket
+    /**
+     * Add Fee Structure, for a class (or one section) that already has one:
+     * its fee heads are loaded into the form instead of an empty row, and
+     * saving updates them — no second copy of the same heads (user's ask of
+     * 2026-11-20). The class and sections stay pickable, unlike Edit.
+     */
+    public bool $structureLoaded = false;
 
     // ─── View slide-in + delete confirm ──────────────────────────────────────
     public bool $viewGroupOpen  = false;
@@ -151,6 +158,7 @@ trait HandlesFeeStructures
         if ($this->filterStructureStandard) {
             $this->structureStandardId = $this->filterStructureStandard;
             $this->structureSectionIds = $this->filterStructureSection ? [(int) $this->filterStructureSection] : [];
+            $this->loadExistingStructure();
         }
         $this->structureModalOpen = true;
     }
@@ -176,7 +184,7 @@ trait HandlesFeeStructures
     private function resetStructureForm(): void
     {
         $this->reset(['structureStandardId', 'structureSectionIds', 'editingGroup',
-                      'editGroupStandardId', 'editGroupSectionId']);
+                      'editGroupStandardId', 'editGroupSectionId', 'structureLoaded']);
         $this->academicYear = $this->currentStructureYear();
         $this->feeRows      = [$this->blankFeeRow()];
         $this->resetValidation();
@@ -185,6 +193,53 @@ trait HandlesFeeStructures
     public function updatedStructureStandardId(): void
     {
         $this->structureSectionIds = [];
+        $this->loadExistingStructure();
+    }
+
+    public function updatedStructureSectionIds(): void
+    {
+        $this->loadExistingStructure();
+    }
+
+    /**
+     * Adding for a class — no section ticked (All Sections) or one section —
+     * that already has a fee structure: show it. Its heads fill the form and
+     * saving replaces that group, as Edit does. Moving on to a class or
+     * section that has none (or ticking several) brings the empty form back.
+     */
+    private function loadExistingStructure(): void
+    {
+        // A group opened with Edit stays on its own class and section.
+        if ($this->editingGroup && !$this->structureLoaded) {
+            return;
+        }
+
+        $sectionIds = array_values(array_filter(array_map('intval', (array) $this->structureSectionIds)));
+        $sectionId  = $sectionIds[0] ?? null;
+        $rows = $this->structureStandardId && count($sectionIds) <= 1
+            ? $this->groupRows($this->structureStandardId, $sectionId)
+            : collect();
+
+        if ($rows->isNotEmpty()) {
+            $this->editingGroup        = true;
+            $this->structureLoaded     = true;
+            $this->editGroupStandardId = (int) $this->structureStandardId;
+            $this->editGroupSectionId  = $sectionId;
+            $this->academicYear        = $rows->first()->academic_year ?: $this->currentStructureYear();
+            $this->feeRows             = $rows->map(fn ($r) => [
+                'name'   => $r->fee_name,
+                'amount' => (string) $r->amount,
+            ])->values()->toArray();
+            $this->resetValidation();
+            return;
+        }
+
+        if ($this->structureLoaded) {
+            $this->reset(['editingGroup', 'editGroupStandardId', 'editGroupSectionId', 'structureLoaded']);
+            $this->academicYear = $this->currentStructureYear();
+            $this->feeRows      = [$this->blankFeeRow()];
+            $this->resetValidation();
+        }
     }
 
     /** Live total of the rows being typed — shown in the panel footer. */
@@ -530,6 +585,16 @@ trait HandlesFeeStructures
                 ->where('is_active', true)->orderBy('id')->get()
             : collect();
 
+        // Which of the form's class's groups already have a structure — 0 is
+        // All Sections — so the Add form can mark them.
+        $formAdded = $this->structureStandardId
+            ? FeeStructureModel::where('organization_id', $orgId)
+                ->where('fee_type', 'academic')
+                ->where('standard_id', $this->structureStandardId)
+                ->distinct()->pluck('section_id')
+                ->map(fn ($id) => (int) $id)->all()
+            : [];
+
         // Academic listing — one card per class+section, gated on a chosen class.
         $structureGroups = collect();
         if ($this->structureTab === 'academic' && $this->filterStructureStandard) {
@@ -590,6 +655,7 @@ trait HandlesFeeStructures
             'standards'       => $standards,
             'filterSections'  => $filterSections,
             'formSections'    => $formSections,
+            'formAdded'       => $formAdded,
             'structureGroups' => $structureGroups,
             'structureOverlap' => $structureOverlap,
             'routes'          => $routes,

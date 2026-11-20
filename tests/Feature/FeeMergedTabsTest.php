@@ -558,6 +558,71 @@ class FeeMergedTabsTest extends TestCase
     }
 
     /**
+     * Add Fee Structure for a class (or one section) that already has one
+     * shows what was added — its heads fill the form, saving updates them —
+     * instead of an empty row that would add the same heads a second time.
+     */
+    public function test_adding_a_structure_a_class_already_has_shows_the_added_one(): void
+    {
+        $s    = $this->school();   // All Sections: Tuition 1,000 (Ravi's own dues are his, not the class's)
+        $secB = DB::table('sections')->insertGetId(['organization_id' => $this->org, 'standard_id' => $s['std'], 'name' => 'B']);
+        DB::table('fee_structures')->insert([
+            ['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $s['sec'], 'fee_name' => 'Admission', 'fee_type' => 'academic', 'amount' => 2500],
+            ['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $s['sec'], 'fee_name' => 'Annual', 'fee_type' => 'academic', 'amount' => 1500],
+        ]);
+        $names = fn ($page) => array_column($page->get('feeRows'), 'name');
+
+        // The class, no section ticked: its All Sections structure.
+        $page = Livewire::test(FeeStructure::class)
+            ->call('openStructureModal')
+            ->set('structureStandardId', (string) $s['std'])
+            ->assertSet('structureLoaded', true)
+            ->assertSet('editingGroup', true)
+            ->assertSet('editGroupSectionId', null)
+            ->assertSee('Fee structure already added for')
+            ->assertSee('Update Structure');
+        $this->assertSame(['Tuition'], $names($page));
+        $this->assertSame(1000.0, (float) $page->get('feeRows')[0]['amount']);
+        // Section A is marked as added, B is not; the class and sections stay pickable.
+        $this->assertSame(1, substr_count($page->html(), 'Already added'));
+        $this->assertDoesNotMatchRegularExpression('/wire:model\.live="structureStandardId"\s+disabled/', $page->html());
+
+        // Section A ticked: A's own structure.
+        $page->set('structureSectionIds', [$s['sec']])->assertSet('editGroupSectionId', $s['sec']);
+        $this->assertSame(['Admission', 'Annual'], $names($page));
+
+        // Section B has none, and several sections are a new structure: an empty form.
+        $page->set('structureSectionIds', [$secB])
+            ->assertSet('structureLoaded', false)->assertSet('editingGroup', false)
+            ->assertSee('Add Structure')->assertDontSee('Fee structure already added for');
+        $this->assertSame([''], $names($page));
+        $page->set('structureSectionIds', [$s['sec'], $secB])->assertSet('structureLoaded', false);
+        $this->assertSame([''], $names($page));
+
+        // Back on A: change a head and save — A's heads are updated, not added again.
+        $page->set('structureSectionIds', [$s['sec']])
+            ->set('feeRows.1.amount', '1800')
+            ->call('saveStructure')
+            ->assertSet('structureModalOpen', false);
+        $rowsA = DB::table('fee_structures')->where('section_id', $s['sec'])->whereNull('student_detail_id')
+            ->orderBy('id')->pluck('amount', 'fee_name')->map(fn ($v) => (float) $v)->all();
+        $this->assertSame(['Admission' => 2500.0, 'Annual' => 1800.0], $rowsA);
+        $this->assertSame(1, DB::table('fee_structures')->whereNull('section_id')->whereNull('student_detail_id')->count());
+
+        // A new class with nothing yet still adds as before.
+        $std3 = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'Class 3']);
+        $page->call('openStructureModal')->set('structureStandardId', (string) $std3)
+            ->assertSet('structureLoaded', false)->assertSet('editingGroup', false)
+            ->set('feeRows.0.name', 'Tuition')->set('feeRows.0.amount', '900')
+            ->call('saveStructure');
+        $this->assertSame(1, DB::table('fee_structures')->where('standard_id', $std3)->count());
+
+        // Edit (from a card) keeps its class fixed, as before.
+        $html = $page->call('editGroup', $s['std'], $s['sec'])->assertSet('structureLoaded', false)->html();
+        $this->assertMatchesRegularExpression('/wire:model\.live="structureStandardId"\s+disabled/', $html);
+    }
+
+    /**
      * A class whose only section is picked by itself (the filter bar's sole
      * section) still shows its All Sections heads: the ledger charges them to
      * that section's students, so hiding them made Fee Structure read 14,600
