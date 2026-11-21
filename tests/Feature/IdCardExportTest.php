@@ -152,7 +152,8 @@ class IdCardExportTest extends TestCase
         $this->assertStringNotContainsString('Add a column', $html);
         $this->assertStringNotContainsString('Preview', $html);
         $this->assertStringNotContainsString('Zoya Khan', $html);
-        $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
+        // With Photo: only Zoya has one.
+        $this->assertMatchesRegularExpression('#<strong[^>]*>1</strong> student\b#', $html);
 
         // Teachers have no class filter.
         $page->set('exportType', 'teacher');
@@ -292,6 +293,8 @@ class IdCardExportTest extends TestCase
         $this->assertSame(1, IdCardExport::count($this->org, 'student', [$five], $a));
 
         // The panel: tick two classes; the count follows and the section waits for one class.
+        // (Every student with a photo, so With Photo has them all.)
+        DB::table('users')->where('role', 'user')->update(['image' => 'https://cdn.test/p.jpg']);
         $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
             ->set('exportStatus', 'active')->set('exportPhotos', 'with')
             ->set('exportStandards', [(string) $five, (string) $six]);
@@ -433,6 +436,8 @@ class IdCardExportTest extends TestCase
         $this->assertSame(['Ramesh'], IdCardExport::people($this->org, 'employee', status: 'inactive')->pluck('name')->all());
 
         // The panel: Active, Inactive or Both changes the count and the file asked for.
+        // (Every student with a photo, so With Photo has them all.)
+        DB::table('student_details')->whereNull('image')->update(['image' => 'https://cdn.test/p.jpg']);
         $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
             ->set('exportStatus', 'active')->set('exportPhotos', 'with');
         $this->assertMatchesRegularExpression('#<strong[^>]*>1</strong> student\b#', $page->html());
@@ -460,6 +465,47 @@ class IdCardExportTest extends TestCase
         IdCardExport::cleanup($work);
     }
 
+    public function test_with_or_without_photo_narrows_the_count_and_the_file(): void
+    {
+        $names = fn (string $type, string $photo, string $field = 'full_name') => IdCardExport::people($this->org, $type, null, null, 'all', null, 'both', $photo)
+            ->map(fn ($p) => $type === 'teacher' ? $p->user->name : $p->{$field})->sort()->values()->all();
+
+        // Students: Zoya has her own photo, Aarav none; a login's photo counts as theirs too.
+        $this->assertSame(['Aarav Jain', 'Zoya Khan'], $names('student', ''));
+        $this->assertSame(['Zoya Khan'], $names('student', 'with'));
+        $this->assertSame(['Aarav Jain'], $names('student', 'without'));
+        DB::table('users')->where('name', 'Aarav Jain')->update(['image' => 'https://cdn.test/aarav.jpg']);
+        $this->assertSame(['Aarav Jain', 'Zoya Khan'], $names('student', 'with'));
+        $this->assertSame([], $names('student', 'without'));
+        DB::table('users')->where('name', 'Aarav Jain')->update(['image' => '']);
+        $this->assertSame(1, IdCardExport::count($this->org, 'student', null, null, 'all', 'both', 'without'));
+
+        // Teachers by their login's photo; staff by their own.
+        $withPic = DB::table('users')->insertGetId(['name' => 'Meena', 'role' => 'teacher', 'organization_id' => $this->org, 'image' => 'https://cdn.test/m.jpg']);
+        $noPic   = DB::table('users')->insertGetId(['name' => 'Suresh', 'role' => 'teacher', 'organization_id' => $this->org]);
+        DB::table('teacher_details')->insert([['organization_id' => $this->org, 'user_id' => $withPic], ['organization_id' => $this->org, 'user_id' => $noPic]]);
+        $this->assertSame(['Meena'], $names('teacher', 'with'));
+        $this->assertSame(['Suresh'], $names('teacher', 'without'));
+        DB::table('admin_employees')->insert([
+            ['organization_id' => $this->org, 'name' => 'Mohan Lal', 'type' => 'management', 'photo' => 'https://cdn.test/ml.jpg'],
+            ['organization_id' => $this->org, 'name' => 'Ramesh', 'type' => 'employee', 'photo' => null],
+        ]);
+        $this->assertSame(['Mohan Lal'], $names('employee', 'with', 'name'));
+        $this->assertSame(['Ramesh'], $names('employee', 'without', 'name'));
+
+        // The panel's count follows the pick.
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
+            ->set('exportStatus', 'both')->set('exportPhotos', 'with');
+        $this->assertMatchesRegularExpression('/<strong[^>]*>1<\/strong>\s*student\b/', $page->html());
+        $page->set('exportPhotos', 'without');
+        $this->assertMatchesRegularExpression('/<strong[^>]*>1<\/strong>\s*student\b/', $page->html());
+
+        // A link that asks neither still has everyone.
+        [$path, , , $work] = IdCardExport::build($this->org, 'Delhi Public School', 'student', ['name'], null, null, 'all', 'xlsx');
+        $this->assertSame(3, IOFactory::load($path)->getActiveSheet()->getHighestRow()); // the heading and both students
+        IdCardExport::cleanup($work);
+    }
+
     public function test_without_photos_the_sheet_has_no_photo_column_and_fetches_none(): void
     {
         // The file: no Photo column, no picture, no photo to fetch, and the plain Excel even if the zip was asked for.
@@ -473,7 +519,9 @@ class IdCardExportTest extends TestCase
         $sheet = IOFactory::load($path)->getActiveSheet();
         $this->assertSame(['Name', 'Photo No'], [$sheet->getCell('A1')->getValue(), $sheet->getCell('B1')->getValue()]);
         $this->assertSame('B', $sheet->getHighestColumn());
-        $this->assertSame(['Zoya Khan', 'ADM-2'], [$sheet->getCell('A2')->getValue(), $sheet->getCell('B2')->getValue()]);
+        // Only those with no photo: Aarav, not Zoya.
+        $this->assertSame(['Aarav Jain', 'ADM-1'], [$sheet->getCell('A2')->getValue(), $sheet->getCell('B2')->getValue()]);
+        $this->assertNull($sheet->getCell('A3')->getValue());
         $this->assertCount(0, $sheet->getDrawingCollection());
         IdCardExport::cleanup($work);
 

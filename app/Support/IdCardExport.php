@@ -57,9 +57,12 @@ class IdCardExport
     public const STATUS = ['active', 'inactive', 'both'];
 
     /**
-     * With the photos, or without: a sheet of the data alone leaves the Photo
-     * column out, fetches no photo (so it is made in a moment) and is always
-     * the plain .xlsx — the zip is only there to carry the photos.
+     * With Photo or Without Photo — whose rows the file has, as the panel's
+     * count says (user's ask, 2026-11-21): 'with' only the people who have a
+     * photo, each in its cell (or as files in the zip); 'without' only those
+     * who have none — the Photo column left out, nothing to fetch (so it is
+     * made in a moment), always the plain .xlsx, the zip being there only to
+     * carry the photos. A link that asks neither has everyone, with photos.
      */
     public const PHOTOS = ['with', 'without'];
 
@@ -266,14 +269,15 @@ class IdCardExport
      * The kind's people in the school — students of the classes picked (every
      * class when none; a section only when one class is picked) in class
      * order, A to Z within it; teachers and staff A to Z — narrowed to those
-     * holding an active ID card (issued) or holding none (not_issued), and to
-     * active or inactive accounts (see STATUS).
+     * holding an active ID card (issued) or holding none (not_issued), to
+     * active or inactive accounts (see STATUS), and to those with a photo or
+     * without one (see PHOTOS; '' — everyone).
      *
      * @param  int|string|int[]|null  $standards  see standardIds()
      */
-    public static function people(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null, string $status = 'both'): Collection
+    public static function people(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', ?int $limit = null, string $status = 'both', string $photo = ''): Collection
     {
-        $query = self::query($orgId, $type, $standards, $sectionId, $which, $status);
+        $query = self::query($orgId, $type, $standards, $sectionId, $which, $status, $photo);
 
         if ($type === 'student') {
             // Class order, then section, then A to Z — worked out on the bare
@@ -299,13 +303,13 @@ class IdCardExport
     }
 
     /** How many people the export will have. */
-    public static function count(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', string $status = 'both'): int
+    public static function count(int $orgId, string $type, mixed $standards = null, ?int $sectionId = null, string $which = 'all', string $status = 'both', string $photo = ''): int
     {
-        return self::query($orgId, $type, $standards, $sectionId, $which, $status)->count();
+        return self::query($orgId, $type, $standards, $sectionId, $which, $status, $photo)->count();
     }
 
-    /** The kind's people, narrowed by classes / section, by holding a card and by active or not — unordered. */
-    private static function query(int $orgId, string $type, mixed $standards, ?int $sectionId, string $which, string $status = 'both')
+    /** The kind's people, narrowed by classes / section, by holding a card, by active or not and by having a photo — unordered. */
+    private static function query(int $orgId, string $type, mixed $standards, ?int $sectionId, string $which, string $status = 'both', string $photo = '')
     {
         if ($type === 'student') {
             $classes = self::standardIds($standards);
@@ -341,7 +345,44 @@ class IdCardExport
             }
         }
 
+        if (in_array($photo, self::PHOTOS, true)) {
+            self::wherePhoto($query, $type, $photo === 'with');
+        }
+
         return $query;
+    }
+
+    /**
+     * Those with a photo, or those with none — the photo photoUrl() reads: a
+     * student's own (or else their login's), a teacher's login's, staff's own.
+     */
+    private static function wherePhoto($query, string $type, bool $with): void
+    {
+        $set = fn (string $col) => fn ($q) => $q->whereNotNull($col)->where($col, '!=', '');
+        $own = match ($type) {
+            'student' => $set('student_details.image'),
+            'teacher' => null,
+            default   => $set('admin_employees.photo'),
+        };
+        $login = $type === 'employee' ? null : $set('users.image');
+
+        if ($with) {
+            $query->where(function ($q) use ($own, $login) {
+                if ($own) {
+                    $q->where($own);
+                }
+                if ($login) {
+                    $own ? $q->orWhereHas('user', $login) : $q->whereHas('user', $login);
+                }
+            });
+        } else {
+            if ($own) {
+                $query->whereNot($own);
+            }
+            if ($login) {
+                $query->whereDoesntHave('user', $login);
+            }
+        }
     }
 
     /** [person id => their active card] (the latest, should there be two). */
@@ -517,7 +558,7 @@ class IdCardExport
      * to cleanup(). Fine for a class; the panel uses start() / step() instead,
      * so a whole school never runs into the gateway's time limit.
      */
-    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0, string $status = 'both', string $photos = 'with'): array
+    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0, string $status = 'both', string $photos = ''): array
     {
         $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format, $status, $photos);
         do {
@@ -533,11 +574,12 @@ class IdCardExport
      *
      * @return array{id: string, people: int, total: int}  total = photos to fetch
      */
-    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, string $status = 'both', string $photos = 'with'): array
+    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, string $status = 'both', string $photos = ''): array
     {
         self::clearStale();
 
         $status  = in_array($status, self::STATUS, true) ? $status : 'both';
+        $photos  = in_array($photos, self::PHOTOS, true) ? $photos : '';
         $noPhoto = $photos === 'without';
         $format  = !$noPhoto && $format === 'zip' ? 'zip' : 'xlsx';
         $columns = self::clean($type, $columns) ?: self::defaults($type);
@@ -545,7 +587,8 @@ class IdCardExport
             // Without photos: no Photo column — the rest as picked.
             $columns = array_values(array_diff($columns, ['photo'])) ?: array_values(array_diff(self::defaults($type), ['photo']));
         }
-        $people  = self::people($orgId, $type, $standards, $sectionId, $which, null, $status);
+        // With Photo / Without Photo: only those who have one / have none.
+        $people  = self::people($orgId, $type, $standards, $sectionId, $which, null, $status, $photos);
         $thumbs  = in_array('photo', $columns, true);
         $full    = $format === 'zip';
 

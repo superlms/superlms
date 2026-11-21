@@ -101,7 +101,7 @@ class IdCardExportController extends Controller
      * What the panel picked: [type, columns, class ids, section id, which,
      * format, status, photos]. Only this school's classes; a section only of
      * the one class picked. No status: active and inactive both, and no
-     * photos: with them — as before either was asked.
+     * photos: everyone, with their photos — as before either was asked.
      */
     private function picked(Request $request, int $orgId): array
     {
@@ -127,6 +127,6 @@ class IdCardExportController extends Controller
             ? Section::where('standard_id', $classes[0])->whereKey($data['section'])->value('id')
             : null;
 
-        return [$type, $columns, $classes, $sectionId ? (int) $sectionId : null, $data['which'] ?? 'all', $data['format'] ?? 'xlsx', $data['status'] ?? 'both', $data['photos'] ?? 'with'];
+        return [$type, $columns, $classes, $sectionId ? (int) $sectionId : null, $data['which'] ?? 'all', $data['format'] ?? 'xlsx', $data['status'] ?? 'both', $data['photos'] ?? ''];
     }
 }

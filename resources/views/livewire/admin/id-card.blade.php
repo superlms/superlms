@@ -443,7 +443,7 @@
                         <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 flex-shrink-0">
                             <span class="text-xs font-medium text-gray-600">3 · Photo</span>
                             <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs" role="group" aria-label="With or without photos">
-                                @foreach (['with' => ['With Photo', 'Each photo in its cell (or as files, in the .zip)'], 'without' => ['Without Photo', 'The data alone, no photos — made in a moment']] as $ph => [$phLabel, $phDesc])
+                                @foreach (['with' => ['With Photo', 'Only those who have a photo — each photo in its cell (or as files, in the .zip)'], 'without' => ['Without Photo', 'Only those who have no photo — the data alone, made in a moment']] as $ph => [$phLabel, $phDesc])
                                     <button type="button" wire:click="$set('exportPhotos', '{{ $ph }}')" wire:key="xph-{{ $ph }}" title="{{ $phDesc }}"
                                         class="px-3 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportPhotos === $ph ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $phLabel }}</button>
                                 @endforeach

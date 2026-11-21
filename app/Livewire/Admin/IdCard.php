@@ -548,7 +548,8 @@ class IdCard extends Component
         return [
             'exportFields'   => IdCardExport::fields($this->exportType),
             'exportShown'    => $this->shownExportColumns(),
-            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich, $this->exportStatus),
+            // As the file will have them: With Photo / Without Photo narrow it too.
+            'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich, $this->exportStatus, $this->exportPhotos),
             'exportSections' => $oneClass
                 ? \App\Models\Student\Section::where('standard_id', $oneClass)->orderBy('id')->get(['id', 'name'])
                 : collect(),
