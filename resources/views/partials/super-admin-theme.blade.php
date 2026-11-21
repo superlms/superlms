@@ -20,6 +20,14 @@
         Every empty field reads the same light grey (hints, "Select …", empty
         dates) and a value the form came with reads ink. The words are in the
         login's face (Geist, 15px).
+     4. Filters in the header (2026-11-21, user's ask): the grey "Filter by"
+        band under a page's header is gone; the header has a round filter
+        button instead, and clicking it turns the header row itself into the
+        filters — the same filters as before, nothing else changed — with a
+        round × at its end that turns it back into the header. A dot on the
+        filter button says a filter is on (the band has its Clear button).
+        One script for every page of both panels (no page's own markup
+        changes); it re-marks the header after every Livewire update.
      Included in the page's <head> (components.layouts.app), so a page never
      shows the old buttons or fields while it loads. --}}
 @php
@@ -148,6 +156,46 @@
 
     /* A list's skeleton while its page loads: its buttons already pills. */
     body.lms-sa .lms-skeleton .sa-skel:is(.h-7, .h-8, .h-9, .h-10) { border-radius: 9999px !important; }
+
+    /* ─── 4. Filters in the header ─── */
+    /* Before the script has looked at the page: a header's grey "Filter by"
+       band (it has the funnel icon) is already out of sight, so it never
+       shows for a moment while the page loads. */
+    body.lms-ui #main-scroll :is(.sticky, .bg-white.border-b):has(h1):not(:has(table)):not(.lms-fopen) > :is(.border-t, .border-b).bg-gray-50:has(path[d^="M3 4a1 1 0 011-1h16"]) { display: none !important; }
+    /* Closed: the band hidden. Open: the title row hidden and the band in its place. */
+    body.lms-ui #main-scroll .lms-fh:not(.lms-fopen) .lms-fbar { display: none !important; }
+    body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-ftitle { display: none !important; }
+    body.lms-ui #main-scroll .lms-fh.lms-fopen.lms-fh-flex { display: flex !important; flex-direction: column; }
+    body.lms-ui #main-scroll .lms-fh.lms-fopen.lms-fh-flex > .lms-fbar { order: -1; }
+    body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-fbar {
+        display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px;
+        min-height: 60px; background: #fff !important; border-top: 0 !important; border-bottom: 1px solid var(--sa-hline) !important;
+        padding-top: 10px !important; padding-bottom: 10px !important;
+        animation: lms-fh-in .22s cubic-bezier(.2,.7,.2,1);
+    }
+    body.lms-ui #main-scroll .lms-fbar > :not([data-lms-fh-x]) { grid-column: 1; min-width: 0; }
+    body.lms-ui #main-scroll .lms-fbar > [data-lms-fh-x] { grid-column: 2; grid-row: 1; }
+    @keyframes lms-fh-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    /* Where the filter button sits: in the header's row of buttons ("in"), at
+       the end of the title's row ("row"), or at the header's right edge ("abs"). */
+    body.lms-ui #main-scroll .lms-fh-row { justify-content: flex-start !important; }
+    body.lms-ui #main-scroll .lms-fh-row > [data-lms-fh-btn] { margin-left: 8px; }
+    body.lms-ui #main-scroll .lms-fh-row > :nth-last-child(2) { margin-left: auto; }
+    body.lms-ui #main-scroll .lms-fh-abs { position: relative; padding-right: 64px !important; }
+    body.lms-ui #main-scroll .lms-fh-abs > [data-lms-fh-btn] { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); }
+    /* The round filter button and the round ×: Quick Links' header circles. */
+    body.lms-ui #main-scroll :is([data-lms-fh-btn], [data-lms-fh-x]) {
+        position: relative; width: 38px; height: 38px; flex: none; padding: 0; border-radius: 50%;
+        border: 1px solid #e3ece9; background: #f3f8f6; color: #1f3a33; display: inline-grid; place-items: center; cursor: pointer;
+        box-shadow: 0 1px 2px rgba(12,38,32,.05); transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s;
+    }
+    body.lms-ui #main-scroll :is([data-lms-fh-btn], [data-lms-fh-x]) svg { width: 18px; height: 18px; }
+    body.lms-ui #main-scroll [data-lms-fh-btn]:hover { background: var(--sa-t); border-color: var(--sa-t); color: #fff; transform: translateY(-1px); box-shadow: 0 10px 20px -10px rgba(13,148,136,.7); }
+    body.lms-ui #main-scroll [data-lms-fh-x]:hover { background: #fff1f2; border-color: #fda4af; color: #e11d48; }
+    body.lms-ui #main-scroll :is([data-lms-fh-btn], [data-lms-fh-x]):focus-visible { outline: 2px solid var(--sa-t200); outline-offset: 2px; }
+    body.lms-ui #main-scroll [data-lms-fh-btn].is-on { color: var(--sa-t7); border-color: var(--sa-t200); background: var(--sa-t50); }
+    body.lms-ui #main-scroll [data-lms-fh-btn].is-on::after { content: ''; position: absolute; top: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--sa-t); border: 2px solid #fff; }
+    @media (prefers-reduced-motion: reduce) { body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-fbar { animation: none; } }
 </style>
 <script>
     // Marks every box: .sa-empty while nothing is in it, and .sa-filled once
@@ -186,6 +234,213 @@
             scan();
             var main = document.getElementById('main-scroll');
             if (main && window.MutationObserver) new MutationObserver(soon).observe(main, { childList: true, subtree: true });
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+    })();
+
+    // 4. Filters in the header. Each page's grey "Filter by" band under its
+    // header is found (the band with the funnel icon / "Filter by" / data-
+    // filter-bar, in the white or sticky header that holds the page's <h1>),
+    // hidden, and a round filter button added to the header's row; clicking it
+    // hides the title row and shows the band in its place with a round × at
+    // the end, which turns it back. The page's own markup is untouched: the
+    // marks and buttons are put back after every Livewire update ("morphed"
+    // and a MutationObserver, both before the browser paints), and which
+    // headers are open is kept here, not on the page.
+    (function () {
+        if (window.__lmsFilterHead) return;
+        window.__lmsFilterHead = true;
+        var FUNNEL = 'M3 4a1 1 0 011-1h16';
+        var MARKS  = ['lms-fh', 'lms-fh-flex', 'lms-fopen', 'lms-ftitle', 'lms-fbar', 'lms-fh-row', 'lms-fh-abs'];
+        var ICON_F = '<svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h18l-7 8.25V19l-4 1.5v-7.75L3 4.5z"/></svg>';
+        var ICON_X = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+        var open = new WeakSet();   // headers whose filters are showing
+
+        function main() { return document.getElementById('main-scroll'); }
+        function visible(el) { return getComputedStyle(el).display !== 'none'; }
+        function injected(el) { return el.hasAttribute('data-lms-fh-btn') || el.hasAttribute('data-lms-fh-x'); }
+        // In an overlay, a skeleton or a card's own filter row — below #main-scroll
+        // (which is itself .fixed), so the page's frame never counts.
+        var AWAY = '.lms-skeleton, [data-page-skeleton], .lms-cover, .fixed, [role="dialog"], .sk-filter';
+        function away(el) {
+            var root = main(), c = el.closest(AWAY);
+            return !!c && c !== root && !!root && root.contains(c);
+        }
+
+        function isBar(el) {
+            if (away(el)) return false;
+            if (el.hasAttribute('data-filter-bar')) return true;
+            if (!el.classList.contains('bg-gray-50') || !(el.classList.contains('border-t') || el.classList.contains('border-b'))) return false;
+            return el.textContent.indexOf('Filter by') !== -1 || !!el.querySelector('path[d^="' + FUNNEL + '"]');
+        }
+
+        // The page's <h1> in a box, outside the band.
+        function titleIn(box, bar) {
+            var all = box.querySelectorAll('h1');
+            for (var i = 0; i < all.length; i++) {
+                if (!bar.contains(all[i]) && !away(all[i])) return all[i];
+            }
+            return null;
+        }
+        function childHolding(box, el) {
+            while (el && el.parentElement !== box) el = el.parentElement;
+            return el;
+        }
+
+        // A band and its header: { head, title (row), bar, flex (the band is the header's own child) }.
+        function headerOf(bar) {
+            var root = main(), box = bar.parentElement, h1 = null;
+            while (box && box !== root) {
+                if ((h1 = titleIn(box, bar))) break;
+                box = box.parentElement;
+            }
+            if (!h1 || !box || box === root) return null;
+            if (!box.matches('.sticky, .bg-white.border-b') || box.querySelector('table')) return null;
+            var title = childHolding(box, h1), top = childHolding(box, bar);
+            if (!title || !top || title === top) return null;
+            if (!(title.compareDocumentPosition(top) & Node.DOCUMENT_POSITION_FOLLOWING)) return null;
+            return { head: box, title: title, bar: bar, h1: h1, flex: top === bar };
+        }
+
+        // Where the filter button goes: the header's row of buttons, else the
+        // end of the title's row, else the header's right edge.
+        function spot(title, h1) {
+            var node = h1;
+            while (node && node !== title) {
+                var row = node.parentElement, kids = [];
+                for (var i = 0; i < row.children.length; i++) {
+                    var k = row.children[i];
+                    if (!injected(k) && visible(k)) kids.push(k);
+                }
+                var last = kids[kids.length - 1];
+                if (last && last !== node && !last.contains(h1)) {
+                    if (getComputedStyle(last).display.indexOf('flex') !== -1) return { el: last, mode: 'in' };
+                    if (getComputedStyle(row).display.indexOf('flex') !== -1) return { el: row, mode: 'row' };
+                    break;
+                }
+                node = row;
+            }
+            return { el: title, mode: 'abs' };
+        }
+
+        function make(kind) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute(kind === 'x' ? 'data-lms-fh-x' : 'data-lms-fh-btn', '');
+            b.setAttribute('aria-label', kind === 'x' ? 'Close filters' : 'Show filters');
+            b.title = kind === 'x' ? 'Close filters' : 'Filters';
+            b.innerHTML = kind === 'x' ? ICON_X : ICON_F;
+            return b;
+        }
+
+        var busy = false;
+        function scan() {
+            var root = main();
+            if (!root || busy) return;
+            busy = true;
+            try {
+                var found = [], seen = new Set();
+                root.querySelectorAll('[data-filter-bar], .bg-gray-50.border-t, .bg-gray-50.border-b').forEach(function (el) {
+                    if (!seen.has(el) && isBar(el)) { seen.add(el); found.push(el); }
+                });
+                // The innermost bands only.
+                found = found.filter(function (el) { return !found.some(function (o) { return o !== el && el.contains(o); }); });
+
+                var heads = new Map();   // head → its setup
+                found.forEach(function (bar) {
+                    var h = headerOf(bar);
+                    if (!h) return;
+                    var got = heads.get(h.head);
+                    if (got) { got.bars.push(bar); got.flex = got.flex && h.flex; return; }
+                    heads.set(h.head, { head: h.head, title: h.title, h1: h.h1, bars: [bar], flex: h.flex });
+                });
+
+                // Marks and buttons from before that no longer belong.
+                var list = Array.from(heads.values());
+                root.querySelectorAll('.' + MARKS.join(', .')).forEach(function (el) {
+                    var keep = list.some(function (h) { return h.head === el || h.title === el || h.bars.indexOf(el) !== -1 || (h.head.contains(el) && el.contains(h.h1)); });
+                    if (!keep) MARKS.forEach(function (m) { el.classList.remove(m); });
+                });
+                root.querySelectorAll('[data-lms-fh-btn], [data-lms-fh-x]').forEach(function (b) {
+                    var ok = list.some(function (h) { return b.hasAttribute('data-lms-fh-btn') ? h.title.contains(b) : b.parentElement === h.bars[0]; });
+                    if (!ok) b.remove();
+                });
+
+                heads.forEach(function (h) {
+                    var isOpen = open.has(h.head);
+                    h.head.classList.add('lms-fh');
+                    h.head.classList.toggle('lms-fh-flex', h.flex);
+                    h.head.classList.toggle('lms-fopen', isOpen);
+                    h.title.classList.add('lms-ftitle');
+                    h.bars.forEach(function (b) { b.classList.add('lms-fbar'); });
+
+                    // The filter button, once, in its spot.
+                    var btn = h.title.querySelector('[data-lms-fh-btn]');
+                    if (!btn) {
+                        var s = spot(h.title, h.h1);
+                        btn = make('filter');
+                        s.el.appendChild(btn);
+                        btn.dataset.lmsFhMode = s.mode;
+                    }
+                    // (Its spot's mark, again after a redraw took it off.)
+                    if (btn.dataset.lmsFhMode === 'row') btn.parentElement.classList.add('lms-fh-row');
+                    if (btn.dataset.lmsFhMode === 'abs') btn.parentElement.classList.add('lms-fh-abs');
+                    h.title.querySelectorAll('[data-lms-fh-btn]').forEach(function (b, i) { if (i > 0) b.remove(); });
+                    // A filter is on when the band shows its Clear button.
+                    var on = h.bars.some(function (bar) {
+                        return Array.prototype.some.call(bar.querySelectorAll('button, a'), function (c) { return !injected(c) && /^\s*clear/i.test(c.textContent || ''); });
+                    });
+                    btn.classList.toggle('is-on', on);
+                    btn.title = on ? 'Filters (a filter is on)' : 'Filters';
+                    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+                    // The × at the end of the (first) band.
+                    var first = h.bars[0];
+                    if (!first.querySelector(':scope > [data-lms-fh-x]')) first.appendChild(make('x'));
+                });
+            } finally {
+                busy = false;
+            }
+        }
+
+        function setOpen(head, on) {
+            if (on) open.add(head); else open.delete(head);
+            head.classList.toggle('lms-fopen', on);
+            var btn = head.querySelector('[data-lms-fh-btn]');
+            if (btn) btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+            if (on) {
+                var field = head.querySelector('.lms-fbar :is(input:not([type="hidden"]), select)');
+                if (field) try { field.focus({ preventScroll: true }); } catch (e) {}
+            } else if (btn) {
+                try { btn.focus({ preventScroll: true }); } catch (e) {}
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            var b = e.target && e.target.closest ? e.target.closest('[data-lms-fh-btn], [data-lms-fh-x]') : null;
+            if (!b) return;
+            var head = b.closest('.lms-fh');
+            if (!head) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(head, b.hasAttribute('data-lms-fh-btn'));
+        }, true);
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || !e.target || !e.target.closest) return;
+            var head = e.target.closest('.lms-fh.lms-fopen');
+            if (head && e.target.closest('.lms-fbar') && !e.target.matches('select')) setOpen(head, false);
+        });
+
+        var queued = false;
+        function soon() { if (queued) return; queued = true; queueMicrotask(function () { queued = false; scan(); }); }
+        document.addEventListener('livewire:init', function () {
+            Livewire.hook('morphed', function () { scan(); });
+        });
+        document.addEventListener('livewire:navigated', soon);
+        var start = function () {
+            scan();
+            var root = main();
+            if (root && window.MutationObserver) new MutationObserver(soon).observe(root, { childList: true, subtree: true });
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
     })();
