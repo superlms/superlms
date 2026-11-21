@@ -279,7 +279,11 @@ class SuperAdminSchoolDataTest extends TestCase
         $page = Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
             ->assertSee('Functionalities')
             ->assertSee('Send to Mail')
-            ->assertSee('1 payment');   // Fees counts its payments: RCT-7-1, not the other school's
+            ->assertSee('1 payment')    // Fees counts its payments: RCT-7-1, not the other school's
+            // Two tabs as on Analytics: the analytics in one, the functionalities in the other.
+            ->assertSeeHtml('data-sd-chip="analytics"')
+            ->assertSeeHtml('data-sd-chip="functionalities"')
+            ->assertSeeHtmlInOrder(['data-sd="analytics"', 'School Detail', 'Functionality Usage', '</section>', 'data-sd="functionalities"', "exportPdf('students')"]);
 
         foreach (\App\Support\SchoolPdf\Exporter::SECTIONS as $key => [$label]) {
             $page->assertSee($label)->assertSeeHtml("exportPdf('{$key}')");

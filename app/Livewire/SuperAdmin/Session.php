@@ -23,8 +23,13 @@ use WireUi\Traits\WireUiActions;
  * mark which is the current session. The top bar of every panel shows the
  * current session's name.
  *
- * Making a session current takes two codes on one screen: one sent to the
- * Super Admin's registered email, another on WhatsApp (SessionChangeOtp).
+ * Making a session current takes two codes, each verified on its own: one
+ * sent to the Super Admin's registered email, another on WhatsApp to the
+ * mobile (SessionChangeOtp); the session becomes current once both are.
+ *
+ * Every screen is in the Home's analytics look (2026-11-21): the sessions
+ * with the current one's progress, a session's schools, and a school's data
+ * in a session — an Overview of its analytics, then a chip for each list.
  *
  * Each session's › opens its schools — every school on SuperLMS by the
  * session's last day, those registered during it marked New — in the Schools
@@ -75,6 +80,10 @@ class Session extends Component
     #[Locked]
     public array $resendAt = ['email' => 0, 'whatsapp' => 0];
 
+    /** Which code has been verified so far (each is verified on its own). */
+    #[Locked]
+    public array $verified = ['email' => false, 'whatsapp' => false];
+
     public string $emailCode    = '';
     public string $whatsappCode = '';
 
@@ -100,8 +109,9 @@ class Session extends Component
     #[Url(as: 'school', except: null)]
     public ?int $schoolId = null;
 
-    #[Url(as: 'tab', except: 'students')]
-    public string $dataTab = 'students';
+    /** 'overview' (the school's analytics in the session) or one of SessionSchoolData::TABS. */
+    #[Url(as: 'tab', except: 'overview')]
+    public string $dataTab = 'overview';
 
     public string $dataSearch = '';
 
@@ -113,8 +123,8 @@ class Session extends Component
         if ($this->schoolId && !$this->schoolInOpenSession($this->schoolId)) {
             $this->schoolId = null;
         }
-        if (!array_key_exists($this->dataTab, SessionSchoolData::TABS)) {
-            $this->dataTab = 'students';
+        if (!$this->isDataTab($this->dataTab)) {
+            $this->dataTab = 'overview';
         }
 
         // The top bar's switcher sends here with ?switch={id}: ask for the codes.
@@ -285,7 +295,7 @@ class Session extends Component
 
         SessionChangeOtp::forget($this->switchToken);
         $this->resetValidation();
-        $this->reset(['emailCode', 'whatsappCode']);
+        $this->reset(['emailCode', 'whatsappCode', 'verified']);
 
         $where             = SessionChangeOtp::destinations($user);
         $this->switchId    = $session->id;
@@ -302,7 +312,7 @@ class Session extends Component
 
     public function resendCode(string $channel): void
     {
-        if (!$this->switchId || !in_array($channel, SessionChangeOtp::CHANNELS, true)) {
+        if (!$this->switchId || !in_array($channel, SessionChangeOtp::CHANNELS, true) || ($this->verified[$channel] ?? false)) {
             return;
         }
 
@@ -325,47 +335,68 @@ class Session extends Component
         }
 
         $this->{$field} = '';
-        $this->notification()->success('Code sent', $channel === 'email' ? 'A new code is on its way to the email.' : 'A new code is on its way on WhatsApp.');
+        $this->notification()->success('Code sent', $channel === 'email' ? 'A new code is on its way to the email.' : 'A new code is on its way on WhatsApp to the mobile.');
     }
 
-    public function verifyMakeCurrent(): void
+    /**
+     * Verify ONE code — the email's or the mobile's — on its own. When the
+     * second of the two is verified, the session becomes current.
+     */
+    public function verifyCode(string $channel): void
     {
-        $this->resetValidation(['emailCode', 'whatsappCode', 'request']);
+        if (!$this->switchId || !in_array($channel, SessionChangeOtp::CHANNELS, true)) {
+            return;
+        }
 
-        $codes = [
-            'email'    => preg_replace('/\D+/', '', $this->emailCode),
-            'whatsapp' => preg_replace('/\D+/', '', $this->whatsappCode),
-        ];
+        $field = $channel . 'Code';
+        $this->resetValidation([$field, 'request']);
 
-        $short = false;
-        foreach ($codes as $channel => $code) {
+        if (!($this->verified[$channel] ?? false)) {
+            $code = preg_replace('/\D+/', '', $this->{$field});
+
             if (strlen($code) !== 6) {
-                $this->addError($channel . 'Code', $code === '' ? 'Enter the 6-digit code.' : 'The code has 6 digits.');
-                $short = true;
+                $this->addError($field, $code === '' ? 'Enter the 6-digit code.' : 'The code has 6 digits.');
+                return;
             }
-        }
-        if ($short) {
-            return;
-        }
 
-        $errors = SessionChangeOtp::verify(Auth::user(), $this->switchToken, (int) $this->switchId, $codes['email'], $codes['whatsapp']);
+            $errors = SessionChangeOtp::verifyChannel(Auth::user(), $this->switchToken, (int) $this->switchId, $channel, $code);
 
-        if ($errors) {
-            foreach (SessionChangeOtp::CHANNELS as $channel) {
+            if ($errors) {
                 if (isset($errors[$channel])) {
-                    $this->addError($channel . 'Code', $errors[$channel]);
+                    $this->addError($field, $errors[$channel]);
                 }
+                if (isset($errors['request'])) {
+                    $this->switchToken = null;
+                    $this->verified    = ['email' => false, 'whatsapp' => false];
+                    $this->addError('request', $errors['request']);
+                } elseif (isset($errors['tries'])) {
+                    $this->addError('request', $errors['tries']);
+                }
+                return;
             }
-            if (isset($errors['request'])) {
-                $this->switchToken = null;
-                $this->addError('request', $errors['request']);
-            } elseif (isset($errors['tries'])) {
-                $this->addError('request', $errors['tries']);
-            }
+
+            $this->verified = SessionChangeOtp::verified(Auth::user(), $this->switchToken);
+        }
+
+        if (in_array(false, $this->verified, true)) {
+            return; // the other code is still to be verified
+        }
+
+        $this->finishMakeCurrent();
+    }
+
+    /** Both codes verified: the session becomes current. */
+    private function finishMakeCurrent(): void
+    {
+        $session = AcademicSession::find($this->switchId);
+
+        if (!SessionChangeOtp::complete(Auth::user(), $this->switchToken, (int) $this->switchId)) {
+            $this->switchToken = null;
+            $this->verified    = ['email' => false, 'whatsapp' => false];
+            $this->addError('request', 'These codes have expired. Close this and click Make current again.');
             return;
         }
 
-        $session = AcademicSession::find($this->switchId);
         $this->closeSwitch();
 
         if (!$session) {
@@ -376,13 +407,13 @@ class Session extends Component
         $session->makeCurrent();
 
         $this->dispatch('academic-session-changed', id: $session->id);
-        $this->notification()->success('Current session changed', "{$session->name} is now the current session.");
+        $this->notification()->success('Current session changed', "Both codes verified — {$session->name} is now the current session.");
     }
 
     public function closeSwitch(): void
     {
         SessionChangeOtp::forget($this->switchToken);
-        $this->reset(['switchId', 'switchToken', 'switchTo', 'resendAt', 'emailCode', 'whatsappCode']);
+        $this->reset(['switchId', 'switchToken', 'switchTo', 'resendAt', 'emailCode', 'whatsappCode', 'verified']);
         $this->resetValidation(['emailCode', 'whatsappCode', 'request']);
     }
 
@@ -469,7 +500,7 @@ class Session extends Component
 
     public function setDataTab(string $tab): void
     {
-        if (!array_key_exists($tab, SessionSchoolData::TABS)) {
+        if (!$this->isDataTab($tab)) {
             return;
         }
 
@@ -480,7 +511,12 @@ class Session extends Component
 
     public function updatedDataTab(): void
     {
-        $this->setDataTab(array_key_exists($this->dataTab, SessionSchoolData::TABS) ? $this->dataTab : 'students');
+        $this->setDataTab($this->isDataTab($this->dataTab) ? $this->dataTab : 'overview');
+    }
+
+    private function isDataTab(string $tab): bool
+    {
+        return $tab === 'overview' || array_key_exists($tab, SessionSchoolData::TABS);
     }
 
     public function updatedDataSearch(): void
@@ -494,7 +530,7 @@ class Session extends Component
         $data = $this->schoolData();
         $org  = $data ? Organization::find($this->schoolId) : null;
 
-        if (!$data || !$org) {
+        if (!$data || !$org || !array_key_exists($this->dataTab, SessionSchoolData::TABS)) {
             return null;
         }
 
@@ -647,16 +683,17 @@ class Session extends Component
         }
 
         if ($schoolData) {
-            if (!array_key_exists($this->dataTab, SessionSchoolData::TABS)) {
-                $this->dataTab = 'students';
+            if (!$this->isDataTab($this->dataTab)) {
+                $this->dataTab = 'overview';
             }
+            $listTab = array_key_exists($this->dataTab, SessionSchoolData::TABS) && !in_array($this->dataTab, ['classes', 'attendance'], true);
 
             $data['school'] = [
                 'org'        => Organization::find($this->schoolId),
                 'data'       => $schoolData,
                 'summary'    => $schoolData->summary(),
-                'rows'       => in_array($this->dataTab, ['classes', 'attendance'], true) ? null : $schoolData->rows($this->dataTab, $this->dataSearch),
-                'classes'    => $this->dataTab === 'classes' ? $schoolData->classes($this->dataSearch) : [],
+                'rows'       => $listTab ? $schoolData->rows($this->dataTab, $this->dataSearch) : null,
+                'classes'    => in_array($this->dataTab, ['classes', 'overview'], true) ? $schoolData->classes($this->dataTab === 'classes' ? $this->dataSearch : '') : [],
                 'attendance' => $this->dataTab === 'attendance' ? $schoolData->attendanceByMonth() : [],
             ];
 
@@ -689,7 +726,20 @@ class Session extends Component
 
             $all = $this->schoolsBy($open)
                 ->withCount(['students as total_students' => $byEnd, 'teachers as total_teachers' => $byEnd])
-                ->get(['id', 'status', 'created_at']);
+                ->get(['id', 'name', 'status', 'created_at']);
+
+            // Schools registered in each month of the session, up to this month.
+            $regMonths = [];
+            $cursor    = $start->copy()->startOfMonth();
+            $last      = $end->copy()->min(now()->endOfMonth());
+            while ($cursor->lte($last) && count($regMonths) < 24) {
+                $key = $cursor->format('Y-m');
+                $regMonths[$key] = [
+                    'label' => $cursor->format('M'),
+                    'count' => $all->filter(fn ($o) => $o->created_at && $o->created_at->between($start, $end) && $o->created_at->format('Y-m') === $key)->count(),
+                ];
+                $cursor = $cursor->copy()->addMonthNoOverflow();
+            }
 
             $data['schoolTotals'] = [
                 'schools'  => $all->count(),
@@ -697,6 +747,9 @@ class Session extends Component
                 'active'   => $all->filter(fn ($o) => (bool) $o->status)->count(),
                 'students' => (int) $all->sum('total_students'),
                 'teachers' => (int) $all->sum('total_teachers'),
+                'top'      => $all->filter(fn ($o) => $o->total_students > 0)->sortByDesc('total_students')->take(6)
+                    ->map(fn ($o) => ['label' => $o->name, 'count' => (int) $o->total_students])->values()->all(),
+                'byMonth'  => array_values($regMonths),
             ];
             $data['start'] = $start;
             $data['end']   = $end;

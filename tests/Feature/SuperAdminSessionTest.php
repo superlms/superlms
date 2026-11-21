@@ -231,7 +231,7 @@ class SuperAdminSessionTest extends TestCase
 
     // ─── Making a session current: two codes ────────────────────────────────
 
-    public function test_making_a_session_current_takes_the_email_code_and_the_whatsapp_code(): void
+    public function test_making_a_session_current_takes_the_email_code_and_the_mobile_code_each_verified_on_its_own(): void
     {
         $this->migrate();
         $this->fakeDelivery();
@@ -244,8 +244,11 @@ class SuperAdminSessionTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('switchId', $next->id)
             ->assertSee('Make ' . $next->name . ' the current session')
+            ->assertSee('Email code')
+            ->assertSee('Mobile code')
             ->assertSee('su•••') // the email, masked
-            ->assertSee('+91 ••••••5914');
+            ->assertSee('+91 ••••••5914')
+            ->assertSee('0 of 2 verified');
 
         [$email, $whatsapp] = $this->codes();
         $this->assertMatchesRegularExpression('/^\d{6}$/', (string) $email);
@@ -255,14 +258,26 @@ class SuperAdminSessionTest extends TestCase
         // Asking alone changes nothing.
         $this->assertTrue($first->fresh()->is_current);
 
-        // Both are needed: one code twice, or the two swapped, is refused.
-        $page->set('emailCode', $email)->set('whatsappCode', $email)->call('verifyMakeCurrent')
-            ->assertHasErrors('whatsappCode')->assertHasNoErrors('emailCode');
-        $page->set('emailCode', $whatsapp)->set('whatsappCode', $email)->call('verifyMakeCurrent')
-            ->assertHasErrors(['emailCode', 'whatsappCode']);
+        // The mobile's code is not the email's: refused.
+        $page->set('emailCode', $whatsapp)->call('verifyCode', 'email')
+            ->assertHasErrors('emailCode')->assertSet('verified', ['email' => false, 'whatsapp' => false]);
+
+        // The email's code, verified on its own: the session is NOT current yet.
+        $page->set('emailCode', $email)->call('verifyCode', 'email')
+            ->assertHasNoErrors()
+            ->assertSet('verified', ['email' => true, 'whatsapp' => false])
+            ->assertSet('switchId', $next->id)
+            ->assertSee('1 of 2 verified')
+            ->assertNotDispatched('academic-session-changed');
+        $this->assertTrue($first->fresh()->is_current);
+        $this->assertFalse(SessionChangeOtp::complete(User::first(), $page->get('switchToken'), $next->id), 'One code is not enough.');
+
+        // The email's code again for the mobile: refused.
+        $page->set('whatsappCode', $email)->call('verifyCode', 'whatsapp')->assertHasErrors('whatsappCode');
         $this->assertTrue($first->fresh()->is_current);
 
-        $page->set('emailCode', $email)->set('whatsappCode', $whatsapp)->call('verifyMakeCurrent')
+        // The mobile's code, verified on its own: now both are, and the session is current.
+        $page->set('whatsappCode', $whatsapp)->call('verifyCode', 'whatsapp')
             ->assertHasNoErrors()
             ->assertSet('switchId', null)
             ->assertDispatched('academic-session-changed');
@@ -273,8 +288,28 @@ class SuperAdminSessionTest extends TestCase
         // The codes are used up.
         $this->assertSame(
             ['request' => 'These codes have expired. Close this and click Make current again.'],
-            SessionChangeOtp::verify(User::first(), $page->get('switchToken'), $next->id, $email, $whatsapp),
+            SessionChangeOtp::verifyChannel(User::first(), $page->get('switchToken'), $next->id, 'email', $email),
         );
+    }
+
+    public function test_the_mobile_code_can_come_first_too(): void
+    {
+        $this->migrate();
+        $this->fakeDelivery();
+        $next = $this->nextSession();
+        $this->actingAs($this->mainSuperAdmin());
+
+        $page = Livewire::test(SessionPage::class)->call('askMakeCurrent', $next->id);
+        [$email, $whatsapp] = $this->codes();
+
+        $page->set('whatsappCode', $whatsapp)->call('verifyCode', 'whatsapp')
+            ->assertSet('verified', ['email' => false, 'whatsapp' => true])
+            ->call('resendCode', 'whatsapp')                 // a verified code is not sent again
+            ->assertSet('verified', ['email' => false, 'whatsapp' => true]);
+        $this->assertFalse($next->fresh()->is_current);
+
+        $page->set('emailCode', $email)->call('verifyCode', 'email')->assertSet('switchId', null);
+        $this->assertTrue($next->fresh()->is_current);
     }
 
     public function test_too_many_wrong_codes_end_the_request(): void
@@ -288,16 +323,17 @@ class SuperAdminSessionTest extends TestCase
         $page = Livewire::test(SessionPage::class)->call('askMakeCurrent', $next->id);
         [$email, $whatsapp] = $this->codes();
 
+        $page->set('emailCode', $email)->call('verifyCode', 'email')->assertHasNoErrors();
         for ($i = 1; $i < SessionChangeOtp::MAX_WRONG; $i++) {
-            $page->set('emailCode', $email)->set('whatsappCode', $this->wrong($whatsapp))->call('verifyMakeCurrent')
+            $page->set('whatsappCode', $this->wrong($whatsapp))->call('verifyCode', 'whatsapp')
                 ->assertHasErrors('whatsappCode');
         }
-        $page->set('emailCode', $email)->set('whatsappCode', $this->wrong($whatsapp))->call('verifyMakeCurrent')
+        $page->set('whatsappCode', $this->wrong($whatsapp))->call('verifyCode', 'whatsapp')
             ->assertHasErrors('request')
             ->assertSee('Too many wrong codes');
 
-        // Even the right pair no longer works.
-        $page->set('emailCode', $email)->set('whatsappCode', $whatsapp)->call('verifyMakeCurrent')
+        // Even the right code no longer works.
+        $page->set('whatsappCode', $whatsapp)->call('verifyCode', 'whatsapp')
             ->assertHasErrors('request');
         $this->assertTrue($first->fresh()->is_current);
     }
@@ -375,7 +411,9 @@ class SuperAdminSessionTest extends TestCase
         $this->assertFalse($session->is_current);
 
         [$email, $whatsapp] = $this->codes();
-        $page->set('emailCode', $email)->set('whatsappCode', $whatsapp)->call('verifyMakeCurrent')->assertHasNoErrors();
+        $page->set('emailCode', $email)->call('verifyCode', 'email')->assertHasNoErrors();
+        $this->assertFalse($session->fresh()->is_current);
+        $page->set('whatsappCode', $whatsapp)->call('verifyCode', 'whatsapp')->assertHasNoErrors();
         $this->assertTrue($session->fresh()->is_current);
     }
 
@@ -438,9 +476,10 @@ class SuperAdminSessionTest extends TestCase
         $page->call('backToSessions')->call('openSchools', $current->id)
             ->assertSee('Old Oak School')
             ->assertSee('New Leaf Academy')
-            ->set('schoolJoined', 'new')
-            ->assertSee('New Leaf Academy')
-            ->assertDontSee('Old Oak School');
+            ->set('schoolJoined', 'new');
+        // The list follows the filter (the Biggest Schools card above it shows the whole session).
+        $this->assertSame(['New Leaf Academy'], $page->viewData('schools')->pluck('name')->all());
+        $this->assertSame(1, $page->viewData('schoolTotals')['new']);
     }
 
     public function test_a_schools_data_in_a_session_is_that_sessions(): void
@@ -499,12 +538,17 @@ class SuperAdminSessionTest extends TestCase
             ->call('openSchools', $current->id)
             ->call('openSchoolData', 1)
             ->assertSet('schoolId', 1)
+            ->assertSet('dataTab', 'overview')   // the school's analytics in the session first
             ->assertSee('School Data · ' . $current->name)
-            ->assertSee('Aarav Sharma')
-            ->assertSee('Bela Khan')
-            ->assertDontSee('Future Kid')
+            ->assertSee('School Detail')
+            ->assertSee('Students by Class')
             ->assertSee('₹1,000') // 700 academic + 300 bus, in the session only
             ->assertSee('50%');   // 1 of 2 present in the session
+
+        $page->call('setDataTab', 'students')
+            ->assertSee('Aarav Sharma')
+            ->assertSee('Bela Khan')
+            ->assertDontSee('Future Kid');
 
         $summary = $page->viewData('school')['summary'];
         $this->assertSame(2, $summary['students']);

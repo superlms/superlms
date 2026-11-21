@@ -214,6 +214,67 @@
     .an-meter { height: 8px; border-radius: 999px; background: #eef2f1; overflow: hidden; display: flex; }
     .an-meter > i { display: block; height: 100%; }
 
+    /* ── School Data and Session (2026-11-21): figures in one card split by
+          hairlines, a big figure, a card's foot line, column bars
+          (partials.month-bars), a school's logo tile, and a back button. ── */
+    .sd-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #eef1f0; border: 1px solid #eef1f0; border-radius: 16px; overflow: hidden; }
+    @media (min-width: 640px) { .sd-figs { grid-template-columns: repeat(var(--c, 4), minmax(0, 1fr)); } }
+    /* Two to a row on a phone: an odd last figure takes the whole row (no grey gap). */
+    @media (max-width: 639px) { .sd-figs > div:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+    .sd-figs > div { background: #fff; padding: 11px 14px; min-width: 0; }
+    .sd-figs dt { font-size: 11.5px; color: #6b7c76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sd-figs dd { margin-top: 2px; font-size: 15px; font-weight: 600; color: var(--sk-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sd-figs dd.up { color: #047857; }
+    .sd-figs dd.down { color: #be123c; }
+    .sd-figs dd.words { font-size: 13.5px; font-weight: 500; }
+    .sd-big { font-family: var(--sk-display); font-size: 30px; font-weight: 800; letter-spacing: -.045em; color: var(--sk-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+    .sd-foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0f3f2; font-size: 12.5px; color: #6b7c76; line-height: 1.5; }
+    .sd-foot b { color: var(--sk-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .sd-bars { display: flex; align-items: flex-end; gap: 6px; padding-top: 22px; }
+    .sd-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+    .sd-bar-t { position: relative; width: 100%; max-width: 30px; height: var(--h); display: flex; align-items: flex-end; border-radius: 8px; background: #f3f6f5; }
+    .sd-bar-t > i { display: block; width: 100%; border-radius: 8px; background: #99e0d3; transition: background .2s; }
+    .sd-bar.is-now .sd-bar-t > i { background: #0d9488; }
+    .sd-bar:hover .sd-bar-t > i { background: #0f766e; }
+    .sd-bar-tip { position: absolute; left: 50%; bottom: calc(var(--p) + 5px); transform: translate(-50%, 4px); padding: 2px 7px; border-radius: 999px; background: #0c2620; color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 2; }
+    .sd-bar:hover .sd-bar-tip { opacity: 1; transform: translate(-50%, 0); }
+    .sd-bar > b { font-size: 10.5px; font-weight: 500; color: #95a39e; white-space: nowrap; overflow: hidden; max-width: 100%; text-overflow: clip; }
+    @media (max-width: 479px) { .sd-bars.sd-12 .sd-bar:nth-child(even) > b { visibility: hidden; } }
+    .sd-logo { width: 64px; height: 64px; border-radius: 18px; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--sk-teal-50); color: var(--sk-teal-700); font-family: var(--sk-display); font-size: 24px; font-weight: 800; border: 1px solid #eef1f0; }
+    .sd-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .sd-logo.sm { width: 36px; height: 36px; border-radius: 11px; font-size: 13px; }
+    .sk-back { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid #e3e8e6; background: #fff; display: grid; place-items: center; color: #44544f; transition: background .2s, border-color .2s, color .2s; }
+    .sk-back:hover { border-color: var(--sk-teal); color: var(--sk-teal-700); background: var(--sk-teal-50); }
+    .sk-back svg { width: 16px; height: 16px; }
+    .an-chip .n { font-size: 11px; font-weight: 600; padding: 0 7px; border-radius: 999px; background: #f0f3f2; color: #6b7c76; font-variant-numeric: tabular-nums; }
+    .an-chip.on .n { background: rgba(255,255,255,.22); color: #fff; }
+
+    /* A list in a card, in Home's look: quiet head, hairline rows. */
+    .sk-table { width: 100%; font-size: 13.5px; color: #2b433b; }
+    .sk-table thead th { padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e; text-align: left; white-space: nowrap; background: #fafbfb; border-bottom: 1px solid #eef1f0; }
+    .sk-table thead th:first-child { padding-left: 20px; }
+    .sk-table thead th:last-child { padding-right: 20px; }
+    .sk-table tbody td { padding: 12px; border-top: 1px solid #f0f3f2; vertical-align: middle; }
+    .sk-table tbody tr:first-child td { border-top: 0; }
+    .sk-table tbody td:first-child { padding-left: 20px; }
+    .sk-table tbody td:last-child { padding-right: 20px; }
+    .sk-table tbody tr { transition: background .15s; }
+    .sk-table tbody tr:hover { background: #fbfdfc; }
+    .sk-table tbody tr.is-current { background: #f5fcfa; }
+    .sk-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .sk-go { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1px solid #e3e8e6; background: #fff; display: inline-grid; place-items: center; color: var(--sk-teal-700); transition: background .2s, border-color .2s, color .2s; }
+    .sk-go:hover { background: var(--sk-teal); border-color: var(--sk-teal); color: #fff; }
+    .sk-go svg { width: 15px; height: 15px; }
+    .sk-ic { width: 32px; height: 32px; border-radius: 50%; display: inline-grid; place-items: center; color: #6b7c76; transition: background .2s, color .2s; }
+    .sk-ic:hover { background: #f3f6f5; color: var(--sk-ink); }
+    .sk-ic.rose:hover { background: #fff1f2; color: #e11d48; }
+    .sk-ic:disabled { opacity: .35; cursor: not-allowed; }
+    .sk-ic svg { width: 16px; height: 16px; }
+    .sk-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid #eef1f0; }
+    .sk-filter .sk-search { flex: 1 1 220px; max-width: 340px; }
+    .sk-filter .sk-search input { height: 36px; border-radius: 999px; font-size: 13.5px; }
+    .sk-filter .sk-select { height: 36px; font-size: 13px; }
+
     @media (prefers-reduced-motion: reduce) { .sk-tile { animation: none; } .sk-pill.live::before { animation: none; } }
 </style>
 @endonce

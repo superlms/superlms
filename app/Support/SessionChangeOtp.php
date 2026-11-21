@@ -11,9 +11,11 @@ use Illuminate\Support\Str;
 
 /**
  * Making another academic session the current one (Super Admin → Session)
- * takes two codes, both entered on one screen: one sent to the Super Admin's
- * registered email, a different one on WhatsApp to the account's primary
- * number (Profile → OTP Numbers). Neither code alone is enough.
+ * takes two codes, each verified on its own (2026-11-21): one sent to the
+ * Super Admin's registered email, a different one on WhatsApp to the
+ * account's primary mobile number (Profile → OTP Numbers). Only when both
+ * have been verified does the session become current — neither alone is
+ * enough.
  *
  * The codes go to the main Super Admin: the account itself when it is the one
  * signed in, else (a sub super-admin) the first super-admin account — so a
@@ -96,6 +98,7 @@ class SessionChangeOtp
             'wrong'       => 0,
             'email'       => null,
             'whatsapp'    => null,
+            'verified'    => ['email' => false, 'whatsapp' => false],
         ];
 
         $delivery = [];
@@ -119,6 +122,10 @@ class SessionChangeOtp
 
         if (!$request || !in_array($channel, self::CHANNELS, true)) {
             return ['ok' => false, 'error' => 'This request has expired. Start again.', 'wait' => 0];
+        }
+
+        if (!empty($request['verified'][$channel])) {
+            return ['ok' => false, 'error' => 'This code is already verified.', 'wait' => 0];
         }
 
         if ($wait = self::waitFor($request, $channel)) {
@@ -146,35 +153,36 @@ class SessionChangeOtp
     }
 
     /**
-     * Check both codes for $sessionId. Returns [] when both are right — the
-     * request is used up — else the errors by channel ('email', 'whatsapp')
-     * or 'request' when it is gone.
+     * Check ONE channel's code for $sessionId, on its own. Returns [] when it
+     * is right — that channel is marked verified on the request — else the
+     * error for that channel ('email' or 'whatsapp', with 'tries' left), or
+     * 'request' when the request is gone. A wrong code on either channel
+     * counts against the same request.
      */
-    public static function verify(User $actor, ?string $token, int $sessionId, string $emailCode, string $whatsAppCode): array
+    public static function verifyChannel(User $actor, ?string $token, int $sessionId, string $channel, string $entered): array
     {
         $request = self::request($actor, $token);
 
-        if (!$request || (int) $request['session_id'] !== $sessionId) {
+        if (!$request || (int) $request['session_id'] !== $sessionId || !in_array($channel, self::CHANNELS, true)) {
             return ['request' => 'These codes have expired. Close this and click Make current again.'];
         }
 
-        $entered = ['email' => $emailCode, 'whatsapp' => $whatsAppCode];
-        $errors  = [];
-
-        foreach (self::CHANNELS as $channel) {
-            $code = $request[$channel] ?? null;
-
-            if (!$code) {
-                $errors[$channel] = 'No code has gone yet — click Resend.';
-            } elseif (now()->timestamp > $code['expires_at']) {
-                $errors[$channel] = 'This code has expired — click Resend for a new one.';
-            } elseif (!hash_equals($code['hash'], self::hash($entered[$channel]))) {
-                $errors[$channel] = 'Wrong code.';
-            }
+        if (!empty($request['verified'][$channel])) {
+            return [];
         }
 
-        if (!$errors) {
-            Cache::forget(self::key($token));
+        $code  = $request[$channel] ?? null;
+        $error = match (true) {
+            !$code                                      => 'No code has gone yet — click Resend.',
+            now()->timestamp > $code['expires_at']      => 'This code has expired — click Resend for a new one.',
+            !hash_equals($code['hash'], self::hash($entered)) => 'Wrong code.',
+            default                                     => null,
+        };
+
+        if ($error === null) {
+            $request['verified'][$channel] = true;
+            self::put($token, $request);
+
             return [];
         }
 
@@ -188,7 +196,42 @@ class SessionChangeOtp
         self::put($token, $request);
         $left = self::MAX_WRONG - $request['wrong'];
 
-        return $errors + ['tries' => $left . ' ' . ($left === 1 ? 'try' : 'tries') . ' left.'];
+        return [$channel => $error, 'tries' => $left . ' ' . ($left === 1 ? 'try' : 'tries') . ' left.'];
+    }
+
+    /** Which channels' codes have been verified on the request: ['email' => bool, 'whatsapp' => bool]. */
+    public static function verified(User $actor, ?string $token): array
+    {
+        $request = self::request($actor, $token);
+
+        return [
+            'email'    => (bool) ($request['verified']['email'] ?? false),
+            'whatsapp' => (bool) ($request['verified']['whatsapp'] ?? false),
+        ];
+    }
+
+    /**
+     * The last step: true only when BOTH codes of the request for $sessionId
+     * have been verified — the request is then used up. Anything else is false
+     * and changes nothing.
+     */
+    public static function complete(User $actor, ?string $token, int $sessionId): bool
+    {
+        $request = self::request($actor, $token);
+
+        if (!$request || (int) $request['session_id'] !== $sessionId) {
+            return false;
+        }
+
+        foreach (self::CHANNELS as $channel) {
+            if (empty($request['verified'][$channel])) {
+                return false;
+            }
+        }
+
+        Cache::forget(self::key($token));
+
+        return true;
     }
 
     public static function forget(?string $token): void

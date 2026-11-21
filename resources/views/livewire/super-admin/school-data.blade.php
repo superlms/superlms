@@ -1,39 +1,19 @@
-<div class="sa-skin sa-home min-h-screen">
+<div class="sa-skin sa-home min-h-screen"
+    x-data="{
+        tabs: ['analytics', 'functionalities'],
+        tab: 'analytics',
+        init() { const h = location.hash.slice(1); if (this.tabs.includes(h)) this.tab = h; },
+        go(t) { this.tab = t; history.replaceState(null, '', '#' + t); },
+    }">
     @include('livewire.super-admin.partials.dash-styles')
     @include('livewire.super-admin.partials.home-skin')
 
-    {{-- School Data in the Home's analytics look (2026-11-21): the School
-         Detail, the analytics of everything the school keeps, two cards to a
-         row, then every functionality with its PDF, two to a row. No lists
-         of records on the page (the user had them taken off). --}}
+    {{-- School Data in the Home's analytics look (2026-11-21), in two tabs as
+         on Analytics: Analytics — the School Detail and the analytics of
+         everything the school keeps, two cards to a row; Functionalities —
+         every functionality with its PDF, two to a row. No lists of records
+         on the page (the user had them taken off). --}}
     <style>
-        .sd-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #eef1f0; border: 1px solid #eef1f0; border-radius: 16px; overflow: hidden; }
-        @media (min-width: 640px) { .sd-figs { grid-template-columns: repeat(var(--c, 4), minmax(0, 1fr)); } }
-        .sd-figs > div { background: #fff; padding: 11px 14px; min-width: 0; }
-        .sd-figs dt { font-size: 11.5px; color: #6b7c76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sd-figs dd { margin-top: 2px; font-size: 15px; font-weight: 600; color: var(--sk-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sd-figs dd.up { color: #047857; }
-        .sd-figs dd.down { color: #be123c; }
-        .sd-figs dd.words { font-size: 13.5px; font-weight: 500; }
-
-        .sd-big { font-family: var(--sk-display); font-size: 30px; font-weight: 800; letter-spacing: -.045em; color: var(--sk-ink); line-height: 1; font-variant-numeric: tabular-nums; }
-        .sd-foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0f3f2; font-size: 12.5px; color: #6b7c76; line-height: 1.5; }
-        .sd-foot b { color: var(--sk-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-
-        .sd-bars { display: flex; align-items: flex-end; gap: 6px; padding-top: 22px; }
-        .sd-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
-        .sd-bar-t { position: relative; width: 100%; max-width: 30px; height: var(--h); display: flex; align-items: flex-end; border-radius: 8px; background: #f3f6f5; }
-        .sd-bar-t > i { display: block; width: 100%; border-radius: 8px; background: #99e0d3; transition: background .2s; }
-        .sd-bar.is-now .sd-bar-t > i { background: #0d9488; }
-        .sd-bar:hover .sd-bar-t > i { background: #0f766e; }
-        .sd-bar-tip { position: absolute; left: 50%; bottom: calc(var(--p) + 5px); transform: translate(-50%, 4px); padding: 2px 7px; border-radius: 999px; background: #0c2620; color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 2; }
-        .sd-bar:hover .sd-bar-tip { opacity: 1; transform: translate(-50%, 0); }
-        .sd-bar > b { font-size: 10.5px; font-weight: 500; color: #95a39e; white-space: nowrap; overflow: hidden; max-width: 100%; text-overflow: clip; }
-        @media (max-width: 479px) { .sd-bars.sd-12 .sd-bar:nth-child(even) > b { visibility: hidden; } }
-
-        .sd-logo { width: 64px; height: 64px; border-radius: 18px; flex: none; display: grid; place-items: center; overflow: hidden; background: var(--sk-teal-50); color: var(--sk-teal-700); font-family: var(--sk-display); font-size: 24px; font-weight: 800; border: 1px solid #eef1f0; }
-        .sd-logo img { width: 100%; height: 100%; object-fit: cover; }
-
         .sd-fn-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px 20px 20px; }
         @media (min-width: 768px) { .sd-fn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .sd-fn { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 12px 12px 14px; border: 1px solid #eef1f0; border-radius: 16px; background: #fff; transition: border-color .2s, box-shadow .25s, background .2s; }
@@ -110,7 +90,19 @@
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-5">
+    @if ($org)
+        {{-- The two tabs, as on Analytics: a chip each; the open one is kept in the address (#functionalities). --}}
+        <nav class="an-chips" aria-label="School Data sections">
+            <button type="button" class="an-chip" :class="tab === 'analytics' && 'on'" x-on:click="go('analytics')" :aria-pressed="tab === 'analytics'" data-sd-chip="analytics">
+                <x-icon name="chart-bar" /> Analytics
+            </button>
+            <button type="button" class="an-chip" :class="tab === 'functionalities' && 'on'" x-on:click="go('functionalities')" :aria-pressed="tab === 'functionalities'" data-sd-chip="functionalities">
+                <x-icon name="squares-2x2" /> Functionalities <span class="n">{{ count(\App\Support\SchoolPdf\Exporter::SECTIONS) }}</span>
+            </button>
+        </nav>
+    @endif
+
+    <div class="p-4 sm:p-6 pt-4 sm:pt-5">
         @if (!$org)
             <div class="sa-card px-6 py-16 text-center">
                 <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
@@ -129,6 +121,9 @@
                 $use = $an['usage'];
                 $feePct = $pctOf($fee['collected'], $fee['totalFee']);
             @endphp
+
+            {{-- ══════════════════ TAB 1 — ANALYTICS ══════════════════ --}}
+            <section class="space-y-5" data-sd="analytics" x-show="tab === 'analytics'" style="display: none">
 
             {{-- ══════════ School Detail ══════════ --}}
             <div class="sa-card p-5 sm:p-6" data-school-detail>
@@ -376,9 +371,13 @@
                 </div>
             </div>
 
-            {{-- ══════════ Functionalities — each with its PDF, two to a row ══════════
-                 All the school's records there, plainly laid out
-                 (App\Support\SchoolPdf). Send to Mail, up top, mails them all. --}}
+            </section>
+
+            {{-- ══════════════════ TAB 2 — FUNCTIONALITIES ══════════════════
+                 Each with its PDF, two to a row: all the school's records
+                 there, plainly laid out (App\Support\SchoolPdf). Send to Mail,
+                 up top, mails them all. --}}
+            <section data-sd="functionalities" x-show="tab === 'functionalities'" style="display: none">
             @php
                 $sections = \App\Support\SchoolPdf\Exporter::SECTIONS;
                 $mailAt   = !empty($mailStatus['at']) ? \Carbon\Carbon::parse($mailStatus['at'])->timezone(config('app.timezone'))->format('d M, h:i A') : null;
@@ -433,6 +432,7 @@
                     @endforeach
                 </ul>
             </div>
+            </section>
         @endif
     </div>
 </div>

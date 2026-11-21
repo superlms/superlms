@@ -1,168 +1,246 @@
-<div class="min-h-screen bg-gray-50">
+<div class="sa-skin sa-home min-h-screen">
+    @include('livewire.super-admin.partials.dash-styles')
+    @include('livewire.super-admin.partials.home-skin')
+
+    {{-- Super Admin → Session in the Home's analytics look (2026-11-21): every
+         screen — the sessions, a session's schools, a school's data in it, the
+         Add/Edit panel and Make current — white cards, teal, Home's header. --}}
+    <style>
+        .ss-mc { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid #e3e8e6; background: #fff; color: #44544f; font-size: 12.5px; font-weight: 600; white-space: nowrap; transition: background .2s, border-color .2s, color .2s; }
+        .ss-mc:hover { border-color: var(--sk-teal); color: var(--sk-teal-700); background: var(--sk-teal-50); }
+        .ss-mc:disabled { opacity: .6; cursor: wait; }
+        .ss-mc svg { width: 14px; height: 14px; }
+        .ss-cur { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--sk-teal); color: #fff; font-size: 12px; font-weight: 600; }
+        .ss-cur svg { width: 13px; height: 13px; }
+        .ss-ic { width: 36px; height: 36px; border-radius: 12px; flex: none; display: grid; place-items: center; background: #f3f6f5; color: #6b7c76; }
+        .ss-ic.on { background: var(--sk-teal); color: #fff; }
+        .ss-ic svg { width: 17px; height: 17px; }
+
+        /* Make current: the two codes, each verified on its own. */
+        .ss-otp { border: 1px solid #eef1f0; border-radius: 18px; padding: 14px; transition: border-color .2s, background .2s; }
+        .ss-otp.done { border-color: #b1e6db; background: #f5fcfa; }
+        .ss-otp-ic { width: 36px; height: 36px; border-radius: 12px; flex: none; display: grid; place-items: center; background: var(--sk-teal-50); color: var(--sk-teal-700); }
+        .ss-otp.done .ss-otp-ic { background: var(--sk-teal); color: #fff; }
+        .ss-otp-ic svg { width: 18px; height: 18px; }
+        .ss-code { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #d6dedb; background: #fff; text-align: center; font-size: 18px; font-weight: 600; letter-spacing: .45em; font-variant-numeric: tabular-nums; color: var(--sk-ink); outline: none; transition: border-color .2s, box-shadow .2s; }
+        .ss-code:focus { border-color: var(--sk-teal); box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
+        .ss-code.bad { border-color: #fda4af; background: #fff7f8; }
+        .ss-step { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #f3f6f5; color: #6b7c76; }
+        .ss-step.done { background: var(--sk-teal-50); color: var(--sk-teal-700); }
+        .ss-step svg { width: 13px; height: 13px; }
+        .ss-field { width: 100%; height: 42px; padding: 0 16px; border-radius: 999px; border: 1px solid #d6dedb; background: #fff; font-size: 14px; color: var(--sk-ink); outline: none; transition: border-color .2s, box-shadow .2s; }
+        .ss-field:focus { border-color: var(--sk-teal); box-shadow: 0 0 0 4px rgba(13,148,136,.12); }
+    </style>
+
     @php
         $current = $sessions->firstWhere('is_current', true);
-        $th = 'px-3 py-2.5 text-left text-[11px] font-medium text-gray-500 truncate';
-        $td = 'px-3 py-3 truncate';
-        $arrow = 'inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors flex-shrink-0';
+        $num     = fn ($v) => number_format((float) $v);
+        $pctOf   = fn ($part, $whole) => $whole > 0 ? round($part / $whole * 100, 1) : 0;
         $statusChip = [
-            'running'   => ['Running', 'bg-emerald-50 text-emerald-700'],
-            'upcoming'  => ['Upcoming', 'bg-amber-50 text-amber-700'],
-            'completed' => ['Completed', 'bg-gray-100 text-gray-600'],
+            'running'   => ['Running', 'green'],
+            'upcoming'  => ['Upcoming', 'amber'],
+            'completed' => ['Completed', ''],
         ];
+        $chevron = '<svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>';
+        $backIcon = '<svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>';
+        $lockIcon = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>';
+        $tickIcon = '<svg fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
     @endphp
 
     @if (!$open)
         {{-- ══════════════════════ THE SESSIONS ══════════════════════ --}}
         @php
             $byStatus = $sessions->groupBy(fn ($s) => $s->status());
-            $stats = [
-                ['Sessions', number_format($sessions->count()), 'text-gray-800', null],
-                ['Running', number_format(($byStatus['running'] ?? collect())->count()), 'text-emerald-600', null],
-                ['Upcoming', number_format(($byStatus['upcoming'] ?? collect())->count()), 'text-amber-600', null],
-                ['Completed', number_format(($byStatus['completed'] ?? collect())->count()), 'text-gray-500', null],
-                ['Current', $current?->name ?? '—', 'text-blue-700', null],
-            ];
+            $curCount = $current ? ($counts[$current->id] ?? ['total' => 0, 'new' => 0]) : null;
+            if ($current) {
+                $span    = (int) max(1, abs((int) $current->starts_on->copy()->startOfDay()->diffInDays($current->ends_on->copy()->startOfDay())) + 1);
+                $gone    = (int) max(0, min($span, (int) $current->starts_on->copy()->startOfDay()->diffInDays(now()->startOfDay(), false) + 1));
+                $daysPct = round($gone / $span * 100);
+                $left    = max(0, $span - $gone);
+            }
+            $perSession = $sessions->sortBy('starts_on')->map(fn ($s) => ['label' => $s->name, 'count' => $counts[$s->id]['total'] ?? 0])->values()->all();
         @endphp
 
-        <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-            @include('livewire.super-admin.partials.list-header', [
-                'title' => 'Session', 'stats' => $stats, 'addLabel' => 'Add Session', 'addAction' => 'openCreate',
-            ])
+        <div class="sk-head">
+            <div class="sk-title">
+                <h1>Session</h1>
+                <p class="hidden sm:block">The academic sessions and the current one</p>
+            </div>
+            <div class="sk-right">
+                <span class="sk-pill" style="height: 36px; padding: 0 14px">Current: <b style="color: var(--sk-teal-700)">{{ $current?->name ?? '—' }}</b></span>
+                <button type="button" wire:click="openCreate" class="sk-cta">
+                    <x-icon name="plus" class="w-4 h-4" /> Add Session
+                </button>
+            </div>
         </div>
 
-        <div class="p-4 sm:p-6 space-y-4">
-            {{-- ── DESKTOP TABLE — in the Schools list's look ── --}}
-            <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div class="overflow-x-auto rounded-xl">
-                    <table class="w-full min-w-[900px] table-fixed text-[13px] text-gray-700">
-                        <thead>
-                            <tr class="bg-gray-50/80">
-                                <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
-                                <th class="{{ $th }} w-[22%]">Session</th>
-                                <th class="{{ $th }}">Duration</th>
-                                <th class="{{ $th }} w-[120px]">Schools</th>
-                                <th class="{{ $th }} w-[110px]">Status</th>
-                                <th class="{{ $th }} w-[150px]">Current Session</th>
-                                <th class="px-2 py-2.5 w-[140px] text-right text-[11px] font-medium text-gray-500 rounded-tr-xl"><span class="pr-2">Actions</span></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($sessions as $i => $session)
-                                @php [$statusWord, $statusClass] = $statusChip[$session->status()]; $c = $counts[$session->id]; @endphp
-                                <tr wire:key="session-{{ $session->id }}" class="{{ $session->is_current ? 'bg-blue-50/40' : 'hover:bg-gray-50/70' }} transition-colors">
-                                    <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $i + 1 }}</td>
-                                    <td class="{{ $td }}">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            <span class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 {{ $session->is_current ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500' }}">
-                                                <x-icon name="calendar-days" class="w-4 h-4" />
-                                            </span>
-                                            <div class="min-w-0">
-                                                <p class="font-medium text-gray-900 truncate leading-tight">{{ $session->name }}</p>
-                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">{{ $session->months() }} {{ $session->months() === 1 ? 'month' : 'months' }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="{{ $td }} text-gray-600">{{ $session->starts_on->format('d M Y') }} – {{ $session->ends_on->format('d M Y') }}</td>
-                                    <td class="{{ $td }}">
-                                        <span class="font-medium text-gray-900 tabular-nums">{{ number_format($c['total']) }}</span>
-                                        @if ($c['new'] > 0)
-                                            <span class="ml-1 text-[11px] font-medium text-emerald-600 tabular-nums" title="Registered during this session">+{{ number_format($c['new']) }} new</span>
-                                        @endif
-                                    </td>
-                                    <td class="{{ $td }}"><span class="text-xs font-medium px-2 py-0.5 rounded-full {{ $statusClass }}">{{ $statusWord }}</span></td>
-                                    <td class="{{ $td }}">
-                                        @if ($session->is_current)
-                                            <span class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-700">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                                Current
-                                            </span>
-                                        @else
-                                            <button wire:click="askMakeCurrent({{ $session->id }})" wire:loading.attr="disabled" wire:target="askMakeCurrent({{ $session->id }})"
-                                                class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-60">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                                <span wire:loading.remove wire:target="askMakeCurrent({{ $session->id }})">Make current</span>
-                                                <span wire:loading wire:target="askMakeCurrent({{ $session->id }})">Sending codes…</span>
-                                            </button>
-                                        @endif
-                                    </td>
-                                    <td class="px-2 py-3">
-                                        <div class="flex items-center justify-end gap-1">
-                                            <button wire:click="edit({{ $session->id }})" title="Edit" aria-label="Edit"
-                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                                            <button wire:click="confirmDelete({{ $session->id }})" title="{{ $session->is_current ? 'The current session can’t be deleted' : 'Delete' }}" aria-label="Delete"
-                                                class="p-1.5 rounded-lg transition-colors {{ $session->is_current ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50' }}"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                                            <button wire:click="openSchools({{ $session->id }})" title="Schools in {{ $session->name }}" aria-label="Schools in {{ $session->name }}" class="{{ $arrow }} ml-1">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="px-6 py-16 text-center">
-                                        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
-                                            <x-icon name="calendar-days" class="w-5 h-5" />
-                                        </div>
-                                        <p class="text-sm text-gray-500">No sessions yet. Click <strong>Add Session</strong> to add the first one.</p>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+        <div class="p-4 sm:p-6 space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {{-- The current session and how far into it we are --}}
+                <div class="sa-card p-5 min-w-0" data-ss-current>
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Current Session</h3>
+                            <p class="sa-card-sub">The one every panel's top bar shows</p>
+                        </div>
+                        @if ($current)
+                            @php [$cw, $ct] = $statusChip[$current->status()]; @endphp
+                            <span class="an-tag {{ $ct }}">{{ $cw }}</span>
+                        @endif
+                    </div>
+                    @if ($current)
+                        <div class="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <p class="sd-big">{{ $current->name }}</p>
+                            <p class="text-xs text-gray-400">{{ $current->starts_on->format('d M Y') }} – {{ $current->ends_on->format('d M Y') }}</p>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between text-xs text-gray-500">
+                            <span>{{ $daysPct }}% of the session gone</span>
+                            <span class="tabular-nums">{{ $num($left) }} {{ $left === 1 ? 'day' : 'days' }} left</span>
+                        </div>
+                        <div class="an-meter mt-1.5" style="height: 10px"><i style="width: {{ $daysPct }}%; background: #0d9488"></i></div>
+                        <dl class="sd-figs mt-4">
+                            <div><dt>Schools</dt><dd>{{ $num($curCount['total']) }}</dd></div>
+                            <div><dt>New in it</dt><dd class="up">{{ $num($curCount['new']) }}</dd></div>
+                            <div><dt>Months</dt><dd>{{ $current->months() }}</dd></div>
+                            <div><dt>Days</dt><dd>{{ $num($span) }}</dd></div>
+                        </dl>
+                    @else
+                        <p class="text-sm text-gray-400 py-10 text-center">No session is current yet. Click <b>Make current</b> on one below.</p>
+                    @endif
+                </div>
+
+                {{-- All the sessions, and the schools in each --}}
+                <div class="sa-card p-5 min-w-0" data-ss-all>
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Sessions</h3>
+                            <p class="sa-card-sub">Schools on SuperLMS by each session's last day</p>
+                        </div>
+                        <span class="sa-chip">{{ $num($sessions->count()) }} {{ $sessions->count() === 1 ? 'session' : 'sessions' }}</span>
+                    </div>
+                    <dl class="sd-figs mt-4" style="--c: 3">
+                        <div><dt>Running</dt><dd class="up">{{ $num(($byStatus['running'] ?? collect())->count()) }}</dd></div>
+                        <div><dt>Upcoming</dt><dd>{{ $num(($byStatus['upcoming'] ?? collect())->count()) }}</dd></div>
+                        <div><dt>Completed</dt><dd>{{ $num(($byStatus['completed'] ?? collect())->count()) }}</dd></div>
+                    </dl>
+                    <div class="mt-5">
+                        @include('livewire.super-admin.partials.an-bars', ['rows' => $perSession, 'unit' => 'schools', 'empty' => 'No sessions yet'])
+                    </div>
                 </div>
             </div>
 
-            {{-- ── MOBILE CARDS ── --}}
-            <div class="md:hidden space-y-3">
-                @forelse ($sessions as $i => $session)
-                    @php [$statusWord, $statusClass] = $statusChip[$session->status()]; $c = $counts[$session->id]; @endphp
-                    <div class="bg-white rounded-xl border {{ $session->is_current ? 'border-blue-200' : 'border-gray-200' }} overflow-hidden" wire:key="session-m-{{ $session->id }}">
-                        <div class="flex items-center gap-3 p-4 border-b border-gray-100">
-                            <span class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 {{ $session->is_current ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500' }}">
-                                <x-icon name="calendar-days" class="w-5 h-5" />
-                            </span>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $session->name }} @if ($session->is_current)<span class="ml-1 text-[11px] font-semibold text-blue-700">· Current</span>@endif</p>
-                                <p class="text-xs text-gray-400 truncate">{{ $session->starts_on->format('d M Y') }} – {{ $session->ends_on->format('d M Y') }}</p>
-                            </div>
-                            <button wire:click="openSchools({{ $session->id }})" aria-label="Schools in {{ $session->name }}" class="{{ $arrow }}">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                            </button>
-                        </div>
-                        <div class="px-4 py-3 grid grid-cols-3 gap-2 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-400">Schools</p>
-                                <p class="text-gray-700 font-medium tabular-nums">{{ number_format($c['total']) }}@if ($c['new'] > 0) <span class="text-[11px] text-emerald-600">+{{ $c['new'] }}</span>@endif</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-400">Months</p>
-                                <p class="text-gray-700 tabular-nums">{{ $session->months() }}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-400">Status</p>
-                                <span class="text-xs font-medium px-2 py-0.5 rounded-full {{ $statusClass }}">{{ $statusWord }}</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
-                            @unless ($session->is_current)
-                                <button wire:click="askMakeCurrent({{ $session->id }})" class="flex-1 py-2.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Make current</button>
-                            @endunless
-                            <button wire:click="edit({{ $session->id }})" class="flex-1 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Edit</button>
-                            @unless ($session->is_current)
-                                <button wire:click="confirmDelete({{ $session->id }})" class="flex-1 py-2.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Delete</button>
-                            @endunless
-                        </div>
+            {{-- ── Every session ── --}}
+            <div class="sa-card overflow-hidden" data-ss-list>
+                <div class="px-5 pt-5 pb-4 flex flex-wrap items-start justify-between gap-2 border-b border-gray-100">
+                    <div class="min-w-0">
+                        <h3 class="sa-card-title">All Sessions</h3>
+                        <p class="sa-card-sub">Make one current, edit or delete it — › lists its schools</p>
                     </div>
-                @empty
-                    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                        <p class="text-gray-500 text-sm">No sessions yet. Tap <strong>Add Session</strong> to add the first one.</p>
+                </div>
+
+                @if ($sessions->isEmpty())
+                    <div class="px-6 py-16 text-center">
+                        <span class="ss-ic mx-auto mb-3"><x-icon name="calendar-days" /></span>
+                        <p class="text-sm text-gray-500">No sessions yet. Click <strong>Add Session</strong> to add the first one.</p>
                     </div>
-                @endforelse
+                @else
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="sk-table min-w-[860px]">
+                            <thead>
+                                <tr>
+                                    <th class="w-12">#</th>
+                                    <th>Session</th>
+                                    <th>Duration</th>
+                                    <th>Schools</th>
+                                    <th>Status</th>
+                                    <th>Current Session</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($sessions as $i => $session)
+                                    @php [$statusWord, $statusTone] = $statusChip[$session->status()]; $c = $counts[$session->id]; @endphp
+                                    <tr wire:key="session-{{ $session->id }}" class="{{ $session->is_current ? 'is-current' : '' }}">
+                                        <td class="text-gray-400 tabular-nums">{{ $i + 1 }}</td>
+                                        <td>
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <span class="ss-ic {{ $session->is_current ? 'on' : '' }}"><x-icon name="calendar-days" /></span>
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold text-gray-900 truncate">{{ $session->name }}</p>
+                                                    <p class="text-xs text-gray-400">{{ $session->months() }} {{ $session->months() === 1 ? 'month' : 'months' }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-gray-600 whitespace-nowrap">{{ $session->starts_on->format('d M Y') }} – {{ $session->ends_on->format('d M Y') }}</td>
+                                        <td class="whitespace-nowrap">
+                                            <span class="font-semibold text-gray-900 tabular-nums">{{ $num($c['total']) }}</span>
+                                            @if ($c['new'] > 0)
+                                                <span class="an-tag green ml-1" title="Registered during this session">+{{ $num($c['new']) }} new</span>
+                                            @endif
+                                        </td>
+                                        <td><span class="an-tag {{ $statusTone }}">{{ $statusWord }}</span></td>
+                                        <td>
+                                            @if ($session->is_current)
+                                                <span class="ss-cur">{!! $tickIcon !!} Current</span>
+                                            @else
+                                                <button type="button" wire:click="askMakeCurrent({{ $session->id }})" wire:loading.attr="disabled" wire:target="askMakeCurrent({{ $session->id }})" class="ss-mc">
+                                                    {!! $lockIcon !!}
+                                                    <span wire:loading.remove wire:target="askMakeCurrent({{ $session->id }})">Make current</span>
+                                                    <span wire:loading wire:target="askMakeCurrent({{ $session->id }})">Sending codes…</span>
+                                                </button>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="flex items-center justify-end gap-1">
+                                                <button type="button" wire:click="edit({{ $session->id }})" title="Edit" aria-label="Edit" class="sk-ic"><x-icon name="pencil-square" /></button>
+                                                <button type="button" wire:click="confirmDelete({{ $session->id }})" title="{{ $session->is_current ? 'The current session can’t be deleted' : 'Delete' }}" aria-label="Delete"
+                                                    class="sk-ic rose" @disabled($session->is_current)><x-icon name="trash" /></button>
+                                                <button type="button" wire:click="openSchools({{ $session->id }})" title="Schools in {{ $session->name }}" aria-label="Schools in {{ $session->name }}" class="sk-go ml-1">{!! $chevron !!}</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Phones: a row each --}}
+                    <div class="md:hidden divide-y divide-gray-100">
+                        @foreach ($sessions as $session)
+                            @php [$statusWord, $statusTone] = $statusChip[$session->status()]; $c = $counts[$session->id]; @endphp
+                            <div class="px-4 py-4" wire:key="session-m-{{ $session->id }}">
+                                <div class="flex items-center gap-3">
+                                    <span class="ss-ic {{ $session->is_current ? 'on' : '' }}"><x-icon name="calendar-days" /></span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold text-gray-900 truncate">{{ $session->name }}</p>
+                                        <p class="text-xs text-gray-400 truncate">{{ $session->starts_on->format('d M Y') }} – {{ $session->ends_on->format('d M Y') }}</p>
+                                    </div>
+                                    <button type="button" wire:click="openSchools({{ $session->id }})" aria-label="Schools in {{ $session->name }}" class="sk-go">{!! $chevron !!}</button>
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                    <span class="an-tag {{ $statusTone }}">{{ $statusWord }}</span>
+                                    <span class="an-tag">{{ $num($c['total']) }} schools</span>
+                                    @if ($session->is_current)
+                                        <span class="ss-cur">{!! $tickIcon !!} Current</span>
+                                    @else
+                                        <button type="button" wire:click="askMakeCurrent({{ $session->id }})" class="ss-mc">{!! $lockIcon !!} Make current</button>
+                                    @endif
+                                    <span class="ml-auto flex items-center gap-1">
+                                        <button type="button" wire:click="edit({{ $session->id }})" aria-label="Edit" class="sk-ic"><x-icon name="pencil-square" /></button>
+                                        @unless ($session->is_current)
+                                            <button type="button" wire:click="confirmDelete({{ $session->id }})" aria-label="Delete" class="sk-ic rose"><x-icon name="trash" /></button>
+                                        @endunless
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
 
             <p class="text-xs text-gray-400 flex items-start gap-1.5">
-                <svg class="w-3.5 h-3.5 mt-px flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                The current session is the one every panel's top bar shows. Making a session current asks for two codes — one sent to the Super Admin's registered email, one on WhatsApp. The › on a session lists its schools.
+                <span class="w-3.5 h-3.5 mt-px flex-shrink-0">{!! $lockIcon !!}</span>
+                The current session is the one every panel's top bar shows. Making a session current asks for two codes, each verified on its own — one sent to the Super Admin's registered email, one on WhatsApp to the mobile. The › on a session lists its schools.
             </p>
         </div>
     @elseif ($school)
@@ -172,154 +250,157 @@
         {{-- ══════════════════════ ONE SESSION'S SCHOOLS ══════════════════════ --}}
         @php
             $filtered = $schoolSearch !== '' || $schoolJoined !== '' || $schoolStatus !== '' || $schoolSort !== 'name';
-            $sel = 'text-xs min-w-0 max-w-[11rem] bg-white border border-gray-200 rounded-md px-2 py-1 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
-            $schoolStats = [
-                ['Schools', number_format($schoolTotals['schools']), 'text-gray-800'],
-                ['New this session', number_format($schoolTotals['new']), 'text-emerald-600'],
-                ['Active', number_format($schoolTotals['active']), 'text-emerald-600'],
-                ['Students', number_format($schoolTotals['students']), 'text-gray-800'],
-                ['Teachers', number_format($schoolTotals['teachers']), 'text-gray-800'],
-            ];
-            [$openWord, $openClass] = $statusChip[$open->status()];
+            [$openWord, $openTone] = $statusChip[$open->status()];
             $reloads = 'schoolSearch,schoolJoined,schoolStatus,schoolSort,gotoPage,nextPage,previousPage,clearSchoolFilters';
             $isNew = fn ($school) => $school->created_at && $school->created_at->between($start, $end);
         @endphp
 
-        <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-            <div class="px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <button wire:click="backToSessions" title="Back to sessions" aria-label="Back to sessions"
-                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                        </button>
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Schools · {{ $open->name }}</h1>
-                                <span class="text-xs font-medium px-2 py-0.5 rounded-full {{ $openClass }}">{{ $openWord }}</span>
-                                @if ($open->is_current)
-                                    <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">Current</span>
-                                @endif
-                            </div>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $open->starts_on->format('d M Y') }} – {{ $open->ends_on->format('d M Y') }} · schools on SuperLMS by the session's last day</p>
-                        </div>
-                    </div>
-                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                        @foreach ($schoolStats as [$label, $figure, $tone])
-                            <span class="{{ $loop->first ? 'pr-4' : ($loop->last ? 'pl-4' : 'px-4') }} whitespace-nowrap">{{ $label }}: <strong class="{{ $tone }}">{{ $figure }}</strong></span>
-                        @endforeach
-                    </div>
+        <div class="sk-head">
+            <div class="flex items-center gap-3 min-w-0">
+                <button type="button" wire:click="backToSessions" title="Back to sessions" aria-label="Back to sessions" class="sk-back">{!! $backIcon !!}</button>
+                <div class="sk-title">
+                    <h1 class="truncate">Schools · {{ $open->name }}</h1>
+                    <p class="hidden md:block">{{ $open->starts_on->format('d M Y') }} – {{ $open->ends_on->format('d M Y') }}</p>
                 </div>
-                <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-                    @foreach ($schoolStats as [$label, $figure, $tone])
-                        <span class="whitespace-nowrap">{{ $label }}: <strong class="{{ $tone }}">{{ $figure }}</strong></span>
-                    @endforeach
+            </div>
+            <div class="sk-right">
+                <span class="an-tag {{ $openTone }}">{{ $openWord }}</span>
+                @if ($open->is_current)
+                    <span class="ss-cur">{!! $tickIcon !!} Current</span>
+                @endif
+            </div>
+        </div>
+
+        <div class="p-4 sm:p-6 space-y-5">
+            <div class="sa-card p-5" data-ss-figures>
+                <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    <div class="min-w-0">
+                        <h3 class="sa-card-title">{{ $open->name }} at a Glance</h3>
+                        <p class="sa-card-sub">Schools on SuperLMS by the session's last day, with their students and teachers by then</p>
+                    </div>
+                    <span class="sa-chip">{{ $pctOf($schoolTotals['active'], $schoolTotals['schools']) }}% active</span>
+                </div>
+                <dl class="sd-figs mt-4" style="--c: 5">
+                    <div><dt>Schools</dt><dd>{{ $num($schoolTotals['schools']) }}</dd></div>
+                    <div><dt>New this session</dt><dd class="up">{{ $num($schoolTotals['new']) }}</dd></div>
+                    <div><dt>Active</dt><dd>{{ $num($schoolTotals['active']) }}</dd></div>
+                    <div><dt>Students</dt><dd>{{ $num($schoolTotals['students']) }}</dd></div>
+                    <div><dt>Teachers</dt><dd>{{ $num($schoolTotals['teachers']) }}</dd></div>
+                    <div class="sm:hidden"><dt>Inactive</dt><dd>{{ $num($schoolTotals['schools'] - $schoolTotals['active']) }}</dd></div>
+                </dl>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="sa-card p-5 min-w-0" data-ss-top>
+                    <div class="mb-4">
+                        <h3 class="sa-card-title">Biggest Schools</h3>
+                        <p class="sa-card-sub">By students on the roll by the session's end</p>
+                    </div>
+                    @include('livewire.super-admin.partials.an-bars', ['rows' => $schoolTotals['top'], 'unit' => 'students', 'empty' => 'No students in this session'])
+                </div>
+                <div class="sa-card p-5 min-w-0" data-ss-joined>
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">Schools Registered</h3>
+                            <p class="sa-card-sub">New schools in each month of {{ $open->name }}</p>
+                        </div>
+                        <span class="sa-chip">{{ $num($schoolTotals['new']) }} new</span>
+                    </div>
+                    @include('livewire.super-admin.partials.month-bars', [
+                        'values' => array_column($schoolTotals['byMonth'], 'count'), 'labels' => array_column($schoolTotals['byMonth'], 'label'),
+                        'height' => 140, 'empty' => 'No school registered during ' . $open->name,
+                    ])
                 </div>
             </div>
 
-            {{-- FILTER BAR — as on Schools --}}
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2" data-filter-bar>
-                <div class="flex flex-wrap items-center gap-2">
-                    <div class="flex items-center gap-1 text-xs font-semibold text-gray-600">
-                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
+            {{-- ── The schools: filters, then the list; › opens a school's data for this session ── --}}
+            <div class="sa-card overflow-hidden" data-ss-schools>
+                <div class="px-5 pt-5 pb-1">
+                    <h3 class="sa-card-title">Schools in {{ $open->name }}</h3>
+                    <p class="sa-card-sub">› opens a school's data for this session</p>
+                </div>
+                <div class="sk-filter" data-filter-bar>
+                    <div class="sk-search">
+                        <x-icon name="magnifying-glass" />
+                        <input wire:model.live.debounce.300ms="schoolSearch" type="text" placeholder="Search name, email, code…" aria-label="Search schools">
                     </div>
-                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-52">
-                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-                        <input wire:model.live.debounce.300ms="schoolSearch" type="text" placeholder="Search name, email, code…"
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <select wire:model.live="schoolJoined" class="{{ $sel }}" aria-label="Registered">
+                    <select wire:model.live="schoolJoined" class="sk-select" aria-label="Registered">
                         <option value="">All registered</option>
                         <option value="new">Registered this session</option>
                         <option value="earlier">Registered before it</option>
                     </select>
-                    <select wire:model.live="schoolStatus" class="{{ $sel }}" aria-label="Status">
+                    <select wire:model.live="schoolStatus" class="sk-select" aria-label="Status">
                         <option value="">All Status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                    <div class="flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h12M3 12h9m-9 5h6m6 0l3 3m0 0l3-3m-3 3V8"/></svg>
-                        <select wire:model.live="schoolSort" class="{{ $sel }}" aria-label="Sort">
-                            <option value="name">Name (A–Z)</option>
-                            <option value="newest">Newest registered</option>
-                            <option value="students">Most students</option>
-                        </select>
-                    </div>
+                    <select wire:model.live="schoolSort" class="sk-select" aria-label="Sort">
+                        <option value="name">Name (A–Z)</option>
+                        <option value="newest">Newest registered</option>
+                        <option value="students">Most students</option>
+                    </select>
                     @if ($filtered)
-                        <button wire:click="clearSchoolFilters"
-                            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
+                        <button type="button" wire:click="clearSchoolFilters" class="sk-pill" style="height: 36px; color: #be123c; border-color: #fecdd3">
+                            <x-icon name="x-mark" class="w-3.5 h-3.5" /> Clear
                         </button>
                     @endif
                 </div>
-            </div>
-        </div>
 
-        <div class="p-4 sm:p-6 space-y-4">
-            {{-- ── DESKTOP TABLE — the Schools list's table; the › opens the school's data for this session ── --}}
-            <div class="hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div class="overflow-x-auto xl:overflow-visible rounded-xl">
-                    <table class="w-full min-w-[960px] xl:min-w-0 table-fixed text-[13px] text-gray-700">
+                <div class="hidden md:block overflow-x-auto" wire:loading.class="opacity-60" wire:target="{{ $reloads }}">
+                    <table class="sk-table min-w-[900px]">
                         <thead>
-                            <tr class="bg-gray-50/80">
-                                <th class="pl-4 pr-2 py-2.5 w-14 text-left text-[11px] font-medium text-gray-500 rounded-tl-xl">S.No</th>
-                                <th class="{{ $th }} w-[28%]">School</th>
-                                <th class="{{ $th }} w-[120px]">Mobile</th>
-                                <th class="{{ $th }}">Board</th>
-                                <th class="{{ $th }} w-[150px]">Registered</th>
-                                <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Students</th>
-                                <th class="px-3 py-2.5 text-right text-[11px] font-medium text-gray-500 truncate w-[90px]">Teachers</th>
-                                <th class="px-2 py-2.5 w-[90px] text-right text-[11px] font-medium text-gray-500 rounded-tr-xl"><span class="pr-2">Data</span></th>
+                            <tr>
+                                <th class="w-12">#</th>
+                                <th>School</th>
+                                <th>Mobile</th>
+                                <th>Board</th>
+                                <th>Registered</th>
+                                <th class="num">Students</th>
+                                <th class="num">Teachers</th>
+                                <th class="text-right">Data</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100" wire:loading.class="opacity-60" wire:target="{{ $reloads }}">
+                        <tbody>
                             @forelse ($schools as $index => $school)
                                 @php $board = \App\Support\BoardName::short($school->education_board); $active = (bool) $school->status; @endphp
-                                <tr wire:key="ses-sch-row-{{ $school->id }}" class="hover:bg-gray-50/70 transition-colors">
-                                    <td class="pl-4 pr-2 py-3 text-gray-400 tabular-nums">{{ $schools->firstItem() + $index }}</td>
-                                    <td class="{{ $td }}" title="{{ $school->name }}{{ $school->email ? ' — ' . $school->email : '' }}">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            @if ($school->logo)
-                                                <img src="{{ $school->logo }}" loading="lazy" alt="" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                            @else
-                                                <span class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold flex items-center justify-center flex-shrink-0">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
-                                            @endif
+                                <tr wire:key="ses-sch-row-{{ $school->id }}">
+                                    <td class="text-gray-400 tabular-nums">{{ $schools->firstItem() + $index }}</td>
+                                    <td title="{{ $school->name }}{{ $school->email ? ' — ' . $school->email : '' }}">
+                                        <div class="flex items-center gap-3 min-w-0 max-w-[340px]">
+                                            <span class="sd-logo sm">
+                                                @if ($school->logo)<img src="{{ $school->logo }}" loading="lazy" alt="">@else{{ strtoupper(mb_substr($school->name, 0, 1)) }}@endif
+                                            </span>
                                             <div class="min-w-0">
-                                                <p class="font-medium text-gray-900 truncate leading-tight">{{ $school->name }}</p>
-                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">{{ $school->email ?: '—' }}</p>
+                                                <p class="font-semibold text-gray-900 truncate">{{ $school->name }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $school->email ?: '—' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="{{ $td }} tabular-nums">{{ $school->mobile_number ?: '—' }}</td>
-                                    <td class="{{ $td }}" title="{{ $board }}">{{ $board ?: '—' }}</td>
-                                    <td class="px-3 py-3 whitespace-nowrap">
+                                    <td class="tabular-nums whitespace-nowrap">{{ $school->mobile_number ?: '—' }}</td>
+                                    <td class="truncate max-w-[140px]" title="{{ $board }}">{{ $board ?: '—' }}</td>
+                                    <td class="whitespace-nowrap">
                                         <span class="text-gray-600">{{ $school->created_at?->format('d M Y') ?? '—' }}</span>
                                         @if ($isNew($school))
-                                            <span class="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700" title="Registered during {{ $open->name }}">New</span>
+                                            <span class="an-tag green ml-1" title="Registered during {{ $open->name }}">New</span>
                                         @endif
                                     </td>
-                                    <td class="{{ $td }} text-right tabular-nums">{{ number_format($school->total_students) }}</td>
-                                    <td class="{{ $td }} text-right tabular-nums">{{ number_format($school->total_teachers) }}</td>
-                                    <td class="px-2 py-3">
-                                        <div class="flex items-center justify-end gap-2">
+                                    <td class="num">{{ $num($school->total_students) }}</td>
+                                    <td class="num">{{ $num($school->total_teachers) }}</td>
+                                    <td>
+                                        <div class="flex items-center justify-end gap-2.5">
                                             <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }}"
                                                 title="{{ $active ? 'Active' : 'Inactive' }}" role="img" aria-label="{{ $active ? 'Active' : 'Inactive' }}"></span>
                                             <button type="button" wire:click="openSchoolData({{ $school->id }})"
-                                                title="{{ $school->name }} — its data in {{ $open->name }}" aria-label="{{ $school->name }} — its data in {{ $open->name }}" class="{{ $arrow }}">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                                            </button>
+                                                title="{{ $school->name }} — its data in {{ $open->name }}" aria-label="{{ $school->name }} — its data in {{ $open->name }}" class="sk-go">{!! $chevron !!}</button>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-6 py-14 text-center">
+                                    <td colspan="8" class="text-center" style="padding: 56px 20px">
                                         <p class="text-gray-500 text-sm">{{ $filtered ? 'No school matches these filters.' : 'No school was on SuperLMS by the end of ' . $open->name . '.' }}</p>
                                         @if ($filtered)
-                                            <button wire:click="clearSchoolFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
+                                            <button type="button" wire:click="clearSchoolFilters" class="mt-2 text-xs text-gray-900 underline underline-offset-2 font-medium">Clear filters</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -328,66 +409,30 @@
                     </table>
                 </div>
 
-                @include('livewire.super-admin.partials.list-pagination', ['paginator' => $schools])
-            </div>
-
-            {{-- ── MOBILE CARDS ── --}}
-            <div class="md:hidden space-y-3">
-                @forelse ($schools as $index => $school)
-                    @php $active = (bool) $school->status; @endphp
-                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" wire:key="ses-sch-m-{{ $school->id }}">
-                        <div class="flex items-center gap-3 p-4 border-b border-gray-100">
-                            <span class="text-xs font-semibold text-gray-400 w-6 text-center tabular-nums flex-shrink-0">{{ $schools->firstItem() + $index }}</span>
-                            @if ($school->logo)
-                                <img src="{{ $school->logo }}" alt="" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                            @else
-                                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-sm font-semibold text-gray-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
-                                </div>
-                            @endif
+                {{-- Phones: a row each --}}
+                <div class="md:hidden divide-y divide-gray-100">
+                    @forelse ($schools as $index => $school)
+                        @php $active = (bool) $school->status; @endphp
+                        <div class="px-4 py-4 flex items-center gap-3" wire:key="ses-sch-m-{{ $school->id }}">
+                            <span class="sd-logo sm">
+                                @if ($school->logo)<img src="{{ $school->logo }}" alt="">@else{{ strtoupper(mb_substr($school->name, 0, 1)) }}@endif
+                            </span>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
-                                <p class="text-xs text-gray-400 truncate">{{ $school->email ?: '—' }}</p>
+                                <p class="text-xs text-gray-400 truncate">
+                                    {{ $num($school->total_students) }} students · {{ $num($school->total_teachers) }} teachers
+                                    @if ($isNew($school)) · <span class="text-emerald-700 font-medium">New</span>@endif
+                                </p>
                             </div>
-                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }}"
-                                title="{{ $active ? 'Active' : 'Inactive' }}" role="img" aria-label="{{ $active ? 'Active' : 'Inactive' }}"></span>
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $active ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
+                            <button type="button" wire:click="openSchoolData({{ $school->id }})" aria-label="View {{ $open->name }} data" class="sk-go">{!! $chevron !!}</button>
                         </div>
-                        <div class="px-4 py-3 grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-400">Registered</p>
-                                <p class="text-gray-700">{{ $school->created_at?->format('d M Y') ?? '—' }}@if ($isNew($school)) <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">New</span>@endif</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-400">Students · Teachers</p>
-                                <p class="text-gray-700 tabular-nums">{{ number_format($school->total_students) }} · {{ number_format($school->total_teachers) }}</p>
-                            </div>
-                        </div>
-                        <button type="button" wire:click="openSchoolData({{ $school->id }})"
-                            class="w-full flex items-center justify-center gap-1 border-t border-gray-100 py-2.5 text-xs font-medium text-blue-700 hover:bg-blue-50">
-                            View {{ $open->name }} data
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                        </button>
-                    </div>
-                @empty
-                    <div class="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                        <p class="text-gray-500 text-sm">{{ $filtered ? 'No school matches these filters.' : 'No school was on SuperLMS by the end of ' . $open->name . '.' }}</p>
-                    </div>
-                @endforelse
+                    @empty
+                        <p class="px-5 py-10 text-center text-gray-500 text-sm">{{ $filtered ? 'No school matches these filters.' : 'No school was on SuperLMS by the end of ' . $open->name . '.' }}</p>
+                    @endforelse
+                </div>
 
-                @if ($schools->hasPages())
-                    <div class="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
-                        <p class="text-xs text-gray-500">{{ $schools->firstItem() }}–{{ $schools->lastItem() }} of {{ number_format($schools->total()) }}</p>
-                        <div class="flex items-center gap-1.5">
-                            @if (!$schools->onFirstPage())
-                                <button wire:click="previousPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Previous</button>
-                            @endif
-                            <span class="inline-flex items-center justify-center min-w-8 h-8 px-2 text-xs bg-gray-900 text-white rounded-lg">{{ $schools->currentPage() }}</span>
-                            @if ($schools->hasMorePages())
-                                <button wire:click="nextPage" class="h-8 px-3 text-xs text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Next</button>
-                            @endif
-                        </div>
-                    </div>
-                @endif
+                @include('livewire.super-admin.partials.list-pagination', ['paginator' => $schools])
             </div>
         </div>
     @endif
@@ -398,15 +443,17 @@
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
 
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Session' : 'Add Session' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">The school year's first and last day — the name follows the dates</p>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col" style="border-radius: 22px 0 0 22px">
+                <div class="flex items-center justify-between gap-3 px-6 py-5 border-b border-gray-100 flex-shrink-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="ss-ic on"><x-icon name="calendar-days" /></span>
+                        <div class="min-w-0">
+                            <h2 class="sk-display text-lg font-extrabold">{{ $editId ? 'Edit Session' : 'Add Session' }}</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">The school year's first and last day — the name follows the dates</p>
+                        </div>
                     </div>
-                    <button wire:click="closePanel"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <button type="button" wire:click="closePanel" aria-label="Close" class="sk-back">
+                        <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
 
@@ -414,48 +461,43 @@
                     <div class="px-6 py-6 space-y-5">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">First day <span class="text-red-500">*</span></label>
-                                <input type="date" wire:model.live="startsOn"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                @error('startsOn')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">First day <span class="text-rose-500">*</span></label>
+                                <input type="date" wire:model.live="startsOn" class="ss-field">
+                                @error('startsOn')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Last day <span class="text-red-500">*</span></label>
-                                <input type="date" wire:model.live="endsOn"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                @error('endsOn')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Last day <span class="text-rose-500">*</span></label>
+                                <input type="date" wire:model.live="endsOn" class="ss-field">
+                                @error('endsOn')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Session name <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model.live.debounce.400ms="name" maxlength="20" placeholder="e.g. 2026–27"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Session name <span class="text-rose-500">*</span></label>
+                            <input type="text" wire:model.live.debounce.400ms="name" maxlength="20" placeholder="e.g. 2026–27" class="ss-field">
+                            @error('name')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                         </div>
 
                         @if ($editingCurrent)
-                            <div class="flex items-start gap-3 p-3.5 rounded-lg border border-blue-200 bg-blue-50/60">
-                                <svg class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                <span class="text-sm text-gray-800">This is the current session.</span>
+                            <div class="ss-otp done flex items-center gap-3">
+                                <span class="ss-otp-ic">{!! $tickIcon !!}</span>
+                                <span class="text-sm font-medium text-gray-800">This is the current session.</span>
                             </div>
                         @else
-                            <label class="flex items-start gap-3 p-3.5 rounded-lg border {{ $makeCurrent ? 'border-blue-200 bg-blue-50/60' : 'border-gray-200' }} cursor-pointer transition-colors">
-                                <input type="checkbox" wire:model.live="makeCurrent"
-                                    class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <label class="ss-otp flex items-start gap-3 cursor-pointer {{ $makeCurrent ? 'done' : '' }}">
+                                <input type="checkbox" wire:model.live="makeCurrent" class="mt-1 rounded border-gray-300" style="accent-color: #0d9488; color: #0d9488">
                                 <span>
-                                    <span class="block text-sm font-medium text-gray-800">Make this the current session</span>
-                                    <span class="block text-xs text-gray-500 mt-0.5">After saving you'll enter two codes — one sent to the Super Admin's email, one on WhatsApp.</span>
+                                    <span class="block text-sm font-semibold text-gray-800">Make this the current session</span>
+                                    <span class="block text-xs text-gray-500 mt-0.5">After saving you'll verify two codes, each on its own — one sent to the Super Admin's email, one on WhatsApp to the mobile.</span>
                                 </span>
                             </label>
                         @endif
                     </div>
                 </div>
 
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closePanel" type="button" class="sk-pill" style="height: 38px; padding: 0 18px; font-size: 13.5px">Cancel</button>
+                    <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save" class="sk-cta" style="height: 38px">
                         <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Session' : 'Save Session' }}</span>
                         <span wire:loading wire:target="save">Saving...</span>
                     </button>
@@ -464,71 +506,82 @@
         </div>
     @endif
 
-    {{-- ══════════ MAKE CURRENT — the two codes on one screen ══════════ --}}
+    {{-- ══════════ MAKE CURRENT — two codes, each verified on its own ══════════ --}}
     @if ($switchId && $switching)
         @php
-            $codeBox = 'w-full px-3.5 py-2.5 border rounded-lg text-center text-lg font-semibold tracking-[0.5em] tabular-nums focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500';
             $codes = [
-                ['email', 'emailCode', 'Email code', 'Sent to ' . ($switchTo['email'] ?: 'the registered email'),
-                    'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', 'bg-sky-50 text-sky-600'],
-                ['whatsapp', 'whatsappCode', 'WhatsApp code', 'Sent on WhatsApp to ' . ($switchTo['whatsapp'] ?: 'the registered number'),
-                    'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', 'bg-emerald-50 text-emerald-600'],
+                ['email', 'emailCode', 'Email code', 'Sent to ' . ($switchTo['email'] ?: 'the registered email'), 'envelope', 'Email'],
+                ['whatsapp', 'whatsappCode', 'Mobile code', 'Sent on WhatsApp to ' . ($switchTo['whatsapp'] ?: 'the registered mobile'), 'device-phone-mobile', 'Mobile'],
             ];
+            $done    = count(array_filter($verified));
+            $nextOne = !($verified['email'] ?? false) ? 'email' : 'whatsapp';
         @endphp
-        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="make-current-title">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="make-current-title" data-make-current>
             <div class="absolute inset-0 bg-black/40" wire:click="closeSwitch"></div>
-            <form wire:submit="verifyMakeCurrent" class="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-full overflow-y-auto">
-                <div class="px-6 pt-6 pb-4 text-center border-b border-gray-100">
-                    <div class="mx-auto w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                    </div>
-                    <h3 id="make-current-title" class="text-base font-bold text-gray-900">Make {{ $switching->name }} the current session</h3>
-                    <p class="text-sm text-gray-500 mt-1">Two different codes were sent to the Super Admin — enter both to confirm.</p>
+            <div class="relative bg-white shadow-xl w-full max-w-md max-h-full overflow-y-auto" style="border-radius: 24px">
+                <div class="px-6 pt-6 pb-5 text-center border-b border-gray-100">
+                    <span class="ss-otp-ic mx-auto mb-3" style="width: 48px; height: 48px; border-radius: 16px"><x-icon name="shield-check" class="w-6 h-6" /></span>
+                    <h3 id="make-current-title" class="sk-display text-lg font-extrabold">Make {{ $switching->name }} the current session</h3>
+                    <p class="text-sm text-gray-500 mt-1">Verify the email code and the mobile code — each on its own. {{ $switching->name }} becomes current once both are verified.</p>
                     @if ($current)
-                        <p class="text-xs text-gray-400 mt-2">Now current: <strong class="text-gray-600">{{ $current->name }}</strong> → after this: <strong class="text-blue-700">{{ $switching->name }}</strong></p>
+                        <p class="text-xs text-gray-400 mt-2">Now current: <strong class="text-gray-600">{{ $current->name }}</strong> → after this: <strong style="color: var(--sk-teal-700)">{{ $switching->name }}</strong></p>
                     @endif
+                    <div class="mt-4 flex items-center justify-center gap-2" data-otp-steps>
+                        @foreach ($codes as [$channel, , , , , $short])
+                            <span class="ss-step {{ ($verified[$channel] ?? false) ? 'done' : '' }}">
+                                @if ($verified[$channel] ?? false){!! $tickIcon !!}@else<span class="tabular-nums">{{ $loop->iteration }}</span>@endif
+                                {{ $short }} {{ ($verified[$channel] ?? false) ? 'verified' : 'code' }}
+                            </span>
+                        @endforeach
+                    </div>
                 </div>
 
-                <div class="px-6 py-5 space-y-5">
-                    @foreach ($codes as [$channel, $field, $label, $where, $icon, $tile])
-                        @php $left = max(0, ($resendAt[$channel] ?? 0) - now()->timestamp); @endphp
-                        <div>
-                            <div class="flex items-center gap-2.5 mb-2">
-                                <span class="w-8 h-8 rounded-lg {{ $tile }} flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}"/></svg>
-                                </span>
+                <div class="px-6 py-5 space-y-4">
+                    @foreach ($codes as [$channel, $field, $label, $where, $icon])
+                        @php $isDone = (bool) ($verified[$channel] ?? false); $left = max(0, ($resendAt[$channel] ?? 0) - now()->timestamp); @endphp
+                        <div class="ss-otp {{ $isDone ? 'done' : '' }}" wire:key="otp-{{ $channel }}" data-otp="{{ $channel }}">
+                            <div class="flex items-center gap-3">
+                                <span class="ss-otp-ic">@if ($isDone){!! $tickIcon !!}@else<x-icon name="{{ $icon }}" />@endif</span>
                                 <div class="min-w-0 flex-1">
-                                    <label for="code-{{ $channel }}" class="block text-sm font-medium text-gray-800">{{ $label }}</label>
+                                    <label for="code-{{ $channel }}" class="block text-sm font-semibold text-gray-800">{{ $label }}</label>
                                     <p class="text-xs text-gray-400 truncate">{{ $where }}</p>
                                 </div>
-                                <div class="text-xs flex-shrink-0" wire:key="resend-{{ $channel }}-{{ $resendAt[$channel] ?? 0 }}"
-                                    x-data="{ left: {{ $left }} }" x-init="const t = setInterval(() => { left > 0 ? left-- : clearInterval(t) }, 1000)">
-                                    <span x-show="left > 0" class="text-gray-400 tabular-nums" x-text="'Resend in ' + left + 's'"></span>
-                                    <button type="button" x-show="left <= 0" x-cloak wire:click="resendCode('{{ $channel }}')" wire:loading.attr="disabled" wire:target="resendCode('{{ $channel }}')"
-                                        class="font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50">Resend</button>
-                                </div>
+                                @if ($isDone)
+                                    <span class="an-tag teal">Verified</span>
+                                @else
+                                    <div class="text-xs flex-shrink-0" wire:key="resend-{{ $channel }}-{{ $resendAt[$channel] ?? 0 }}"
+                                        x-data="{ left: {{ $left }} }" x-init="const t = setInterval(() => { left > 0 ? left-- : clearInterval(t) }, 1000)">
+                                        <span x-show="left > 0" class="text-gray-400 tabular-nums" x-text="'Resend in ' + left + 's'"></span>
+                                        <button type="button" x-show="left <= 0" x-cloak wire:click="resendCode('{{ $channel }}')" wire:loading.attr="disabled" wire:target="resendCode('{{ $channel }}')"
+                                            class="font-semibold disabled:opacity-50" style="color: var(--sk-teal-700)">Resend</button>
+                                    </div>
+                                @endif
                             </div>
-                            <input id="code-{{ $channel }}" type="text" wire:model="{{ $field }}" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-                                autocomplete="one-time-code" placeholder="••••••" @if ($loop->first) autofocus @endif
-                                class="{{ $codeBox }} {{ $errors->has($field) ? 'border-red-300 bg-red-50/40' : 'border-gray-300' }}">
-                            @error($field)<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @unless ($isDone)
+                                <form wire:submit="verifyCode('{{ $channel }}')" class="mt-3 flex items-center gap-2">
+                                    <input id="code-{{ $channel }}" type="text" wire:model="{{ $field }}" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                                        autocomplete="one-time-code" placeholder="••••••" @if ($channel === $nextOne) autofocus @endif
+                                        class="ss-code {{ $errors->has($field) ? 'bad' : '' }}">
+                                    <button type="submit" class="sk-cta" style="height: 44px; padding: 0 18px" wire:loading.attr="disabled" wire:target="verifyCode('{{ $channel }}')">
+                                        <span wire:loading.remove wire:target="verifyCode('{{ $channel }}')">Verify</span>
+                                        <span wire:loading wire:target="verifyCode('{{ $channel }}')">Checking…</span>
+                                    </button>
+                                </form>
+                                @error($field)<p class="mt-1.5 text-xs text-rose-600">{{ $message }}</p>@enderror
+                            @endunless
                         </div>
                     @endforeach
 
                     @error('request')
-                        <div class="rounded-lg bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-xs text-amber-800">{{ $message }}</div>
+                        <div class="rounded-2xl bg-amber-50 border border-amber-200 px-3.5 py-2.5 text-xs text-amber-800">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-2">
-                    <button type="button" wire:click="closeSwitch" class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
-                    <button type="submit" wire:loading.attr="disabled" wire:target="verifyMakeCurrent"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-60">
-                        <span wire:loading.remove wire:target="verifyMakeCurrent">Verify &amp; make current</span>
-                        <span wire:loading wire:target="verifyMakeCurrent">Checking…</span>
-                    </button>
+                <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <p class="text-xs text-gray-400">{{ $done }} of 2 verified</p>
+                    <button type="button" wire:click="closeSwitch" class="sk-pill" style="height: 38px; padding: 0 18px; font-size: 13.5px">Cancel</button>
                 </div>
-            </form>
+            </div>
         </div>
     @endif
 
@@ -536,15 +589,15 @@
     @if ($deleteId)
         <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40" wire:click="cancelDelete"></div>
-            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
-                <div class="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14A2 2 0 0021 17.05L13.86 4.9a2 2 0 00-3.46 0L3.07 17.05A2 2 0 004.93 19z"/></svg>
+            <div class="relative bg-white shadow-xl w-full max-w-sm p-6 text-center" style="border-radius: 24px">
+                <div class="mx-auto w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14A2 2 0 0021 17.05L13.86 4.9a2 2 0 00-3.46 0L3.07 17.05A2 2 0 004.93 19z"/></svg>
                 </div>
-                <h3 class="text-base font-bold text-gray-900">Delete this session?</h3>
+                <h3 class="sk-display text-lg font-extrabold">Delete this session?</h3>
                 <p class="text-sm text-gray-500 mt-1">{{ $sessions->firstWhere('id', $deleteId)?->name }} will be removed. This can't be undone.</p>
                 <div class="flex items-center justify-center gap-2 mt-5">
-                    <button wire:click="cancelDelete" class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
-                    <button wire:click="delete" class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg">Delete</button>
+                    <button type="button" wire:click="cancelDelete" class="sk-pill" style="height: 38px; padding: 0 18px; font-size: 13.5px">Cancel</button>
+                    <button type="button" wire:click="delete" class="inline-flex items-center h-[38px] px-5 rounded-full text-sm font-semibold text-white" style="background: #e11d48">Delete</button>
                 </div>
             </div>
         </div>
