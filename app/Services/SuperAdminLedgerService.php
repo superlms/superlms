@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Messaging\MessagingPayment;
 use App\Models\Messaging\MessagingWalletTransaction;
 use App\Models\Organization;
 use App\Models\SuperAdmin\SuperAdminFeeReceipt;
@@ -94,6 +95,9 @@ class SuperAdminLedgerService
         if (MessagingWallet::tracked()) {
             $total += (float) self::dateScoped(self::walletQuery(), 'txn_date', $start, $end)->sum('amount');
         }
+        if (MessagePacks::tracked()) {
+            $total += (float) self::dateScoped(MessagingPayment::query(), 'paid_on', $start, $end)->sum('amount');
+        }
         if (self::tracked()) {
             $total += (float) self::dateScoped(SuperAdminLedgerTransaction::where('type', 'credit'), 'txn_date', $start, $end)->sum('amount');
         }
@@ -177,6 +181,34 @@ class SuperAdminLedgerService
                         'party'     => $name,
                         'reason'    => 'Messaging wallet recharge' . ($t->reference ? ' · Ref. ' . $t->reference : ''),
                         'receipt'   => $t->reference,
+                        'school'    => $name,
+                        'manual_id' => null,
+                    ]);
+                });
+        }
+
+        // ── Messages paid for by the schools (credit; since 21 Nov 2026) ──
+        if (MessagePacks::tracked()) {
+            self::dateScoped(MessagingPayment::with('pack:id,channel,messages'), 'paid_on', $start, $end)
+                ->get()
+                ->each(function (MessagingPayment $p) use ($rows, $school) {
+                    $name = $school($p->organization_id);
+                    $what = $p->pack && $p->pack->messages
+                        ? number_format($p->pack->messages) . ' ' . MessagePacks::label($p->pack->channel) . ' messages'
+                        : 'Messages';
+                    $rows->push([
+                        'date'      => Carbon::parse($p->paid_on),
+                        'time'      => optional($p->created_at)->format('g:i A'),
+                        'sort_at'   => $p->created_at ?? Carbon::parse($p->paid_on),
+                        'type'      => 'credit',
+                        'amount'    => (float) $p->amount,
+                        'source'    => 'Messaging Wallet',
+                        'from'      => $name,
+                        'to'        => self::NAME,
+                        'mode'      => $p->mode,
+                        'party'     => $name,
+                        'reason'    => $what . ($p->reference ? ' · Ref. ' . $p->reference : ''),
+                        'receipt'   => $p->reference,
                         'school'    => $name,
                         'manual_id' => null,
                     ]);

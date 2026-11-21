@@ -74,8 +74,8 @@ class SchoolEmail
         }
 
         $rate = MessagingWallet::emailRate();
-        if (!MessagingWallet::canSpend($orgId, $rate)) {
-            Log::info('Messaging email: wallet short, not sent', ['org' => $orgId, 'campaign' => $campaignId]);
+        if (!MessagePacks::canSend($orgId, 'email')) {
+            Log::info('Messaging email: no email messages left, not sent', ['org' => $orgId, 'campaign' => $campaignId]);
             return 'skipped';
         }
 

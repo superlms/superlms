@@ -123,9 +123,9 @@ class SchoolWhatsApp
 
         $charged = (bool) (self::FEATURES[$feature][1] ?? false);
 
-        // Prepaid: a charged message goes only when the school's wallet can pay for it.
-        if ($charged && !MessagingWallet::canSpend($orgId, self::rate())) {
-            Log::info('WhatsApp: messaging wallet short, not sent', ['feature' => $feature, 'org' => $orgId] + $who);
+        // Prepaid: a charged message goes only while the school has WhatsApp messages left.
+        if ($charged && !MessagePacks::canSend($orgId, 'whatsapp')) {
+            Log::info('WhatsApp: no WhatsApp messages left, not sent', ['feature' => $feature, 'org' => $orgId] + $who);
             return false;
         }
 

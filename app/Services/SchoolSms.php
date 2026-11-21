@@ -2,20 +2,28 @@
 
 namespace App\Services;
 
+use App\Models\Organization;
 use App\Models\SmsMessage;
 use App\Models\SmsSchoolFeature;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * SMS for a school (Bhash SMS, App\Services\SmsService), and the log of what
  * went.
  *
- *   welcome   the super admin's switch (Super Admin → Schools → the school →
- *             SMS). On: a new student or teacher gets their login by SMS
- *             only — no welcome email, no WhatsApp (App\Services\WelcomeSms).
+ *   welcome   the super admin's switch (Super Admin → Messaging → SMS). On:
+ *             a new student or teacher gets their login by SMS only — no
+ *             welcome email, no WhatsApp (App\Services\WelcomeSms).
+ *   notice    the school's own message to many by SMS (More → Messaging →
+ *             Send), on the DLT template "notice".
+ *
+ * Every SMS takes one of the school's SMS messages a part (MessagePacks);
+ * with Prepaid on and none left it is not sent (the welcome then goes by
+ * email and WhatsApp as before).
  *
  * Every SMS is a row in sms_messages (welcome | credentials), without its
  * text, which has the password. Off for every school until turned on.
@@ -25,13 +33,18 @@ class SchoolSms
     /** feature => label. */
     public const FEATURES = [
         'welcome' => 'Welcome by SMS',
+        'notice'  => 'SMS notices',
     ];
 
     /** What a row's feature is called on screen. */
     public const KINDS = [
         'welcome'     => 'Welcome',
         'credentials' => 'Send Credentials',
+        'notice'      => 'Notice',
     ];
+
+    /** The longest SMS notice: the DLT template's message parts, 30 characters each. */
+    public const NOTICE_MAX = 150;
 
     /** Whether the tables are there yet (the migration of 27 Oct 2026) — asked once a request. */
     public static function tracked(): bool
@@ -84,14 +97,78 @@ class SchoolSms
      */
     public static function welcomeOn(?int $orgId): bool
     {
-        return SmsService::enabled() && self::enabled($orgId, 'welcome');
+        // Prepaid with no SMS left: the welcome goes by email and WhatsApp, so it still reaches them.
+        return SmsService::enabled() && self::enabled($orgId, 'welcome') && MessagePacks::canSend($orgId, 'sms');
+    }
+
+    /** Whether SMS notices can go for a school: switched on, Bhash set up and the notice template there. */
+    public static function noticeOn(?int $orgId): bool
+    {
+        return SmsService::enabled() && self::noticeReady() && self::enabled($orgId, 'notice');
+    }
+
+    /** Whether the DLT notice template is set up (config services.bhash_sms.templates.notice). */
+    public static function noticeReady(): bool
+    {
+        return trim((string) config('services.bhash_sms.templates.notice.text')) !== '';
+    }
+
+    /**
+     * A school's notice to many by SMS (More → Messaging → Send, the job
+     * App\Jobs\SendMessagingCampaign): the DLT template
+     * "{school}: {part} {part} … - SuperLMS", the message cut at word ends
+     * into its 30-character parts. Returns 'sent', 'failed' or 'skipped'.
+     */
+    public static function notice(int $orgId, ?string $phone, string $message, array $who, int $campaignId, string $dedupeKey): string
+    {
+        if (!self::noticeOn($orgId) || SmsService::normalizePhone($phone) === null) {
+            return 'skipped';
+        }
+        if (self::tracked() && SmsMessage::where('dedupe_key', $dedupeKey)->exists()) {
+            return 'skipped';   // gone in an earlier run
+        }
+        if (!MessagePacks::canSend($orgId, 'sms')) {
+            return 'skipped';
+        }
+
+        $slots = max(1, substr_count(strtolower((string) config('services.bhash_sms.templates.notice.text')), '{#var#}') - 1);
+        $vars  = array_merge(
+            [Organization::whereKey($orgId)->value('name') ?? 'School'],
+            self::noticeParts($message, $slots),
+        );
+
+        return self::send($orgId, 'notice', $phone, 'notice', $vars, $who, ['campaign_id' => $campaignId, 'dedupe_key' => $dedupeKey, 'blank' => '']) ? 'sent' : 'failed';
+    }
+
+    /** A message cut at word ends into at most $slots parts of 30 characters or fewer (DLT's {#var#}). */
+    public static function noticeParts(string $message, int $slots): array
+    {
+        $words = preg_split('/\s+/u', trim(Str::ascii($message))) ?: [];
+        $parts = [];
+        foreach ($words as $word) {
+            if ($word === '') {
+                continue;
+            }
+            while (strlen($word) > SmsService::VAR_MAX) {
+                $parts[] = substr($word, 0, SmsService::VAR_MAX);
+                $word    = substr($word, SmsService::VAR_MAX);
+            }
+            $last = $parts ? $parts[count($parts) - 1] : null;
+            if ($last !== null && strlen($last . ' ' . $word) <= SmsService::VAR_MAX) {
+                $parts[count($parts) - 1] = $last . ' ' . $word;
+            } elseif ($word !== '') {
+                $parts[] = $word;
+            }
+        }
+
+        return array_slice($parts, 0, max(1, $slots));
     }
 
     /**
      * Send one SMS and keep its row. Without the tables it still sends,
      * unrecorded. $who: user_id / student_detail_id the message is about.
      */
-    public static function send(?int $orgId, string $feature, ?string $phone, string $template, array $vars, array $who = []): bool
+    public static function send(?int $orgId, string $feature, ?string $phone, string $template, array $vars, array $who = [], array $extra = []): bool
     {
         $to = SmsService::normalizePhone($phone);
         if ($to === null) {
@@ -99,21 +176,38 @@ class SchoolSms
             return false;
         }
 
+        // What an unused {#var#} becomes: '-' (the welcome), '' (a notice's spare parts).
+        $blank = (string) ($extra['blank'] ?? '-');
+        unset($extra['blank']);
+
         if (!self::tracked()) {
-            return SmsService::send($to, $template, $vars)['ok'];
+            return SmsService::send($to, $template, $vars, $blank)['ok'];
         }
 
-        $row = SmsMessage::create([
-            'organization_id'   => $orgId,
-            'feature'           => $feature,
-            'template'          => $template,
-            'user_id'           => $who['user_id'] ?? null,
-            'student_detail_id' => $who['student_detail_id'] ?? null,
-            'to_phone'          => $to,
-            'status'            => 'sending',
-        ]);
+        // Prepaid: an SMS goes only while the school has SMS messages left.
+        if (!MessagePacks::canSend($orgId, 'sms')) {
+            Log::info('SMS: no SMS messages left, not sent', ['feature' => $feature, 'org' => $orgId] + $who);
+            return false;
+        }
 
-        $result = SmsService::send($to, $template, $vars);
+        try {
+            $row = SmsMessage::create([
+                'organization_id'   => $orgId,
+                'feature'           => $feature,
+                'template'          => $template,
+                'user_id'           => $who['user_id'] ?? null,
+                'student_detail_id' => $who['student_detail_id'] ?? null,
+                'to_phone'          => $to,
+                'status'            => 'sending',
+            ] + array_filter($extra, fn ($v) => $v !== null));
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (!empty($extra['dedupe_key']) && SmsMessage::where('dedupe_key', $extra['dedupe_key'])->exists()) {
+                return false;   // the same message to the same person is going already
+            }
+            throw $e;
+        }
+
+        $result = SmsService::send($to, $template, $vars, $blank);
 
         $row->forceFill([
             'status'              => $result['ok'] ? 'sent' : 'failed',
@@ -144,8 +238,10 @@ class SchoolSms
         $names = User::whereIn('id', $rows->pluck('user_id')->filter()->unique())->pluck('name', 'id');
 
         return [
-            'enabled'    => self::enabled($orgId, 'welcome'),
-            'configured' => SmsService::enabled(),
+            'enabled'     => self::enabled($orgId, 'welcome'),
+            'notice'      => self::enabled($orgId, 'notice'),
+            'noticeReady' => self::noticeReady(),
+            'configured'  => SmsService::enabled(),
             'month'      => [
                 'sent'   => $count('sent', $monthStart),
                 'failed' => $count('failed', $monthStart),
@@ -158,7 +254,7 @@ class SchoolSms
                 'at'     => $m->created_at,
                 'name'   => $names[$m->user_id] ?? '—',
                 'kind'   => self::KINDS[$m->feature] ?? $m->feature,
-                'who'    => str_starts_with($m->template, 'teacher') ? 'Teacher' : 'Student',
+                'who'    => $m->feature === 'notice' ? 'Notice' : (str_starts_with($m->template, 'teacher') ? 'Teacher' : 'Student'),
                 'to'     => $m->to_phone ? '+91 ' . $m->to_phone : '—',
                 'status' => $m->status,
                 'error'  => $m->error,

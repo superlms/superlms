@@ -3,7 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\Messaging\MessagingCampaign;
-use App\Services\MessagingWallet;
+use App\Services\MessagePacks;
+use App\Services\SchoolSms;
 use App\Services\SchoolEmail;
 use App\Services\SchoolWhatsApp;
 use App\Support\MessagingAudience;
@@ -19,8 +20,8 @@ use Illuminate\Support\Facades\Cache;
  * time: about forty seconds' worth a run, then the job queues itself again
  * for the rest, so a whole school never outlasts the worker's time limit.
  * Each person is sent to once (a dedupe key per message and person); a
- * person with no number or email, or the wallet running short with Prepaid
- * on, is skipped.
+ * person with no number or email, or the school out of messages on the
+ * channel with Prepaid on, is skipped. By WhatsApp, SMS or email.
  */
 class SendMessagingCampaign implements ShouldQueue
 {
@@ -84,13 +85,15 @@ class SendMessagingCampaign implements ShouldQueue
             if ($campaign->channel === 'whatsapp') {
                 if (!$r['phone']) {
                     $outcome = 'skipped';
-                } elseif (!MessagingWallet::canSpend($orgId, SchoolWhatsApp::rate())) {
+                } elseif (!MessagePacks::canSend($orgId, 'whatsapp')) {
                     $outcome = 'skipped';
                 } elseif (SchoolWhatsApp::sentFor($dedupe)) {
                     $outcome = null;   // gone in an earlier run
                 } else {
                     $outcome = SchoolWhatsApp::notice($orgId, $r['phone'], $campaign->body, $who, $dedupe) ? 'sent' : 'failed';
                 }
+            } elseif ($campaign->channel === 'sms') {
+                $outcome = SchoolSms::notice($orgId, $r['phone'], $campaign->body, $who, (int) $campaign->id, $dedupe);
             } else {
                 $outcome = SchoolEmail::send($orgId, $r['email'], $r['name'], (string) $campaign->subject, $campaign->body, $who, $campaign->id, $dedupe);
             }

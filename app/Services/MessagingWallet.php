@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
 class MessagingWallet
 {
     /** The rates a school pays, until the Super Admin sets them (Messaging → Settings). */
-    public const DEFAULT_RATES = ['whatsapp' => 0.66, 'email' => 0.10];
+    public const DEFAULT_RATES = ['whatsapp' => 0.66, 'sms' => 0.25, 'email' => 0.10];
 
     /** Ways money comes in. */
     public const MODES = ['UPI', 'Bank Transfer', 'Cash', 'Cheque', 'Card', 'Free credit', 'Other'];
@@ -95,6 +95,24 @@ class MessagingWallet
     public static function whatsappRate(): float
     {
         return round(max(0, (float) self::setting('whatsapp_rate', (string) self::DEFAULT_RATES['whatsapp'])), 2);
+    }
+
+    /** What one SMS (a part) costs a school. */
+    public static function smsRate(): float
+    {
+        return round(max(0, (float) self::setting('sms_rate', (string) self::DEFAULT_RATES['sms'])), 2);
+    }
+
+    /** UPI id schools pay to (Buy Messages shows a QR for the exact amount), or ''. */
+    public static function upiId(): string
+    {
+        return trim((string) self::setting('upi_id', ''));
+    }
+
+    /** The name the UPI app shows for that id. */
+    public static function upiName(): string
+    {
+        return trim((string) self::setting('upi_name', 'SuperLMS')) ?: 'SuperLMS';
     }
 
     /** What one email costs a school. */

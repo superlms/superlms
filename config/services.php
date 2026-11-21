@@ -152,6 +152,16 @@ return [
                 'id'   => env('BHASH_SMS_TEMPLATE_TEACHER'),
                 'text' => env('BHASH_SMS_TEXT_TEACHER', 'Dear {#var#}, welcome to {#var#}. Login - Username: {#var#}, Password: {#var#}. Download the app: https://superlms.in/app - SuperLMS'),
             ],
+            // A school's notice to many (More → Messaging → Send by SMS): the
+            // school, then the message cut into parts of 30 characters. Off
+            // until its DLT template id is set (BHASH_SMS_TEMPLATE_NOTICE) —
+            // the text below must be registered on DLT word for word.
+            'notice' => [
+                'id'   => env('BHASH_SMS_TEMPLATE_NOTICE'),
+                'text' => env('BHASH_SMS_TEMPLATE_NOTICE')
+                    ? env('BHASH_SMS_TEXT_NOTICE', 'Notice from {#var#}: {#var#} {#var#} {#var#} {#var#} {#var#} - SuperLMS')
+                    : '',
+            ],
         ],
     ],
 

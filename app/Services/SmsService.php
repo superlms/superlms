@@ -45,15 +45,15 @@ class SmsService
      * when nothing is left. A template with more {#var#} than values keeps
      * the rest as "-".
      */
-    public static function fill(string $text, array $vars): string
+    public static function fill(string $text, array $vars, string $blank = '-'): string
     {
         $vars = array_values($vars);
         $i    = 0;
 
-        return preg_replace_callback('/\{#var#\}/i', function () use (&$i, $vars) {
+        return preg_replace_callback('/\{#var#\}/i', function () use (&$i, $vars, $blank) {
             $value = self::clean($vars[$i++] ?? null);
 
-            return $value === '' ? '-' : $value;
+            return $value === '' ? $blank : $value;
         }, $text);
     }
 
@@ -77,7 +77,7 @@ class SmsService
      * Send one template. ['ok' => bool, 'id' => Bhash's message id or null,
      * 'error' => why it did not go or null, 'parts' => int].
      */
-    public static function send(string $phone, string $templateKey, array $vars): array
+    public static function send(string $phone, string $templateKey, array $vars, string $blank = '-'): array
     {
         $fail = fn (string $why, int $parts = 0) => ['ok' => false, 'id' => null, 'error' => $why, 'parts' => $parts];
 
@@ -93,7 +93,7 @@ class SmsService
             return $fail("No SMS template \"{$templateKey}\".");
         }
 
-        $text  = self::fill((string) $template['text'], $vars);
+        $text  = self::fill((string) $template['text'], $vars, $blank);
         $parts = self::parts($text);
 
         $query = [

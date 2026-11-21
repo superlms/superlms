@@ -11,6 +11,6 @@ class SmsMessage extends Model
 
     protected $fillable = [
         'organization_id', 'feature', 'template', 'user_id', 'student_detail_id',
-        'to_phone', 'provider_message_id', 'status', 'error', 'parts',
+        'to_phone', 'provider_message_id', 'status', 'error', 'parts', 'campaign_id', 'dedupe_key',
     ];
 }
