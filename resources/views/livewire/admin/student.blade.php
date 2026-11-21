@@ -100,23 +100,36 @@
         {{-- ══════════════════════════════════════════════════
              FILTER BAR — exam-style sub-header (attached, gray)
         ══════════════════════════════════════════════════ --}}
+        {{-- One line from xl up, filtered or not (user's ask, 2026-11-21: Clear
+             used to drop to a second line once a filter was on). The dropdowns
+             keep their width (a long route or class name stops at 9rem); when the
+             line is short the search box and the class / section / route boxes
+             give way, never Photo, Status or Sort; under 1360px "Filter by:" /
+             "Sort:" are their icons. --}}
+        @php
+            $fBox    = 'text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:outline-none focus:ring-1';
+            // Class, Section, Transport: names of the school's own, so they may run long.
+            $fSel    = $fBox . ' min-w-0 xl:min-w-[5rem] xl:max-w-[9rem] truncate';
+            // Photo, Status, Sort: short words of ours, always whole.
+            $fSelFix = $fBox . ' xl:shrink-0';
+        @endphp
         <div class="border-t border-gray-200 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <div class="flex flex-wrap xl:flex-nowrap items-center gap-3 xl:gap-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 shrink-0 whitespace-nowrap" title="Filter by">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
-                    Filter by:
+                    <span class="xl:hidden min-[1360px]:inline">Filter by:</span>
                 </div>
 
                 <input wire:model.live.debounce.300ms="search" type="text"
                     placeholder="Search name, admission, roll, phone, email…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-64
-                           focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 xl:min-w-[5rem] max-w-64
+                           focus:outline-none focus:ring-1" />
 
                 <select wire:model.live="filterClass"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="{{ $fSel }}">
                     <option value="">All Classes</option>
                     @foreach ($standards as $standard)
                         <option value="{{ $standard->id }}">{{ $standard->name }}</option>
@@ -124,7 +137,7 @@
                 </select>
 
                 <select data-sole-section wire:model.live="filterSection" @disabled(!$filterClass)
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="{{ $fSel }} disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="">All Sections</option>
                     @foreach ($filterSections as $section)
                         <option value="{{ $section->id }}">{{ $section->name }}</option>
@@ -132,7 +145,7 @@
                 </select>
 
                 <select wire:model.live="filterTransport"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="{{ $fSel }}">
                     <option value="">All Transport</option>
                     <option value="yes">With Transport</option>
                     <option value="no">Without Transport</option>
@@ -146,38 +159,38 @@
                 </select>
 
                 <select wire:model.live="filterPhoto"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="{{ $fSelFix }}">
                     <option value="">All Photos</option>
                     <option value="with">With Photo</option>
                     <option value="without">Without Photo</option>
                 </select>
 
                 <select wire:model.live="filterStatus"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="{{ $fSelFix }}">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
 
-                <span class="text-gray-300">·</span>
+                <span class="text-gray-300 shrink-0">·</span>
 
                 {{-- Sort control --}}
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-700 shrink-0 whitespace-nowrap" title="Sort">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                     </svg>
-                    Sort:
+                    <span class="xl:hidden min-[1360px]:inline">Sort:</span>
                 </div>
                 <select wire:model.live="sortBy"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="{{ $fSelFix }}">
                     <option value="name_asc">Name (A → Z)</option>
-                    <option value="admission_no">Admission No (asc)</option>
-                    <option value="roll_no">Roll No (asc)</option>
+                    <option value="admission_no">Admission No</option>
+                    <option value="roll_no">Roll No</option>
                 </select>
 
                 @if ($search || $filterClass || $filterSection || $filterGender || $filterStatus !== '' || $filterTransport || $filterPhoto || $sortBy !== 'name_asc')
                     <button wire:click="clearFilters"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        class="shrink-0 whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
