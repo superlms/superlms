@@ -37,6 +37,14 @@ return [
             'accounts.custom-fee',
         ],
     ],
+    // Not a page: on = the school admin's Fee → Payments has a Delete on each
+    // payment taken at the school (not one paid online in the app). OFF until
+    // the Super Admin turns it on (App\Livewire\Concerns\HandlesPayments).
+    'fee_delete' => [
+        'label'   => 'Delete Fee',
+        'default' => false,
+        'links'   => [],
+    ],
     'payroll' => [
         'label'   => 'Payroll',
         'default' => true,

@@ -392,6 +392,8 @@ trait HandlesPayments
                 'payment_date' => $p->payment_date,
                 'submitted_by' => $p->submitted_by,
                 'receipt_route' => "{$prefix}.fee.custom-receipt",
+                'kind' => 'custom',
+                'deletable' => !self::paidInApp($p->payment_mode, $p->submitted_by),
             ]);
         }
 
@@ -415,6 +417,8 @@ trait HandlesPayments
                 'payment_date' => $p->payment_date,
                 'submitted_by' => $p->submitted_by,
                 'receipt_route' => "{$prefix}.fee.receipt",
+                'kind' => 'fee',
+                'deletable' => !self::paidInApp($p->payment_mode, $p->submitted_by),
             ]);
         }
 
@@ -437,6 +441,8 @@ trait HandlesPayments
                 'payment_date' => $p->payment_date,
                 'submitted_by' => $p->submitted_by,
                 'receipt_route' => "{$prefix}.transport.receipt",
+                'kind' => 'transport',
+                'deletable' => !self::paidInApp($p->payment_mode, $p->submitted_by),
             ]);
         }
 
@@ -518,11 +524,108 @@ trait HandlesPayments
                     ->where('is_active', true)->get()
                 : collect(),
             'paymentsOrgId' => $orgId,
+            // Delete on each row the school took itself (Super Admin's Delete Fee).
+            'paymentsDeletable' => $this->canDeleteFeePayments(),
             'datePresets' => $this->datePresetOptions(),
             // The tabs over the filters: a Custom Fee school has no dues or penalty.
             'paymentTabs' => $this->paymentsCustomFee()
                 ? ['' => 'All', 'academic' => 'Fee', 'transport' => 'Transport']
                 : ['' => 'All', 'academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'],
         ];
+    }
+
+    // ─── Delete a payment ─────────────────────────────────────────────────────
+    // Only on the admin panel, for a school the Super Admin has given Delete Fee
+    // (Schools → Modules; config/modules.php 'fee_delete', off by default). A
+    // payment made online in the app (PhonePe) is the gateway's record and is
+    // never deleted here; one taken at the school — cash, cheque, a QR payment
+    // approved, a concession — is. The school's figures, the student's dues and
+    // the ledger are all read from the payment rows, so they follow at once.
+
+    /** The payment whose Delete was pressed, until it is confirmed: kind, id and what the box says. Set here only, never by the browser. */
+    #[\Livewire\Attributes\Locked]
+    public ?array $feePaymentToDelete = null;
+
+    /** May this panel delete the school's payments? Never the accounts desk. */
+    public function canDeleteFeePayments(): bool
+    {
+        if ($this->paymentsRoutePrefix() !== 'admin') {
+            return false;
+        }
+
+        return (bool) \App\Models\Organization::find($this->orgId())?->hasModule('fee_delete');
+    }
+
+    /** Paid online in the app — PhonePe, or its Autopay — and not taken at the school. */
+    private static function paidInApp($mode, $submittedBy): bool
+    {
+        $by = trim((string) $submittedBy);
+
+        return strtolower((string) $mode) === 'online' && ($by === '' || stripos($by, 'PhonePe') === 0);
+    }
+
+    /** This school's payment of that kind, if it may be deleted. */
+    private function deletableFeePayment(string $kind, int $id): ?\Illuminate\Database\Eloquent\Model
+    {
+        $model = match ($kind) {
+            'fee'       => FeePayment::class,
+            'transport' => TransportFeePayment::class,
+            'custom'    => \App\Models\Admin\Fee\CustomFeePayment::class,
+            default     => null,
+        };
+        $payment = $model ? $model::where('organization_id', $this->orgId())->whereKey($id)->first() : null;
+
+        return $payment && !self::paidInApp($payment->payment_mode, $payment->submitted_by) ? $payment : null;
+    }
+
+    /** Delete on a row: the box asks first. */
+    public function askDeleteFeePayment(string $kind, int $id): void
+    {
+        $this->feePaymentToDelete = null;
+        if (!$this->canDeleteFeePayments()) {
+            return;
+        }
+
+        $payment = $this->deletableFeePayment($kind, $id);
+        if (!$payment) {
+            $this->notification()->error('Cannot delete', 'A payment made online in the app cannot be deleted.');
+            return;
+        }
+
+        $student = $payment->studentDetail()->with('user')->first();
+        $this->feePaymentToDelete = [
+            'kind'    => $kind,
+            'id'      => (int) $payment->id,
+            'student' => $student?->user?->name ?? $student?->full_name ?? '—',
+            'amount'  => (float) $payment->amount,
+            'receipt' => (string) ($payment->receipt_number ?? ''),
+            'date'    => $payment->payment_date ? \Illuminate\Support\Carbon::parse($payment->payment_date)->format('d M Y') : '',
+        ];
+    }
+
+    public function keepFeePayment(): void
+    {
+        $this->feePaymentToDelete = null;
+    }
+
+    /** The box's Delete: the payment goes, and the list and its figures with it. */
+    public function deleteFeePayment(): void
+    {
+        $pick = $this->feePaymentToDelete;
+        $this->feePaymentToDelete = null;
+        if (!$pick || !$this->canDeleteFeePayments()) {
+            return;
+        }
+
+        $payment = $this->deletableFeePayment((string) ($pick['kind'] ?? ''), (int) ($pick['id'] ?? 0));
+        if (!$payment) {
+            $this->notification()->error('Cannot delete', 'The payment is already gone, or was made online in the app.');
+            return;
+        }
+
+        $receipt = (string) ($payment->receipt_number ?? '');
+        $payment->delete();
+
+        $this->notification()->success('Payment deleted', $receipt !== '' ? "Receipt {$receipt} is deleted." : 'The payment is deleted.');
     }
 }
