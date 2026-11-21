@@ -20,12 +20,14 @@
         Every empty field reads the same light grey (hints, "Select …", empty
         dates) and a value the form came with reads ink. The words are in the
         login's face (Geist, 15px).
-     4. Filters in the header (2026-11-21, user's ask): the grey "Filter by"
-        band under a page's header is gone; the header has a round filter
-        button instead, and clicking it turns the header row itself into the
-        filters — the same filters as before, nothing else changed — with a
-        round × at its end that turns it back into the header. A dot on the
-        filter button says a filter is on (the band has its Clear button).
+     4. Filters behind a button (2026-11-21, user's ask): the grey "Filter by"
+        band under a page's header is hidden; the header has a round filter
+        button instead, and clicking it shows the band under the header —
+        the same band, look and size as before, the header and its figures
+        staying as they are (they follow the filters as before) — with a
+        small round × at its right end that hides it and brings the filter
+        button back. A dot on the filter button says a filter is on (the band
+        has its Clear button).
         One script for every page of both panels (no page's own markup
         changes); it re-marks the header after every Livewire update.
      Included in the page's <head> (components.layouts.app), so a page never
@@ -162,20 +164,18 @@
        band (it has the funnel icon) is already out of sight, so it never
        shows for a moment while the page loads. */
     body.lms-ui #main-scroll :is(.sticky, .bg-white.border-b):has(h1):not(:has(table)):not(.lms-fopen) > :is(.border-t, .border-b).bg-gray-50:has(path[d^="M3 4a1 1 0 011-1h16"]) { display: none !important; }
-    /* Closed: the band hidden. Open: the title row hidden and the band in its place. */
+    /* Closed: the band hidden, the filter button in the header. Open (user's
+       ask, 2026-11-21 later): the header stays as it is — its figures follow
+       the filters as before — and the band shows under it in its own look and
+       size, with a small round × at its right end; the filter button is out
+       of the header until the × closes the band again. */
     body.lms-ui #main-scroll .lms-fh:not(.lms-fopen) .lms-fbar { display: none !important; }
-    body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-ftitle { display: none !important; }
-    body.lms-ui #main-scroll .lms-fh.lms-fopen.lms-fh-flex { display: flex !important; flex-direction: column; }
-    body.lms-ui #main-scroll .lms-fh.lms-fopen.lms-fh-flex > .lms-fbar { order: -1; }
+    body.lms-ui #main-scroll .lms-fh.lms-fopen [data-lms-fh-btn] { display: none !important; }
     body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-fbar {
-        display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px;
-        min-height: 60px; background: #fff !important; border-top: 0 !important; border-bottom: 1px solid var(--sa-hline) !important;
-        padding-top: 10px !important; padding-bottom: 10px !important;
-        animation: lms-fh-in .22s cubic-bezier(.2,.7,.2,1);
+        position: relative; padding-right: 52px !important;
+        animation: lms-fh-in .2s cubic-bezier(.2,.7,.2,1);
     }
-    body.lms-ui #main-scroll .lms-fbar > :not([data-lms-fh-x]) { grid-column: 1; min-width: 0; }
-    body.lms-ui #main-scroll .lms-fbar > [data-lms-fh-x] { grid-column: 2; grid-row: 1; }
-    @keyframes lms-fh-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    @keyframes lms-fh-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
     /* Where the filter button sits: in the header's row of buttons ("in"), at
        the end of the title's row ("row"), or at the header's right edge ("abs"). */
     body.lms-ui #main-scroll .lms-fh-row { justify-content: flex-start !important; }
@@ -190,6 +190,12 @@
         box-shadow: 0 1px 2px rgba(12,38,32,.05); transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s;
     }
     body.lms-ui #main-scroll :is([data-lms-fh-btn], [data-lms-fh-x]) svg { width: 18px; height: 18px; }
+    /* The band's ×: small, at its right end, so the band keeps its height. */
+    body.lms-ui #main-scroll .lms-fbar > [data-lms-fh-x] {
+        position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+        width: 28px; height: 28px; background: #fff; border-color: #e5e7eb;
+    }
+    body.lms-ui #main-scroll .lms-fbar > [data-lms-fh-x] svg { width: 14px; height: 14px; }
     body.lms-ui #main-scroll [data-lms-fh-btn]:hover { background: var(--sa-t); border-color: var(--sa-t); color: #fff; transform: translateY(-1px); box-shadow: 0 10px 20px -10px rgba(13,148,136,.7); }
     body.lms-ui #main-scroll [data-lms-fh-x]:hover { background: #fff1f2; border-color: #fda4af; color: #e11d48; }
     body.lms-ui #main-scroll :is([data-lms-fh-btn], [data-lms-fh-x]):focus-visible { outline: 2px solid var(--sa-t200); outline-offset: 2px; }
@@ -242,8 +248,8 @@
     // header is found (the band with the funnel icon / "Filter by" / data-
     // filter-bar, in the white or sticky header that holds the page's <h1>),
     // hidden, and a round filter button added to the header's row; clicking it
-    // hides the title row and shows the band in its place with a round × at
-    // the end, which turns it back. The page's own markup is untouched: the
+    // shows the band under the header (the button hides) with a small round ×
+    // at its end, which hides it again. The page's own markup is untouched: the
     // marks and buttons are put back after every Livewire update ("morphed"
     // and a MutationObserver, both before the browser paints), and which
     // headers are open is kept here, not on the page.
@@ -408,9 +414,11 @@
             head.classList.toggle('lms-fopen', on);
             var btn = head.querySelector('[data-lms-fh-btn]');
             if (btn) btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+            // Focus goes to the band's × (the button it came from is hidden now),
+            // not into a field: the band opens looking exactly as it did.
             if (on) {
-                var field = head.querySelector('.lms-fbar :is(input:not([type="hidden"]), select)');
-                if (field) try { field.focus({ preventScroll: true }); } catch (e) {}
+                var x = head.querySelector('.lms-fbar > [data-lms-fh-x]');
+                if (x) try { x.focus({ preventScroll: true, focusVisible: false }); } catch (e) {}
             } else if (btn) {
                 try { btn.focus({ preventScroll: true }); } catch (e) {}
             }
