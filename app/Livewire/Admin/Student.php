@@ -132,6 +132,8 @@ class Student extends Component
     public string $filterTransport = '';
     /** Every route of the school, for the Transport filter. */
     public $filterRoutes = [];
+    /** '' all, 'with' a photo, or 'without' one (the photo the list shows). */
+    public string $filterPhoto    = '';
     /** Sort key — name_asc (A→Z), admission_no (asc), roll_no (asc). */
     public string $sortBy         = 'name_asc';
     public int    $perPage        = 100;
@@ -143,7 +145,8 @@ class Student extends Component
         'filterGender'  => ['except' => '', 'history' => false],
         'filterStatus'  => ['except' => '', 'history' => false],
         'filterTransport' => ['except' => '', 'history' => false],
-        'sortBy'        => ['except' => 'name_asc', 'history' => false],
+        'filterPhoto'   => ['except' => '', 'history' => false],
+        'sortBy'      => ['except' => 'name_asc', 'history' => false],
     ];
 
     protected $listeners = [
@@ -252,6 +255,11 @@ class Student extends Component
         $this->resetPage();
     }
 
+    public function updatedFilterPhoto(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedFilterClass(): void
     {
         $this->resetPage();
@@ -268,7 +276,7 @@ class Student extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterClass', 'filterSection', 'filterGender', 'filterStatus', 'filterTransport']);
+        $this->reset(['search', 'filterClass', 'filterSection', 'filterGender', 'filterStatus', 'filterTransport', 'filterPhoto']);
         $this->sortBy         = 'name_asc';
         $this->filterSections = [];
         $this->resetPage();
@@ -1335,7 +1343,7 @@ class Student extends Component
     private function listIsFiltered(): bool
     {
         return $this->search || $this->filterClass || $this->filterSection
-            || $this->filterGender || $this->filterStatus !== '' || $this->filterTransport;
+            || $this->filterGender || $this->filterStatus !== '' || $this->filterTransport || $this->filterPhoto;
     }
 
     /**
@@ -1384,6 +1392,15 @@ class Student extends Component
             ->when(ctype_digit($this->filterTransport), fn($q) => $q->whereHas(
                 'transportations',
                 fn($q) => $q->where('transportations.id', (int) $this->filterTransport)
+            ))
+            // The photo the list shows is the login's (users.image).
+            ->when($this->filterPhoto === 'with', fn($q) => $q->whereHas(
+                'user',
+                fn($q) => $q->whereNotNull('image')->where('image', '!=', '')
+            ))
+            ->when($this->filterPhoto === 'without', fn($q) => $q->whereHas(
+                'user',
+                fn($q) => $q->where(fn($q) => $q->whereNull('image')->orWhere('image', ''))
             ))
             ->when($this->filterStatus !== '', fn($q) => $q->whereHas(
                 'user',

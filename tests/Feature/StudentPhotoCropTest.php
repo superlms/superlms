@@ -524,6 +524,32 @@ class StudentPhotoCropTest extends TestCase
         $this->assertNull(PhotoCircle::of(User::find($other->user_id)));
     }
 
+    public function test_the_list_filters_students_with_or_without_a_photo(): void
+    {
+        $with    = $this->student();
+        $none    = $this->student(['email' => 'n@example.com', 'image' => null]);
+        $blank   = $this->student(['email' => 'b@example.com', 'image' => '']);
+        $other   = $this->student(['email' => 'o@example.com'], 5);
+
+        $page = new \App\Livewire\Admin\Student();
+        $ids = function (string $photo) use ($page) {
+            $page->filterPhoto = $photo;
+            $query = (fn () => $this->listQuery())->call($page);
+
+            return $query->pluck('id')->sort()->values()->all();
+        };
+
+        $this->assertSame([$with->id, $none->id, $blank->id], $ids(''));
+        $this->assertSame([$with->id], $ids('with'));
+        $this->assertSame([$none->id, $blank->id], $ids('without'));
+
+        // It narrows the list, so the header counts the filtered students; Clear drops it.
+        $this->assertTrue((fn () => $this->listIsFiltered())->call($page));
+        $page->clearFilters();
+        $this->assertSame('', $page->filterPhoto);
+        $this->assertFalse((new \ReflectionProperty($page, 'queryString'))->getValue($page)['filterPhoto']['history']);
+    }
+
     public function test_the_teachers_list_lays_the_photo_so_the_circle_fills_it(): void
     {
         $style = PhotoCircle::imgStyle([0.25, 0, 0.5, 1]);
