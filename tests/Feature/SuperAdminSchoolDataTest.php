@@ -12,9 +12,10 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Super Admin → School Data: one school's students, teachers, staff, classes
- * and fees, its figures up top — the fee as the school's own Analytics counts
- * it — and only that school's, with a search and an Excel export per list.
+ * Super Admin → School Data: one school's School Detail and the analytics of
+ * everything it keeps — the fee as the school's own Analytics counts it — and
+ * only that school's, then every functionality with its PDF; no lists of
+ * records on the page, an Excel download of each list from the header.
  */
 class SuperAdminSchoolDataTest extends TestCase
 {
@@ -158,29 +159,42 @@ class SuperAdminSchoolDataTest extends TestCase
         $this->assertEquals(1500, $fee['remaining']);
     }
 
-    public function test_one_schools_figures_and_lists_only(): void
+    public function test_one_schools_detail_and_analytics_and_no_lists_of_records(): void
     {
         $this->signIn();
+        DB::table('organizations')->where('id', self::SCHOOL)->update(['mobile_number' => '9876543210', 'school_code' => 'ASIC']);
 
         $page = Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
+            ->assertSee('School Detail')
             ->assertSee('Adarsh Public School')
+            ->assertSee('9876543210')
+            ->assertSee('ASIC')
             ->assertSee('Present Today')
             ->assertSee('50%')            // 1 of 2 marked present
             ->assertSee('₹1,500')         // pending
-            ->assertSee('Aarav Sharma')
-            ->assertSee('Bela Khan')
-            ->assertDontSee('Zed Other');
+            ->assertSee('25% collected')  // ₹500 of ₹2,000
+            ->assertSee('Students by Class')
+            ->assertSee('Class 8')
+            ->assertSee('Driver')         // staff by kind
+            ->assertSee('Fee by Payment Mode')
+            ->assertSee('Functionality Usage')
+            ->assertDontSee('Class 9')
+            // The lists of records are gone from the page.
+            ->assertDontSee('Aarav Sharma')
+            ->assertDontSee('Bela Khan')
+            ->assertDontSee('RCT-7-1');
 
-        $page->set('search', '119')->assertSee('Bela Khan')->assertDontSee('Aarav Sharma');
+        $an = $page->viewData('an');
+        $this->assertSame(['total' => 2, 'active' => 1, 'inactive' => 1], array_intersect_key($an['students'], array_flip(['total', 'active', 'inactive'])));
+        $this->assertSame(1, $an['teachers']['total']);
+        $this->assertSame(1, $an['staff']['total']);          // teachers are not staff
+        $this->assertEquals(15000, $an['staff']['bill']);
+        $this->assertSame([['label' => 'Class 8', 'count' => 2]], $an['classes']['rows']);
+        $this->assertSame(['Cash'], array_column($an['fee']['modes'], 'label')); // not the other school's UPI
+        $this->assertEquals(500, array_sum($an['fee']['byMonth']));
 
-        $page->call('setTab', 'teachers')->assertSet('search', '')->assertSee('Meena Rao')->assertSee('T-01');
-        $page->call('setTab', 'staff')->assertSee('Ramesh Driver')->assertDontSee('Elsewhere Clerk')
-            ->assertDontSee('30,000'); // teachers are on Teachers, not Staff
-        $page->call('setTab', 'classes')->assertSee('Class 8')->assertDontSee('Class 9');
-        $page->call('setTab', 'fees')->assertSee('RCT-7-1')->assertDontSee('RCT-8-1');
-
-        // Another school, and the lists follow it.
-        $page->set('school', self::OTHER)->call('setTab', 'students')->assertSee('Zed Other')->assertDontSee('Aarav Sharma');
+        // Another school, and the figures follow it.
+        $page->set('school', self::OTHER)->assertSee('Sunrise Academy')->assertDontSee('Class 8')->assertSee('Class 9');
     }
 
     public function test_a_sub_super_admin_limited_to_one_school_sees_only_it(): void
@@ -190,32 +204,28 @@ class SuperAdminSchoolDataTest extends TestCase
         Livewire::test(SchoolData::class, ['school' => self::OTHER])
             ->assertSet('school', self::SCHOOL)
             ->assertDontSee('Sunrise Academy')
-            ->assertSee('Aarav Sharma')
+            ->assertSee('Adarsh Public School')
             ->set('school', self::OTHER)
             ->assertSet('school', self::SCHOOL)
-            ->assertDontSee('Zed Other');
+            ->assertDontSee('Class 9');
     }
 
-    public function test_an_unknown_tab_falls_back_to_students(): void
+    public function test_each_list_downloads_as_excel_from_the_header(): void
     {
         $this->signIn();
 
-        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
-            ->set('tab', 'passwords')
-            ->assertSet('tab', 'students')
-            ->assertSee('Aarav Sharma');
-    }
-
-    public function test_each_list_downloads_as_excel(): void
-    {
-        $this->signIn();
-
-        foreach (['staff', 'classes', 'fees'] as $tab) {
-            Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
-                ->call('setTab', $tab)
-                ->call('export')
-                ->assertFileDownloaded('adarsh-public-school-' . $tab . '-2026-11-03.xlsx');
+        $page = Livewire::test(SchoolData::class, ['school' => self::SCHOOL])->assertSee('Export Excel');
+        foreach (array_keys(SchoolData::EXPORTS) as $list) {
+            $page->assertSeeHtml("export('{$list}')");
         }
+
+        foreach (['staff', 'classes', 'fees'] as $list) {
+            Livewire::test(SchoolData::class, ['school' => self::SCHOOL])
+                ->call('export', $list)
+                ->assertFileDownloaded('adarsh-public-school-' . $list . '-2026-11-03.xlsx');
+        }
+
+        Livewire::test(SchoolData::class, ['school' => self::SCHOOL])->call('export', 'passwords')->assertNoFileDownloaded();
     }
 
     public function test_school_data_is_the_last_screen_in_the_menu(): void

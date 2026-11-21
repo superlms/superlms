@@ -6,41 +6,44 @@ use App\Jobs\SchoolDataMailSend;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Organization;
-use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
+use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Support\AcademicYear;
-use App\Support\NameOrder;
 use App\Support\SchoolFeeTotals;
+use App\Support\SchoolMonthly;
 use App\Support\SchoolPdf\Exporter;
 use App\Support\StudentExport;
 use App\Support\TeacherExport;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 /**
- * Super Admin → School Data: one school's full data in one place. Pick a
- * school and see its students, teachers, staff, classes and fees — the
- * figures up top (with how they moved this month), then each list with a
- * search and an Excel export of it.
+ * Super Admin → School Data: one school at a glance, in the Home's analytics
+ * look (2026-11-21). Pick a school and see its School Detail, then the
+ * analytics of everything it keeps — students, attendance, fees, classes,
+ * teachers, staff and how much each functionality is used — and then every
+ * functionality of the school's panel with an Export PDF of all its records
+ * (App\Support\SchoolPdf\Exporter), two to a row. Send to Mail sends all
+ * those PDFs to the school's registered email; the header's Excel menu
+ * downloads the students, teachers, staff, classes or fees as a sheet.
  *
- * Every functionality of the school's panel is listed with an Export PDF of
- * all its records (App\Support\SchoolPdf\Exporter), and Send to Mail sends
- * all those PDFs to the school's registered email.
+ * No lists of records on the page itself (the user had them taken off).
  *
  * A sub super-admin limited to one school sees only that school.
  */
 class SchoolData extends Component
 {
-    use WithPagination, WireUiActions;
+    use WireUiActions;
 
-    public const TABS = [
+    /** The lists the header's Excel menu downloads. */
+    public const EXPORTS = [
         'students' => 'Students',
         'teachers' => 'Teachers',
         'staff'    => 'Staff',
@@ -48,18 +51,14 @@ class SchoolData extends Component
         'fees'     => 'Fees',
     ];
 
-    private const PER_PAGE = 20;
+    /** Months on the charts and the KPI cards' sparklines, this one included. */
+    private const MONTHS = 12;
 
-    /** Months on the cards' sparklines, this one included. */
-    private const SPARK_MONTHS = 6;
+    /** Teal shades for a donut's parts (the Home's look), then a grey. */
+    private const SHADES = ['#0f766e', '#0d9488', '#2fae9f', '#6cc9bb', '#a7e3d8', '#d5f2ec'];
 
     #[Url(except: null)]
     public ?int $school = null;
-
-    #[Url(except: 'students')]
-    public string $tab = 'students';
-
-    public string $search = '';
 
     public function mount(): void
     {
@@ -67,10 +66,6 @@ class SchoolData extends Component
             $this->school = $locked;
         } elseif (!$this->school || !Organization::whereKey($this->school)->exists()) {
             $this->school = Organization::orderBy('name')->value('id');
-        }
-
-        if (!array_key_exists($this->tab, self::TABS)) {
-            $this->tab = 'students';
         }
     }
 
@@ -81,42 +76,18 @@ class SchoolData extends Component
         } elseif (!$this->school || !Organization::whereKey($this->school)->exists()) {
             $this->school = Organization::orderBy('name')->value('id');
         }
-
-        $this->search = '';
-        $this->resetPage();
     }
 
-    public function setTab(string $tab): void
-    {
-        if (!array_key_exists($tab, self::TABS)) {
-            return;
-        }
-
-        $this->tab    = $tab;
-        $this->search = '';
-        $this->resetPage();
-    }
-
-    public function updatedTab(): void
-    {
-        $this->setTab(array_key_exists($this->tab, self::TABS) ? $this->tab : 'students');
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    /** The open list as an Excel file — the whole school's, not just this page. */
-    public function export()
+    /** One list as an Excel file — the whole school's. */
+    public function export(string $list = 'students')
     {
         $org = $this->org();
-        if (!$org) {
+        if (!$org || !array_key_exists($list, self::EXPORTS)) {
             return null;
         }
 
         try {
-            [$headings, $rows] = match ($this->tab) {
+            [$headings, $rows] = match ($list) {
                 'students' => array_slice(StudentExport::data($org->id), 0, 2),
                 'teachers' => array_slice(TeacherExport::data($org->id), 0, 2),
                 'staff'    => $this->staffSheet($org->id),
@@ -130,7 +101,7 @@ class SchoolData extends Component
             return null;
         }
 
-        $name = Str::slug($org->name) . '-' . $this->tab . '-' . now()->format('Y-m-d') . '.xlsx';
+        $name = Str::slug($org->name) . '-' . $list . '-' . now()->format('Y-m-d') . '.xlsx';
 
         return response()->streamDownload(fn () => print($bytes), $name, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -203,122 +174,231 @@ class SchoolData extends Component
         return $id ? Organization::find($id) : null;
     }
 
-    /** The cards up top: counts, today's attendance, the fee, and how each moved. */
-    private function summary(int $org): array
+    /**
+     * The analytics of everything the school keeps: the KPI cards up top
+     * (with how each moved, month by month), then a card each for the fee,
+     * attendance, students, classes, teachers, staff, how fees were paid and
+     * how much each functionality is used.
+     */
+    private function analytics(int $org, array $pdfCounts): array
     {
-        $students = StudentDetail::where('organization_id', $org);
-        $teachers = TeacherDetail::where('organization_id', $org);
-
-        $today   = StudentAttendance::where('organization_id', $org)->whereDate('attendance_date', now()->toDateString());
-        $marked  = (clone $today)->count();
-        $present = (clone $today)->where('status', 1)->count();
-
-        $standardIds = Standard::where('organization_id', $org)->pluck('id');
+        $monthly = SchoolMonthly::forSchool($org, self::MONTHS);
 
         return [
-            'students'        => (clone $students)->count(),
-            'activeStudents'  => (clone $students)->whereHas('user', fn ($q) => $q->where('is_active', 1))->count(),
-            'teachers'        => (clone $teachers)->count(),
-            'activeTeachers'  => (clone $teachers)->whereHas('user', fn ($q) => $q->where('is_active', 1))->count(),
-            'staff'           => $this->staffQuery($org)->count(),
-            'classes'         => $standardIds->count(),
-            'sections'        => Section::whereIn('standard_id', $standardIds)->count(),
-            'marked'          => $marked,
-            'present'         => $present,
-            'presentPct'      => $marked > 0 ? round($present / $marked * 100, 1) : null,
-            'fee'             => SchoolFeeTotals::summary($org),
-            'admissions'      => $this->monthly(fn ($from, $to) => StudentDetail::where('organization_id', $org)->whereBetween('created_at', [$from, $to])->count()),
-            'teacherJoins'    => $this->monthly(fn ($from, $to) => TeacherDetail::where('organization_id', $org)->whereBetween('created_at', [$from, $to])->count()),
-            'feeByMonth'      => $this->monthly(fn ($from, $to) => (float) FeePayment::where('organization_id', $org)
-                ->whereDate('payment_date', '>=', $from->toDateString())->whereDate('payment_date', '<=', $to->toDateString())->sum('amount')),
-            'attendanceWeek'  => $this->attendanceWeek($org),
+            'months'     => $monthly['labels'],
+            'students'   => $this->studentFigures($org, $monthly['students']),
+            'teachers'   => $this->teacherFigures($org, $monthly['teachers']),
+            'staff'      => $this->staffFigures($org),
+            'classes'    => $this->classFigures($org),
+            'attendance' => $this->attendanceFigures($org),
+            'fee'        => SchoolFeeTotals::summary($org) + [
+                'byMonth'   => $monthly['fee'],
+                'thisMonth' => (float) (end($monthly['fee']) ?: 0),
+                'modes'     => $this->feeModes($org),
+            ],
+            'usage'      => $this->usage($pdfCounts),
         ];
     }
 
-    /** One figure per month over the last SPARK_MONTHS months, oldest first. */
-    private function monthly(callable $figure): array
+    /** A figure that needs a table or column some schools' databases may lack. */
+    private function safely(callable $figure, $fallback = null)
     {
-        $out = [];
-        for ($i = self::SPARK_MONTHS - 1; $i >= 0; $i--) {
-            $from  = now()->startOfMonth()->subMonthsNoOverflow($i);
-            $out[] = $figure($from, $from->copy()->endOfMonth());
+        try {
+            return $figure();
+        } catch (\Throwable $e) {
+            return $fallback;
         }
-
-        return $out;
     }
 
-    /** Present % for each of the last 7 days (0 where nothing was marked). */
-    private function attendanceWeek(int $org): array
+    private function studentFigures(int $org, array $added): array
+    {
+        $students = StudentDetail::where('organization_id', $org);
+        $total    = (clone $students)->count();
+        $active   = (clone $students)->whereHas('user', fn ($q) => $q->where('is_active', 1))->count();
+
+        $gender = $this->safely(fn () => (clone $students)
+            ->selectRaw("LOWER(TRIM(COALESCE(gender, ''))) as g, COUNT(*) as c")
+            ->groupBy('g')
+            ->pluck('c', 'g')
+            ->all(), []);
+        $boys   = (int) ($gender['male'] ?? 0) + (int) ($gender['boy'] ?? 0) + (int) ($gender['m'] ?? 0);
+        $girls  = (int) ($gender['female'] ?? 0) + (int) ($gender['girl'] ?? 0) + (int) ($gender['f'] ?? 0);
+
+        return [
+            'total'     => $total,
+            'active'    => $active,
+            'inactive'  => max(0, $total - $active),
+            'added'     => $added,
+            'thisMonth' => (int) (end($added) ?: 0),
+            'boys'      => $boys,
+            'girls'     => $girls,
+            'otherGender' => max(0, $total - $boys - $girls),
+            'noClass'   => (clone $students)->whereNull('standard_id')->count(),
+        ];
+    }
+
+    private function teacherFigures(int $org, array $added): array
+    {
+        $teachers = TeacherDetail::where('organization_id', $org);
+        $total    = (clone $teachers)->count();
+        $active   = (clone $teachers)->whereHas('user', fn ($q) => $q->where('is_active', 1))->count();
+
+        // Today's teacher attendance, where the school marks it.
+        [$marked, $present] = $this->safely(function () use ($org) {
+            $today = TeacherAttendance::where('organization_id', $org)->whereDate('attendance_date', now()->toDateString());
+
+            return [(clone $today)->count(), (clone $today)->where('status', 1)->count()];
+        }, [0, 0]);
+
+        return [
+            'total'     => $total,
+            'active'    => $active,
+            'inactive'  => max(0, $total - $active),
+            'added'     => $added,
+            'thisMonth' => (int) (end($added) ?: 0),
+            'marked'    => $marked,
+            'present'   => $present,
+            'presentPct' => $marked > 0 ? round($present / $marked * 100, 1) : null,
+        ];
+    }
+
+    /** Staff besides teachers: how many, of which kind, and their monthly salary bill. */
+    private function staffFigures(int $org): array
+    {
+        $byType = $this->staffQuery($org)
+            ->selectRaw("COALESCE(NULLIF(type, ''), 'staff') as t, COUNT(*) as c, SUM(CASE WHEN is_active = 1 THEN COALESCE(salary, 0) ELSE 0 END) as bill")
+            ->groupBy('t')
+            ->orderByDesc('c')
+            ->get();
+
+        return [
+            'total'  => (int) $byType->sum('c'),
+            'active' => $this->staffQuery($org)->where('is_active', 1)->count(),
+            'bill'   => (float) $byType->sum('bill'),
+            'byType' => $byType->map(fn ($r) => ['label' => Str::headline((string) $r->t), 'count' => (int) $r->c])->values()->all(),
+        ];
+    }
+
+    /** Classes and sections, and the classes with the most students. */
+    private function classFigures(int $org): array
+    {
+        $classes  = $this->classes($org);
+        $sections = array_sum(array_map(fn ($c) => count($c['sections']), $classes));
+        $ranked   = collect($classes)->sortByDesc('students')->filter(fn ($c) => $c['students'] > 0)->values();
+        $withKids = $ranked->count();
+
+        return [
+            'classes'  => count($classes),
+            'sections' => $sections,
+            'average'  => $withKids > 0 ? (int) round($ranked->sum('students') / $withKids) : 0,
+            'rows'     => $ranked->take(8)->map(fn ($c) => ['label' => $c['name'], 'count' => $c['students']])->all(),
+            'more'     => max(0, $withKids - 8),
+        ];
+    }
+
+    /** Students' attendance: today, each of the last 7 days, and this month's average. */
+    private function attendanceFigures(int $org): array
     {
         $rows = StudentAttendance::where('organization_id', $org)
-            ->whereDate('attendance_date', '>=', now()->subDays(6)->toDateString())
+            ->whereDate('attendance_date', '>=', now()->startOfMonth()->min(now()->subDays(6))->toDateString())
             ->selectRaw('DATE(attendance_date) as d, COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
             ->groupBy('d')
             ->get()
-            ->keyBy('d');
+            ->keyBy(fn ($r) => (string) $r->d);
 
-        $out = [];
+        $week = [];
         for ($i = 6; $i >= 0; $i--) {
-            $row   = $rows[now()->subDays($i)->toDateString()] ?? null;
-            $out[] = $row && $row->total > 0 ? round($row->present / $row->total * 100, 1) : 0;
+            $day    = now()->subDays($i);
+            $row    = $rows[$day->toDateString()] ?? null;
+            $week[] = [
+                'label'  => $day->format('D'),
+                'date'   => $day->format('d M'),
+                'marked' => (int) ($row->total ?? 0),
+                'pct'    => $row && $row->total > 0 ? round($row->present / $row->total * 100, 1) : null,
+            ];
         }
 
-        return $out;
+        $todayRow = $rows[now()->toDateString()] ?? null;
+        $marked   = (int) ($todayRow->total ?? 0);
+        $present  = (int) ($todayRow->present ?? 0);
+
+        $month        = $rows->filter(fn ($r, $d) => $d >= now()->startOfMonth()->toDateString());
+        $monthMarked  = (int) $month->sum('total');
+        $monthPresent = (int) $month->sum('present');
+
+        return [
+            'marked'    => $marked,
+            'present'   => $present,
+            'absent'    => max(0, $marked - $present),
+            'pct'       => $marked > 0 ? round($present / $marked * 100, 1) : null,
+            'week'      => $week,
+            'monthPct'  => $monthMarked > 0 ? round($monthPresent / $monthMarked * 100, 1) : null,
+            'monthDays' => $month->count(),
+        ];
     }
 
-    // ─── The lists ────────────────────────────────────────────────────────────
+    /** This session's fee payments by how they were paid (cash, UPI, online …), as donut parts. */
+    private function feeModes(int $org): array
+    {
+        $from  = AcademicYear::start()->toDateString();
+        $modes = [];
+        $add   = function (string $table, array $only = []) use ($org, $from, &$modes) {
+            $this->safely(function () use ($table, $only, $org, $from, &$modes) {
+                DB::table($table)->where('organization_id', $org)
+                    ->when($only, fn ($q) => $q->whereIn('fee_type', $only))
+                    ->whereDate('payment_date', '>=', $from)
+                    ->selectRaw("LOWER(COALESCE(NULLIF(payment_mode, ''), 'other')) as m, SUM(amount) as total")
+                    ->groupBy('m')
+                    ->get()
+                    ->each(function ($r) use (&$modes) {
+                        $modes[$r->m] = ($modes[$r->m] ?? 0) + (float) $r->total;
+                    });
+            });
+        };
+
+        if (\App\Support\CustomFee::enabled($org)) {
+            $add('custom_fee_payments');
+        } else {
+            $add('fee_payments', ['academic', 'transport']);
+            $add('transport_fee_payments');
+        }
+
+        arsort($modes);
+        $modes = array_filter($modes, fn ($v) => $v > 0);
+
+        $parts = [];
+        foreach (array_slice($modes, 0, 5, true) as $mode => $amount) {
+            $label   = in_array($mode, ['upi', 'neft', 'rtgs', 'imps'], true) ? strtoupper($mode) : Str::headline($mode);
+            $parts[] = ['label' => $label, 'value' => $amount, 'color' => self::SHADES[count($parts)]];
+        }
+        $rest = array_sum(array_slice($modes, 5));
+        if ($rest > 0) {
+            $parts[] = ['label' => 'Others', 'value' => $rest, 'color' => '#e5e7eb'];
+        }
+
+        return $parts;
+    }
+
+    /** How many functionalities hold records, and the ones that hold the most. */
+    private function usage(array $pdfCounts): array
+    {
+        $used = array_filter($pdfCounts, fn ($n) => $n > 0);
+        arsort($used);
+
+        return [
+            'inUse' => count($used),
+            'total' => count(Exporter::SECTIONS),
+            'records' => array_sum($used),
+            'rows'  => collect(array_slice($used, 0, 8, true))
+                ->map(fn ($n, $key) => ['label' => Exporter::label($key), 'count' => $n])->values()->all(),
+            'unused' => collect($pdfCounts)->filter(fn ($n) => $n <= 0)->keys()->map(fn ($k) => Exporter::label($k))->values()->all(),
+        ];
+    }
 
     private function staffQuery(int $org)
     {
         return AdminEmployee::where('organization_id', $org)
             ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'teacher'));
-    }
-
-    private function rows(int $org)
-    {
-        $term = trim($this->search);
-        $like = '%' . $term . '%';
-
-        return match ($this->tab) {
-            'students' => StudentDetail::with(['user:id,email,is_active', 'standard:id,name', 'section:id,name'])
-                ->where('organization_id', $org)
-                ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
-                    ->where('full_name', 'like', $like)
-                    ->orWhere('admission_no', 'like', $like)
-                    ->orWhere('roll_no', 'like', $like)
-                    ->orWhere('phone', 'like', $like)
-                    ->orWhere('father_name', 'like', $like)))
-                ->tap(fn ($q) => NameOrder::students($q))
-                ->paginate(self::PER_PAGE),
-
-            'teachers' => TeacherDetail::with('user:id,name,email,mobile_number,is_active')
-                ->where('organization_id', $org)
-                ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
-                    ->where('phone', 'like', $like)
-                    ->orWhere('employee_id', 'like', $like)
-                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)->orWhere('email', 'like', $like))))
-                ->tap(fn ($q) => NameOrder::teachers($q))
-                ->paginate(self::PER_PAGE),
-
-            'staff' => $this->staffQuery($org)
-                ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
-                    ->where('name', 'like', $like)
-                    ->orWhere('designation', 'like', $like)
-                    ->orWhere('mobile', 'like', $like)
-                    ->orWhere('email', 'like', $like)))
-                ->orderBy('name')
-                ->paginate(self::PER_PAGE),
-
-            'fees' => FeePayment::with(['studentDetail:id,full_name,admission_no', 'standard:id,name', 'section:id,name'])
-                ->where('organization_id', $org)
-                ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
-                    ->where('receipt_number', 'like', $like)
-                    ->orWhereHas('studentDetail', fn ($s) => $s->where('full_name', 'like', $like)->orWhere('admission_no', 'like', $like))))
-                ->orderByDesc('payment_date')->orderByDesc('id')
-                ->paginate(self::PER_PAGE),
-
-            default => null,
-        };
     }
 
     /** Classes in class order, each section with its students. */
@@ -330,13 +410,10 @@ class SchoolData extends Component
             ->get()
             ->groupBy('standard_id');
 
-        $term = mb_strtolower(trim($this->search));
-
         return Standard::with(['sections' => fn ($q) => $q->orderBy('name')])
             ->where('organization_id', $org)
             ->inClassOrder()
             ->get()
-            ->filter(fn ($s) => $term === '' || str_contains(mb_strtolower($s->name), $term))
             ->map(function ($standard) use ($counts) {
                 $bySection = ($counts[$standard->id] ?? collect())->keyBy(fn ($r) => (int) $r->section_id);
                 $sections  = $standard->sections->map(fn ($sec) => [
@@ -376,7 +453,6 @@ class SchoolData extends Component
 
     private function classesSheet(int $org): array
     {
-        $this->search = '';
         $rows = [];
         foreach ($this->classes($org) as $class) {
             foreach ($class['sections'] ?: [['name' => '-', 'students' => $class['students']]] as $section) {
@@ -412,20 +488,15 @@ class SchoolData extends Component
 
     public function render()
     {
-        if (!array_key_exists($this->tab, self::TABS)) {
-            $this->tab = 'students';
-        }
-
-        $org = $this->org();
+        $org       = $this->org();
+        $pdfCounts = $org ? Exporter::counts($org->id) : [];
 
         return view('livewire.super-admin.school-data', [
-            'schools'  => $this->lockedSchool() ? collect() : Organization::orderBy('name')->get(['id', 'name']),
-            'locked'   => (bool) $this->lockedSchool(),
-            'org'      => $org,
-            'summary'  => $org ? $this->summary($org->id) : null,
-            'rows'     => $org && $this->tab !== 'classes' ? $this->rows($org->id) : null,
-            'classes'  => $org && $this->tab === 'classes' ? $this->classes($org->id) : [],
-            'pdfCounts'  => $org ? Exporter::counts($org->id) : [],
+            'schools'    => $this->lockedSchool() ? collect() : Organization::orderBy('name')->get(['id', 'name']),
+            'locked'     => (bool) $this->lockedSchool(),
+            'org'        => $org,
+            'an'         => $org ? $this->analytics($org->id, $pdfCounts) : null,
+            'pdfCounts'  => $pdfCounts,
             'mailStatus' => $org ? SchoolDataMailSend::status($org->id) : null,
         ]);
     }
