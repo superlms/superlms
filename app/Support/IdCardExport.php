@@ -56,6 +56,13 @@ class IdCardExport
      */
     public const STATUS = ['active', 'inactive', 'both'];
 
+    /**
+     * With the photos, or without: a sheet of the data alone leaves the Photo
+     * column out, fetches no photo (so it is made in a moment) and is always
+     * the plain .xlsx — the zip is only there to carry the photos.
+     */
+    public const PHOTOS = ['with', 'without'];
+
     /** Photo cell: the picture's height in px, and the row's height in points. */
     private const THUMB_PX  = 96;
     private const ROW_PT    = 78;
@@ -510,9 +517,9 @@ class IdCardExport
      * to cleanup(). Fine for a class; the panel uses start() / step() instead,
      * so a whole school never runs into the gateway's time limit.
      */
-    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0, string $status = 'both'): array
+    public static function build(int $orgId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, int $userId = 0, string $status = 'both', string $photos = 'with'): array
     {
-        $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format, $status);
+        $job = self::start($orgId, $userId, $schoolName, $type, $columns, $standards, $sectionId, $which, $format, $status, $photos);
         do {
             $status = self::step($job['id'], $orgId, $userId, null);
         } while ($status && !$status['ready']);
@@ -526,13 +533,18 @@ class IdCardExport
      *
      * @return array{id: string, people: int, total: int}  total = photos to fetch
      */
-    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, string $status = 'both'): array
+    public static function start(int $orgId, int $userId, string $schoolName, string $type, array $columns, mixed $standards, ?int $sectionId, string $which, string $format, string $status = 'both', string $photos = 'with'): array
     {
         self::clearStale();
 
-        $format  = $format === 'zip' ? 'zip' : 'xlsx';
         $status  = in_array($status, self::STATUS, true) ? $status : 'both';
+        $noPhoto = $photos === 'without';
+        $format  = !$noPhoto && $format === 'zip' ? 'zip' : 'xlsx';
         $columns = self::clean($type, $columns) ?: self::defaults($type);
+        if ($noPhoto) {
+            // Without photos: no Photo column — the rest as picked.
+            $columns = array_values(array_diff($columns, ['photo'])) ?: array_values(array_diff(self::defaults($type), ['photo']));
+        }
         $people  = self::people($orgId, $type, $standards, $sectionId, $which, null, $status);
         $thumbs  = in_array('photo', $columns, true);
         $full    = $format === 'zip';
@@ -567,7 +579,9 @@ class IdCardExport
             'stem'    => Str::slug($schoolName ?: 'school') . '_' . Str::slug(self::label($type)) . '_'
                 . self::scope($orgId, $type, $standards, $sectionId)
                 // An export of inactive people says so in its name.
-                . ($status === 'inactive' ? '_inactive' : '') . '_' . now()->format('Y-m-d'),
+                . ($status === 'inactive' ? '_inactive' : '')
+                // …and one without photos, that too.
+                . ($noPhoto ? '_no-photos' : '') . '_' . now()->format('Y-m-d'),
             'next'    => 0,         // photos fetched so far
             'ready'   => false,
         ]);

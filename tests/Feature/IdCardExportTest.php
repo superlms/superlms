@@ -124,14 +124,31 @@ class IdCardExportTest extends TestCase
         $this->assertStringNotContainsString('wire:model.live="exportStandards"', $html);
         $this->assertStringNotContainsString('id-card/export', $html);
 
-        // Students: the class and section filters, and the card's own columns —
-        // the admission number, and the photo's number beside the photo.
+        // Students: Active or Inactive comes next, then with or without photos —
+        // the filters and Download only after both.
         $page->set('exportType', 'student');
+        $this->assertSame('', $page->get('exportStatus'));
+        $this->assertSame('', $page->get('exportPhotos'));
+        $html = $page->html();
+        $this->assertStringContainsString('2 · Active or Inactive', $html);
+        $this->assertStringNotContainsString('3 · Photo', $html);
+        $this->assertStringNotContainsString('wire:model.live="exportStandards"', $html);
+        $this->assertStringNotContainsString('id-card/export', $html);
+        $page->set('exportStatus', 'active');
+        $html = $page->html();
+        $this->assertStringContainsString('3 · Photo', $html);
+        $this->assertStringNotContainsString('wire:model.live="exportStandards"', $html);
+        $this->assertStringNotContainsString('id-card/export', $html);
+
+        // Then the class and section filters, and the card's own columns —
+        // the admission number, and the photo's number beside the photo.
+        $page->set('exportPhotos', 'with');
         $this->assertSame(['sr_no', 'name', 'admission_no', 'class', 'father_name', 'mother_name', 'dob', 'address', 'phone', 'photo', 'photo_no'],
             $page->get('exportColumns'));
-        $this->assertSame('active', $page->get('exportStatus'));
         $html = $page->html();
         $this->assertStringContainsString('wire:model.live="exportStandards"', $html);
+        $this->assertStringContainsString('status=active', $html);
+        $this->assertStringContainsString('photos=with', $html);
         $this->assertStringNotContainsString('Add a column', $html);
         $this->assertStringNotContainsString('Preview', $html);
         $this->assertStringNotContainsString('Zoya Khan', $html);
@@ -276,12 +293,13 @@ class IdCardExportTest extends TestCase
 
         // The panel: tick two classes; the count follows and the section waits for one class.
         $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
+            ->set('exportStatus', 'active')->set('exportPhotos', 'with')
             ->set('exportStandards', [(string) $five, (string) $six]);
         $html = $page->html();
         $this->assertMatchesRegularExpression('#<strong[^>]*>2</strong> students#', $html);
         $this->assertStringContainsString('V, VI', $html);
         $this->assertStringContainsString('class=' . $five . '%2C' . $six, $html);
-        $this->assertMatchesRegularExpression('#<select wire:model.live="exportSection" disabled#', $html);
+        $this->assertMatchesRegularExpression('#<select[^>]* wire:model.live="exportSection" disabled#', $html);
 
         $page->call('clearExportStandards');
         $this->assertSame([], $page->get('exportStandards'));
@@ -414,8 +432,9 @@ class IdCardExportTest extends TestCase
         $this->assertSame(['Mohan Lal'], IdCardExport::people($this->org, 'employee', status: 'active')->pluck('name')->all());
         $this->assertSame(['Ramesh'], IdCardExport::people($this->org, 'employee', status: 'inactive')->pluck('name')->all());
 
-        // The panel: Active first; Inactive or Both changes the count and the file asked for.
-        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student');
+        // The panel: Active, Inactive or Both changes the count and the file asked for.
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
+            ->set('exportStatus', 'active')->set('exportPhotos', 'with');
         $this->assertMatchesRegularExpression('#<strong[^>]*>1</strong> student\b#', $page->html());
         $page->set('exportStatus', 'inactive');
         $html = $page->html();
@@ -424,7 +443,8 @@ class IdCardExportTest extends TestCase
         $page->set('exportStatus', 'both');
         $this->assertMatchesRegularExpression('#<strong[^>]*>3</strong> students#', $page->html());
         $page->set('exportStatus', 'nonsense');
-        $this->assertSame('active', $page->get('exportStatus'));
+        $this->assertSame('', $page->get('exportStatus'));
+        $this->assertStringNotContainsString('id-card/export', $page->html());
 
         // Over http, and the file of inactive students says so in its name.
         $this->withoutMiddleware();
@@ -438,5 +458,58 @@ class IdCardExportTest extends TestCase
         [, $name, , $work] = IdCardExport::build($this->org, 'Delhi Public School', 'student', ['name'], null, null, 'all', 'xlsx', 0, 'inactive');
         $this->assertSame('delhi-public-school_students_all_inactive_' . now()->format('Y-m-d') . '.xlsx', $name);
         IdCardExport::cleanup($work);
+    }
+
+    public function test_without_photos_the_sheet_has_no_photo_column_and_fetches_none(): void
+    {
+        // The file: no Photo column, no picture, no photo to fetch, and the plain Excel even if the zip was asked for.
+        $me  = (int) auth()->id();
+        $job = IdCardExport::start($this->org, $me, 'Delhi Public School', 'student', ['name', 'photo', 'photo_no'], null, null, 'all', 'zip', 'both', 'without');
+        $this->assertSame(0, $job['total']);
+        while (!IdCardExport::step($job['id'], $this->org, $me)['ready']);
+        [$path, $name, $mime, $work] = IdCardExport::file($job['id'], $this->org, $me);
+        $this->assertSame('delhi-public-school_students_all_no-photos_' . now()->format('Y-m-d') . '.xlsx', $name);
+        $this->assertStringContainsString('spreadsheetml', $mime);
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        $this->assertSame(['Name', 'Photo No'], [$sheet->getCell('A1')->getValue(), $sheet->getCell('B1')->getValue()]);
+        $this->assertSame('B', $sheet->getHighestColumn());
+        $this->assertSame(['Zoya Khan', 'ADM-2'], [$sheet->getCell('A2')->getValue(), $sheet->getCell('B2')->getValue()]);
+        $this->assertCount(0, $sheet->getDrawingCollection());
+        IdCardExport::cleanup($work);
+
+        // The panel: no Photo row, no zip, and the link asks for none; the pick keeps its Photo for next time.
+        $page = Livewire::test(IdCard::class)->call('openExport')->set('exportType', 'student')
+            ->set('exportStatus', 'active')->set('exportFormat', 'zip')->set('exportPhotos', 'without');
+        $this->assertSame('xlsx', $page->get('exportFormat'));
+        $html = $page->html();
+        $this->assertStringContainsString('photos=without', $html);
+        $this->assertStringContainsString('format=xlsx', $html);
+        $this->assertStringNotContainsString('wire:key="xc-student-photo"', $html);
+        $this->assertStringNotContainsString('Excel + photos (.zip)', $html);
+        $this->assertStringNotContainsString('%2Cphoto%2C', $html);
+        $this->assertContains('photo', $page->get('exportColumns'));
+        $page->set('exportFormat', 'zip');
+        $this->assertSame('xlsx', $page->get('exportFormat'));
+
+        // ↑ ↓ step over the hidden Photo: Photo No goes before Phone, as shown.
+        $page->call('moveExportColumn', 'photo_no', -1);
+        $cols = $page->get('exportColumns');
+        $this->assertSame(['phone', 'photo'], array_slice($cols, -2));
+        $this->assertSame('photo_no', $cols[count($cols) - 3]);
+
+        // With photos again: the Photo row and the zip come back.
+        $page->set('exportPhotos', 'with');
+        $html = $page->html();
+        $this->assertStringContainsString('wire:key="xc-student-photo"', $html);
+        $this->assertStringContainsString('Excel + photos (.zip)', $html);
+
+        // Over http.
+        $this->withoutMiddleware();
+        $job = $this->postJson(route('admin.id-card.export.start', [
+            'organization' => $this->org, 'type' => 'student', 'cols' => 'name,photo', 'photos' => 'without', 'format' => 'zip',
+        ]))->assertOk()->json();
+        $this->assertSame(0, $job['total']);
+        $this->postJson(route('admin.id-card.export.start', ['organization' => $this->org, 'type' => 'student', 'photos' => 'some']))
+            ->assertStatus(422);
     }
 }

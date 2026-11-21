@@ -382,11 +382,22 @@
             $colLetter    = fn ($i) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
             $whoWord      = ['student' => 'student', 'teacher' => 'teacher', 'employee' => 'person'][$exportType] ?? 'person';
             $picked       = $exportType !== '';
+            $ready        = $picked && $exportStatus !== '' && $exportPhotos !== '';
+            $noPhotos     = $exportPhotos === 'without';
+            // Why Download waits, step by step.
+            $downloadHint = match (true) {
+                !$picked             => 'Pick whose data first',
+                $exportStatus === '' => 'Pick Active or Inactive first',
+                $exportPhotos === '' => 'Pick with or without photos first',
+                !$exportShown        => 'Reset to get the columns back',
+                default              => 'Nobody to export',
+            };
         @endphp
         {{-- As the Mark Attendance panels: plain header, quiet toolbars, a line
              on the order, the columns as a flat list of rows, and the file and
-             the actions in the footer. Whose data is picked first; only then
-             come that kind's filters and its columns. --}}
+             the actions in the footer. A step at a time: whose data, then
+             Active or Inactive, then with or without photos; only then come
+             that kind's filters, its columns and Download. --}}
         <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeExport"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
@@ -395,7 +406,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900">Export Data</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">For the ID-card printer — Excel with photos, in the columns and order you choose</p>
+                        <p class="text-xs text-gray-500 mt-0.5">For the ID-card printer — Excel with or without photos, in the columns and order you choose</p>
                     </div>
                     <button wire:click="closeExport" type="button"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -414,14 +425,46 @@
                     </div>
                 </div>
 
-                @if (!$picked)
+                @if ($picked)
+                    {{-- 2. Active or inactive: as the Students, Teachers and Employees pages mark them. --}}
+                    <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 flex-shrink-0">
+                        <span class="text-xs font-medium text-gray-600">2 · Active or Inactive</span>
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs" role="group" aria-label="Active or inactive">
+                            @foreach (['active' => 'Active', 'inactive' => 'Inactive', 'both' => 'Both'] as $st => $stLabel)
+                                <button type="button" wire:click="$set('exportStatus', '{{ $st }}')" wire:key="xst-{{ $st }}"
+                                    title="{{ $st === 'both' ? 'Active and inactive together' : $stLabel . ' ' . \Illuminate\Support\Str::plural($whoWord) . ' only' }}"
+                                    class="px-3 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportStatus === $st ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $stLabel }}</button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- 3. With or without the photos --}}
+                    @if ($exportStatus !== '')
+                        <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 flex-shrink-0">
+                            <span class="text-xs font-medium text-gray-600">3 · Photo</span>
+                            <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs" role="group" aria-label="With or without photos">
+                                @foreach (['with' => ['With Photo', 'Each photo in its cell (or as files, in the .zip)'], 'without' => ['Without Photo', 'The data alone, no photos — made in a moment']] as $ph => [$phLabel, $phDesc])
+                                    <button type="button" wire:click="$set('exportPhotos', '{{ $ph }}')" wire:key="xph-{{ $ph }}" title="{{ $phDesc }}"
+                                        class="px-3 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportPhotos === $ph ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $phLabel }}</button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @endif
+
+                @if (!$ready)
                     <div class="flex-1 flex items-center justify-center px-6">
-                        <p class="text-sm text-gray-400 text-center">Pick whose data to export — its filters and columns come next.</p>
+                        <p class="text-sm text-gray-400 text-center">
+                            @if (!$picked) Pick whose data to export — Active or Inactive, and with or without photos, come next.
+                            @elseif ($exportStatus === '') Pick Active or Inactive — with or without photos comes next.
+                            @else Pick with or without photos — the filters and columns come next.
+                            @endif
+                        </p>
                     </div>
                 @else
-                    {{-- 2. Which of them: the kind's own filters, and how many --}}
+                    {{-- 4. Which of them: the kind's own filters, and how many --}}
                     <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
-                        <span class="text-xs font-medium text-gray-600 mr-1">2 · Filter</span>
+                        <span class="text-xs font-medium text-gray-600 mr-1">4 · Filter</span>
                         @if ($exportType === 'student')
                             {{-- Classes: tick one, several, or none for the whole school. --}}
                             @php
@@ -466,14 +509,6 @@
                                 @foreach ($exportSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                             </select>
                         @endif
-                        {{-- Active / inactive: as the Students, Teachers and Employees pages mark them. --}}
-                        <div class="inline-flex items-center rounded-md border border-gray-300 overflow-hidden text-sm" role="group" aria-label="Active or inactive">
-                            @foreach (['active' => 'Active', 'inactive' => 'Inactive', 'both' => 'Both'] as $st => $stLabel)
-                                <button type="button" wire:click="$set('exportStatus', '{{ $st }}')" wire:key="xst-{{ $st }}"
-                                    title="{{ $st === 'both' ? 'Active and inactive together' : $stLabel . ' ' . \Illuminate\Support\Str::plural($whoWord) . ' only' }}"
-                                    class="px-3 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-300' }} {{ $exportStatus === $st ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $stLabel }}</button>
-                            @endforeach
-                        </div>
                         <select wire:model.live="exportWhich"
                             class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                             <option value="all">With or without an ID card</option>
@@ -482,20 +517,20 @@
                         </select>
                         <span class="ml-auto text-xs text-gray-400 tabular-nums">
                             <strong class="font-medium text-gray-700">{{ $exportCount }}</strong> {{ \Illuminate\Support\Str::plural($whoWord, $exportCount) }}
-                            · {{ count($exportColumns) }} {{ \Illuminate\Support\Str::plural('column', count($exportColumns)) }}
+                            · {{ count($exportShown) }} {{ \Illuminate\Support\Str::plural('column', count($exportShown)) }}
                         </span>
                     </div>
 
-                    {{-- 3. The columns: one quiet line on the order --}}
+                    {{-- 5. The columns: one quiet line on the order --}}
                     <div class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
-                        <span><span class="font-medium text-gray-600">3 · Columns</span> — first to last; drag a row, or use ↑ ↓. Kept for the next export.</span>
+                        <span><span class="font-medium text-gray-600">5 · Columns</span> — first to last; drag a row, or use ↑ ↓. Kept for the next export.@if ($noPhotos && in_array('photo', $exportColumns, true)) Without photos, the Photo column is left out.@endif</span>
                         <button type="button" wire:click="resetExportColumns" class="font-medium text-gray-500 hover:text-gray-800 flex-shrink-0">Reset</button>
                     </div>
 
                     {{-- Rows --}}
                     <div class="flex-1 overflow-y-auto">
                         <ol class="divide-y divide-gray-100" x-data="{ drag: null, over: null }">
-                            @forelse ($exportColumns as $i => $key)
+                            @forelse ($exportShown as $i => $key)
                                 <li wire:key="xc-{{ $exportType }}-{{ $key }}"
                                     draggable="true"
                                     x-on:dragstart="drag = '{{ $key }}'; $event.dataTransfer.effectAllowed = 'move'"
@@ -518,7 +553,7 @@
                                             class="px-2 py-1.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
                                         </button>
-                                        <button type="button" wire:click="moveExportColumn('{{ $key }}', 1)" @disabled($i === count($exportColumns) - 1) title="Later"
+                                        <button type="button" wire:click="moveExportColumn('{{ $key }}', 1)" @disabled($i === count($exportShown) - 1) title="Later"
                                             class="px-2 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200 disabled:opacity-30">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                                         </button>
@@ -588,8 +623,11 @@
                     <div class="h-full bg-violet-500 transition-all duration-500" x-bind:style="'width:' + pct + '%'"></div>
                 </div>
                 <div class="px-6 py-3.5 flex flex-wrap items-center justify-between gap-2">
+                    {{-- Without photos the zip has nothing to carry: the plain Excel only. --}}
                     <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
-                        @foreach (['xlsx' => ['Excel (.xlsx)', 'Photos inside the sheet, one in each row'], 'zip' => ['Excel + photos (.zip)', 'The sheet, and every photo as a file named as the "Photo File Name" column says']] as $f => [$fLabel, $fDesc])
+                        @foreach ($noPhotos
+                            ? ['xlsx' => ['Excel (.xlsx)', 'The data alone, without photos']]
+                            : ['xlsx' => ['Excel (.xlsx)', 'Photos inside the sheet, one in each row'], 'zip' => ['Excel + photos (.zip)', 'The sheet, and every photo as a file named as the "Photo File Name" column says']] as $f => [$fLabel, $fDesc])
                             <button type="button" wire:click="$set('exportFormat', '{{ $f }}')" wire:key="xf-{{ $f }}" title="{{ $fDesc }}"
                                 class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }} {{ $exportFormat === $f ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">{{ $fLabel }}</button>
                         @endforeach
@@ -598,7 +636,7 @@
                         <span x-show="busy" style="display: none" class="text-xs text-gray-500 tabular-nums" x-text="line"></span>
                         <span x-show="failed && !busy" style="display: none" class="text-xs text-red-600">Could not make the file — try again.</span>
                         <button wire:click="closeExport" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
-                        @if ($picked && $exportColumns && $exportCount > 0)
+                        @if ($ready && $exportShown && $exportCount > 0)
                             <button type="button" x-on:click="run(@js($exportStartUrl))" x-bind:disabled="busy"
                                 class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-700 disabled:cursor-wait text-white text-sm font-medium rounded-md inline-flex items-center gap-1.5">
                                 <svg x-show="!busy" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -607,7 +645,7 @@
                             </button>
                         @else
                             <span class="px-5 py-2 bg-gray-300 text-white text-sm font-medium rounded-md cursor-not-allowed"
-                                title="{{ !$picked ? 'Pick whose data first' : ($exportColumns ? 'Nobody to export' : 'Reset to get the columns back') }}">Download</span>
+                                title="{{ $downloadHint }}">Download</span>
                         @endif
                     </div>
                 </div>

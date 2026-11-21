@@ -62,8 +62,10 @@ class IdCard extends Component
     /** A section, only while one class is picked. */
     public $exportSection        = '';
     public string $exportWhich   = 'all';   // all | issued | not_issued
-    /** Active, inactive or both (IdCardExport::STATUS); a card is for those still here, so Active first. */
-    public string $exportStatus  = 'active';
+    /** Active, inactive or both (IdCardExport::STATUS); '' until picked — step 2, before anything else. */
+    public string $exportStatus  = '';
+    /** With or without the photos (IdCardExport::PHOTOS); '' until picked — step 3. */
+    public string $exportPhotos  = '';
     public string $exportFormat  = 'xlsx';  // xlsx | zip
     /** The sheet's columns, first to last. */
     public array $exportColumns  = [];
@@ -352,9 +354,10 @@ class IdCard extends Component
     /* ───────────────────────── Export ───────────────────────── */
 
     /**
-     * The header's Export: whose data is picked first (students, teachers,
-     * management & staff); its filters and its columns — as this school last
-     * left them — come once it is.
+     * The header's Export, a step at a time: whose data (students, teachers,
+     * management & staff), then Active or Inactive, then with or without the
+     * photos; its filters and its columns — as this school last left them —
+     * and Download come once all three are picked.
      */
     public function openExport(): void
     {
@@ -362,9 +365,27 @@ class IdCard extends Component
         $this->exportStandards = [];
         $this->exportSection   = '';
         $this->exportWhich     = 'all';
-        $this->exportStatus    = 'active';
+        $this->exportStatus    = '';
+        $this->exportPhotos    = '';
+        $this->exportFormat    = 'xlsx';
         $this->exportColumns   = [];
         $this->showExportPanel = true;
+    }
+
+    /** Whose data, Active / Inactive and with / without photos are all picked. */
+    public function exportReady(): bool
+    {
+        return in_array($this->exportType, IdCardExport::TYPES, true)
+            && in_array($this->exportStatus, IdCardExport::STATUS, true)
+            && in_array($this->exportPhotos, IdCardExport::PHOTOS, true);
+    }
+
+    /** The columns as the file will have them: without photos, no Photo column (it stays in the pick for next time). */
+    private function shownExportColumns(): array
+    {
+        return $this->exportPhotos === 'without'
+            ? array_values(array_diff($this->exportColumns, ['photo']))
+            : $this->exportColumns;
     }
 
     public function closeExport(): void
@@ -410,13 +431,24 @@ class IdCard extends Component
     public function updatedExportStatus(): void
     {
         if (!in_array($this->exportStatus, IdCardExport::STATUS, true)) {
-            $this->exportStatus = 'active';
+            $this->exportStatus = '';
+        }
+    }
+
+    /** Without photos there is nothing for the zip to carry: the plain Excel. */
+    public function updatedExportPhotos(): void
+    {
+        if (!in_array($this->exportPhotos, IdCardExport::PHOTOS, true)) {
+            $this->exportPhotos = '';
+        }
+        if ($this->exportPhotos === 'without') {
+            $this->exportFormat = 'xlsx';
         }
     }
 
     public function updatedExportFormat(): void
     {
-        $this->exportFormat = $this->exportFormat === 'zip' ? 'zip' : 'xlsx';
+        $this->exportFormat = $this->exportFormat === 'zip' && $this->exportPhotos !== 'without' ? 'zip' : 'xlsx';
     }
 
     public function removeExportColumn(string $key): void
@@ -424,24 +456,32 @@ class IdCard extends Component
         $this->setExportColumns(array_values(array_diff($this->exportColumns, [$key])));
     }
 
-    /** ↑ / ↓ beside a column: one place earlier or later. */
+    /**
+     * ↑ / ↓ beside a column: one place earlier or later among the columns
+     * shown — without photos it steps over the hidden Photo column.
+     */
     public function moveExportColumn(string $key, int $by): void
     {
-        $cols = $this->exportColumns;
-        $from = array_search($key, $cols, true);
+        $shown = $this->shownExportColumns();
+        $from  = array_search($key, $shown, true);
         if ($from === false) {
             return;
         }
-        $to = max(0, min(count($cols) - 1, $from + $by));
-        array_splice($cols, $from, 1);
-        array_splice($cols, $to, 0, [$key]);
+        $to = max(0, min(count($shown) - 1, $from + $by));
+        if ($to === $from) {
+            return;
+        }
+        // Taken out, then put just before (moving up) or after (moving down) the one whose place it takes.
+        $cols = array_values(array_diff($this->exportColumns, [$key]));
+        $at   = array_search($shown[$to], $cols, true);
+        array_splice($cols, $by > 0 ? $at + 1 : $at, 0, [$key]);
         $this->setExportColumns($cols);
     }
 
-    /** A column dragged onto another's place. */
+    /** A column dragged onto another's place (its place among the columns shown). */
     public function dropExportColumn(string $key, int $to): void
     {
-        $from = array_search($key, $this->exportColumns, true);
+        $from = array_search($key, $this->shownExportColumns(), true);
         if ($from === false) {
             return;
         }
@@ -483,21 +523,22 @@ class IdCard extends Component
         return route('admin.id-card.export.start', array_filter([
             'organization' => Auth::user()->organization_id,
             'type'         => $this->exportType,
-            'cols'         => implode(',', $this->exportColumns),
+            'cols'         => implode(',', $this->shownExportColumns()),
             'class'        => implode(',', $classes),
             'section'      => count($classes) === 1 ? $this->exportSection : null,
             'which'        => $this->exportWhich,
             'status'       => $this->exportStatus,
-            'format'       => $this->exportFormat,
+            'photos'       => $this->exportPhotos,
+            'format'       => $this->exportPhotos === 'without' ? 'xlsx' : $this->exportFormat,
         ], fn ($v) => $v !== null && $v !== ''));
     }
 
-    /** What the panel shows: the fields and how many people the file will have. */
+    /** What the panel shows: the fields, the columns the file will have, and how many people. */
     private function exportViewData(int $orgId): array
     {
-        if (!in_array($this->exportType, IdCardExport::TYPES, true)) {
-            // Whose data is not picked yet: nothing to count or list.
-            return ['exportFields' => [], 'exportCount' => 0, 'exportSections' => collect(), 'exportStartUrl' => ''];
+        if (!$this->exportReady()) {
+            // Whose data, Active / Inactive or with / without photos not picked yet: nothing to count or list.
+            return ['exportFields' => [], 'exportShown' => [], 'exportCount' => 0, 'exportSections' => collect(), 'exportStartUrl' => ''];
         }
 
         $classes   = $this->exportClassIds();
@@ -506,6 +547,7 @@ class IdCard extends Component
 
         return [
             'exportFields'   => IdCardExport::fields($this->exportType),
+            'exportShown'    => $this->shownExportColumns(),
             'exportCount'    => IdCardExport::count($orgId, $this->exportType, $classes, $sectionId, $this->exportWhich, $this->exportStatus),
             'exportSections' => $oneClass
                 ? \App\Models\Student\Section::where('standard_id', $oneClass)->orderBy('id')->get(['id', 'name'])

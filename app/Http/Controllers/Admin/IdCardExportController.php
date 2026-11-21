@@ -20,7 +20,7 @@ class IdCardExportController extends Controller
      * A whole school's photos take minutes, and the gateway answers 504 after
      * 60 s, so the panel builds the file a few seconds at a time:
      *
-     *   POST /{organization}/id-card/export/start?type=student&cols=…&class=3,5,8&section=&which=all&format=xlsx
+     *   POST /{organization}/id-card/export/start?type=student&cols=…&class=3,5,8&section=&which=all&status=active&photos=with&format=xlsx
      *   POST /{organization}/id-card/export/{id}/step   — again until it says ready
      *   GET  /{organization}/id-card/export/{id}/file   — the file
      *
@@ -29,7 +29,7 @@ class IdCardExportController extends Controller
     public function start(Request $request, $organization): JsonResponse
     {
         $user = Auth::user();
-        [$type, $columns, $classes, $sectionId, $which, $format, $status] = $this->picked($request, (int) $user->organization_id);
+        [$type, $columns, $classes, $sectionId, $which, $format, $status, $photos] = $this->picked($request, (int) $user->organization_id);
 
         @set_time_limit(110);
         @ini_set('memory_limit', '1024M');
@@ -38,7 +38,7 @@ class IdCardExportController extends Controller
             (int) $user->organization_id,
             (int) $user->id,
             (string) ($user->organization->name ?? 'school'),
-            $type, $columns, $classes, $sectionId, $which, $format, $status,
+            $type, $columns, $classes, $sectionId, $which, $format, $status, $photos,
         );
 
         return response()->json($job + [
@@ -79,7 +79,7 @@ class IdCardExportController extends Controller
     public function download(Request $request, $organization)
     {
         $user = Auth::user();
-        [$type, $columns, $classes, $sectionId, $which, $format, $status] = $this->picked($request, (int) $user->organization_id);
+        [$type, $columns, $classes, $sectionId, $which, $format, $status, $photos] = $this->picked($request, (int) $user->organization_id);
 
         @set_time_limit(300);
         @ini_set('memory_limit', '1024M');
@@ -88,7 +88,7 @@ class IdCardExportController extends Controller
             (int) $user->organization_id,
             (string) ($user->organization->name ?? 'school'),
             $type, $columns, $classes, $sectionId, $which, $format,
-            (int) $user->id, $status,
+            (int) $user->id, $status, $photos,
         );
 
         return response()->streamDownload(function () use ($path, $work) {
@@ -99,8 +99,9 @@ class IdCardExportController extends Controller
 
     /**
      * What the panel picked: [type, columns, class ids, section id, which,
-     * format, status]. Only this school's classes; a section only of the one
-     * class picked. No status: active and inactive both, as before it existed.
+     * format, status, photos]. Only this school's classes; a section only of
+     * the one class picked. No status: active and inactive both, and no
+     * photos: with them — as before either was asked.
      */
     private function picked(Request $request, int $orgId): array
     {
@@ -112,6 +113,7 @@ class IdCardExportController extends Controller
             'which'   => 'nullable|in:' . implode(',', IdCardExport::WHICH),
             'format'  => 'nullable|in:xlsx,zip',
             'status'  => 'nullable|in:' . implode(',', IdCardExport::STATUS),
+            'photos'  => 'nullable|in:' . implode(',', IdCardExport::PHOTOS),
         ]);
 
         $type    = $data['type'];
@@ -125,6 +127,6 @@ class IdCardExportController extends Controller
             ? Section::where('standard_id', $classes[0])->whereKey($data['section'])->value('id')
             : null;
 
-        return [$type, $columns, $classes, $sectionId ? (int) $sectionId : null, $data['which'] ?? 'all', $data['format'] ?? 'xlsx', $data['status'] ?? 'both'];
+        return [$type, $columns, $classes, $sectionId ? (int) $sectionId : null, $data['which'] ?? 'all', $data['format'] ?? 'xlsx', $data['status'] ?? 'both', $data['photos'] ?? 'with'];
     }
 }
