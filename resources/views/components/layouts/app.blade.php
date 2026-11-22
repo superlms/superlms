@@ -37,6 +37,9 @@
          school admin's pages: 60px header rows, teal pill buttons, the
          login's fields. --}}
     @include('partials.super-admin-theme')
+    {{-- Every list of both panels in Home / Analytics' look (2026-11-22) —
+         CSS only; drop this line to bring the old list look back. --}}
+    @include('partials.list-theme')
     @else
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     @endif
