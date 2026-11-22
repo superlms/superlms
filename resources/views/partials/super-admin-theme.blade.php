@@ -27,7 +27,9 @@
         staying as they are (they follow the filters as before) — with a
         small round × at its right end that hides it and brings the filter
         button back. A dot on the filter button says a filter is on (the band
-        has its Clear button).
+        has its Clear button). Since 2026-11-22 (user's ask) the filter button
+        stands before the header's buttons (Export, Add …), and the × also
+        takes the filters off (it presses the band's own Clear).
         One script for every page of both panels (no page's own markup
         changes); it re-marks the header after every Livewire update.
      Included in the page's <head> (components.layouts.app), so a page never
@@ -181,6 +183,12 @@
     body.lms-ui #main-scroll .lms-fh-row { justify-content: flex-start !important; }
     body.lms-ui #main-scroll .lms-fh-row > [data-lms-fh-btn] { margin-left: 8px; }
     body.lms-ui #main-scroll .lms-fh-row > :nth-last-child(2) { margin-left: auto; }
+    /* Before the header's buttons (Export, Add …; user's ask, 2026-11-22):
+       the button stays last in the page and is drawn before them. */
+    body.lms-ui #main-scroll .lms-fh-before > [data-lms-fh-btn] { order: 1; }
+    body.lms-ui #main-scroll .lms-fh-before > .lms-fh-act { order: 2; }
+    body.lms-ui #main-scroll .lms-fh-rowb { justify-content: flex-start !important; }
+    body.lms-ui #main-scroll .lms-fh-rowb > [data-lms-fh-btn] { margin-left: auto; }
     body.lms-ui #main-scroll .lms-fh-abs { position: relative; padding-right: 64px !important; }
     body.lms-ui #main-scroll .lms-fh-abs > [data-lms-fh-btn] { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); }
     /* The round filter button and the round ×: Quick Links' header circles. */
@@ -257,7 +265,8 @@
         if (window.__lmsFilterHead) return;
         window.__lmsFilterHead = true;
         var FUNNEL = 'M3 4a1 1 0 011-1h16';
-        var MARKS  = ['lms-fh', 'lms-fh-flex', 'lms-fopen', 'lms-ftitle', 'lms-fbar', 'lms-fh-row', 'lms-fh-abs'];
+        var MARKS  = ['lms-fh', 'lms-fh-flex', 'lms-fopen', 'lms-ftitle', 'lms-fbar', 'lms-fh-row', 'lms-fh-rowb', 'lms-fh-abs', 'lms-fh-before', 'lms-fh-act'];
+        var CTL    = 'button, a, input, select, textarea, label, [role="button"]';
         var ICON_F = '<svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h18l-7 8.25V19l-4 1.5v-7.75L3 4.5z"/></svg>';
         var ICON_X = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
         var open = new WeakSet();   // headers whose filters are showing
@@ -323,7 +332,7 @@
                     // A button or link is never a box to sit in (Attendance's
                     // "Mark Attendance" is a flex button on its own): the
                     // filter button goes beside it in the row instead.
-                    var control = last.matches('button, a, input, select, textarea, label, [role="button"]');
+                    var control = last.matches(CTL);
                     if (!control && getComputedStyle(last).display.indexOf('flex') !== -1) return { el: last, mode: 'in' };
                     if (getComputedStyle(row).display.indexOf('flex') !== -1) return { el: row, mode: 'row' };
                     break;
@@ -331,6 +340,56 @@
                 node = row;
             }
             return { el: title, mode: 'abs' };
+        }
+
+        // The header's buttons in the filter button's box (Export, Add …): the
+        // run of buttons at its end — a figure ("Total: 877", with its <strong>)
+        // or the title is not one. The filter button shows right before them
+        // (user's ask, 2026-11-22). It stays the box's last child in the page
+        // and is moved with CSS order only, so a Livewire redraw of the box
+        // never mistakes it for one of the page's own buttons.
+        function actionsIn(box) {
+            var acts = [];
+            for (var i = box.children.length - 1; i >= 0; i--) {
+                var k = box.children[i];
+                if (injected(k)) continue;
+                if (k.matches('h1') || k.querySelector('h1')) break;
+                var isCtl = k.matches(CTL) || !!k.querySelector(CTL);
+                if (!isCtl && !visible(k)) continue;
+                if (!isCtl || k.querySelector('strong')) break;
+                acts.unshift(k);
+            }
+            return acts;
+        }
+        function arrange(btn) {
+            var box = btn.parentElement, mode = btn.dataset.lmsFhMode;
+            if (mode === 'abs') { box.classList.add('lms-fh-abs'); return; }
+            var acts = actionsIn(box);
+            Array.prototype.forEach.call(box.children, function (k) { k.classList.toggle('lms-fh-act', acts.indexOf(k) !== -1); });
+            box.classList.toggle('lms-fh-before', acts.length > 0);
+            if (mode === 'row') {
+                box.classList.toggle('lms-fh-rowb', acts.length > 0);
+                box.classList.toggle('lms-fh-row', acts.length === 0);
+            }
+        }
+
+        // The band's own way back to no filters: its "Clear" button (by its
+        // words, or its title for an icon one). A band without one: its
+        // search box emptied.
+        function clearBands(head) {
+            head.querySelectorAll('.lms-fbar').forEach(function (bar) {
+                var clear = Array.prototype.find.call(bar.querySelectorAll('button, a'), function (c) {
+                    if (injected(c)) return false;
+                    return /^\s*clear/i.test(c.textContent || '') || /^\s*clear/i.test(c.getAttribute('title') || c.getAttribute('aria-label') || '');
+                });
+                if (clear) { clear.click(); return; }
+                bar.querySelectorAll('input[type="search"], input[type="text"], input:not([type])').forEach(function (inp) {
+                    if (inp.value === '') return;
+                    inp.value = '';
+                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    inp.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
         }
 
         function make(kind) {
@@ -392,9 +451,9 @@
                         s.el.appendChild(btn);
                         btn.dataset.lmsFhMode = s.mode;
                     }
-                    // (Its spot's mark, again after a redraw took it off.)
-                    if (btn.dataset.lmsFhMode === 'row') btn.parentElement.classList.add('lms-fh-row');
-                    if (btn.dataset.lmsFhMode === 'abs') btn.parentElement.classList.add('lms-fh-abs');
+                    // (Its spot's marks, again after a redraw took them off:
+                    // before the header's buttons.)
+                    arrange(btn);
                     h.title.querySelectorAll('[data-lms-fh-btn]').forEach(function (b, i) { if (i > 0) b.remove(); });
                     // A filter is on when the band shows its Clear button.
                     var on = h.bars.some(function (bar) {
@@ -435,6 +494,9 @@
             if (!head) return;
             e.preventDefault();
             e.stopPropagation();
+            // The × takes the filters off as well (user's ask, 2026-11-22):
+            // closing the band means no filter.
+            if (b.hasAttribute('data-lms-fh-x')) clearBands(head);
             setOpen(head, b.hasAttribute('data-lms-fh-btn'));
         }, true);
         document.addEventListener('keydown', function (e) {

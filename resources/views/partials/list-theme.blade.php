@@ -12,8 +12,9 @@
 
        1. The page: Home's light mint-grey ground (#f6f8f7).
        2. The header: the title in Home's heading (Plus Jakarta Sans, 22px,
-          800); its figures ("Total: 2,185", "Active: …") as Home's round
-          pills.
+          800). Its figures ("Total: 2,185", "Active: …") and everything else
+          in it stay as they were (they were Home's round pills for a day —
+          the user had them put back, 2026-11-22).
        3. Cards: Home's white cards — soft rounded corners, a hairline edge
           and a quiet shadow (a card inside a card: smaller corners, no
           shadow); a card's big figures in the heading face.
@@ -30,6 +31,9 @@
     $pg = 'body.lms-ui #main-scroll';
     // Not on a page already in Home's look, nor in a pop-up / slide-over.
     $no = ':not(.sa-skin, .sa-skin *, #main-scroll .fixed *, [role="dialog"] *)';
+    // Nor in a page's header (its figures, pills and buttons stay exactly as
+    // they were — user's ask, 2026-11-22; only the title takes Home's heading).
+    $nh = ':not(.sticky *, .bg-white.border-b:has(h1) *)';
 
     // A card: a white box with rounded corners and an edge or a shadow (not a
     // small tile, a menu, something in the header or the filter band).
@@ -43,7 +47,7 @@
     $tbl = "$pg table$no:not(.sk-table, .an-cmp, .border-separate)";
 
     // A status badge: a small pill with a light ground, per colour family.
-    $badge = "$pg :is(td, .bg-white) span.rounded-full:is([class~=\"px-1.5\"], [class~=\"px-2\"], [class~=\"px-2.5\"], [class~=\"px-3\"])$no";
+    $badge = "$pg :is(td, .bg-white) span.rounded-full:is([class~=\"px-1.5\"], [class~=\"px-2\"], [class~=\"px-2.5\"], [class~=\"px-3\"])$no$nh";
     $families = [
         'green' => [['green', 'emerald', 'lime'], '#ecfdf5', '#047857'],
         'amber' => [['amber', 'yellow', 'orange'], '#fffbeb', '#b45309'],
@@ -73,21 +77,6 @@
         font-size: 22px; font-weight: 800; letter-spacing: -.035em; line-height: 1.15; color: #0c2620;
     }
     @media (max-width: 639px) { {!! $pg !!} :is(.sticky, .bg-white.border-b) h1{!! $no !!}:not(.lms-fbar h1) { font-size: 20px; } }
-    /* Its figures: Home's pills ("Live", "Current: 2026-27"). */
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p):has(> span > strong){!! $no !!}:not(.lms-fbar, .lms-fbar *) { gap: 6px; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) {
-        /* (inline-block, not flex: the header's filter button looks for a
-           flex box to sit in, and must never pick a pill) */
-        display: inline-block; height: 30px; line-height: 28px; padding: 0 12px;
-        border: 1px solid #e3e8e6; border-radius: 999px; background: #fff;
-        font-size: 12.5px; font-weight: 500; color: #44544f; white-space: nowrap;
-    }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) [class~="lg:hidden"] > span:has(> strong){!! $no !!}:not(.lms-fbar *) { height: 26px; line-height: 24px; padding: 0 10px; font-size: 11.5px; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) > strong { font-weight: 600; color: #0c2620; font-variant-numeric: tabular-nums; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) > strong:is([class*="text-emerald-"], [class*="text-green-"]) { color: #047857; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) > strong:is([class*="text-red-"], [class*="text-rose-"]) { color: #be123c; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) > strong:is([class*="text-amber-"], [class*="text-orange-"], [class*="text-yellow-"]) { color: #b45309; }
-    {!! $pg !!} :is(.sticky, .bg-white.border-b):has(h1) :is(div, p) > span:has(> strong){!! $no !!}:not(.lms-fbar *) > strong:is([class*="text-blue-"], [class*="text-indigo-"], [class*="text-violet-"], [class*="text-purple-"], [class*="text-teal-"]) { color: #0f766e; }
 
     /* ─── 3. Cards ─── */
     {!! $card !!} {
@@ -142,15 +131,15 @@
     /* The panel's blue figures in a row (an amount, a count): Home's teal. */
     {!! $tbl !!} td :is({!! $blueText !!}):not([class~="text-white"]) { color: #0f766e; }
     /* A list's empty state ("No students found"): its round icon in Home's teal. */
-    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is([class~="w-12"][class~="h-12"][class~="mx-auto"], [class~="w-14"][class~="h-14"][class~="mx-auto"], [class~="w-16"][class~="h-16"]):is([class~="bg-gray-100"], [class~="bg-gray-50"], [class~="bg-blue-50"], [class~="bg-indigo-50"]):has(> svg){!! $no !!} { background-color: #effaf7; }
-    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is([class~="w-12"][class~="h-12"][class~="mx-auto"], [class~="w-14"][class~="h-14"][class~="mx-auto"], [class~="w-16"][class~="h-16"]):is([class~="bg-gray-100"], [class~="bg-gray-50"], [class~="bg-blue-50"], [class~="bg-indigo-50"]){!! $no !!} > svg { color: #0d9488; }
+    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is([class~="w-12"][class~="h-12"][class~="mx-auto"], [class~="w-14"][class~="h-14"][class~="mx-auto"], [class~="w-16"][class~="h-16"]):is([class~="bg-gray-100"], [class~="bg-gray-50"], [class~="bg-blue-50"], [class~="bg-indigo-50"]):has(> svg){!! $no !!}{!! $nh !!} { background-color: #effaf7; }
+    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is([class~="w-12"][class~="h-12"][class~="mx-auto"], [class~="w-14"][class~="h-14"][class~="mx-auto"], [class~="w-16"][class~="h-16"]):is([class~="bg-gray-100"], [class~="bg-gray-50"], [class~="bg-blue-50"], [class~="bg-indigo-50"]){!! $no !!}{!! $nh !!} > svg { color: #0d9488; }
 
     /* ─── 5. In the rows ─── */
     /* A name's letter avatar (no photo): Home's teal circle. */
-    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is({!! $avSize !!}):is({!! $avBg !!}){!! $no !!}:not(:has(img, svg)) {
+    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is({!! $avSize !!}):is({!! $avBg !!}){!! $no !!}{!! $nh !!}:not(:has(img, svg)) {
         background-color: #effaf7; background-image: none; color: #0f766e;
     }
-    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is({!! $avSize !!}):is({!! $avBg !!}){!! $no !!}:not(:has(img, svg)) > * { color: #0f766e; }
+    {!! $pg !!} :is(td, .bg-white) :is(div, span).rounded-full:is({!! $avSize !!}):is({!! $avBg !!}){!! $no !!}{!! $nh !!}:not(:has(img, svg)) > * { color: #0f766e; }
     /* A status badge: Home's pill. */
     {!! $badge !!}:is({!! $anyLight !!}) {
         display: inline-flex; align-items: center; gap: 5px; min-height: 22px; padding: 2px 9px;
@@ -160,10 +149,10 @@
     {!! $badge !!}:is({!! $tok($colours, [50, 100, 200]) !!}) { background-color: {{ $bg }}; color: {{ $ink }}; }
 @endforeach
     /* A progress bar (Fees' collection, a fee's share): Home's teal on its soft track. */
-    {!! $pg !!} :is(td, .bg-white) div.rounded-full[style*="width"]:is([class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-indigo-500"], [class~="bg-indigo-600"], [class~="bg-violet-500"], [class~="bg-violet-600"]){!! $no !!} { background-color: #0d9488; }
-    {!! $pg !!} :is(td, .bg-white) div.rounded-full:is([class~="bg-gray-100"], [class~="bg-gray-200"]):has(> div.rounded-full[style*="width"]){!! $no !!} { background-color: #eef2f1; }
+    {!! $pg !!} :is(td, .bg-white) div.rounded-full[style*="width"]:is([class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-indigo-500"], [class~="bg-indigo-600"], [class~="bg-violet-500"], [class~="bg-violet-600"]){!! $no !!}{!! $nh !!} { background-color: #0d9488; }
+    {!! $pg !!} :is(td, .bg-white) div.rounded-full:is([class~="bg-gray-100"], [class~="bg-gray-200"]):has(> div.rounded-full[style*="width"]){!! $no !!}{!! $nh !!} { background-color: #eef2f1; }
     /* The panel's blue links and View buttons in a list: teal. */
-    {!! $pg !!} :is(td, .bg-white) :is(a, button):is({!! $blueText !!}){!! $no !!}:not(.sticky *, .lms-fbar *, [class~="text-white"]) { color: #0f766e; }
-    {!! $pg !!} :is(td, .bg-white) :is(a, button):is({!! $blueText !!}){!! $no !!}:not(.sticky *, .lms-fbar *, [class~="text-white"]):hover { color: #0c2620; }
-    {!! $pg !!} td :is(a, button):is({!! $blueText !!}):is([class~="p-1"], [class~="p-1.5"], [class~="p-2"]){!! $no !!}:hover { background-color: #effaf7; color: #0f766e; }
+    {!! $pg !!} :is(td, .bg-white) :is(a, button):is({!! $blueText !!}){!! $no !!}{!! $nh !!}:not(.sticky *, .lms-fbar *, [class~="text-white"]) { color: #0f766e; }
+    {!! $pg !!} :is(td, .bg-white) :is(a, button):is({!! $blueText !!}){!! $no !!}{!! $nh !!}:not(.sticky *, .lms-fbar *, [class~="text-white"]):hover { color: #0c2620; }
+    {!! $pg !!} td :is(a, button):is({!! $blueText !!}):is([class~="p-1"], [class~="p-1.5"], [class~="p-2"]){!! $no !!}{!! $nh !!}:hover { background-color: #effaf7; color: #0f766e; }
 </style>
