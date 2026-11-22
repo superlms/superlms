@@ -320,7 +320,11 @@
                 }
                 var last = kids[kids.length - 1];
                 if (last && last !== node && !last.contains(h1)) {
-                    if (getComputedStyle(last).display.indexOf('flex') !== -1) return { el: last, mode: 'in' };
+                    // A button or link is never a box to sit in (Attendance's
+                    // "Mark Attendance" is a flex button on its own): the
+                    // filter button goes beside it in the row instead.
+                    var control = last.matches('button, a, input, select, textarea, label, [role="button"]');
+                    if (!control && getComputedStyle(last).display.indexOf('flex') !== -1) return { el: last, mode: 'in' };
                     if (getComputedStyle(row).display.indexOf('flex') !== -1) return { el: row, mode: 'row' };
                     break;
                 }
