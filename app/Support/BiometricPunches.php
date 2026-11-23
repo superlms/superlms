@@ -11,6 +11,7 @@ use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Services\AppPushNotifier;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,8 +22,10 @@ use Illuminate\Support\Facades\DB;
  * status whose time it falls in, and a punch outside them all marks nothing.
  * Until then: by the school's last time (Setting → Biometric) it is Present;
  * after it, Absent ("Late punch 09:12 — after 09:00").
- * Teacher: the first punch of the day is the punch-in, the last (two minutes
- * on or more) the punch-out; the day is Present, with "late" / "early" said
+ * Teacher: the first punch of the day is the punch-in, and taps in the five
+ * minutes after it change nothing. The last tap from then on is the punch-out,
+ * and taps two seconds or less apart (a card left near the machine) are one
+ * tap, at its first second. The day is Present, with "late" / "early" said
  * against the school's times when it has set them.
  *
  * A day marked by hand as Present, Half Day or Holiday is left as it is (the
@@ -40,8 +43,11 @@ class BiometricPunches
     private const HALF    = 2;
     private const HOLIDAY = [3, 4];   // a holiday; one the app saved
 
-    /** A teacher's second punch closer than this to the first is the same punch. */
-    private const SAME_PUNCH_MINUTES = 2;
+    /** For this long after a teacher's punch-in, a tap is still the punch-in. */
+    private const IN_HOLD_SECONDS = 300;
+
+    /** Taps this close to the one before are the same tap. */
+    private const SAME_TAP_SECONDS = 2;
 
     /** The machine's verify codes, as ZKTeco-style push sends them. */
     private const VERIFY = [0 => 'password', 1 => 'fingerprint', 2 => 'card', 3 => 'password', 4 => 'card', 15 => 'face', 25 => 'palm'];
@@ -184,8 +190,7 @@ class BiometricPunches
         $date    = $punch->punched_at->toDateString();
         $punches = self::punchesOn('teacher', (int) $teacher->id, $date);
         $in      = $punches->first()->punched_at;
-        $outAt   = $punches->last()->punched_at;
-        $out     = $outAt->diffInMinutes($in, true) >= self::SAME_PUNCH_MINUTES ? $outAt : null;
+        $out     = self::punchOut($punches);
         $times   = Biometric::times($orgId);
 
         $rec = TeacherAttendance::where('organization_id', $orgId)->where('teacher_detail_id', $teacher->id)
@@ -234,7 +239,7 @@ class BiometricPunches
             return 'repeat';
         }
 
-        $isOut = $out && $punch->punched_at->equalTo($outAt);
+        $isOut = $out && $punch->punched_at->equalTo($out);
         if ($teacher->user_id && $punch->punched_at->isSameDay(now()) && ($isOut || $punch->punched_at->equalTo($in))) {
             self::tell((int) $teacher->user_id, 'Attendance', $isOut
                 ? 'Punched out at ' . $out->format('H:i') . '.'
@@ -243,6 +248,29 @@ class BiometricPunches
         }
 
         return $isOut ? 'out' : ($punch->punched_at->equalTo($in) ? 'in' : 'repeat');
+    }
+
+    /**
+     * The day's punch-out, from its punches earliest first: the start of the
+     * last tap that began once the punch-in's five minutes were over. A card
+     * held at the machine across that mark is still the tap it started as.
+     */
+    private static function punchOut(Collection $punches): ?Carbon
+    {
+        $in       = $punches->first()->punched_at;
+        $previous = $in;
+        $out      = null;
+
+        foreach ($punches->skip(1) as $punch) {
+            $at = $punch->punched_at;
+            if ($previous->diffInSeconds($at, true) > self::SAME_TAP_SECONDS
+                && $in->diffInSeconds($at, true) >= self::IN_HOLD_SECONDS) {
+                $out = $at;
+            }
+            $previous = $at;
+        }
+
+        return $out;
     }
 
     /** That person's punches on the day, earliest first. */

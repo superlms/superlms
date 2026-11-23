@@ -196,6 +196,64 @@ class BiometricAttendanceTest extends TestCase
         ], $this->told);
     }
 
+    private function teacherDay()
+    {
+        return DB::table('teacher_attendances')->where('teacher_detail_id', $this->teacher)->first();
+    }
+
+    public function test_taps_in_the_five_minutes_after_the_first_stay_the_in_time(): void
+    {
+        foreach (['08:12:00', '08:12:01', '08:12:04', '08:14:30', '08:16:59'] as $time) {
+            $this->punch('2' . $this->teacher, $time);
+        }
+
+        $this->assertSame('08:12:00', $this->teacherDay()->punch_in);
+        $this->assertNull($this->teacherDay()->punch_out);
+        $this->assertCount(1, $this->told);
+    }
+
+    public function test_after_five_minutes_a_tap_is_the_out_and_two_seconds_of_taps_are_one(): void
+    {
+        $this->punch('2' . $this->teacher, '08:12:00');
+
+        foreach (['08:17:00', '08:17:01', '08:17:03'] as $time) {
+            $this->punch('2' . $this->teacher, $time);
+        }
+        $this->assertSame('08:17:00', $this->teacherDay()->punch_out);
+        $this->assertCount(2, $this->told);
+
+        // A later tap is the new out, its own repeats are not.
+        foreach (['13:30:00', '13:30:02', '13:30:04'] as $time) {
+            $this->punch('2' . $this->teacher, $time);
+        }
+        $this->assertSame('08:12:00', $this->teacherDay()->punch_in);
+        $this->assertSame('13:30:00', $this->teacherDay()->punch_out);
+        $this->assertCount(3, $this->told);
+
+        // Three seconds on is a tap of its own.
+        $this->punch('2' . $this->teacher, '13:30:07');
+        $this->assertSame('13:30:07', $this->teacherDay()->punch_out);
+    }
+
+    public function test_a_card_held_across_the_five_minutes_is_not_an_out(): void
+    {
+        foreach (['08:12:00', '08:16:58', '08:17:00', '08:17:02'] as $time) {
+            $this->punch('2' . $this->teacher, $time);
+        }
+
+        $this->assertNull($this->teacherDay()->punch_out);
+    }
+
+    public function test_taps_arriving_out_of_order_give_the_same_in_and_out(): void
+    {
+        foreach (['13:30:02', '08:12:03', '13:30:00', '08:12:00'] as $time) {
+            $this->punch('2' . $this->teacher, $time);
+        }
+
+        $this->assertSame('08:12:00', $this->teacherDay()->punch_in);
+        $this->assertSame('13:30:00', $this->teacherDay()->punch_out);
+    }
+
     public function test_nothing_is_marked_while_it_is_off_or_for_someone_unknown(): void
     {
         $this->punch('99999', '07:50:00');
