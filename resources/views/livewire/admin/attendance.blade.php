@@ -49,16 +49,26 @@
                     </svg>
                     Assign Class Teacher
                 </button>
+            @elseif ($mainTab === 'timing')
+                <button wire:click="saveTiming" wire:loading.attr="disabled" wire:target="saveTiming"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm disabled:opacity-60">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Save Timing
+                </button>
             @endif
         </div>
         <div class="border-t border-gray-200 px-4 sm:px-6">
-            <div class="flex gap-1">
+            <div class="flex gap-1 overflow-x-auto">
                 <button wire:click="switchMainTab('teacher')"
-                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $mainTab === 'teacher' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Teacher Attendance</button>
+                    class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'teacher' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Teacher Attendance</button>
                 <button wire:click="switchMainTab('student')"
-                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $mainTab === 'student' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Student Attendance</button>
+                    class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'student' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Student Attendance</button>
                 <button wire:click="switchMainTab('class_teachers')"
-                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $mainTab === 'class_teachers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Class Teachers</button>
+                    class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'class_teachers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Class Teachers</button>
+                @if (\App\Support\Biometric::enabled((int) auth()->user()->organization_id))
+                    <button wire:click="switchMainTab('timing')"
+                        class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'timing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Teacher Timing</button>
+                @endif
             </div>
         </div>
 
@@ -271,6 +281,54 @@
                     <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Pick a {{ $stRange === 'yearly' ? 'school year' : 'month' }} to view the attendance.</div>
                 @endif
             @endif
+        @endif
+
+        {{-- ═══════════════════════════════════════════════════════════════════
+             TEACHER TIMING — what a teacher's first punch of the day marks
+        ═══════════════════════════════════════════════════════════════════ --}}
+        @if ($mainTab === 'timing')
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-3xl">
+                <div class="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-semibold text-gray-900">Teacher Timing</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">The day is marked with the status whose time the teacher's first punch falls in.</p>
+                    </div>
+                    @unless ($timingSaved)
+                        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Not saved yet</span>
+                    @endunless
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-xs text-gray-500 border-b border-gray-100">
+                                <th class="px-5 py-2.5 font-medium">Status</th>
+                                <th class="px-3 py-2.5 font-medium">Start time</th>
+                                <th class="px-5 py-2.5 font-medium">End time</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach (['present', 'absent', 'half_day'] as $timingKey)
+                                <tr wire:key="timing-{{ $timingKey }}">
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex px-2.5 py-1 text-xs font-semibold whitespace-nowrap rounded-full {{ $statusPill($timingKey) }}">{{ $statusText($timingKey) }}</span>
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <input type="time" wire:model="timing.{{ $timingKey }}.start" aria-label="{{ $statusText($timingKey) }} start time"
+                                            class="w-32 text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <input type="time" wire:model="timing.{{ $timingKey }}.end" aria-label="{{ $statusText($timingKey) }} end time"
+                                            class="w-32 text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <p class="px-5 py-3 border-t border-gray-100 text-xs text-gray-500 leading-relaxed">
+                    A punch outside all these times marks nothing, and that day can be marked by hand. A day already marked by hand as Present or Half Day stays as it is.
+                </p>
+            </div>
         @endif
 
         {{-- ═══════════════════════════════════════════════════════════════════

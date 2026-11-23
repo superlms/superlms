@@ -185,8 +185,17 @@ class BiometricPunches
 
         $before = $rec ? [(string) $rec->punch_in, (string) $rec->punch_out] : null;
         $now    = [$in->format('H:i:s'), $out?->format('H:i:s') ?? ''];
-        // Half Day marked by hand stays; otherwise the punch says Present.
-        $status = $rec && $rec->source !== 'biometric' && (int) $rec->status === self::HALF ? self::HALF : self::PRESENT;
+
+        // Present or Half Day marked by hand stays. Otherwise the school's
+        // Teacher Timing says what the first punch is; with none saved, Present.
+        // A first punch outside all its times marks nothing new.
+        $timing = Biometric::teacherStatusTimes($orgId);
+        $ruled  = $timing ? Biometric::teacherStatusAt($timing, $in->format('H:i')) : self::PRESENT;
+        $byHand = $rec && $rec->source !== 'biometric' && in_array((int) $rec->status, [self::PRESENT, self::HALF], true);
+        $status = $byHand ? (int) $rec->status : ($ruled ?? ($rec ? (int) $rec->status : null));
+        if ($status === null) {
+            return 'outside';
+        }
 
         $values = [
             'status'    => $status,
@@ -207,7 +216,8 @@ class BiometricPunches
         if ($teacher->user_id && $punch->punched_at->isSameDay(now()) && ($isOut || $punch->punched_at->equalTo($in))) {
             self::tell((int) $teacher->user_id, 'Attendance', $isOut
                 ? 'Punched out at ' . $out->format('H:i') . '.'
-                : 'Punched in at ' . $in->format('H:i') . ' — marked Present.');
+                : 'Punched in at ' . $in->format('H:i') . ' — marked '
+                    . ($status === self::HALF ? 'Half Day' : ($status === self::ABSENT ? 'Absent' : 'Present')) . '.');
         }
 
         return $isOut ? 'out' : ($punch->punched_at->equalTo($in) ? 'in' : 'repeat');

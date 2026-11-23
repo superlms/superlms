@@ -6,6 +6,8 @@ use App\Models\Biometric\BiometricCard;
 use App\Models\Biometric\BiometricCommand;
 use App\Models\Biometric\BiometricDevice;
 use App\Models\Biometric\BiometricTemplate;
+use App\Models\Student\StudentDetail;
+use App\Models\Teacher\TeacherDetail;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
@@ -33,7 +35,173 @@ class BiometricFk
     /** Where a machine keeps a card in a user's enroll data: its number as plain digits. */
     public const CARD_BACKUP = 11;
 
+    /** A teacher's machine number is this + their id, clear of every roll number. */
+    public const TEACHER_BASE = 9000000;
+
+    /** A student whose roll cannot be a machine number (none, letters, shared) is this + their id. */
+    public const STUDENT_BASE = 8000000;
+
     private const LOG_SIZE = 40;
+
+    // ── Numbers on the machine ──────────────────────────────────────────────
+    //
+    // Everywhere else in SuperLMS a person is their "pin" (1 + student id,
+    // 2 + teacher id). Only what crosses to the machine is the roll number:
+    // read here on the way in, written here on the way out. The machine keeps
+    // numbers, so roll 09001 is 9001 on it.
+
+    /** The number this person goes by on the machine. */
+    public static function machineNumber(BiometricDevice $device, string $pin): string
+    {
+        if (($device->fk_numbers ?? 'roll') === 'id') {
+            return $pin;
+        }
+        $holder = Biometric::holderOfPin($pin);
+
+        return $holder ? self::rollNumberOf((int) $device->organization_id, $holder[0], $holder[1]) : $pin;
+    }
+
+    /** The person a machine's number is, as a pin — or null when it is nobody here. */
+    public static function internalPin(BiometricDevice $device, string $number): ?string
+    {
+        $number = trim($number);
+        if (($device->fk_numbers ?? 'roll') === 'id') {
+            return $number === '' ? null : $number;
+        }
+        if (!ctype_digit($number) || strlen($number) > 9) {
+            return null;
+        }
+
+        $orgId = (int) $device->organization_id;
+        $n     = (int) $number;
+
+        if ($n > self::TEACHER_BASE) {
+            $id = $n - self::TEACHER_BASE;
+
+            return Biometric::holder($orgId, 'teacher', $id) ? Biometric::pin('teacher', $id) : null;
+        }
+        if ($n > self::STUDENT_BASE) {
+            $id = $n - self::STUDENT_BASE;
+
+            return Biometric::holder($orgId, 'student', $id) && self::rollNumberOf($orgId, 'student', $id) === (string) $n
+                ? Biometric::pin('student', $id) : null;
+        }
+
+        $ids = StudentDetail::where('organization_id', $orgId)->whereRaw('CAST(roll_no AS UNSIGNED) = ?', [$n])->limit(2)->pluck('id');
+        if ($ids->count() !== 1 || self::rollNumberOf($orgId, 'student', (int) $ids[0]) !== (string) $n) {
+            return null;
+        }
+
+        return Biometric::pin('student', (int) $ids[0]);
+    }
+
+    /** A student's roll as a machine number, or a teacher's own. */
+    public static function rollNumberOf(int $orgId, string $type, int $id): string
+    {
+        if ($type === 'teacher') {
+            return (string) (self::TEACHER_BASE + $id);
+        }
+
+        $roll   = StudentDetail::where('organization_id', $orgId)->whereKey($id)->value('roll_no');
+        $number = self::numberFromRoll($id, $roll);
+        if ((int) $number < self::STUDENT_BASE) {
+            $shared = StudentDetail::where('organization_id', $orgId)->where('id', '!=', $id)
+                ->whereRaw('CAST(roll_no AS UNSIGNED) = ?', [(int) $number])->exists();
+            if ($shared) {
+                return (string) (self::STUDENT_BASE + $id);
+            }
+        }
+
+        return $number;
+    }
+
+    private static function numberFromRoll(int $id, ?string $roll): string
+    {
+        $roll   = trim((string) $roll);
+        $digits = ctype_digit($roll) ? ltrim($roll, '0') : '';
+
+        return $digits !== '' && strlen($digits) <= 7 && (int) $digits < self::STUDENT_BASE
+            ? $digits
+            : (string) (self::STUDENT_BASE + $id);
+    }
+
+    /** The number to show the admin for this person, for the school's machine. */
+    public static function panelNumber(int $orgId, string $type, int $id): string
+    {
+        $device = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->orderBy('id')->first();
+
+        return $device ? self::machineNumber($device, Biometric::pin($type, $id)) : Biometric::pin($type, $id);
+    }
+
+    /**
+     * Move a machine from the old numbers to roll numbers: everyone off, then
+     * everyone back with their cards and fingers. Punches do not count until
+     * it has finished, since until then a number could be either person's.
+     * How many users go back.
+     */
+    public static function renumber(BiometricDevice $device): int
+    {
+        $orgId = (int) $device->organization_id;
+        $device->forceFill(['fk_numbers' => 'moving', 'fk_numbers_at' => null])->save();
+        BiometricCommand::where('biometric_device_id', $device->id)->whereIn('status', ['pending', 'sent'])->delete();
+
+        $off = [];
+        foreach (StudentDetail::where('organization_id', $orgId)->orderBy('id')->pluck('id') as $id) {
+            $off[] = self::deleteUserCommand('1' . $id);
+        }
+        foreach (TeacherDetail::where('organization_id', $orgId)->orderBy('id')->pluck('id') as $id) {
+            $off[] = self::deleteUserCommand('2' . $id);
+        }
+        Biometric::queue($orgId, $off, (int) $device->id);
+
+        return Biometric::queueEveryone($device, true);
+    }
+
+    /** A student's roll changed (a new class, a class's new code): the machine follows. */
+    public static function rollChanged(int $studentId, ?string $oldRoll): void
+    {
+        try {
+            if (!Biometric::tracked()) {
+                return;
+            }
+            $orgId = (int) StudentDetail::whereKey($studentId)->value('organization_id');
+            if (!$orgId) {
+                return;
+            }
+            $devices = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->where('fk_numbers', 'roll')->get();
+            if ($devices->isEmpty()) {
+                return;
+            }
+
+            $student = Biometric::holder($orgId, 'student', $studentId);
+            $pin     = Biometric::pin('student', $studentId);
+            if (!$student) {
+                return;
+            }
+            // The roll's own number, even while another student still shows it mid-move.
+            $old = self::numberFromRoll($studentId, $oldRoll);
+            $new = self::numberFromRoll($studentId, $student->roll_no);
+            if ($old === $new) {
+                return;
+            }
+
+            foreach ($devices as $device) {
+                $lines = [];
+                // The old number may already be another student's (rolls swapped in a class move).
+                $owner = self::internalPin($device, $old);
+                if ($owner === null || $owner === $pin) {
+                    $lines[] = self::deleteUserCommand($old);
+                }
+                $lines[] = self::deleteUserCommand($new);
+                if ($student->user?->is_active) {
+                    $lines[] = Biometric::userCommand($student);
+                }
+                Biometric::queue($orgId, $lines, (int) $device->id);
+            }
+        } catch (\Throwable $e) {
+            report($e);     // a student's save never fails over a machine
+        }
+    }
 
     // ── Bytes ───────────────────────────────────────────────────────────────
 
@@ -109,6 +277,9 @@ class BiometricFk
     public static function counts(BiometricDevice $device, Carbon $at): bool
     {
         $from = ($device->created_at ?? now())->copy()->startOfDay();
+        if ($device->fk_numbers_at && $device->fk_numbers_at->gt($from)) {
+            $from = $device->fk_numbers_at;     // before this its numbers meant other people
+        }
 
         return $at->gte($from) && $at->lte(now()->addDay());
     }
@@ -116,9 +287,13 @@ class BiometricFk
     /** The ADMS line of an FK punch, for BiometricPunches::receive — or null when it must not count. */
     public static function punchLine(BiometricDevice $device, array $json): ?string
     {
-        $pin = trim((string) ($json['user_id'] ?? ''));
+        if ($device->fk_numbers === 'moving') {
+            return null;
+        }
+
+        $pin = self::internalPin($device, (string) ($json['user_id'] ?? ''));
         $at  = self::time($json['io_time'] ?? null);
-        if (!$at || !preg_match('/^[A-Za-z0-9_-]{1,20}$/', $pin) || !self::counts($device, $at)) {
+        if ($pin === null || !$at || !preg_match('/^[A-Za-z0-9_-]{1,20}$/', $pin) || !self::counts($device, $at)) {
             return null;
         }
 
@@ -135,8 +310,8 @@ class BiometricFk
     public static function keepEnrolment(BiometricDevice $device, array $json, array $bins): int
     {
         $orgId  = (int) $device->organization_id;
-        $pin    = trim((string) ($json['user_id'] ?? ''));
-        $holder = Biometric::holderOfPin($pin);
+        $pin    = $device->fk_numbers === 'moving' ? null : self::internalPin($device, (string) ($json['user_id'] ?? ''));
+        $holder = $pin !== null ? Biometric::holderOfPin($pin) : null;
         $person = $holder ? Biometric::holder($orgId, $holder[0], $holder[1]) : null;
         if (!$person) {
             return 0;
@@ -254,6 +429,9 @@ class BiometricFk
         for ($i = 0; $i < 50; $i++) {
             $command = BiometricCommand::where('biometric_device_id', $id)->where('status', 'pending')->orderBy('id')->first();
             if (!$command) {
+                if ($device->fk_numbers === 'moving') {
+                    $device->forceFill(['fk_numbers' => 'roll', 'fk_numbers_at' => now()])->save();
+                }
                 return null;
             }
 
@@ -318,7 +496,7 @@ class BiometricFk
         return [
             'code' => 'SET_USER_INFO',
             'body' => self::frame([
-                'user_id'           => $pin,
+                'user_id'           => self::machineNumber($device, $pin),
                 'user_name'         => $kv['NAME'] ?? '',
                 'user_privilege'    => 'USER',
                 'enroll_data_array' => $list,
@@ -352,6 +530,9 @@ class BiometricFk
             $command->update(['status' => 'done', 'return_code' => 0, 'return_text' => 'OK', 'done_at' => now()]);
         } elseif ($answer === 'BUSY') {
             $command->update(['status' => 'pending', 'sent_at' => null]);
+        } elseif (str_starts_with((string) $command->command, 'FK DELETE_USER')) {
+            // Taking off someone who is not on it: the machine is already as wanted.
+            $command->update(['status' => 'done', 'return_code' => 0, 'return_text' => substr($answer ?: 'NO ANSWER', 0, 64), 'done_at' => now()]);
         } else {
             $command->update(['status' => 'failed', 'return_code' => -1, 'return_text' => substr($answer ?: 'NO ANSWER', 0, 64), 'done_at' => now()]);
         }
@@ -372,6 +553,10 @@ class BiometricFk
     public static function status(BiometricDevice $device): ?string
     {
         $id = (int) $device->id;
+
+        if ($device->fk_numbers === 'moving' && !self::stopped($id)) {
+            return 'Changing to roll numbers. Punches do not count until this finishes';
+        }
 
         if (!$device->fk_released) {
             $test = self::userCommands($id)->whereIn('status', ['done', 'failed'])->orderBy('id')->first();

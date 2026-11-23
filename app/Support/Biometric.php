@@ -100,6 +100,97 @@ class Biometric
         ]);
     }
 
+    // ── What a teacher's first punch marks (Attendance → Teacher Timing) ────
+
+    /** The statuses that have times, as attendance stores them. */
+    public const TEACHER_STATUS = ['present' => 1, 'absent' => 0, 'half_day' => 2];
+
+    /** What the tab starts on until the school saves its own. */
+    public const SUGGESTED_TEACHER_TIMES = [
+        'present'  => ['start' => '07:00', 'end' => '08:30'],
+        'absent'   => ['start' => '11:01', 'end' => '18:00'],
+        'half_day' => ['start' => '08:31', 'end' => '11:00'],
+    ];
+
+    /** The school's saved times, by status — empty until it has saved any. */
+    public static function teacherStatusTimes(int $orgId): array
+    {
+        if (!self::tracked()) {
+            return [];
+        }
+
+        return (array) (BiometricSetting::where('organization_id', $orgId)->first()?->teacher_status_times ?? []);
+    }
+
+    /** What is wrong with the times, in a line for the admin, or null. */
+    public static function checkTeacherTimes(array $rows): ?string
+    {
+        $names = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half Day'];
+        $used  = [];
+
+        foreach (self::TEACHER_STATUS as $key => $_) {
+            $start = trim((string) ($rows[$key]['start'] ?? ''));
+            $end   = trim((string) ($rows[$key]['end'] ?? ''));
+            if ($start === '' && $end === '') {
+                continue;
+            }
+            if ($start === '' || $end === '') {
+                return $names[$key] . ': enter both the start and the end time.';
+            }
+            foreach ([$start, $end] as $t) {
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) {
+                    return $names[$key] . ': that is not a time.';
+                }
+            }
+            if ($start >= $end) {
+                return $names[$key] . ': the end time must be after the start time.';
+            }
+            $used[] = [$start, $end, $names[$key]];
+        }
+
+        usort($used, fn ($a, $b) => strcmp($a[0], $b[0]));
+        for ($i = 1; $i < count($used); $i++) {
+            if ($used[$i][0] < $used[$i - 1][1]) {
+                return $used[$i - 1][2] . ' and ' . $used[$i][2] . ' overlap: a time can have one status only.';
+            }
+        }
+
+        return null;
+    }
+
+    public static function saveTeacherStatusTimes(int $orgId, array $rows, ?int $userId = null): void
+    {
+        $clean = [];
+        foreach (self::TEACHER_STATUS as $key => $_) {
+            $start = trim((string) ($rows[$key]['start'] ?? ''));
+            $end   = trim((string) ($rows[$key]['end'] ?? ''));
+            if ($start !== '' && $end !== '') {
+                $clean[$key] = ['start' => $start, 'end' => $end];
+            }
+        }
+
+        BiometricSetting::updateOrCreate(['organization_id' => $orgId], [
+            'teacher_status_times' => $clean ?: null,
+            'updated_by'           => $userId,
+        ]);
+    }
+
+    /**
+     * The status for a first punch at "H:i", or null when it falls in none of
+     * the times. Both ends count; on a shared minute the earlier row has it.
+     */
+    public static function teacherStatusAt(array $times, string $hm): ?int
+    {
+        uasort($times, fn ($a, $b) => strcmp($a['start'], $b['start']));
+        foreach ($times as $key => $row) {
+            if (isset(self::TEACHER_STATUS[$key]) && $hm >= $row['start'] && $hm <= $row['end']) {
+                return self::TEACHER_STATUS[$key];
+            }
+        }
+
+        return null;
+    }
+
     // ── Who a machine's number is ───────────────────────────────────────────
 
     /** The number a student or teacher goes by on the machines. */
@@ -200,9 +291,10 @@ class Biometric
         if ($holder = self::holder($orgId, $type, $id)) {
             // An FK machine takes the user off first, then back with their
             // fingers and without the card: an update alone may leave it there.
-            $fk = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->pluck('id');
-            foreach ($fk as $deviceId) {
-                self::queue($orgId, [BiometricFk::deleteUserCommand(self::pin($type, $id))], (int) $deviceId);
+            $fk = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->get();
+            foreach ($fk as $device) {
+                $number = BiometricFk::machineNumber($device, self::pin($type, $id));
+                self::queue($orgId, [BiometricFk::deleteUserCommand($number)], (int) $device->id);
             }
             self::queueHolder($orgId, $holder);
         }
@@ -261,13 +353,15 @@ class Biometric
      * whose accounts are active, each with their card, and every fingerprint
      * kept — in place of anything it was still waiting for. How many users.
      */
-    public static function queueEveryone(BiometricDevice $device): int
+    public static function queueEveryone(BiometricDevice $device, bool $afterWhatIsQueued = false): int
     {
         $orgId = (int) $device->organization_id;
         if ($device->protocol === 'fk') {
             BiometricFk::release($device);
         }
-        BiometricCommand::where('biometric_device_id', $device->id)->where('status', 'pending')->delete();
+        if (!$afterWhatIsQueued) {
+            BiometricCommand::where('biometric_device_id', $device->id)->where('status', 'pending')->delete();
+        }
 
         $cards = BiometricCard::where('organization_id', $orgId)->get()
             ->mapWithKeys(fn ($c) => [$c->holder_type . ':' . $c->holder_id => $c->card_number]);

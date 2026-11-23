@@ -278,6 +278,9 @@ class StudentNumbers
                     ->orWhereNull('roll_number')->orWhere('roll_number', '')->orWhere('roll_number', 'N/A'))
                 ->update(['roll_number' => $new]);
         }
+
+        // A SecurEye-style machine knows the student by this roll.
+        BiometricFk::rollChanged($studentDetailId, $old);
     }
 
     /**

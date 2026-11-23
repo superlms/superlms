@@ -122,11 +122,15 @@ class BiometricCard extends Component
 
     public function render()
     {
+        $machine = Biometric::hasFkMachine($this->orgId());
+
         return view('livewire.admin.biometric-card', [
             'on'      => Biometric::enabled($this->orgId()),
             'card'    => Biometric::cardOf($this->holderType, $this->holderId),
-            'machine' => Biometric::hasFkMachine($this->orgId()),
-            'number'  => Biometric::pin($this->holderType, $this->holderId),
+            'machine' => $machine,
+            'number'  => $machine
+                ? BiometricFk::panelNumber($this->orgId(), $this->holderType, $this->holderId)
+                : Biometric::pin($this->holderType, $this->holderId),
         ]);
     }
 }

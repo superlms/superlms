@@ -9,6 +9,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
+use App\Support\Biometric;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,11 @@ class Attendance extends Component
     private const S_APP_HOLIDAY = 4;
 
     // ── Tabs ─────────────────────────────────────────────────────────────────
-    public string $mainTab = 'teacher';        // teacher | student | class_teachers
+    public string $mainTab = 'teacher';        // teacher | student | class_teachers | timing
+
+    // ── Teacher Timing: the times a first punch is Present / Absent / Half Day ──
+    public array $timing = [];
+    public bool $timingSaved = false;
 
     // ── Teacher (shared selectors across its record views) ──────────────────
     public string $teacherView = 'by_date';    // by_date | by_month | by_teacher
@@ -118,6 +123,37 @@ class Attendance extends Component
         $this->sMarkDate = $today;
         $this->stMonth   = $month;
         $this->stYear    = $year;
+
+        $this->loadTiming();
+    }
+
+    /** The school's saved times; until it has saved any, the suggested ones to start from. */
+    private function loadTiming(): void
+    {
+        $saved = Biometric::teacherStatusTimes((int) Auth::user()->organization_id);
+        $this->timingSaved = (bool) $saved;
+
+        foreach (Biometric::TEACHER_STATUS as $key => $_) {
+            $row = $saved ? ($saved[$key] ?? ['start' => '', 'end' => '']) : Biometric::SUGGESTED_TEACHER_TIMES[$key];
+            $this->timing[$key] = ['start' => (string) $row['start'], 'end' => (string) $row['end']];
+        }
+    }
+
+    public function saveTiming(): void
+    {
+        $orgId = (int) Auth::user()->organization_id;
+        if (!Biometric::enabled($orgId)) {
+            return;
+        }
+
+        if ($problem = Biometric::checkTeacherTimes($this->timing)) {
+            $this->notification()->error('Check the times', $problem);
+            return;
+        }
+
+        Biometric::saveTeacherStatusTimes($orgId, $this->timing, Auth::id());
+        $this->loadTiming();
+        $this->notification()->success('Saved', 'Teachers\' punches follow these times from the next punch.');
     }
 
     /** Which April→March year a date falls in (Jan–Mar belong to the previous one). */
@@ -193,6 +229,9 @@ class Attendance extends Component
     // ═══════════════════════════════ TAB SWITCHING ═══════════════════════════
     public function switchMainTab(string $tab): void
     {
+        if ($tab === 'timing' && !Biometric::enabled((int) Auth::user()->organization_id)) {
+            return;
+        }
         $this->mainTab = $tab;
     }
 
