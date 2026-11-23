@@ -10,10 +10,11 @@ use Livewire\Component;
 /**
  * The card row of the student or teacher open in a View panel.
  *
- * A school with a SecurEye-style machine sees only the Card Number: the
- * number the person goes by on the machine (a student's roll, a teacher's
- * Employee ID). The card itself is enrolled under it on the machine's Register
- * screen, and the machine tells us (App\Support\BiometricFk::keepEnrolment).
+ * A school with a SecurEye-style machine sees the Card Number once a card is
+ * assigned: the number the person goes by on the machine (a student's roll, a
+ * teacher's Employee ID), with Remove beside it; otherwise "Not assigned". The
+ * card itself is enrolled under that number on the machine's Register screen,
+ * and the machine tells us (App\Support\BiometricFk::keepEnrolment).
  *
  * Otherwise the card is tapped on a USB card reader (which types the card's
  * number and Enter into the box) and goes to the school's machines with them

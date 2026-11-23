@@ -309,12 +309,72 @@ class BiometricFkTest extends TestCase
         $this->admin();
         DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '0058']);
 
-        foreach ([['student', $this->student, $this->sNo], ['teacher', $this->teacher, '58']] as [$type, $id, $number]) {
+        foreach ([['student', $this->student, $this->sNo, '7512310'], ['teacher', $this->teacher, '58', '7603283']] as [$type, $id, $number, $card]) {
             Livewire::test(BiometricCardPanel::class, ['holderType' => $type, 'holderId' => $id])
-                ->assertSee('Card Number')->assertSee($number)
+                ->assertSee('Card Number')->assertSee('Not assigned')->assertDontSee('Remove')
                 ->assertDontSee('Assign card')->assertDontSee('Waiting for the card')
                 ->assertDontSee('Register')->assertDontSeeHtml('wire:poll');
+
+            $this->enrolCard($number, $card);
+
+            Livewire::test(BiometricCardPanel::class, ['holderType' => $type, 'holderId' => $id])
+                ->assertSee($number)->assertDontSee('Not assigned')->assertDontSee($card)
+                ->assertSee('Remove')->assertSeeHtml('wire:confirm="Remove this card?')->assertSeeHtml('text-red-600');
         }
+    }
+
+    public function test_remove_on_the_view_panel_frees_the_card_to_be_assigned_again(): void
+    {
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '58']);
+        $this->liveMachine();
+        $this->device->refresh()->forceFill(['fk_teacher_numbers' => [$this->teacher => '58']])->save();
+        $this->admin();
+
+        $removeFrom = function (string $type, int $id, string $number) {
+            BiometricCommand::where('biometric_device_id', $this->device->id)->delete();
+            Livewire::test(BiometricCardPanel::class, ['holderType' => $type, 'holderId' => $id])
+                ->call('remove')->assertSee('Not assigned')->assertDontSee('Remove');
+            $this->assertNull(Biometric::cardOf($type, $id));
+
+            // Off the machine, then back without the card.
+            $off = $this->fk('receive_cmd');
+            $this->assertSame('DELETE_USER', $off->headers->get('cmd_code'));
+            $this->assertSame(['user_id' => $number], BiometricFk::parse($off->getContent())[0]);
+            $this->fk('send_cmd_result', '', ['TRANS_ID' => $off->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+            $back = $this->fk('receive_cmd');
+            $this->assertSame('SET_USER_INFO', $back->headers->get('cmd_code'));
+            [$json] = BiometricFk::parse($back->getContent());
+            $this->assertSame($number, $json['user_id']);
+            $this->assertSame([], $json['enroll_data_array']);
+            $this->fk('send_cmd_result', '', ['TRANS_ID' => $back->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+        };
+
+        $this->enrolCard($this->sNo, '7512310');
+        $removeFrom('student', $this->student, $this->sNo);
+
+        // The freed card can go to someone else…
+        $this->enrolCard('58', '7512310');
+        $this->assertSame('7512310', Biometric::cardOf('teacher', $this->teacher));
+        $removeFrom('teacher', $this->teacher, '58');
+
+        // …and back to the same person.
+        $this->enrolCard($this->sNo, '7512310');
+        $this->assertSame('7512310', Biometric::cardOf('student', $this->student));
+        $this->enrolCard('58', '7603283');
+        $this->assertSame('7603283', Biometric::cardOf('teacher', $this->teacher));
+    }
+
+    public function test_remove_never_touches_another_schools_card(): void
+    {
+        $this->fk('receive_cmd');
+        $this->admin();
+        DB::table('organizations')->insert(['id' => 99, 'name' => 'Other School']);
+        $otherSchoolStudent = DB::table('student_details')->insertGetId(['organization_id' => 99, 'full_name' => 'OTHER', 'roll_no' => '7']);
+        DB::table('biometric_cards')->insert(['organization_id' => 99, 'holder_type' => 'student', 'holder_id' => $otherSchoolStudent, 'card_number' => '5550001']);
+
+        Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $otherSchoolStudent])->call('remove');
+
+        $this->assertSame('5550001', Biometric::cardOf('student', $otherSchoolStudent));
     }
 
     public function test_a_card_enrolled_under_the_employee_id_is_the_teachers(): void

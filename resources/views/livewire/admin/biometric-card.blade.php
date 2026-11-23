@@ -3,7 +3,16 @@
         {{-- A SecurEye-style machine: the number the person goes by on it, as any other row. --}}
         <div class="grid grid-cols-3 gap-3 text-sm">
             <span class="text-xs text-gray-400 uppercase tracking-wider">Card Number</span>
-            <span class="col-span-2 text-gray-800 font-medium">{{ $number }}</span>
+            <div class="col-span-2 flex flex-wrap items-center gap-3">
+                @if ($card)
+                    <span class="text-gray-800 font-medium">{{ $number }}</span>
+                    <button type="button" wire:click="remove" wire:loading.attr="disabled" wire:target="remove"
+                        wire:confirm="Remove this card? It stops working on the machine, and a card can be assigned again."
+                        class="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-60">Remove</button>
+                @else
+                    <span class="text-gray-400 font-medium">Not assigned</span>
+                @endif
+            </div>
         </div>
     @elseif ($on)
         {{-- A row of the View panel's list: the person's ID card for the machines. --}}
