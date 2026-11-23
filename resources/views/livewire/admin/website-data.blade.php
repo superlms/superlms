@@ -21,7 +21,7 @@
     use App\Support\WebsitePages;
     use Illuminate\Support\Str;
 
-    $leave    = "if (! changed || confirm('Leave this page without saving your changes?'))";
+    $leave    = "if (! changed) { \$wire.back(); } else if (window.lmsConfirm) { lmsConfirm('Leave this page without saving your changes?', () => \$wire.back()); } else if (confirm('Leave this page without saving your changes?')) { \$wire.back(); }";
     $allRows  = collect($menus)->flatMap(fn ($rows) => $rows)->where('on', true);
     $filled   = $allRows->where('status', 'filled')->count();
     $fillable = $allRows->where('status', '!=', 'form')->count();
@@ -151,7 +151,7 @@
         <div class="{{ $strip }}" data-lms-pin>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
                 <div class="flex items-center gap-3 min-w-0">
-                    <button type="button" x-on:click="{{ $leave }} $wire.back()" class="{{ $backBtn }}" title="Back">{!! $backIcon !!}</button>
+                    <button type="button" x-on:click="{{ $leave }}" class="{{ $backBtn }}" title="Back">{!! $backIcon !!}</button>
                     <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $page['label'] }}</h1>
                         <p class="text-xs text-gray-400 truncate">Website Data{{ $page['group'] ? ' › ' . $page['group'] : '' }}</p>

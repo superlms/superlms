@@ -147,8 +147,15 @@
         }
         @endunless
     </style>
+    {{-- The Delete button's question in the panels' card (never in the PDF;
+         accounts has no Delete here). --}}
+    @php $lmsAsk = ! ($isPdf ?? false) && ! request()->routeIs('accounts.*'); @endphp
+    @if ($lmsAsk)
+        <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+        @include('partials.delete-confirm')
+    @endif
 </head>
-<body>
+<body @if ($lmsAsk) class="lms-ui" @endif>
 
 {{-- Print / Back / Delete — only in the browser preview, never in the PDF.
      "Print this card" in the listing goes through the four-up sheet instead,
@@ -162,7 +169,7 @@
     <button type="button" onclick="window.parent !== window ? window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin) : (window.opener ? window.close() : history.back())">Back</button>
     @unless($isAccounts)
         <form method="POST" action="{{ route('admin.admit-card.destroy', [$admitCard->organization_id, $admitCard->id]) }}"
-              onsubmit="return confirm('Delete this admit card? The student will move back to the not-issued list.');">
+              onsubmit="if (window.lmsConfirm) { lmsConfirm('Delete this admit card? The student will move back to the not-issued list.', () => this.submit()); return false; } return confirm('Delete this admit card? The student will move back to the not-issued list.');">
             @csrf
             <button type="submit" class="del">Delete</button>
         </form>

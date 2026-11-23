@@ -16,9 +16,12 @@
           own buttons, boxes and ticks — so what a delete does, and when the
           pop-up closes, is exactly as before. A pop-up with a control the card
           does not draw (a select, a radio, a file box) is left as it was.
-       2. `wire:confirm` questions about deleting / removing, which the
-          browser asked in its own small box: Livewire's own confirm is swapped
-          for the card at the click, and the action runs on "Yes, …".
+       2. Every `wire:confirm` question (deleting, sending, adding, …; since
+          2026-11-23 not only the deleting ones), which the browser asked in
+          its own small box: Livewire's own confirm is swapped for the card at
+          the click, and the action runs on "Yes, …".
+       3. `window.lmsConfirm(question, onYes, { yes: 'Yes, Leave' })` for a
+          page's own script that would have called the browser's confirm().
 
      Nothing on the pages changes; the accounts panel (no lms-ui) keeps its
      pop-ups. To undo it: remove its @include in components.layouts.app. --}}
@@ -161,6 +164,7 @@
             if (s.cover && s.cover.isConnected) s.cover.removeAttribute('aria-hidden');
             if (s.shade.isConnected) s.shade.remove();
             document.body.classList.remove('lms-dc-on');
+            if (s.mode === 'ask') soon();   // a page's pop-up may be waiting behind the question
         }
 
         function dismiss() {
@@ -317,21 +321,38 @@
             if (st.first || !st.card.contains(document.activeElement)) { st.first = false; focusFirst(); }
         }
 
-        // ── wire:confirm: the card instead of the browser's own box ───────────
-        function ask(message, yes) {
+        // ── A question: the card instead of the browser's own box ─────────────
+        // The button says what the question's first word does ("Send …?" →
+        // "Yes, Send"), so a school's name in the sentence can't change it.
+        function yesLabel(msg) {
+            var paid = msg.match(/^mark\b.*?\b(unpaid|paid)\b/i);
+            if (paid) return 'Yes, Mark ' + paid[1].charAt(0).toUpperCase() + paid[1].slice(1).toLowerCase();
+            if (/^go back\b/i.test(msg)) return 'Yes, Go Back';
+            var first = msg.match(/^(delete|remove|send|add|disconnect|show|mark|leave)\b/i);
+            if (first) return 'Yes, ' + first[1].charAt(0).toUpperCase() + first[1].slice(1).toLowerCase();
+            var w = msg.match(WORD);
+            if (w) return /^remov/i.test(w[0]) ? 'Yes, Remove' : 'Yes, Delete';
+            return 'Yes, Continue';
+        }
+
+        function ask(message, yes, opts) {
             if (st) close();
             var msg = String(message).replace(/\\n/g, '\n').trim() || 'Are you sure?';
-            var m = msg.match(/^([\s\S]+?[?!.])\s+([\s\S]+)$/);
+            // Split after a "?" or "!" only: a full stop may be in a name ("St. Mary's", "D.A.V.").
+            var m = msg.match(/^([\s\S]+?[?!])\s+([\s\S]+)$/);
             var title = m ? m[1] : msg, line = m ? m[2] : '';
-            var w = (msg.match(WORD) || ['delete'])[0].toLowerCase();
-            var verb = /^remov/.test(w) ? 'Remove' : 'Delete';
             open('ask', null);
             st.yes = yes;
             st.p = { title: title, items: line ? line.split(/\n+/).map(function (t) { return { type: 'line', t: t.trim(), el: null }; }).filter(function (it) { return it.t; }) : [], acts: [] };
             drawPanel(st.p);
-            drawButtons([{ kind: 'ghost', t: 'Cancel' }, { kind: 'danger', t: 'Yes, ' + verb }]);
+            drawButtons([{ kind: 'ghost', t: 'Cancel' }, { kind: 'danger', t: (opts && opts.yes) || yesLabel(msg) }]);
             focusFirst();
         }
+
+        window.lmsConfirm = function (message, yes, opts) {
+            if (!on()) { if (window.confirm(message) && yes) yes(); return; }
+            ask(message, yes, opts);
+        };
 
         function confirmOf(el) {
             if (!el.getAttributeNames) return null;
@@ -347,7 +368,7 @@
             for (var n = e.target; n && n.nodeType === 1; n = n.parentElement) {
                 var msg = confirmOf(n);
                 if (msg === null) continue;
-                if (!WORD.test(msg) || typeof n.__livewire_confirm !== 'function') return;
+                if (typeof n.__livewire_confirm !== 'function') return;
                 if (!n.__livewire_confirm.__ldc) {
                     var mine = function (action, instead) {
                         try { instead(); } catch (x) {}
