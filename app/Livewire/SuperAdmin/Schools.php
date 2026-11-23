@@ -588,6 +588,10 @@ class Schools extends Component
         $device = $orgId ? \App\Models\Biometric\BiometricDevice::where('organization_id', $orgId)->find($id) : null;
         if ($device) {
             $n = \App\Support\Biometric::queueEveryone($device);
+            if ($device->protocol === 'fk' && !$device->fk_released) {
+                $this->notification()->success('One test user first', 'The rest go after it has reached the machine and you press Send everyone again.');
+                return;
+            }
             $this->notification()->success('Sending ' . $n . ' students and teachers', 'The machine takes them as it next calls.');
         }
     }
@@ -608,7 +612,15 @@ class Schools extends Component
         $today = \App\Models\Biometric\BiometricPunch::where('organization_id', $orgId)
             ->whereBetween('punched_at', [now()->startOfDay(), now()->endOfDay()]);
 
+        // The address as a SecurEye machine's keypad takes it: 003.111.194.066.
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'superlms.in';
+        $ip   = cache()->remember('biometric:server-ip:' . $host, now()->addDay(), fn () => gethostbyname($host));
+        $fkIp = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)
+            ? implode('.', array_map(fn ($p) => str_pad($p, 3, '0', STR_PAD_LEFT), explode('.', $ip)))
+            : null;
+
         return [
+            'fkIp'     => $fkIp,
             'enabled'  => \App\Support\Biometric::enabled($orgId),
             'devices'  => $devices,
             'cards'    => ['student' => (int) ($cards['student'] ?? 0), 'teacher' => (int) ($cards['teacher'] ?? 0)],

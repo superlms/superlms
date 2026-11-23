@@ -690,6 +690,11 @@
                                     <span class="text-sm font-medium text-gray-800">Machines</span>
                                     <span class="ml-auto text-xs text-gray-400">In the machine: Comm. → Cloud Server (ADMS) — Server <strong class="text-gray-600">{{ $bio['host'] }}</strong>, Port <strong class="text-gray-600">80</strong>, Domain name on, Proxy off</span>
                                 </div>
+                                @if ($bio['fkIp'])
+                                    <p class="px-4 py-2 border-b border-gray-100 text-right text-xs text-gray-400">
+                                        SecurEye: Menu → Network → Server Set — DNS <strong class="text-gray-600">No</strong>, Server IP <strong class="text-gray-600">{{ $bio['fkIp'] }}</strong>, SerPortNo <strong class="text-gray-600">80</strong>; Net Mode <strong class="text-gray-600">Internet</strong>
+                                    </p>
+                                @endif
                                 <div class="divide-y divide-gray-100">
                                     @forelse ($bio['devices'] as $dev)
                                         <div wire:key="bio-dev-{{ $dev->id }}" class="flex flex-wrap items-center gap-3 px-4 py-2.5">
@@ -701,6 +706,9 @@
                                                     {{ $dev->last_seen_at ? 'Last heard ' . $dev->last_seen_at->diffForHumans() . ($dev->last_ip ? ' from ' . $dev->last_ip : '') : 'Not heard from yet — set the server in the machine' }}
                                                     @if ($dev->waiting) · {{ number_format($dev->waiting) }} still to send @endif
                                                 </p>
+                                                @if ($dev->protocol === 'fk' && ($fkStatus = \App\Support\BiometricFk::status($dev)))
+                                                    <p class="text-[11px] text-amber-700">{{ $fkStatus }}</p>
+                                                @endif
                                             </div>
                                             <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs flex-shrink-0">
                                                 <button type="button" wire:click="syncBiometricDevice({{ $dev->id }})" wire:loading.attr="disabled"

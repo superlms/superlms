@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 /** One of a school's attendance machines, known by the serial number it sends with every call. */
 class BiometricDevice extends Model
 {
-    protected $fillable = ['organization_id', 'serial_number', 'name', 'last_seen_at', 'last_ip', 'attlog_stamp', 'operlog_stamp'];
+    protected $fillable = ['organization_id', 'serial_number', 'name', 'protocol', 'last_seen_at', 'last_ip', 'attlog_stamp', 'operlog_stamp'];
 
-    protected $casts = ['last_seen_at' => 'datetime'];
+    protected $casts = ['last_seen_at' => 'datetime', 'fk_released' => 'boolean'];
 
     public function commands()
     {

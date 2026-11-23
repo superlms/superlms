@@ -249,6 +249,9 @@ class Biometric
     public static function queueEveryone(BiometricDevice $device): int
     {
         $orgId = (int) $device->organization_id;
+        if ($device->protocol === 'fk') {
+            BiometricFk::release($device);
+        }
         BiometricCommand::where('biometric_device_id', $device->id)->where('status', 'pending')->delete();
 
         $cards = BiometricCard::where('organization_id', $orgId)->get()
@@ -264,8 +267,12 @@ class Biometric
         }
         $users = count($commands);
 
+        // Fingerprints work only on their own brand. An FK machine gets its
+        // own inside each user (BiometricFk::translate); ADMS ones get ADMS ones.
         foreach (BiometricTemplate::where('organization_id', $orgId)->get() as $fp) {
-            $commands[] = self::fingerprintCommand($fp);
+            if ($device->protocol !== 'fk' && !str_starts_with((string) $fp->template, BiometricFk::PREFIX)) {
+                $commands[] = self::fingerprintCommand($fp);
+            }
         }
 
         self::queue($orgId, $commands, (int) $device->id);

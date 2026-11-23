@@ -59,6 +59,15 @@ else
   echo "WARNING: the Caddyfile does not validate — Caddy keeps running the config it has." >&2
 fi
 
+echo "==> Port 80 gate on the config in the repo"
+# Same rule as Caddy: a file that does not validate never replaces a working one.
+if docker exec superlms-edge nginx -t >/dev/null 2>&1; then
+  docker exec superlms-edge nginx -s reload
+  echo "    Edge reloaded."
+else
+  echo "WARNING: infra/lite/edge/default.conf does not validate — the gate keeps the config it has." >&2
+fi
+
 echo "==> Pruning old dangling images"
 docker image prune -f >/dev/null 2>&1 || true
 

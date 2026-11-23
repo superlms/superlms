@@ -63,8 +63,10 @@ services:
     container_name: superlms-caddy
     restart: unless-stopped
     logging: *default-logging
+    # Port 80 comes through the edge gate below; Caddy still listens on it inside.
+    expose:
+      - "80"
     ports:
-      - "80:80"
       - "443:443"
       - "443:443/udp"   # HTTP/3
     environment:
@@ -79,6 +81,24 @@ services:
     networks:
       - superlms
     mem_limit: 128m
+
+  # ── EDGE: the box's port 80 ────────────────────────────────────────────────
+  # Passes attendance machines to the app with their underscore headers, which
+  # Caddy strips; everything else goes on to Caddy. See edge/default.conf.
+  edge:
+    image: nginx:1.27-alpine
+    container_name: superlms-edge
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "80:80"
+    volumes:
+      - ./edge:/etc/nginx/conf.d:ro
+    depends_on:
+      - caddy
+    networks:
+      - superlms
+    mem_limit: 48m
 
   # ── WEB: nginx + php-fpm (image default CMD) ───────────────────────────────
   web:

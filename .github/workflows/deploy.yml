@@ -129,6 +129,9 @@ jobs:
           docker run --rm -e APP_DOMAIN=superlms.in -e TLS_EMAIL=admin@superlms.in \
             -v "$PWD/infra/lite/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: nginx -t (infra/lite/edge, the box's port 80 gate)
+        run: |
+          docker run --rm -v "$PWD/infra/lite/edge:/etc/nginx/conf.d:ro" nginx:1.27-alpine nginx -t
 
   # ──────────────────────────────────────────────────────────────────────
   # JOB 2 — DEPLOY  (runs ON the single-box via a self-hosted runner)

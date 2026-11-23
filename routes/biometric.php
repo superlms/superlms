@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BiometricFkController;
 use App\Http\Controllers\BiometricPushController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,3 +17,6 @@ foreach (['', '.aspx'] as $ext) {
     Route::post("/iclock/devicecmd{$ext}", [BiometricPushController::class, 'results']);
     Route::get("/iclock/ping{$ext}", [BiometricPushController::class, 'ping']);
 }
+
+// SecurEye-style machines (FK push): Caddy brings their calls here, whatever path they post to.
+Route::post('/fkweb', [BiometricFkController::class, 'handle']);
