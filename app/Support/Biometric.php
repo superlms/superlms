@@ -194,9 +194,24 @@ class Biometric
     public static function removeCard(int $orgId, string $type, int $id): void
     {
         BiometricCard::where('organization_id', $orgId)->where('holder_type', $type)->where('holder_id', $id)->delete();
+        BiometricTemplate::where('organization_id', $orgId)->where('pin', self::pin($type, $id))
+            ->where('fid', BiometricFk::CARD_BACKUP)->where('template', 'like', BiometricFk::PREFIX . '%')->delete();
+
         if ($holder = self::holder($orgId, $type, $id)) {
+            // An FK machine takes the user off first, then back with their
+            // fingers and without the card: an update alone may leave it there.
+            $fk = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->pluck('id');
+            foreach ($fk as $deviceId) {
+                self::queue($orgId, [BiometricFk::deleteUserCommand(self::pin($type, $id))], (int) $deviceId);
+            }
             self::queueHolder($orgId, $holder);
         }
+    }
+
+    /** Whether the school has a machine on which cards are tapped (SecurEye-style, FK push). */
+    public static function hasFkMachine(int $orgId): bool
+    {
+        return self::tracked() && BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')->exists();
     }
 
     // ── The machines' work ──────────────────────────────────────────────────

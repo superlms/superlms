@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Admin\BiometricCard as BiometricCardPanel;
 use App\Models\Biometric\BiometricCommand;
 use App\Models\Biometric\BiometricDevice;
 use App\Models\Biometric\BiometricPunch;
 use App\Models\Biometric\BiometricTemplate;
+use App\Models\User;
 use App\Services\AppPushNotifier;
 use App\Support\Biometric;
 use App\Support\BiometricFk;
@@ -13,6 +15,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -262,6 +265,132 @@ class BiometricFkTest extends TestCase
         // An ADMS machine of the same school is never given them.
         $adms = Biometric::addDevice($this->org, 'ADMS0001');
         $this->assertSame(0, BiometricCommand::where('biometric_device_id', $adms->id)->where('command', 'like', '%FINGERTMP%')->count());
+    }
+
+    /** What the real machine sent when a card was enrolled on its Register screen. */
+    private function enrolCard(string $pin, string $digits = '7512310')
+    {
+        return $this->fk('realtime_enroll_data', BiometricFk::frame([
+            'user_id' => $pin, 'user_name' => 'AABHA KU', 'user_privilege' => 'USER',
+            'enroll_data_array' => [['backup_number' => 11, 'enroll_data' => 'BIN_1']],
+        ], [$digits]));
+    }
+
+    private function admin(): void
+    {
+        $this->actingAs(User::forceCreate(['name' => 'Head', 'role' => 'admin', 'organization_id' => $this->org]));
+    }
+
+    public function test_a_card_enrolled_on_the_machine_becomes_the_persons_and_goes_back_with_them(): void
+    {
+        $this->assertSame('OK', $this->enrolCard('1' . $this->student)->headers->get('response_code'));
+
+        $this->assertSame('7512310', Biometric::cardOf('student', $this->student));
+        $this->assertSame(0, BiometricTemplate::where('fid', 11)->count());
+
+        $this->pastFirstContact();
+        [$json, $bins] = BiometricFk::parse($this->fk('receive_cmd')->getContent());
+        $this->assertSame('1' . $this->student, $json['user_id']);
+        $this->assertSame([['backup_number' => 11, 'enroll_data' => 'BIN_1']], $json['enroll_data_array']);
+        $this->assertSame('7512310', $bins[1]);
+    }
+
+    public function test_assign_card_waits_for_the_tap_on_the_machine(): void
+    {
+        $this->fk('receive_cmd');     // the machine has called: it is an FK machine
+        $this->admin();
+
+        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])
+            ->assertSee('Assign card')
+            ->call('listen')
+            ->assertSee('Waiting for the card on the machine')
+            ->assertSee('1' . $this->student)
+            ->assertDontSeeHtml('placeholder="Card number"');
+
+        // Nothing yet: it keeps waiting.
+        $panel->call('checkMachine')->assertSet('listening', true);
+
+        $this->enrolCard('1' . $this->student);
+        $panel->call('checkMachine')->assertSet('listening', false)->assertSee('7512310');
+    }
+
+    public function test_a_teacher_gets_a_card_the_same_way(): void
+    {
+        $this->fk('receive_cmd');
+        $this->admin();
+
+        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'teacher', 'holderId' => $this->teacher])
+            ->call('listen')->assertSee('2' . $this->teacher);
+
+        $this->enrolCard('2' . $this->teacher, '7603283');
+        $panel->call('checkMachine')->assertSet('listening', false)->assertSee('7603283');
+        $this->assertSame('7603283', Biometric::cardOf('teacher', $this->teacher));
+    }
+
+    public function test_tapping_the_same_card_again_still_finishes_the_wait(): void
+    {
+        $this->fk('receive_cmd');
+        $this->admin();
+        $this->enrolCard('1' . $this->student);
+
+        Carbon::setTestNow(now()->addMinute());
+        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])->call('listen');
+
+        Carbon::setTestNow(now()->addSeconds(5));
+        $this->enrolCard('1' . $this->student);
+        $panel->call('checkMachine')->assertSet('listening', false);
+    }
+
+    public function test_a_card_someone_else_has_is_not_taken_and_the_panel_says_whose(): void
+    {
+        $this->fk('receive_cmd');
+        $this->admin();
+        $this->enrolCard('2' . $this->teacher);
+
+        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])->call('listen');
+        $this->enrolCard('1' . $this->student);
+
+        $panel->call('checkMachine')->assertSet('listening', true)->assertSee('already with Ravi Sharma');
+        $this->assertNull(Biometric::cardOf('student', $this->student));
+        $this->assertSame('7512310', Biometric::cardOf('teacher', $this->teacher));
+    }
+
+    public function test_removing_a_card_takes_it_off_the_machine_and_keeps_the_finger(): void
+    {
+        $finger = random_bytes(600);
+        $this->fk('realtime_enroll_data', BiometricFk::frame([
+            'user_id' => '1' . $this->student, 'user_name' => 'ANUSHKA', 'user_privilege' => 'USER',
+            'enroll_data_array' => [['backup_number' => 0, 'enroll_data' => 'BIN_1'], ['backup_number' => 11, 'enroll_data' => 'BIN_2']],
+        ], [$finger, '7512310']));
+        $this->pastFirstContact();
+
+        BiometricCommand::where('biometric_device_id', $this->device->id)->delete();
+        $this->device->forceFill(['fk_released' => true])->save();
+
+        Biometric::removeCard($this->org, 'student', $this->student);
+        $this->assertNull(Biometric::cardOf('student', $this->student));
+
+        $first = $this->fk('receive_cmd');
+        $this->assertSame('DELETE_USER', $first->headers->get('cmd_code'));
+        $this->assertSame(['user_id' => '1' . $this->student], BiometricFk::parse($first->getContent())[0]);
+        $this->fk('send_cmd_result', '', ['TRANS_ID' => $first->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+
+        $second = $this->fk('receive_cmd');
+        $this->assertSame('SET_USER_INFO', $second->headers->get('cmd_code'));
+        [$json, $bins] = BiometricFk::parse($second->getContent());
+        $this->assertSame([['backup_number' => 0, 'enroll_data' => 'BIN_1']], $json['enroll_data_array']);
+        $this->assertSame($finger, $bins[1]);
+    }
+
+    public function test_a_school_with_only_adms_machines_keeps_the_usb_reader_box(): void
+    {
+        $this->device->forceFill(['protocol' => null])->save();
+        $this->admin();
+
+        Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])
+            ->call('listen')
+            ->assertSee('Tap the card on the USB reader')
+            ->assertSeeHtml('placeholder="Card number"');
     }
 
     public function test_a_long_message_in_blocks_is_put_together(): void

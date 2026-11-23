@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Biometric\BiometricCard;
 use App\Models\Biometric\BiometricCommand;
 use App\Models\Biometric\BiometricDevice;
 use App\Models\Biometric\BiometricTemplate;
@@ -28,6 +29,9 @@ class BiometricFk
 {
     /** A template kept from an FK machine: only FK machines can use it. */
     public const PREFIX = 'fk:';
+
+    /** Where a machine keeps a card in a user's enroll data: its number as plain digits. */
+    public const CARD_BACKUP = 11;
 
     private const LOG_SIZE = 40;
 
@@ -146,6 +150,16 @@ class BiometricFk
                 continue;
             }
             $bin = $bins[(int) $m[1]];
+
+            // A card tapped on the machine's Register screen is this person's card.
+            if ((int) $no === self::CARD_BACKUP && ($card = self::cardFrom($bin)) !== null) {
+                if (self::takeCard($orgId, $holder[0], $holder[1], $card)) {
+                    BiometricTemplate::where('organization_id', $orgId)->where('pin', $pin)->where('fid', self::CARD_BACKUP)->delete();
+                    $kept++;
+                }
+                continue;
+            }
+
             BiometricTemplate::updateOrCreate(
                 ['organization_id' => $orgId, 'pin' => $pin, 'fid' => (int) $no],
                 ['size' => strlen($bin), 'valid' => 1, 'template' => self::PREFIX . base64_encode($bin), 'from_device_id' => $device->id]
@@ -154,14 +168,53 @@ class BiometricFk
         }
 
         if ($kept) {
-            $others = BiometricDevice::where('organization_id', $orgId)->where('protocol', 'fk')
-                ->where('id', '!=', $device->id)->pluck('id');
+            $others = BiometricDevice::where('organization_id', $orgId)->where('id', '!=', $device->id)->pluck('id');
             foreach ($others as $other) {
                 Biometric::queue($orgId, [Biometric::userCommand($person)], (int) $other);
             }
         }
 
         return $kept;
+    }
+
+    /** The card number in a machine's enroll data, or null when it is not plain digits. */
+    private static function cardFrom(string $bin): ?string
+    {
+        $digits = rtrim($bin, "\0");
+
+        return ctype_digit($digits) ? Biometric::cardNumber($digits) : null;
+    }
+
+    /** The card becomes the person's, unless someone else here already has it. */
+    private static function takeCard(int $orgId, string $type, int $id, string $card): bool
+    {
+        $other = BiometricCard::where('organization_id', $orgId)->where('card_number', $card)->first();
+        if ($other && !($other->holder_type === $type && (int) $other->holder_id === $id)) {
+            $owner = Biometric::holder($orgId, $other->holder_type, (int) $other->holder_id);
+            Cache::put(self::cardErrorKey($type, $id), 'Card ' . $card . ' is already with '
+                . ($owner ? Biometric::holderName($owner) : 'someone else') . ' (' . $other->holder_type . '). Remove it there first.', now()->addMinutes(10));
+
+            return false;
+        }
+
+        // Touched even when unchanged, so a View panel waiting for this tap sees it arrive.
+        BiometricCard::updateOrCreate(
+            ['holder_type' => $type, 'holder_id' => $id],
+            ['organization_id' => $orgId, 'card_number' => $card]
+        )->touch();
+
+        return true;
+    }
+
+    public static function cardErrorKey(string $type, int $id): string
+    {
+        return "biometric:fk:card-error:{$type}:{$id}";
+    }
+
+    /** Queued before a user is sent again without their card: updating alone may leave it on the machine. */
+    public static function deleteUserCommand(string $pin): string
+    {
+        return 'FK DELETE_USER ' . $pin;
     }
 
     // ── The machine's work ──────────────────────────────────────────────────
@@ -222,6 +275,9 @@ class BiometricFk
     /** The queued "DATA UPDATE USERINFO …" as SET_USER_INFO, with what this person has enrolled. */
     public static function translate(BiometricDevice $device, string $line): ?array
     {
+        if (preg_match('/^FK DELETE_USER ([A-Za-z0-9_-]{1,20})$/', $line, $d)) {
+            return ['code' => 'DELETE_USER', 'body' => self::frame(['user_id' => $d[1]])];
+        }
         if (!preg_match('/^DATA UPDATE USERINFO (.+)$/s', $line, $m)) {
             return null;
         }
@@ -241,9 +297,22 @@ class BiometricFk
         $list = [];
         $kept = BiometricTemplate::where('organization_id', $device->organization_id)->where('pin', $pin)
             ->where('template', 'like', self::PREFIX . '%')->orderBy('fid')->get(['fid', 'template']);
+        // The card as it is now: this line may have waited in the queue since before it was enrolled.
+        $holder = Biometric::holderOfPin($pin);
+        $card   = $holder
+            ? (string) BiometricCard::where('organization_id', $device->organization_id)
+                ->where('holder_type', $holder[0])->where('holder_id', $holder[1])->value('card_number')
+            : ($kv['CARD'] ?? '');
         foreach ($kept as $t) {
+            if ((int) $t->fid === self::CARD_BACKUP && ctype_digit($card)) {
+                continue;     // the person's card, as SuperLMS has it, goes below
+            }
             $bins[] = (string) base64_decode(substr($t->template, strlen(self::PREFIX)));
             $list[] = ['backup_number' => (int) $t->fid, 'enroll_data' => 'BIN_' . count($bins)];
+        }
+        if (ctype_digit($card)) {
+            $bins[] = $card;
+            $list[] = ['backup_number' => self::CARD_BACKUP, 'enroll_data' => 'BIN_' . count($bins)];
         }
 
         return [

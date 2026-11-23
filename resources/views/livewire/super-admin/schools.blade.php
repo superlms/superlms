@@ -665,7 +665,7 @@
                                         <strong class="text-gray-700">Students:</strong> a punch by the school's last time ({{ $bio['times']['student_last_time'] }}) is Present, a later one Absent.
                                         <strong class="text-gray-700">Teachers:</strong> the first punch is the punch-in, the last the punch-out.
                                         The student or teacher hears it on the app at once, and the web's Attendance page shows it.
-                                        The school sets its times on its Setting page, and assigns cards from View Student / View Teacher with a USB card reader.
+                                        The school sets its times on its Setting page, and assigns cards from View Student / View Teacher — tapped on the SecurEye machine, or on a USB card reader for other machines.
                                     </p>
                                 </div>
                             </div>

@@ -65,6 +65,7 @@ class BiometricAttendanceTest extends TestCase
             $t->string('remarks')->nullable(); $t->unsignedBigInteger('marked_by')->default(0); $t->timestamps();
         });
         (require base_path('database/migrations/2026_10_21_000000_create_biometric_tables.php'))->up();
+        (require base_path('database/migrations/2026_11_23_190000_add_fk_protocol_to_biometric_devices.php'))->up();
 
         DB::table('organizations')->insert(['id' => $this->org, 'name' => 'Delhi Public School']);
         $this->studentUser = DB::table('users')->insertGetId(['name' => 'Anushka', 'role' => 'user', 'organization_id' => $this->org]);
