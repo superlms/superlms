@@ -67,7 +67,7 @@
                     class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'class_teachers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Class Teachers</button>
                 @if (\App\Support\Biometric::enabled((int) auth()->user()->organization_id))
                     <button wire:click="switchMainTab('timing')"
-                        class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'timing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Teacher Timing</button>
+                        class="px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors {{ $mainTab === 'timing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Timing</button>
                 @endif
             </div>
         </div>
@@ -284,16 +284,27 @@
         @endif
 
         {{-- ═══════════════════════════════════════════════════════════════════
-             TEACHER TIMING — what a teacher's first punch of the day marks
+             TIMING — what a teacher's or student's first punch of the day marks
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($mainTab === 'timing')
+            @php
+                $forStudents   = $timingFor === 'student';
+                $timingModel   = $forStudents ? 'studentTiming' : 'timing';
+                $timingIsSaved = $forStudents ? $studentTimingSaved : $timingSaved;
+            @endphp
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-3xl">
+                <div class="px-5 pt-3 border-b border-gray-100 flex gap-1">
+                    @foreach (['teacher' => 'Teacher', 'student' => 'Student'] as $timingWho => $timingWhoLabel)
+                        <button type="button" wire:click="$set('timingFor', '{{ $timingWho }}')"
+                            class="px-3 py-2 text-sm font-medium border-b-2 transition-colors {{ $timingFor === $timingWho ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $timingWhoLabel }}</button>
+                    @endforeach
+                </div>
                 <div class="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                     <div class="min-w-0">
-                        <h2 class="text-sm font-semibold text-gray-900">Teacher Timing</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">The day is marked with the status whose time the teacher's first punch falls in.</p>
+                        <h2 class="text-sm font-semibold text-gray-900">{{ $forStudents ? 'Student Timing' : 'Teacher Timing' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">The day is marked with the status whose time the {{ $forStudents ? 'student' : 'teacher' }}'s first punch falls in.</p>
                     </div>
-                    @unless ($timingSaved)
+                    @unless ($timingIsSaved)
                         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Not saved yet</span>
                     @endunless
                 </div>
@@ -308,16 +319,16 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach (['present', 'absent', 'half_day'] as $timingKey)
-                                <tr wire:key="timing-{{ $timingKey }}">
+                                <tr wire:key="timing-{{ $timingFor }}-{{ $timingKey }}">
                                     <td class="px-5 py-3">
                                         <span class="inline-flex px-2.5 py-1 text-xs font-semibold whitespace-nowrap rounded-full {{ $statusPill($timingKey) }}">{{ $statusText($timingKey) }}</span>
                                     </td>
                                     <td class="px-3 py-3">
-                                        <input type="time" wire:model="timing.{{ $timingKey }}.start" aria-label="{{ $statusText($timingKey) }} start time"
+                                        <input type="time" wire:model="{{ $timingModel }}.{{ $timingKey }}.start" aria-label="{{ $statusText($timingKey) }} start time"
                                             class="w-32 text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                                     </td>
                                     <td class="px-5 py-3">
-                                        <input type="time" wire:model="timing.{{ $timingKey }}.end" aria-label="{{ $statusText($timingKey) }} end time"
+                                        <input type="time" wire:model="{{ $timingModel }}.{{ $timingKey }}.end" aria-label="{{ $statusText($timingKey) }} end time"
                                             class="w-32 text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                                     </td>
                                 </tr>
@@ -327,6 +338,9 @@
                 </div>
                 <p class="px-5 py-3 border-t border-gray-100 text-xs text-gray-500 leading-relaxed">
                     A punch outside all these times marks nothing, and that day can be marked by hand. A day already marked by hand as Present or Half Day stays as it is.
+                    @if ($forStudents && !$timingIsSaved)
+                        Until these are saved, the last punch time on the Setting page decides Present or Absent.
+                    @endif
                 </p>
             </div>
         @endif

@@ -100,35 +100,46 @@ class Biometric
         ]);
     }
 
-    // ── What a teacher's first punch marks (Attendance → Teacher Timing) ────
+    // ── What a first punch marks (Attendance → Timing) ──────────────────────
 
     /** The statuses that have times, as attendance stores them. */
-    public const TEACHER_STATUS = ['present' => 1, 'absent' => 0, 'half_day' => 2];
+    public const STATUS = ['present' => 1, 'absent' => 0, 'half_day' => 2];
 
     /** What the tab starts on until the school saves its own. */
-    public const SUGGESTED_TEACHER_TIMES = [
+    public const SUGGESTED_TIMES = [
         'present'  => ['start' => '07:00', 'end' => '08:30'],
         'absent'   => ['start' => '11:01', 'end' => '18:00'],
         'half_day' => ['start' => '08:31', 'end' => '11:00'],
     ];
 
-    /** The school's saved times, by status — empty until it has saved any. */
+    /** The school's saved teacher times, by status — empty until it has saved any. */
     public static function teacherStatusTimes(int $orgId): array
+    {
+        return self::savedStatusTimes($orgId, 'teacher_status_times');
+    }
+
+    /** The school's saved student times, by status — empty until it has saved any. */
+    public static function studentStatusTimes(int $orgId): array
+    {
+        return self::savedStatusTimes($orgId, 'student_status_times');
+    }
+
+    private static function savedStatusTimes(int $orgId, string $column): array
     {
         if (!self::tracked()) {
             return [];
         }
 
-        return (array) (BiometricSetting::where('organization_id', $orgId)->first()?->teacher_status_times ?? []);
+        return (array) (BiometricSetting::where('organization_id', $orgId)->first()?->{$column} ?? []);
     }
 
     /** What is wrong with the times, in a line for the admin, or null. */
-    public static function checkTeacherTimes(array $rows): ?string
+    public static function checkStatusTimes(array $rows): ?string
     {
         $names = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half Day'];
         $used  = [];
 
-        foreach (self::TEACHER_STATUS as $key => $_) {
+        foreach (self::STATUS as $key => $_) {
             $start = trim((string) ($rows[$key]['start'] ?? ''));
             $end   = trim((string) ($rows[$key]['end'] ?? ''));
             if ($start === '' && $end === '') {
@@ -160,8 +171,18 @@ class Biometric
 
     public static function saveTeacherStatusTimes(int $orgId, array $rows, ?int $userId = null): void
     {
+        self::saveStatusTimes($orgId, 'teacher_status_times', $rows, $userId);
+    }
+
+    public static function saveStudentStatusTimes(int $orgId, array $rows, ?int $userId = null): void
+    {
+        self::saveStatusTimes($orgId, 'student_status_times', $rows, $userId);
+    }
+
+    private static function saveStatusTimes(int $orgId, string $column, array $rows, ?int $userId): void
+    {
         $clean = [];
-        foreach (self::TEACHER_STATUS as $key => $_) {
+        foreach (self::STATUS as $key => $_) {
             $start = trim((string) ($rows[$key]['start'] ?? ''));
             $end   = trim((string) ($rows[$key]['end'] ?? ''));
             if ($start !== '' && $end !== '') {
@@ -170,8 +191,8 @@ class Biometric
         }
 
         BiometricSetting::updateOrCreate(['organization_id' => $orgId], [
-            'teacher_status_times' => $clean ?: null,
-            'updated_by'           => $userId,
+            $column      => $clean ?: null,
+            'updated_by' => $userId,
         ]);
     }
 
@@ -179,12 +200,12 @@ class Biometric
      * The status for a first punch at "H:i", or null when it falls in none of
      * the times. Both ends count; on a shared minute the earlier row has it.
      */
-    public static function teacherStatusAt(array $times, string $hm): ?int
+    public static function statusAt(array $times, string $hm): ?int
     {
         uasort($times, fn ($a, $b) => strcmp($a['start'], $b['start']));
         foreach ($times as $key => $row) {
-            if (isset(self::TEACHER_STATUS[$key]) && $hm >= $row['start'] && $hm <= $row['end']) {
-                return self::TEACHER_STATUS[$key];
+            if (isset(self::STATUS[$key]) && $hm >= $row['start'] && $hm <= $row['end']) {
+                return self::STATUS[$key];
             }
         }
 

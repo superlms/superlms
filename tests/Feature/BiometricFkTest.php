@@ -54,7 +54,8 @@ class BiometricFkTest extends TestCase
             $t->string('full_name')->nullable(); $t->string('roll_no')->nullable(); $t->timestamps();
         });
         Schema::create('teacher_details', function (Blueprint $t) {
-            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('user_id')->nullable(); $t->timestamps();
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('user_id')->nullable();
+            $t->string('employee_id')->nullable(); $t->timestamps();
         });
         Schema::create('student_attendances', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('student_detail_id'); $t->unsignedBigInteger('user_id')->default(0);
@@ -70,6 +71,7 @@ class BiometricFkTest extends TestCase
         (require base_path('database/migrations/2026_10_21_000000_create_biometric_tables.php'))->up();
         (require base_path('database/migrations/2026_11_23_190000_add_fk_protocol_to_biometric_devices.php'))->up();
         (require base_path('database/migrations/2026_11_23_213000_fk_roll_numbers_and_teacher_status_times.php'))->up();
+        (require base_path('database/migrations/2026_11_23_223000_teacher_machine_numbers_and_student_status_times.php'))->up();
 
         DB::table('organizations')->insert(['id' => $this->org, 'name' => 'Test School']);
         $su = DB::table('users')->insertGetId(['name' => 'Anushka', 'role' => 'user', 'organization_id' => $this->org]);
@@ -301,64 +303,153 @@ class BiometricFkTest extends TestCase
         $this->assertSame('7512310', $bins[1]);
     }
 
-    public function test_assign_card_waits_for_the_tap_on_the_machine(): void
+    public function test_the_view_panel_shows_only_the_card_number(): void
     {
         $this->fk('receive_cmd');     // the machine has called: it is an FK machine
         $this->admin();
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '0058']);
 
-        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])
-            ->assertSee('Assign card')
-            ->call('listen')
-            ->assertSee('Waiting for the card on the machine')
-            ->assertSee($this->sNo)
-            ->assertDontSeeHtml('placeholder="Card number"');
-
-        // Nothing yet: it keeps waiting.
-        $panel->call('checkMachine')->assertSet('listening', true);
-
-        $this->enrolCard($this->sNo);
-        $panel->call('checkMachine')->assertSet('listening', false)->assertSee('7512310');
+        foreach ([['student', $this->student, $this->sNo], ['teacher', $this->teacher, '58']] as [$type, $id, $number]) {
+            Livewire::test(BiometricCardPanel::class, ['holderType' => $type, 'holderId' => $id])
+                ->assertSee('Card Number')->assertSee($number)
+                ->assertDontSee('Assign card')->assertDontSee('Waiting for the card')
+                ->assertDontSee('Register')->assertDontSeeHtml('wire:poll');
+        }
     }
 
-    public function test_a_teacher_gets_a_card_the_same_way(): void
+    public function test_a_card_enrolled_under_the_employee_id_is_the_teachers(): void
     {
-        $this->fk('receive_cmd');
-        $this->admin();
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '58']);
 
-        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'teacher', 'holderId' => $this->teacher])
-            ->call('listen')->assertSee($this->tNo);
+        $this->enrolCard('58', '7603283');
 
-        $this->enrolCard($this->tNo, '7603283');
-        $panel->call('checkMachine')->assertSet('listening', false)->assertSee('7603283');
         $this->assertSame('7603283', Biometric::cardOf('teacher', $this->teacher));
     }
 
-    public function test_tapping_the_same_card_again_still_finishes_the_wait(): void
+    public function test_a_card_someone_else_has_is_not_taken(): void
     {
         $this->fk('receive_cmd');
-        $this->admin();
-        $this->enrolCard($this->sNo);
-
-        Carbon::setTestNow(now()->addMinute());
-        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])->call('listen');
-
-        Carbon::setTestNow(now()->addSeconds(5));
-        $this->enrolCard($this->sNo);
-        $panel->call('checkMachine')->assertSet('listening', false);
-    }
-
-    public function test_a_card_someone_else_has_is_not_taken_and_the_panel_says_whose(): void
-    {
-        $this->fk('receive_cmd');
-        $this->admin();
         $this->enrolCard($this->tNo);
-
-        $panel = Livewire::test(BiometricCardPanel::class, ['holderType' => 'student', 'holderId' => $this->student])->call('listen');
         $this->enrolCard($this->sNo);
 
-        $panel->call('checkMachine')->assertSet('listening', true)->assertSee('already with Ravi Sharma');
         $this->assertNull(Biometric::cardOf('student', $this->student));
         $this->assertSame('7512310', Biometric::cardOf('teacher', $this->teacher));
+    }
+
+    public function test_the_employee_id_is_the_teachers_machine_number_and_marks_them(): void
+    {
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '0058']);
+        $device = $this->device->fresh();
+        $pin    = Biometric::pin('teacher', $this->teacher);
+
+        $this->assertSame('58', BiometricFk::machineNumber($device, $pin));
+        $this->assertSame($pin, BiometricFk::internalPin($device, '58'));
+        // The old number still reads as them until the machine has moved.
+        $this->assertSame($pin, BiometricFk::internalPin($device, $this->tNo));
+
+        $this->punch('58', '20261123081200')->assertOk();
+        $this->assertSame(1, (int) DB::table('teacher_attendances')->where('teacher_detail_id', $this->teacher)->value('status'));
+    }
+
+    public function test_an_employee_id_the_machine_cannot_use_keeps_the_teachers_own_number(): void
+    {
+        $user = fn ($name) => DB::table('users')->insertGetId(['name' => $name, 'role' => 'teacher', 'organization_id' => $this->org]);
+        $add  = fn ($name, $employeeId) => DB::table('teacher_details')->insertGetId(['organization_id' => $this->org, 'user_id' => $user($name), 'employee_id' => $employeeId]);
+
+        $letters = $add('Letters', 'EMP012');
+        $roll    = $add('Same As A Roll', '9001');
+        $twinA   = $add('Twin A', '77');
+        $twinB   = $add('Twin B', '077');
+        $numbers = BiometricFk::teacherNumbers($this->org);
+
+        foreach ([$letters, $roll, $twinA, $twinB] as $id) {
+            $this->assertSame((string) (BiometricFk::TEACHER_BASE + $id), $numbers[$id]);
+        }
+        // Roll 9001 stays the student's, and 77 is nobody's.
+        $this->assertSame(Biometric::pin('student', $this->student), BiometricFk::internalPin($this->device->fresh(), '9001'));
+        $this->assertNull(BiometricFk::internalPin($this->device->fresh(), '77'));
+    }
+
+    /** A released machine that has been through first contact, with nothing queued. */
+    private function liveMachine(): void
+    {
+        $this->pastFirstContact();
+        BiometricCommand::where('biometric_device_id', $this->device->id)->delete();
+        $this->device->refresh()->forceFill(['fk_released' => true, 'fk_numbers' => 'roll'])->save();
+    }
+
+    /** Runs the queue as the machine would; each command's code and number. */
+    private function drainMachine(): array
+    {
+        $seen = [];
+        while (true) {
+            $r = $this->fk('receive_cmd');
+            if ($r->headers->get('response_code') === 'ERROR_NO_CMD') {
+                return $seen;
+            }
+            $seen[] = $r->headers->get('cmd_code') . ' ' . BiometricFk::parse($r->getContent())[0]['user_id'];
+            $this->fk('send_cmd_result', '', ['TRANS_ID' => $r->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+        }
+    }
+
+    public function test_a_teacher_moves_to_their_employee_id_on_the_machine_with_their_card(): void
+    {
+        $this->liveMachine();
+        $this->enrolCard($this->tNo, '7603283');
+        BiometricCommand::where('biometric_device_id', $this->device->id)->delete();
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '58']);
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $first = $this->fk('receive_cmd');
+        $this->assertSame(['user_id' => $this->tNo], BiometricFk::parse($first->getContent())[0]);
+        $this->fk('send_cmd_result', '', ['TRANS_ID' => $first->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+        $second = $this->fk('receive_cmd');
+        $this->assertSame(['user_id' => '58'], BiometricFk::parse($second->getContent())[0]);
+        $this->fk('send_cmd_result', '', ['TRANS_ID' => $second->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+
+        $back = $this->fk('receive_cmd');
+        $this->assertSame('SET_USER_INFO', $back->headers->get('cmd_code'));
+        [$json, $bins] = BiometricFk::parse($back->getContent());
+        $this->assertSame('58', $json['user_id']);
+        $this->assertSame('7603283', $bins[1]);
+        $this->fk('send_cmd_result', '', ['TRANS_ID' => $back->headers->get('trans_id'), 'CMD_RETURN_CODE' => 'OK']);
+
+        // Done once: no more work for it.
+        Carbon::setTestNow(now()->addMinutes(2));
+        $this->assertSame([], $this->drainMachine());
+    }
+
+    public function test_two_teachers_swapping_employee_ids_are_both_back_on_the_machine(): void
+    {
+        $user  = DB::table('users')->insertGetId(['name' => 'Second', 'role' => 'teacher', 'organization_id' => $this->org]);
+        $other = DB::table('teacher_details')->insertGetId(['organization_id' => $this->org, 'user_id' => $user, 'employee_id' => '200']);
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '100']);
+        $this->liveMachine();
+        $this->device->refresh()->forceFill(['fk_teacher_numbers' => [$this->teacher => '100', $other => '200']])->save();
+
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '200']);
+        DB::table('teacher_details')->where('id', $other)->update(['employee_id' => '100']);
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $seen = $this->drainMachine();
+
+        $this->assertSame(['DELETE_USER 100', 'DELETE_USER 200'], array_slice($seen, 0, 2));
+        $this->assertEqualsCanonicalizing(['SET_USER_INFO 200', 'SET_USER_INFO 100'], array_slice($seen, 2));
+    }
+
+    public function test_a_number_a_student_took_is_never_deleted_from_the_machine(): void
+    {
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '500']);
+        $this->liveMachine();
+        $this->device->refresh()->forceFill(['fk_teacher_numbers' => [$this->teacher => '500']])->save();
+
+        DB::table('student_details')->where('id', $this->student)->update(['roll_no' => '500']);
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $seen = $this->drainMachine();
+
+        $this->assertNotContains('DELETE_USER 500', $seen);
+        $this->assertContains('SET_USER_INFO ' . $this->tNo, $seen);
     }
 
     public function test_removing_a_card_takes_it_off_the_machine_and_keeps_the_finger(): void
@@ -555,16 +646,54 @@ class BiometricFkTest extends TestCase
 
     public function test_teacher_timing_refuses_times_that_cannot_work(): void
     {
-        $this->assertStringContainsString('both', Biometric::checkTeacherTimes(['present' => ['start' => '07:00', 'end' => '']]));
-        $this->assertStringContainsString('after', Biometric::checkTeacherTimes(['present' => ['start' => '09:00', 'end' => '08:00']]));
-        $this->assertStringContainsString('overlap', Biometric::checkTeacherTimes([
+        $this->assertStringContainsString('both', Biometric::checkStatusTimes(['present' => ['start' => '07:00', 'end' => '']]));
+        $this->assertStringContainsString('after', Biometric::checkStatusTimes(['present' => ['start' => '09:00', 'end' => '08:00']]));
+        $this->assertStringContainsString('overlap', Biometric::checkStatusTimes([
             'present'  => ['start' => '07:00', 'end' => '09:00'],
             'half_day' => ['start' => '08:30', 'end' => '11:00'],
         ]));
-        $this->assertNull(Biometric::checkTeacherTimes(Biometric::SUGGESTED_TEACHER_TIMES));
+        $this->assertNull(Biometric::checkStatusTimes(Biometric::SUGGESTED_TIMES));
     }
 
-    public function test_the_teacher_timing_tab_shows_and_saves_the_times(): void
+    private function studentPunchAt(string $name, string $roll, string $time): object
+    {
+        $id = DB::table('student_details')->insertGetId(['organization_id' => $this->org, 'full_name' => $name, 'roll_no' => $roll]);
+        $this->punch($roll, '20261123' . $time)->assertOk();
+
+        return (object) ['id' => $id, 'day' => DB::table('student_attendances')->where('student_detail_id', $id)->first()];
+    }
+
+    public function test_student_timing_decides_the_status_of_the_first_punch(): void
+    {
+        Biometric::saveStudentStatusTimes($this->org, Biometric::SUGGESTED_TIMES);
+
+        $this->assertSame(1, (int) $this->studentPunchAt('A', '101', '081000')->day->status);
+        $this->assertSame(2, (int) $this->studentPunchAt('B', '102', '093000')->day->status);
+        $this->assertSame(0, (int) $this->studentPunchAt('C', '103', '120000')->day->status);
+
+        // Outside every time: nothing is marked, the punch is kept.
+        $outside = $this->studentPunchAt('D', '104', '200000');
+        $this->assertNull($outside->day);
+        $this->assertSame('outside', BiometricPunch::where('holder_type', 'student')->where('holder_id', $outside->id)->value('result'));
+    }
+
+    public function test_without_student_timing_the_last_punch_time_still_decides(): void
+    {
+        $this->assertSame(1, (int) $this->studentPunchAt('On time', '101', '085900')->day->status);
+        $this->assertSame(0, (int) $this->studentPunchAt('Late', '102', '093000')->day->status);
+    }
+
+    public function test_a_students_day_marked_by_hand_stays_under_student_timing(): void
+    {
+        Biometric::saveStudentStatusTimes($this->org, ['absent' => ['start' => '07:00', 'end' => '18:00']]);
+        DB::table('student_attendances')->insert(['student_detail_id' => $this->student, 'organization_id' => $this->org, 'attendance_date' => '2026-11-23', 'status' => 2]);
+
+        $this->punch($this->sNo, '20261123083000')->assertOk();
+
+        $this->assertSame(2, (int) DB::table('student_attendances')->where('student_detail_id', $this->student)->value('status'));
+    }
+
+    private function attendanceTables(): void
     {
         foreach (['standards', 'sections', 'assign_teacher_standards'] as $table) {
             if (!Schema::hasTable($table)) {
@@ -575,6 +704,35 @@ class BiometricFkTest extends TestCase
                 });
             }
         }
+    }
+
+    public function test_the_timing_tab_saves_students_apart_from_teachers(): void
+    {
+        $this->attendanceTables();
+        $this->admin();
+
+        $page = Livewire::test(AttendancePage::class)->call('switchMainTab', 'timing');
+
+        // Saving the teachers never starts the students' suggested times.
+        $page->call('saveTiming');
+        $this->assertNotSame([], Biometric::teacherStatusTimes($this->org));
+        $this->assertSame([], Biometric::studentStatusTimes($this->org));
+
+        $page->set('timingFor', 'student')
+            ->assertSee('Student Timing')->assertSee('Not saved yet')
+            ->assertSeeHtml('wire:model="studentTiming.present.start"')
+            ->set('studentTiming.present.end', '06:00')->call('saveTiming');
+        $this->assertSame([], Biometric::studentStatusTimes($this->org));
+
+        $page->set('studentTiming.present.end', '08:45')->set('studentTiming.half_day.start', '08:46')
+            ->call('saveTiming')->assertDontSee('Not saved yet');
+        $this->assertSame(['start' => '07:00', 'end' => '08:45'], Biometric::studentStatusTimes($this->org)['present']);
+        $this->assertSame(['start' => '07:00', 'end' => '08:30'], Biometric::teacherStatusTimes($this->org)['present']);
+    }
+
+    public function test_the_teacher_timing_tab_shows_and_saves_the_times(): void
+    {
+        $this->attendanceTables();
         $this->admin();
 
         $page = Livewire::test(AttendancePage::class)

@@ -16,9 +16,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * What a punch does to the day.
  *
- * Student: no punch-in or out — one time a day counts, the first. By the
- * school's last time (Setting → Biometric) it is Present; after it, Absent
- * ("Late punch 09:12 — after 09:00").
+ * Student: no punch-in or out — one time a day counts, the first. Once the
+ * school has saved Student Timing (Attendance → Timing) the day takes the
+ * status whose time it falls in, and a punch outside them all marks nothing.
+ * Until then: by the school's last time (Setting → Biometric) it is Present;
+ * after it, Absent ("Late punch 09:12 — after 09:00").
  * Teacher: the first punch of the day is the punch-in, the last (two minutes
  * on or more) the punch-out; the day is Present, with "late" / "early" said
  * against the school's times when it has set them.
@@ -111,7 +113,8 @@ class BiometricPunches
         $first = self::punchesOn('student', (int) $student->id, $date)->first()->punched_at;
         $last  = Biometric::times($orgId)['student_last_time'];
         $hm    = $first->format('H:i');
-        $onTime = $hm <= $last;
+        $timing = Biometric::studentStatusTimes($orgId);
+        $status = $timing ? Biometric::statusAt($timing, $hm) : ($hm <= $last ? self::PRESENT : self::ABSENT);
 
         $rec = StudentAttendance::where('organization_id', $orgId)->where('student_detail_id', $student->id)
             ->whereDate('attendance_date', $date)->first();
@@ -127,8 +130,19 @@ class BiometricPunches
             return 'repeat';
         }
 
-        $status = $onTime ? self::PRESENT : self::ABSENT;
-        $remark = $onTime ? "Punched at {$hm}" : "Late punch {$hm} — after {$last}";
+        // Outside every saved time: the punch is kept, the day stays as it is.
+        if ($status === null) {
+            if ($rec && !$rec->punch_time) {
+                $rec->update(['punch_time' => $first->format('H:i:s')]);
+            }
+            return 'outside';
+        }
+
+        $remark = match ($status) {
+            self::PRESENT => "Punched at {$hm}",
+            self::HALF    => "Half day — punched at {$hm}",
+            default       => $timing ? "Late punch {$hm}" : "Late punch {$hm} — after {$last}",
+        };
         $before = $rec ? [(int) $rec->status, (string) $rec->punch_time] : null;
 
         // The day's row found above (by its date) is the one written — never a second.
@@ -149,12 +163,20 @@ class BiometricPunches
 
         if ($student->user_id && $first->isSameDay(now())) {
             $name = Biometric::holderName($student);
-            self::tell((int) $student->user_id, 'Attendance', $onTime
-                ? "{$name} reached school at {$hm} — marked Present."
-                : "{$name} punched at {$hm}, after {$last} — marked Absent.");
+            self::tell((int) $student->user_id, 'Attendance', match ($status) {
+                self::PRESENT => "{$name} reached school at {$hm} — marked Present.",
+                self::HALF    => "{$name} reached school at {$hm} — marked Half Day.",
+                default       => $timing
+                    ? "{$name} punched at {$hm} — marked Absent."
+                    : "{$name} punched at {$hm}, after {$last} — marked Absent.",
+            });
         }
 
-        return $onTime ? 'present' : 'late';
+        return match ($status) {
+            self::PRESENT => 'present',
+            self::HALF    => 'half_day',
+            default       => 'late',
+        };
     }
 
     private static function teacherDay(int $orgId, TeacherDetail $teacher, BiometricPunch $punch): string
@@ -190,7 +212,7 @@ class BiometricPunches
         // Teacher Timing says what the first punch is; with none saved, Present.
         // A first punch outside all its times marks nothing new.
         $timing = Biometric::teacherStatusTimes($orgId);
-        $ruled  = $timing ? Biometric::teacherStatusAt($timing, $in->format('H:i')) : self::PRESENT;
+        $ruled  = $timing ? Biometric::statusAt($timing, $in->format('H:i')) : self::PRESENT;
         $byHand = $rec && $rec->source !== 'biometric' && in_array((int) $rec->status, [self::PRESENT, self::HALF], true);
         $status = $byHand ? (int) $rec->status : ($ruled ?? ($rec ? (int) $rec->status : null));
         if ($status === null) {

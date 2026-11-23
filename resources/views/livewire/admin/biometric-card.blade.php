@@ -1,5 +1,11 @@
 <div>
-    @if ($on)
+    @if ($on && $machine)
+        {{-- A SecurEye-style machine: the number the person goes by on it, as any other row. --}}
+        <div class="grid grid-cols-3 gap-3 text-sm">
+            <span class="text-xs text-gray-400 uppercase tracking-wider">Card Number</span>
+            <span class="col-span-2 text-gray-800 font-medium">{{ $number }}</span>
+        </div>
+    @elseif ($on)
         {{-- A row of the View panel's list: the person's ID card for the machines. --}}
         <div class="grid grid-cols-3 gap-3 text-sm">
             <span class="text-xs text-gray-400 uppercase tracking-wider pt-1">ID Card (RFID)</span>
@@ -19,27 +25,6 @@
                                 Assign card
                             </button>
                         @endif
-                    </div>
-                @elseif ($machine)
-                    {{-- A SecurEye-style machine: tapped on its Register screen, and it tells us. --}}
-                    <div class="rounded-md border border-violet-200 bg-violet-50/60 p-3" wire:poll.2500ms="checkMachine">
-                        <p class="text-xs font-medium text-violet-800 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
-                            Waiting for the card on the machine…
-                        </p>
-                        <p class="mt-2 text-xs text-gray-600">Machine number
-                            <span class="ml-1 font-mono text-base font-semibold text-gray-900">{{ $number }}</span>
-                        </p>
-                        <ol class="mt-2 pl-4 list-decimal space-y-1 text-xs text-gray-600">
-                            <li>On the machine press <strong class="text-gray-800">MENU → Register</strong> and enter ID <strong class="font-mono text-gray-800">{{ $number }}</strong>.</li>
-                            <li>Check the name, go to <strong class="text-gray-800">Card</strong>, press OK and tap the card.</li>
-                            <li>Press <strong class="text-gray-800">OK, OK</strong>, then <strong class="text-gray-800">ESC</strong> back to the main screen.</li>
-                        </ol>
-                        <p class="mt-2 text-[11px] text-gray-500">A tap on the machine's main screen counts as a punch.</p>
-                        @error('cardInput') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        <div class="flex items-center justify-end mt-2">
-                            <button type="button" wire:click="cancel" class="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-white rounded-md">Cancel</button>
-                        </div>
                     </div>
                 @else
                     {{-- The USB reader types the number and Enter here; it can be typed too. --}}

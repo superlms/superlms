@@ -33,9 +33,12 @@ class Attendance extends Component
     // ── Tabs ─────────────────────────────────────────────────────────────────
     public string $mainTab = 'teacher';        // teacher | student | class_teachers | timing
 
-    // ── Teacher Timing: the times a first punch is Present / Absent / Half Day ──
+    // ── Timing: the times a first punch is Present / Absent / Half Day ───────
+    public string $timingFor = 'teacher';      // teacher | student
     public array $timing = [];
     public bool $timingSaved = false;
+    public array $studentTiming = [];
+    public bool $studentTimingSaved = false;
 
     // ── Teacher (shared selectors across its record views) ──────────────────
     public string $teacherView = 'by_date';    // by_date | by_month | by_teacher
@@ -130,15 +133,28 @@ class Attendance extends Component
     /** The school's saved times; until it has saved any, the suggested ones to start from. */
     private function loadTiming(): void
     {
-        $saved = Biometric::teacherStatusTimes((int) Auth::user()->organization_id);
-        $this->timingSaved = (bool) $saved;
+        $orgId   = (int) Auth::user()->organization_id;
+        $teacher = Biometric::teacherStatusTimes($orgId);
+        $student = Biometric::studentStatusTimes($orgId);
 
-        foreach (Biometric::TEACHER_STATUS as $key => $_) {
-            $row = $saved ? ($saved[$key] ?? ['start' => '', 'end' => '']) : Biometric::SUGGESTED_TEACHER_TIMES[$key];
-            $this->timing[$key] = ['start' => (string) $row['start'], 'end' => (string) $row['end']];
-        }
+        $this->timingSaved        = (bool) $teacher;
+        $this->studentTimingSaved = (bool) $student;
+        $this->timing             = $this->timingRows($teacher);
+        $this->studentTiming      = $this->timingRows($student);
     }
 
+    private function timingRows(array $saved): array
+    {
+        $rows = [];
+        foreach (Biometric::STATUS as $key => $_) {
+            $row = $saved ? ($saved[$key] ?? ['start' => '', 'end' => '']) : Biometric::SUGGESTED_TIMES[$key];
+            $rows[$key] = ['start' => (string) $row['start'], 'end' => (string) $row['end']];
+        }
+
+        return $rows;
+    }
+
+    /** Saves the one on screen: saving teachers' times never starts the students' suggested ones. */
     public function saveTiming(): void
     {
         $orgId = (int) Auth::user()->organization_id;
@@ -146,14 +162,19 @@ class Attendance extends Component
             return;
         }
 
-        if ($problem = Biometric::checkTeacherTimes($this->timing)) {
+        $forStudents = $this->timingFor === 'student';
+        $rows        = $forStudents ? $this->studentTiming : $this->timing;
+
+        if ($problem = Biometric::checkStatusTimes($rows)) {
             $this->notification()->error('Check the times', $problem);
             return;
         }
 
-        Biometric::saveTeacherStatusTimes($orgId, $this->timing, Auth::id());
+        $forStudents
+            ? Biometric::saveStudentStatusTimes($orgId, $rows, Auth::id())
+            : Biometric::saveTeacherStatusTimes($orgId, $rows, Auth::id());
         $this->loadTiming();
-        $this->notification()->success('Saved', 'Teachers\' punches follow these times from the next punch.');
+        $this->notification()->success('Saved', ($forStudents ? 'Students\'' : 'Teachers\'') . ' punches follow these times from the next punch.');
     }
 
     /** Which April→March year a date falls in (Jan–Mar belong to the previous one). */

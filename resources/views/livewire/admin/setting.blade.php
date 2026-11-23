@@ -24,7 +24,7 @@
                     <div class="px-5 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
                         <div class="sm:col-span-2">
                             <p class="text-sm font-medium text-gray-800">Students — last punch time</p>
-                            <p class="text-xs text-gray-500 mt-0.5">A student punching by this time is <strong class="text-emerald-700">Present</strong>; after it, <strong class="text-red-600">Absent</strong>. Students have no punch-in or punch-out — one punch a day.</p>
+                            <p class="text-xs text-gray-500 mt-0.5">A student punching by this time is <strong class="text-emerald-700">Present</strong>; after it, <strong class="text-red-600">Absent</strong>. Students have no punch-in or punch-out — one punch a day. Once Student Timing is saved on the Attendance page, it decides instead.</p>
                         </div>
                         <div>
                             <input type="time" wire:model="studentLastTime"

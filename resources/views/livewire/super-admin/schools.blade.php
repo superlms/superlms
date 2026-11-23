@@ -662,10 +662,10 @@
                                 <div class="px-4 py-3 border-t border-gray-100">
                                     <p class="text-xs text-gray-500 leading-relaxed">
                                         When on, a punch on the school's machines — fingerprint or 125 kHz card — marks the day as it happens.
-                                        <strong class="text-gray-700">Students:</strong> a punch by the school's last time ({{ $bio['times']['student_last_time'] }}) is Present, a later one Absent.
+                                        <strong class="text-gray-700">Students:</strong> a punch by the school's last time ({{ $bio['times']['student_last_time'] }}) is Present, a later one Absent, until the school saves Student Timing on its Attendance page.
                                         <strong class="text-gray-700">Teachers:</strong> the first punch is the punch-in, the last the punch-out.
                                         The student or teacher hears it on the app at once, and the web's Attendance page shows it.
-                                        The school sets its times on its Setting page, and assigns cards from View Student / View Teacher — tapped on the SecurEye machine, or on a USB card reader for other machines.
+                                        On a SecurEye machine a card is registered under the Card Number shown in View Student / View Teacher; other machines assign it there with a USB card reader.
                                     </p>
                                 </div>
                             </div>

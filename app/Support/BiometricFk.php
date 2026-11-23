@@ -35,7 +35,7 @@ class BiometricFk
     /** Where a machine keeps a card in a user's enroll data: its number as plain digits. */
     public const CARD_BACKUP = 11;
 
-    /** A teacher's machine number is this + their id, clear of every roll number. */
+    /** A teacher whose Employee ID cannot be a machine number (none, letters, shared, a student's roll) is this + their id. */
     public const TEACHER_BASE = 9000000;
 
     /** A student whose roll cannot be a machine number (none, letters, shared) is this + their id. */
@@ -88,6 +88,11 @@ class BiometricFk
         }
 
         $ids = StudentDetail::where('organization_id', $orgId)->whereRaw('CAST(roll_no AS UNSIGNED) = ?', [$n])->limit(2)->pluck('id');
+        if ($ids->isEmpty()) {
+            $teacher = array_search((string) $n, self::teacherNumbers($orgId), true);
+
+            return $teacher === false ? null : Biometric::pin('teacher', (int) $teacher);
+        }
         if ($ids->count() !== 1 || self::rollNumberOf($orgId, 'student', (int) $ids[0]) !== (string) $n) {
             return null;
         }
@@ -95,11 +100,41 @@ class BiometricFk
         return Biometric::pin('student', (int) $ids[0]);
     }
 
-    /** A student's roll as a machine number, or a teacher's own. */
+    /**
+     * Every teacher's machine number, by teacher id: their Employee ID when the
+     * machine can keep it and it is theirs alone. A student's roll always wins,
+     * so one number can never mark two people.
+     *
+     * @return array<int, string>
+     */
+    public static function teacherNumbers(int $orgId): array
+    {
+        $own   = TeacherDetail::where('organization_id', $orgId)->pluck('employee_id', 'id')
+            ->map(fn ($employeeId) => self::numberFromEmployeeId($employeeId));
+        $twice = $own->filter()->countBy()->filter(fn ($count) => $count > 1);
+        $rolls = $own->filter()->isEmpty()
+            ? collect()
+            : StudentDetail::where('organization_id', $orgId)->whereNotNull('roll_no')->pluck('roll_no')
+                ->map(fn ($roll) => (string) (int) $roll)->flip();
+
+        return $own->map(fn ($number, $id) => $number !== null && !isset($twice[$number]) && !isset($rolls[$number])
+            ? $number
+            : (string) (self::TEACHER_BASE + $id))->all();
+    }
+
+    private static function numberFromEmployeeId(?string $employeeId): ?string
+    {
+        $employeeId = trim((string) $employeeId);
+        $digits     = ctype_digit($employeeId) ? ltrim($employeeId, '0') : '';
+
+        return $digits !== '' && strlen($digits) <= 7 && (int) $digits < self::STUDENT_BASE ? $digits : null;
+    }
+
+    /** A student's roll as a machine number, or a teacher's Employee ID. */
     public static function rollNumberOf(int $orgId, string $type, int $id): string
     {
         if ($type === 'teacher') {
-            return (string) (self::TEACHER_BASE + $id);
+            return self::teacherNumbers($orgId)[$id] ?? (string) (self::TEACHER_BASE + $id);
         }
 
         $roll   = StudentDetail::where('organization_id', $orgId)->whereKey($id)->value('roll_no');
@@ -201,6 +236,59 @@ class BiometricFk
         } catch (\Throwable $e) {
             report($e);     // a student's save never fails over a machine
         }
+    }
+
+    /**
+     * A teacher's number changed (a new Employee ID, or a student's roll took
+     * it): off the machine, then back under the new one with their fingers and
+     * card. All the deletes go first, so two teachers swapping IDs keep both.
+     * Looked at no more than once a minute, when the machine asks for work.
+     */
+    private static function followTeacherNumbers(BiometricDevice $device): void
+    {
+        if (($device->fk_numbers ?? 'roll') !== 'roll' || !Cache::add('biometric:fk:teachers:' . $device->id, 1, now()->addMinute())) {
+            return;
+        }
+
+        $orgId = (int) $device->organization_id;
+        $now   = self::teacherNumbers($orgId);
+        if (!$device->fk_released) {
+            // Everyone still goes to it under the numbers of that moment.
+            $device->forceFill(['fk_teacher_numbers' => $now])->save();
+            return;
+        }
+
+        $sent  = (array) ($device->fk_teacher_numbers ?? []);
+        $moved = [];
+        foreach ($now as $id => $number) {
+            $old = (string) ($sent[$id] ?? (self::TEACHER_BASE + $id));
+            if ($old !== $number) {
+                $moved[$id] = $old;
+            }
+        }
+        if (!$moved) {
+            return;
+        }
+
+        $pins = array_map(fn ($id) => Biometric::pin('teacher', (int) $id), array_keys($moved));
+        $off  = [];
+        $back = [];
+        foreach ($moved as $id => $old) {
+            foreach ([$old, $now[$id]] as $number) {
+                // A number a student has now is theirs: it is never taken off.
+                $owner = self::internalPin($device, $number);
+                if ($owner === null || in_array($owner, $pins, true)) {
+                    $off[$number] = self::deleteUserCommand($number);
+                }
+            }
+            $teacher = Biometric::holder($orgId, 'teacher', (int) $id);
+            if ($teacher?->user?->is_active) {
+                $back[] = Biometric::userCommand($teacher);
+            }
+        }
+
+        Biometric::queue($orgId, [...array_values($off), ...$back], (int) $device->id);
+        $device->forceFill(['fk_teacher_numbers' => $now])->save();
     }
 
     // ── Bytes ───────────────────────────────────────────────────────────────
@@ -365,25 +453,15 @@ class BiometricFk
     {
         $other = BiometricCard::where('organization_id', $orgId)->where('card_number', $card)->first();
         if ($other && !($other->holder_type === $type && (int) $other->holder_id === $id)) {
-            $owner = Biometric::holder($orgId, $other->holder_type, (int) $other->holder_id);
-            Cache::put(self::cardErrorKey($type, $id), 'Card ' . $card . ' is already with '
-                . ($owner ? Biometric::holderName($owner) : 'someone else') . ' (' . $other->holder_type . '). Remove it there first.', now()->addMinutes(10));
-
             return false;
         }
 
-        // Touched even when unchanged, so a View panel waiting for this tap sees it arrive.
         BiometricCard::updateOrCreate(
             ['holder_type' => $type, 'holder_id' => $id],
             ['organization_id' => $orgId, 'card_number' => $card]
-        )->touch();
+        );
 
         return true;
-    }
-
-    public static function cardErrorKey(string $type, int $id): string
-    {
-        return "biometric:fk:card-error:{$type}:{$id}";
     }
 
     /** Queued before a user is sent again without their card: updating alone may leave it on the machine. */
@@ -426,11 +504,17 @@ class BiometricFk
             return null;
         }
 
+        self::followTeacherNumbers($device);
+
         for ($i = 0; $i < 50; $i++) {
             $command = BiometricCommand::where('biometric_device_id', $id)->where('status', 'pending')->orderBy('id')->first();
             if (!$command) {
                 if ($device->fk_numbers === 'moving') {
-                    $device->forceFill(['fk_numbers' => 'roll', 'fk_numbers_at' => now()])->save();
+                    $device->forceFill([
+                        'fk_numbers'         => 'roll',
+                        'fk_numbers_at'      => now(),
+                        'fk_teacher_numbers' => self::teacherNumbers((int) $device->organization_id),
+                    ])->save();
                 }
                 return null;
             }

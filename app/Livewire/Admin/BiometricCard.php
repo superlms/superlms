@@ -2,24 +2,21 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Biometric\BiometricCard as CardRow;
 use App\Support\Biometric;
 use App\Support\BiometricFk;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
 /**
- * The 125 kHz card of the student or teacher open in a View panel.
+ * The card row of the student or teacher open in a View panel.
  *
- * A school with a SecurEye-style machine assigns it on the machine: Assign
- * card shows this person's machine number and waits, the card is tapped on the
- * machine's Register screen under that number, and the machine tells us
- * (App\Support\BiometricFk::keepEnrolment). Such a machine reports nothing for
- * a card it does not know, so the tap has to be on that screen.
+ * A school with a SecurEye-style machine sees only the Card Number: the
+ * number the person goes by on the machine (a student's roll, a teacher's
+ * Employee ID). The card itself is enrolled under it on the machine's Register
+ * screen, and the machine tells us (App\Support\BiometricFk::keepEnrolment).
  *
- * Otherwise it is tapped on a USB card reader (which types the card's number
- * and Enter into the box) and goes to the school's machines with them
+ * Otherwise the card is tapped on a USB card reader (which types the card's
+ * number and Enter into the box) and goes to the school's machines with them
  * (App\Support\Biometric::assignCard). Shown only while the school has
  * biometric attendance on.
  */
@@ -30,9 +27,6 @@ class BiometricCard extends Component
 
     public bool $listening = false;
     public string $cardInput = '';
-
-    /** The person's card when the wait on the machine began. */
-    public string $cardBefore = '';
 
     private function orgId(): int
     {
@@ -49,8 +43,6 @@ class BiometricCard extends Component
     {
         $this->cardInput = '';
         $this->resetErrorBag();
-        Cache::forget(BiometricFk::cardErrorKey($this->holderType, $this->holderId));
-        $this->cardBefore = $this->cardStamp();
         $this->listening = true;
     }
 
@@ -59,35 +51,6 @@ class BiometricCard extends Component
         $this->listening = false;
         $this->cardInput = '';
         $this->resetErrorBag();
-    }
-
-    /** While waiting: has the machine told us about this person's card? */
-    public function checkMachine(): void
-    {
-        if (!$this->listening || !Biometric::enabled($this->orgId())) {
-            return;
-        }
-
-        $error = Cache::pull(BiometricFk::cardErrorKey($this->holderType, $this->holderId));
-        if ($error) {
-            $this->addError('cardInput', $error);
-            return;
-        }
-
-        if ($this->cardStamp() !== $this->cardBefore) {
-            $this->listening = false;
-            $this->resetErrorBag();
-            $card = Biometric::cardOf($this->holderType, $this->holderId);
-            $this->dispatch('notify', ['type' => 'success', 'message' => "Card {$card} assigned from the machine."]);
-        }
-    }
-
-    private function cardStamp(): string
-    {
-        $row = CardRow::where('organization_id', $this->orgId())
-            ->where('holder_type', $this->holderType)->where('holder_id', $this->holderId)->first();
-
-        return $row ? $row->card_number . '|' . $row->updated_at : '';
     }
 
     /** The reader's Enter: the card is this person's. */
@@ -128,9 +91,7 @@ class BiometricCard extends Component
             'on'      => Biometric::enabled($this->orgId()),
             'card'    => Biometric::cardOf($this->holderType, $this->holderId),
             'machine' => $machine,
-            'number'  => $machine
-                ? BiometricFk::panelNumber($this->orgId(), $this->holderType, $this->holderId)
-                : Biometric::pin($this->holderType, $this->holderId),
+            'number'  => $machine ? BiometricFk::panelNumber($this->orgId(), $this->holderType, $this->holderId) : null,
         ]);
     }
 }
