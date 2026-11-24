@@ -38,6 +38,8 @@ class BiometricFkController extends Controller
         }
 
         if ($code === 'receive_cmd') {
+            // Each poll gives the machine's own time (fk_time): a wrong clock is set again.
+            BiometricFk::clockSeen($device, BiometricFk::parse((string) $request->getContent())[0]);
             $work = BiometricFk::nextWork($device);
 
             return $work
@@ -56,7 +58,7 @@ class BiometricFkController extends Controller
             if ($line !== null) {
                 BiometricPunches::receive($device, $line);
             }
-            BiometricFk::note($device, $line !== null ? 'punch' : 'punch ignored', $json);
+            BiometricFk::note($device, $line !== null ? 'punch ' . explode("\t", $line)[1] : 'punch ignored', $json);
         } elseif ($code === 'realtime_enroll_data') {
             $kept = BiometricFk::keepEnrolment($device, $json, $bins);
             BiometricFk::note($device, 'enrolled (' . $kept . ' kept)', $json, $bins);
@@ -82,6 +84,11 @@ class BiometricFkController extends Controller
         if (!$device) {
             Biometric::noteUnknown($serial, $request->ip());
             return null;
+        }
+
+        // Silent for a while (switched off, or off the network): its clock may have gone back.
+        if ($device->last_seen_at && $device->last_seen_at->lt(now()->subSeconds(BiometricFk::CLOCK_AWAY))) {
+            BiometricFk::cameBack($device);
         }
 
         if ($device->protocol !== 'fk' || !$device->last_seen_at

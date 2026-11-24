@@ -422,12 +422,132 @@ class BiometricFkTest extends TestCase
         $twinB   = $add('Twin B', '077');
         $numbers = BiometricFk::teacherNumbers($this->org);
 
-        foreach ([$letters, $roll, $twinA, $twinB] as $id) {
+        foreach ([$letters, $roll, $twinB] as $id) {
             $this->assertSame((string) (BiometricFk::TEACHER_BASE + $id), $numbers[$id]);
         }
-        // Roll 9001 stays the student's, and 77 is nobody's.
+        // Roll 9001 stays the student's, and 77 stays with the teacher who had it first.
+        $this->assertSame('77', $numbers[$twinA]);
         $this->assertSame(Biometric::pin('student', $this->student), BiometricFk::internalPin($this->device->fresh(), '9001'));
-        $this->assertNull(BiometricFk::internalPin($this->device->fresh(), '77'));
+        $this->assertSame(Biometric::pin('teacher', $twinA), BiometricFk::internalPin($this->device->fresh(), '77'));
+    }
+
+    public function test_a_shared_employee_id_moves_the_first_teacher_onto_it_and_leaves_the_later_one(): void
+    {
+        // As at the school: both had 020, so both went on 9000xxx; the first now goes to 20.
+        DB::table('teacher_details')->where('id', $this->teacher)->update(['employee_id' => '020']);
+        $user  = DB::table('users')->insertGetId(['name' => 'Priyanka', 'role' => 'teacher', 'organization_id' => $this->org]);
+        $later = DB::table('teacher_details')->insertGetId(['organization_id' => $this->org, 'user_id' => $user, 'employee_id' => '020']);
+        $laterNo = (string) (BiometricFk::TEACHER_BASE + $later);
+        $this->liveMachine();
+        $this->device->refresh()->forceFill(['fk_teacher_numbers' => [$this->teacher => $this->tNo, $later => $laterNo]])->save();
+
+        Carbon::setTestNow(now()->addMinutes(2));
+        $seen = $this->drainMachine();
+
+        $this->assertSame(['DELETE_USER ' . $this->tNo, 'DELETE_USER 20', 'SET_USER_INFO 20'], $seen);
+        $this->assertSame(Biometric::pin('teacher', $this->teacher), BiometricFk::internalPin($this->device->fresh(), '20'));
+        $this->assertSame(Biometric::pin('teacher', $later), BiometricFk::internalPin($this->device->fresh(), $laterNo));
+    }
+
+    // ── The machine's clock ─────────────────────────────────────────────────
+
+    /** A poll as the machine sends it, with its own time. */
+    private function poll(string $fkTime)
+    {
+        return $this->fk('receive_cmd', BiometricFk::frame([
+            'fk_info' => ['fk_bin_data_lib' => 'FKDataHS101', 'supported_enroll_data' => ['PASSWORD', 'IDCARD']],
+            'fk_name' => 'fk_dev',
+            'fk_time' => $fkTime,
+        ]));
+    }
+
+    private function answer($r, string $code = 'OK'): void
+    {
+        $this->fk('send_cmd_result', '', ['TRANS_ID' => $r->headers->get('trans_id'), 'CMD_RETURN_CODE' => $code]);
+    }
+
+    public function test_a_machine_switched_off_and_on_gets_the_time_again(): void
+    {
+        $this->liveMachine();
+        $this->assertSame('ERROR_NO_CMD', $this->fk('receive_cmd')->headers->get('response_code'));
+
+        // Silent for ten minutes (switched off), then it calls: the clock goes first.
+        Carbon::setTestNow(now()->addMinutes(10));
+        $r = $this->fk('receive_cmd');
+        $this->assertSame('SET_TIME', $r->headers->get('cmd_code'));
+        $this->assertSame(['time' => now()->format('YmdHis')], BiometricFk::parse($r->getContent())[0]);
+        $this->answer($r);
+
+        // A minute later, with nothing else to do, nothing more.
+        Carbon::setTestNow(now()->addMinute());
+        $this->assertSame('ERROR_NO_CMD', $this->fk('receive_cmd')->headers->get('response_code'));
+    }
+
+    public function test_a_clock_that_went_back_is_set_again_and_its_punches_count_at_the_real_time(): void
+    {
+        $this->liveMachine();
+        Carbon::setTestNow(Carbon::parse('2026-11-23 08:19:00'));
+        $this->assertSame('ERROR_NO_CMD', $this->poll('20261123081900')->headers->get('response_code'));
+
+        // Back from a power cut on its own date, a minute later.
+        Carbon::setTestNow(now()->addMinute());
+        $r = $this->poll('20190921000005');
+        $this->assertSame('SET_TIME', $r->headers->get('cmd_code'));
+        $this->assertSame(['time' => '20261123082000'], BiometricFk::parse($r->getContent())[0]);
+        $this->assertStringContainsString('Its clock shows 21 Sep 2019', BiometricFk::status($this->device->fresh()));
+
+        // A tap before it took the time: the real time is marked.
+        Carbon::setTestNow(now()->addSeconds(30));
+        $this->punch($this->sNo, '20190921000035')->assertOk();
+        $this->assertSame('2026-11-23 08:20:30', BiometricPunch::first()->punched_at->format('Y-m-d H:i:s'));
+        $this->assertSame(1, (int) DB::table('student_attendances')->where('student_detail_id', $this->student)->value('status'));
+
+        // It took the time: right again, nothing more to set.
+        $this->answer($r);
+        Carbon::setTestNow(now()->addSeconds(30));
+        $this->assertSame('ERROR_NO_CMD', $this->poll('20261123082100')->headers->get('response_code'));
+        $this->assertNull(BiometricFk::status($this->device->fresh()));
+
+        // A tap from its 2019 minutes that comes in late still lands on its real time.
+        $this->punch($this->sNo, '20190921000050')->assertOk();
+        $this->assertSame('2026-11-23 08:20:45', BiometricPunch::orderByDesc('id')->first()->punched_at->format('Y-m-d H:i:s'));
+        // And one on the right clock is as it was.
+        $this->punch($this->sNo, '20261123082055')->assertOk();
+        $this->assertSame('2026-11-23 08:20:55', BiometricPunch::orderByDesc('id')->first()->punched_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_a_clock_that_stays_off_is_set_again_every_few_minutes_and_work_goes_between(): void
+    {
+        $this->liveMachine();
+        Carbon::setTestNow(Carbon::parse('2026-11-23 08:19:00'));
+        // 2h 45m ahead, as the first machine was. The YYMMDD form counts too.
+        $r = $this->poll('261123110400');
+        $this->assertSame('SET_TIME', $r->headers->get('cmd_code'));
+        $this->answer($r);
+        $this->assertStringContainsString('Its clock is 2h 45m ahead', BiometricFk::status($this->device->fresh()));
+
+        // It said OK but kept its time: the queue still runs meanwhile.
+        Biometric::queueHolder($this->org, Biometric::holder($this->org, 'student', $this->student));
+        Carbon::setTestNow(now()->addMinute());
+        $work = $this->poll('261123110500');
+        $this->assertSame('SET_USER_INFO', $work->headers->get('cmd_code'));
+        $this->answer($work);
+
+        // Three minutes on, still off: the time again.
+        Carbon::setTestNow(now()->addMinutes(3));
+        $this->assertSame('SET_TIME', $this->poll('261123110800')->headers->get('cmd_code'));
+
+        // Its punches are moved back by the 2h 45m.
+        $this->punch($this->sNo, '20261123110800')->assertOk();
+        $this->assertSame('2026-11-23 08:23:00', BiometricPunch::first()->punched_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_a_poll_without_its_time_changes_nothing(): void
+    {
+        $this->liveMachine();
+        $this->assertSame('ERROR_NO_CMD', $this->fk('receive_cmd', BiometricFk::frame(['fk_name' => 'fk_dev']))->headers->get('response_code'));
+        $this->punch($this->sNo, '20261123081200')->assertOk();
+        $this->assertSame('2026-11-23 08:12:00', BiometricPunch::first()->punched_at->format('Y-m-d H:i:s'));
     }
 
     /** A released machine that has been through first contact, with nothing queued. */

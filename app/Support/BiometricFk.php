@@ -43,6 +43,18 @@ class BiometricFk
 
     private const LOG_SIZE = 40;
 
+    /** A clock this many seconds off ours is set again. */
+    public const CLOCK_OFF = 60;
+
+    /** Silent this long (switched off, or off the network): its clock is set again when it is back. */
+    public const CLOCK_AWAY = 300;
+
+    /** While its clock stays off, the time goes again no sooner than this. */
+    private const CLOCK_RETRY = 180;
+
+    /** Two readings of its clock this close are the same clock, not a new setting. */
+    private const CLOCK_SAME = 30;
+
     // ── Numbers on the machine ──────────────────────────────────────────────
     //
     // Everywhere else in SuperLMS a person is their "pin" (1 + student id,
@@ -102,24 +114,34 @@ class BiometricFk
 
     /**
      * Every teacher's machine number, by teacher id: their Employee ID when the
-     * machine can keep it and it is theirs alone. A student's roll always wins,
-     * so one number can never mark two people.
+     * machine can keep it. Two teachers with one number (020 and 20 are both 20
+     * on it): the teacher added first keeps it, so only the later one is off
+     * their Employee ID until it is changed. A student's roll always wins, so
+     * one number can never mark two people.
      *
      * @return array<int, string>
      */
     public static function teacherNumbers(int $orgId): array
     {
-        $own   = TeacherDetail::where('organization_id', $orgId)->pluck('employee_id', 'id')
+        $own   = TeacherDetail::where('organization_id', $orgId)->orderBy('id')->pluck('employee_id', 'id')
             ->map(fn ($employeeId) => self::numberFromEmployeeId($employeeId));
-        $twice = $own->filter()->countBy()->filter(fn ($count) => $count > 1);
         $rolls = $own->filter()->isEmpty()
             ? collect()
             : StudentDetail::where('organization_id', $orgId)->whereNotNull('roll_no')->pluck('roll_no')
                 ->map(fn ($roll) => (string) (int) $roll)->flip();
 
-        return $own->map(fn ($number, $id) => $number !== null && !isset($twice[$number]) && !isset($rolls[$number])
-            ? $number
-            : (string) (self::TEACHER_BASE + $id))->all();
+        $taken   = [];
+        $numbers = [];
+        foreach ($own as $id => $number) {
+            if ($number === null || isset($taken[$number]) || isset($rolls[$number])) {
+                $numbers[$id] = (string) (self::TEACHER_BASE + $id);
+                continue;
+            }
+            $taken[$number] = true;
+            $numbers[$id]   = $number;
+        }
+
+        return $numbers;
     }
 
     private static function numberFromEmployeeId(?string $employeeId): ?string
@@ -356,6 +378,137 @@ class BiometricFk
         return $at && $at->format('YmdHis') === $raw ? $at : null;
     }
 
+    // ── The machine's clock ─────────────────────────────────────────────────
+    //
+    // A machine may lose the time set on it at every switch-off (it comes back
+    // on a 2019 date, as the first one did). The server sets it: at first
+    // contact, when it calls again after being silent (switched off), every
+    // few hours, and whenever the time it gives with each poll (fk_time) is a
+    // minute or more off ours. Until it has taken the time, its punches are
+    // moved by what its clock was off when it last said its time, so the
+    // right day and time are marked even on a wrong clock.
+    //
+    // Kept per machine for two days: each setting its clock has been on
+    // ("era"), how far off ours it was, the machine times it showed while on
+    // it (from, to) and when we heard them (since, seen).
+
+    /** The time a machine gives, as YYYYMMDDhhmmss or YYMMDDhhmmss. */
+    public static function machineTime(?string $raw): ?Carbon
+    {
+        $raw = trim((string) $raw);
+
+        return self::time(strlen($raw) === 12 && ctype_digit($raw) ? '20' . $raw : $raw);
+    }
+
+    /** What a machine's poll says its clock is; one off ours is set again soon. */
+    public static function clockSeen(BiometricDevice $device, array $json): void
+    {
+        $id = (int) $device->id;
+        $at = self::machineTime(isset($json['fk_time']) ? (string) $json['fk_time'] : null);
+        if (!$at) {
+            if (Cache::add("biometric:fk:notime:{$id}", 1, now()->addDay())) {
+                self::note($device, 'poll without a time', $json);
+            }
+            return;
+        }
+
+        $now  = now()->getTimestamp();
+        $t    = $at->getTimestamp();
+        $skew = $now - $t;     // more than 0: the machine is behind
+        $eras = self::clockEras($id);
+        $last = array_key_last($eras);
+
+        if ($last !== null && abs($skew - $eras[$last]['skew']) <= self::CLOCK_SAME) {
+            $eras[$last]['to']   = max($eras[$last]['to'], $t);
+            $eras[$last]['seen'] = $now;
+        } else {
+            $eras[] = ['skew' => $skew, 'from' => $t, 'to' => $t, 'since' => $now, 'seen' => $now];
+            self::note($device, 'clock ' . self::clockWords($skew), ['fk_time' => (string) $json['fk_time']]);
+        }
+
+        $eras = array_values(array_filter($eras, fn ($e) => $e['seen'] >= $now - 2 * 86400));
+        Cache::put("biometric:fk:clock:{$id}", array_slice($eras, -12), now()->addDays(2));
+
+        if (abs($skew) >= self::CLOCK_OFF) {
+            self::setClockSoon($device);
+        }
+    }
+
+    /** Back after being silent (switched off and on): its clock may have gone back. */
+    public static function cameBack(BiometricDevice $device): void
+    {
+        $id = (int) $device->id;
+        Cache::forget("biometric:fk:time:{$id}");
+        Cache::forget("biometric:fk:time-retry:{$id}");
+        self::note($device, 'back after ' . ($device->last_seen_at ? $device->last_seen_at->diffForHumans(now(), true) : 'a while'));
+    }
+
+    /** The time goes on its next poll — unless it went a moment ago. */
+    private static function setClockSoon(BiometricDevice $device): void
+    {
+        $id = (int) $device->id;
+        if (!Cache::has("biometric:fk:time-retry:{$id}")) {
+            Cache::forget("biometric:fk:time:{$id}");
+        }
+    }
+
+    /**
+     * When a punch on the machine really was: its time there, moved by what
+     * that clock was off. A punch stays as the machine gave it when no
+     * reading of its clock covers it, or when moving it would put it ahead of now.
+     */
+    public static function realTime(BiometricDevice $device, Carbon $at): Carbon
+    {
+        $t    = $at->getTimestamp();
+        $now  = now()->getTimestamp();
+        if (abs($now - $t) <= 120) {
+            return $at;     // tapped just now on a clock that is right: never moved
+        }
+        $eras = self::clockEras((int) $device->id);
+
+        for ($i = count($eras) - 1; $i >= 0; $i--) {
+            $era   = $eras[$i];
+            $began = $i > 0 ? $eras[$i - 1]['seen'] : $era['since'] - 900;
+            $ended = isset($eras[$i + 1]) ? $eras[$i + 1]['since'] : $now;
+            // The machine times this clock could have shown, from when it may
+            // have been set so until the next setting was heard (or now).
+            $first = $era['from'] - max(self::CLOCK_OFF, $era['since'] - $began);
+            $last  = $era['to'] + max(0, $ended - $era['seen']) + self::CLOCK_OFF;
+            if ($t < $first || $t > $last) {
+                continue;
+            }
+
+            $real = abs($era['skew']) >= self::CLOCK_OFF ? $at->copy()->addSeconds($era['skew']) : $at;
+            if ($real->getTimestamp() <= $now + 120) {
+                return $real;
+            }
+        }
+
+        return $at;
+    }
+
+    /** @return array<int, array{skew: int, from: int, to: int, since: int, seen: int}> oldest first */
+    private static function clockEras(int $id): array
+    {
+        return array_values((array) Cache::get("biometric:fk:clock:{$id}", []));
+    }
+
+    /** "is 2h 45m ahead", "is 5m behind", "is right", or the date it shows when it is days out. */
+    private static function clockWords(int $skew): string
+    {
+        $off = abs($skew);
+        if ($off >= 86400) {
+            return 'shows ' . now()->subSeconds($skew)->format('d M Y H:i');
+        }
+        if ($off < self::CLOCK_OFF) {
+            return 'is right';
+        }
+        $h = intdiv($off, 3600);
+        $m = intdiv($off % 3600, 60);
+
+        return 'is ' . trim(($h ? $h . 'h ' : '') . ($m ? $m . 'm' : '')) . ($skew < 0 ? ' ahead' : ' behind');
+    }
+
     /**
      * Whether a punch may mark a day. A machine keeps what it recorded before
      * it came to this school, and a number there could read as one of our
@@ -381,6 +534,12 @@ class BiometricFk
 
         $pin = self::internalPin($device, (string) ($json['user_id'] ?? ''));
         $at  = self::time($json['io_time'] ?? null);
+        if ($at) {
+            $at = self::realTime($device, $at);
+            if (!self::counts($device, $at) || $at->gt(now()->addMinutes(2))) {
+                self::setClockSoon($device);     // a date it cannot be: its clock is wrong
+            }
+        }
         if ($pin === null || !$at || !preg_match('/^[A-Za-z0-9_-]{1,20}$/', $pin) || !self::counts($device, $at)) {
             return null;
         }
@@ -481,7 +640,9 @@ class BiometricFk
             return null;     // someone is in the machine's menu
         }
 
-        if (Cache::add("biometric:fk:time:{$id}", 1, now()->addHours(12))) {
+        if (Cache::add("biometric:fk:time:{$id}", 1, now()->addHours(6))) {
+            Cache::put("biometric:fk:time-retry:{$id}", 1, now()->addSeconds(self::CLOCK_RETRY));
+
             return self::work('T' . now()->timestamp, 'SET_TIME', self::frame(['time' => now()->format('YmdHis')]));
         }
         foreach (['GET_DEVICE_STATUS' => 'S', 'GET_USER_ID_LIST' => 'L'] as $code => $mark) {
@@ -659,6 +820,12 @@ class BiometricFk
             $last = BiometricCommand::where('biometric_device_id', $id)->where('status', 'failed')->orderByDesc('id')->value('return_text');
 
             return 'Stopped: the machine refused 3 in a row (' . $last . '). Press Send everyone to try again';
+        }
+
+        $eras = self::clockEras($id);
+        $now  = $eras ? $eras[array_key_last($eras)] : null;
+        if ($now && $now['seen'] >= now()->subMinutes(10)->getTimestamp() && abs($now['skew']) >= self::CLOCK_OFF) {
+            return 'Its clock ' . self::clockWords($now['skew']) . ': the server is setting it. Punches count at the right time meanwhile';
         }
 
         return null;
