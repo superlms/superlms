@@ -90,6 +90,7 @@
                 <h3 class="sa-card-title">This Month vs Last Month</h3>
                 <p class="sa-card-sub">{{ now()->format('F') }} so far, against {{ now()->startOfMonth()->subMonthNoOverflow()->format('F') }}</p>
             </div>
+            <div class="overflow-x-auto">
             <table class="and-table">
                 <thead><tr>
                     <th class="{{ $th }} text-left">Figure</th><th class="{{ $th }} text-right">{{ now()->format('M') }}</th>
@@ -112,6 +113,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 @endif

@@ -40,6 +40,9 @@
     {{-- Every list of both panels in Home / Analytics' look (2026-11-22) —
          CSS only; drop this line to bring the old list look back. --}}
     @include('partials.list-theme')
+    {{-- Laptops, PCs and tablets (2026-11-25): tables, chip rows and the
+         like fit every screen from 768 px up — drop this line to undo. --}}
+    @include('partials.screen-fit')
     {{-- Every delete pop-up of both panels in the logout pop-up's look
          (2026-11-22) — drop this line to bring the old pop-ups back. --}}
     @include('partials.delete-confirm')
