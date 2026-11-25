@@ -180,7 +180,12 @@
                             @forelse ($enquiries as $enquiry)
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-4 py-3">
-                                        <p class="text-sm font-semibold text-gray-900">{{ $enquiry->student_name }}</p>
+                                        <p class="text-sm font-semibold text-gray-900">
+                                            {{ $enquiry->student_name }}
+                                            @if ($enquiry->fromWebsite())
+                                                <span class="ml-1 align-middle text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-50 text-teal-700" title="Sent from the school website's Online Admission form">Website</span>
+                                            @endif
+                                        </p>
                                         @if ($enquiry->email)
                                             <p class="text-xs text-gray-500">{{ $enquiry->email }}</p>
                                         @endif
@@ -533,7 +538,7 @@
                         <span class="block w-2 h-2 rounded-full {{ $viewEnquiryData['status'] === 'updated' ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
                         <div class="min-w-0">
                             <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewEnquiryData['student_name'] }}</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Admitted: {{ $viewEnquiryData['created_at'] }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ !empty($viewEnquiryData['from_website']) ? 'From your website' : 'Admitted' }}: {{ $viewEnquiryData['created_at'] }}</p>
                         </div>
                     </div>
                     <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -542,6 +547,30 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+                    {{-- Sent from the website: its photo and signature, and every answer of the form. --}}
+                    @php $pics = array_values(array_filter($viewEnquiryData['documents'] ?? [], fn ($d) => !empty($d['image']))); @endphp
+                    @if (!empty($viewEnquiryData['from_website']) && $pics)
+                        <div class="flex items-end gap-4 flex-wrap">
+                            @foreach ($pics as $pic)
+                                <a href="{{ $pic['image'] }}" target="_blank" rel="noopener" class="block text-center" title="Open {{ $pic['name'] }}">
+                                    <img src="{{ $pic['image'] }}" alt="{{ $pic['name'] }}"
+                                        class="{{ $pic['name'] === 'Signature' ? 'h-16 w-40 object-contain bg-white' : 'h-24 w-20 object-cover' }} rounded-md border border-gray-200">
+                                    <span class="block mt-1 text-[11px] text-gray-500">{{ $pic['name'] }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
+                    @if (!empty($viewEnquiryData['details']))
+                        <div class="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                            <p class="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 rounded-t-xl">Admission Form</p>
+                            @foreach ($viewEnquiryData['details'] as $label => $value)
+                                <div class="px-4 py-2.5 grid grid-cols-5 gap-3">
+                                    <p class="col-span-2 text-xs text-gray-500 pt-0.5">{{ $label }}</p>
+                                    <p class="col-span-3 text-sm text-gray-800 break-words whitespace-pre-line">{{ $value }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                     <div class="grid grid-cols-2 gap-6">
                         <div><p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Email</p><p class="text-sm text-gray-800 truncate">{{ $viewEnquiryData['email'] }}</p></div>
                         <div><p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Mobile</p><p class="text-sm text-gray-800">{{ $viewEnquiryData['mobile'] }}</p></div>

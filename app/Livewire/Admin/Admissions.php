@@ -298,7 +298,14 @@ class Admissions extends Component
                 'index'    => $i,
                 'name'     => $d['name'] ?? ($d['original_name'] ?? 'Document'),
                 'has_file' => !empty($d['path']),
+                // A picture (the website form's photo and signature) is shown, not only downloaded.
+                'image'    => !empty($d['path']) && preg_match('/\.(jpe?g|png|webp)$/i', (string) $d['path'])
+                    ? Storage::disk('s3')->url($d['path'])
+                    : null,
             ])->all(),
+            // Sent from the school website's Online Admission form: every answer of it.
+            'from_website'   => $enquiry->fromWebsite(),
+            'details'        => $enquiry->detailRows(),
         ];
         $this->viewModalOpen = true;
     }

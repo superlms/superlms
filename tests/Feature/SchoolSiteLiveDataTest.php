@@ -200,17 +200,19 @@ class SchoolSiteLiveDataTest extends TestCase
         $site = $this->site();
 
         // Admission: the online admission form alone (user's ask of 2026-10-20). Its
-        // Class list is the school's classes; it arrives as an Online Admission.
+        // Class list is the school's classes, by id since the form became the admin's
+        // Add Student form (2026-11-25, SchoolBoardsAdmissionTest has the rest).
         $admission = $this->render($site, 'admission');
         $text = $this->text($admission);
         $this->assertStringContainsString('Online Admission Form', $text);
         foreach (['₹', 'Attendance', 'English', 'Subjects'] as $not) {
             $this->assertStringNotContainsString($not, $text, $not);
         }
-        $this->assertStringContainsString('<option value="Nursery">Nursery</option>', $admission);
-        $this->assertStringContainsString('<option value="Class I">Class I</option>', $admission);
+        $this->assertStringContainsString('<option value="11">Nursery</option>', $admission);
+        $this->assertStringContainsString('<option value="10">Class I</option>', $admission);
         $this->assertStringNotContainsString('<option value="Play Group">', $admission);
-        $this->assertStringContainsString('data-type="admission"', $admission);
+        $this->assertStringNotContainsString('Old Class', $admission);
+        $this->assertStringContainsString('data-af-form data-org="1"', $admission);
 
         // Classes: a table as Mark Attendance's — sections and subjects as plain text.
         $classes = $this->render($site, 'classes');

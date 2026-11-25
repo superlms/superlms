@@ -47,6 +47,25 @@ class SchoolWebsiteEnquiry extends Model
     }
 
     /**
+     * The pictures sent with it — the Online Admission form's student photo
+     * and signature — as [label => url]. They are kept in data as
+     * {label, file: the S3 path}.
+     */
+    public function files(): array
+    {
+        $out = [];
+        foreach (is_array($this->data) ? $this->data : [] as $f) {
+            $label = trim((string) ($f['label'] ?? ''));
+            $path  = trim((string) ($f['file'] ?? ''));
+            if ($label !== '' && $path !== '') {
+                $out[$label] = str_starts_with($path, 'http') ? $path : \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * What the visitor filled in, as [label => value] in the form's order;
      * for one sent before forms kept their fields, its name, contact,
      * subject and message.

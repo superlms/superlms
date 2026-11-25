@@ -90,6 +90,65 @@ class SchoolSiteData
     }
 
     /**
+     * The Online Admission form's Class and Section lists, as the admin's Add
+     * Student form has them: the active classes in order with their ids and
+     * their active sections — [{id, name, sections: [{id, name}]}].
+     */
+    public function admissionClasses(): array
+    {
+        return $this->memo['admissionClasses'] ??= $this->read(function () {
+            $standards = Standard::where('organization_id', $this->orgId)
+                ->where('is_active', true)->inClassOrder()->get(['id', 'name']);
+            $sections = Section::where('organization_id', $this->orgId)
+                ->whereIn('standard_id', $standards->pluck('id'))->where('is_active', true)
+                ->orderBy('name')->orderBy('id')->get(['id', 'standard_id', 'name'])
+                ->groupBy('standard_id');
+
+            return $standards
+                ->filter(fn ($s) => trim((string) $s->name) !== '')
+                ->map(fn ($s) => [
+                    'id'       => (int) $s->id,
+                    'name'     => trim((string) $s->name),
+                    'sections' => collect($sections->get($s->id) ?? [])
+                        ->map(fn ($x) => ['id' => (int) $x->id, 'name' => trim((string) $x->name)])
+                        ->values()->all(),
+                ])->values()->all();
+        });
+    }
+
+    /** The active transport routes the form's Select Route lists: [{id, name, monthly}]. */
+    public function admissionRoutes(): array
+    {
+        return $this->memo['admissionRoutes'] ??= $this->read(fn () => Transportation::where('organization_id', $this->orgId)
+            ->where('is_active', true)->orderBy('route_name')->orderBy('id')
+            ->get(['id', 'route_name', 'monthly_fee'])
+            ->filter(fn ($r) => trim((string) $r->route_name) !== '')
+            ->map(fn ($r) => ['id' => (int) $r->id, 'name' => trim((string) $r->route_name), 'monthly' => (float) $r->monthly_fee])
+            ->values()->all());
+    }
+
+    /** India's states and each one's cities, as the admin's form lists them: state => [city]. */
+    public static function statesAndCities(): array
+    {
+        static $map = null;
+        if ($map !== null) {
+            return $map;
+        }
+
+        $map  = [];
+        $rows = json_decode((string) @file_get_contents(public_path('cities/cities.json')), true) ?: [];
+        foreach ($rows as $row) {
+            $state = trim((string) ($row['state'] ?? ''));
+            $city  = trim((string) ($row['name'] ?? ''));
+            if ($state !== '' && $city !== '') {
+                $map[$state][] = $city;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * The academic fee particulars, a group a class (or one section of it),
      * in the classes' order — the latest academic year a group has, as Fee
      * Structure lists them: [{class, section, year, rows: [{name, amount}], total}].

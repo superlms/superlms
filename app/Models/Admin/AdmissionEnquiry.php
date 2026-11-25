@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AdmissionEnquiry extends Model
 {
+    /** Sent from the school website's Online Admission form (App\Http\Controllers\SchoolAdmissionController). */
+    public const SOURCE_WEBSITE = 'website';
+
     protected $fillable = [
         'organization_id',
         'student_name',
@@ -29,6 +32,10 @@ class AdmissionEnquiry extends Model
         'result_pdf',
         'documents',
         'status',
+        // 'website' for one sent from the school's website, null for one added here.
+        'source',
+        // The website form's answers, in its order: [{label, value}].
+        'details',
     ];
 
     protected $casts = [
@@ -38,7 +45,28 @@ class AdmissionEnquiry extends Model
         'total_marks'      => 'decimal:2',
         'obtained_marks'   => 'decimal:2',
         'documents'        => 'array',
+        'details'          => 'array',
     ];
+
+    public function fromWebsite(): bool
+    {
+        return $this->source === self::SOURCE_WEBSITE;
+    }
+
+    /** The website form's answers as [label => value], in its order. */
+    public function detailRows(): array
+    {
+        $out = [];
+        foreach (is_array($this->details) ? $this->details : [] as $row) {
+            $label = trim((string) ($row['label'] ?? ''));
+            $value = trim((string) ($row['value'] ?? ''));
+            if ($label !== '' && $value !== '') {
+                $out[$label] = $value;
+            }
+        }
+
+        return $out;
+    }
 
     public function organization(): BelongsTo
     {

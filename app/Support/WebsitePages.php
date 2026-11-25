@@ -164,6 +164,7 @@ class WebsitePages
             'Mandatory Disclosure' => ['document-text', 'gray'],
             'Contact'              => ['phone', 'red'],
             'More'                 => ['squares-plus', 'teal'],
+            'Boards'               => ['academic-cap', 'indigo'],
             default                => ['globe-alt', 'gray'],
         };
     }
@@ -205,6 +206,7 @@ class WebsitePages
             $slug === 'appointment'              => ['calendar-days', 'sky'],
             $slug === 'career'                   => ['briefcase', 'orange'],
             $slug === 'query'                    => ['chat-bubble-left-right', 'purple'],
+            $slug === 'boards'                   => ['academic-cap', 'teal'],
             default                              => ['globe-alt', 'gray'],
         };
     }
@@ -619,6 +621,9 @@ class WebsitePages
             ]],
             'appointment' => ['A form to book a visit.', [$form('This page is a form, nothing to fill in')]],
             'query'       => ['A form for questions.', [$form('This page is a form, nothing to fill in')]],
+            // The Class 9–12 students' login (2026-11-25): it reads the students' own records.
+            'boards'      => ["Your Class 9 to 12 students sign in with their name, father's first name and date of birth, and see their details, class and fee with your payment QR.",
+                [['id' => 'form', 'type' => 'note', 'label' => 'This page is a login, nothing to fill in — the students are listed in More → Boards.']]],
             default       => ['', []],
         };
     }

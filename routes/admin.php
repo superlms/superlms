@@ -106,6 +106,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
             ->whereNumber('user')
             ->name('admin.student.photo');
         Route::get('/admissions', Admissions::class)->name('admin.admissions');
+        // More → Boards: the Class 9–12 students only.
+        Route::get('/boards', \App\Livewire\Admin\Boards::class)->name('admin.boards');
         Route::get('/lists',      Lists::class)->name('admin.lists');
         Route::get('/teacher', Teacher::class)->name('admin.teacher');
         // A teacher's photo from this site, whole, for the photo editor.

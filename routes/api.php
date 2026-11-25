@@ -33,6 +33,18 @@ Route::prefix('website')->group(function () {
         Route::post('/career-apply',   [WebsiteController::class, 'careerApply']);
         Route::post('/executive-apply', [WebsiteController::class, 'executiveApply']);
     });
+
+    // A school website's Online Admission form, with its photo and signature
+    // — into the admin's Admissions and Website Enquiries both.
+    Route::post('/school-admission', [\App\Http\Controllers\SchoolAdmissionController::class, 'store'])
+        ->middleware('throttle:10,1,school-admission');
+
+    // A school website's Boards page: a Class 9–12 student's sign-in (name,
+    // father's first name, date of birth), and staying signed in on its token.
+    Route::post('/school-boards/login', [\App\Http\Controllers\SchoolBoardsController::class, 'login'])
+        ->middleware('throttle:10,1,school-boards');
+    Route::post('/school-boards/me', [\App\Http\Controllers\SchoolBoardsController::class, 'me'])
+        ->middleware('throttle:30,1,school-boards-me');
 });
 
 // Meta's WhatsApp webhook (public): the callback check, then message statuses

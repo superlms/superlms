@@ -113,6 +113,8 @@ class SchoolWebsite extends Model
             'Mandatory Disclosure' => ['disclosures'],
             'Contact'              => ['contact', 'career', 'query', 'appointment'],
             'More'                 => ['result', 'infrastructure', 'team', 'transport'],
+            // The Class 9–12 students' login, last of all (user's ask of 2026-11-25).
+            'Boards'               => ['boards'],
         ];
     }
 
@@ -202,6 +204,12 @@ class SchoolWebsite extends Model
                 'appointment' => ['Appointment', 'view'],
                 'career'      => ['Career', 'content'],
                 'query'       => ['Query', 'view'],
+            ],
+            // A Class 9–12 student signs in with their name, father's first
+            // name and date of birth, and sees their details, fee and the
+            // school's payment QR (SchoolBoardsController).
+            'Boards' => [
+                'boards' => ['Boards', 'view'],
             ],
         ];
     }

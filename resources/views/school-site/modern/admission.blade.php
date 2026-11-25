@@ -1,8 +1,9 @@
 {{--
-    Online Admission → Admission for Vibrant and Breeze: the online admission
-    form, as on Classic (its Class list the school's classes, else Website
-    Data's class cards; it arrives in Enquiries → Website Enquiries), with
-    how to reach the admission office beside it.
+    Online Admission → Admission for Vibrant, Breeze and Mint: the online
+    admission form, as on Classic — the admin's Add Student fields with the
+    student's photo and signature (shared.admission-form); it arrives in the
+    admin's Admissions and Enquiries → Website Enquiries both — with how to
+    reach the admission office beside it.
 --}}
 @extends('school-site.' . $tpl . '.layout', ['title' => 'Online Admission'])
 @php
@@ -10,10 +11,6 @@
 
     $sw  = fn ($i) => ModernSite::swatch($tpl, $i, $theme['primary']);
     $tel = ModernSite::tel($c);
-    $classOptions = $lms->classNames()
-        ?: array_values(array_filter(array_map(fn ($k) => trim((string) ($k['title'] ?? '')), $c['classes'] ?? [])))
-        ?: ['Play Group', 'Nursery', 'LKG', 'UKG', 'Class I', 'Class II', 'Class III', 'Class IV', 'Class V', 'Class VI',
-            'Class VII', 'Class VIII', 'Class IX', 'Class X', 'Class XI', 'Class XII'];
 @endphp
 
 @section('content')
@@ -27,26 +24,10 @@
                     <div class="lms-head">
                         <h2>Online Admission Form</h2>
                         <span class="meta">* Required</span>
-                        <p class="note">Fill in the form below and the school office will get in touch with you.</p>
+                        <p class="note">Fill in the student's details, add the photo and signature, and the school office will get in touch with you.</p>
                     </div>
                     <div class="lms-form">
-                    @include('school-site.classic.partials.form', [
-                        'kind'   => 'Online Admission',
-                        'type'   => 'admission',
-                        'button' => 'Submit',
-                        'fields' => [
-                            ['name' => 'name', 'label' => 'Student Name', 'required' => true],
-                            ['name' => 'class', 'label' => 'Class', 'type' => 'select', 'options' => $classOptions, 'required' => true, 'subject' => true],
-                            ['name' => 'parent', 'label' => "Father's / Mother's Name"],
-                            ['name' => 'phone', 'label' => 'Phone', 'type' => 'tel', 'required' => true],
-                            ['name' => 'email', 'label' => 'Email', 'type' => 'email'],
-                            ['name' => 'dob', 'label' => 'Date of Birth', 'type' => 'date'],
-                            ['name' => 'address', 'label' => 'Address', 'wide' => true],
-                            ['name' => 'previous_school', 'label' => 'Previous School'],
-                            ['name' => 'reference', 'label' => 'Reference', 'placeholder' => 'How did you hear about us?'],
-                            ['name' => 'message', 'label' => 'Message', 'type' => 'textarea'],
-                        ],
-                    ])
+                    @include('school-site.shared.admission-form')
                     </div>
                 </div>
 

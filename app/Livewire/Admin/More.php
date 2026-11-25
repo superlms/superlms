@@ -11,6 +11,8 @@ class More extends Component
         ['title' => 'Profile',             'route' => 'admin.profile',              'icon' => 'user'],
         ['title' => 'Users',               'route' => 'admin.users',                'icon' => 'user-group'],
         ['title' => 'Admissions',          'route' => 'admin.admissions',           'icon' => 'user-plus'],
+        // The Class 9–12 students and their details (2026-11-25), as the website's Boards login shows them.
+        ['title' => 'Boards',              'route' => 'admin.boards',               'icon' => 'academic-cap'],
         ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
         // Documents moved to the sidebar (under Lists); Exam Copy came here from it.
         ['title' => 'Exam Copy',            'route' => 'admin.exam-copy',            'icon' => 'document-text'],

@@ -390,6 +390,16 @@
                                 </p>
                             </div>
                         @endforeach
+                        {{-- The Online Admission form's student photo and signature. --}}
+                        @foreach ($selectedEnquiry->files() as $label => $url)
+                            <div class="px-4 py-3">
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wider">{{ $label }}</p>
+                                <a href="{{ $url }}" target="_blank" rel="noopener" title="Open {{ $label }}" class="inline-block mt-1.5">
+                                    <img src="{{ $url }}" alt="{{ $label }}"
+                                        class="{{ $label === 'Signature' ? 'h-16 w-44 object-contain bg-white' : 'h-28 w-24 object-cover' }} rounded-md border border-gray-200">
+                                </a>
+                            </div>
+                        @endforeach
                         <div class="px-4 py-3">
                             <p class="text-[11px] text-gray-400 uppercase tracking-wider">Received</p>
                             <p class="mt-1 text-sm text-gray-800">{{ $selectedEnquiry->created_at->format('d M Y · g:i A') }}</p>
