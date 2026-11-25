@@ -253,6 +253,34 @@ class Standard extends Component
         $this->filterStatus   = '';
     }
 
+    /**
+     * A class card's arrow (user's ask of 2026-11-25): its sections — or, for a
+     * class with a single section, that section's subjects straight away.
+     */
+    public function openClass(int $standardId): void
+    {
+        if (!$this->ownClass($standardId)) {
+            return;
+        }
+        $sections = Section::where('standard_id', $standardId)->orderBy('id')->limit(2)->pluck('id');
+        if ($sections->count() === 1) {
+            $this->drillIntoSection((int) $sections->first());
+            return;
+        }
+        $this->drillIntoClass($standardId);
+    }
+
+    /** The header's back arrow: subjects → the class's sections (or the classes when it has one), sections → classes. */
+    public function goBack(): void
+    {
+        if ($this->activeTab === 'subject' && $this->filterSubjectStandard
+            && Section::where('standard_id', (int) $this->filterSubjectStandard)->count() > 1) {
+            $this->drillIntoClass((int) $this->filterSubjectStandard);
+            return;
+        }
+        $this->showTab('standard');
+    }
+
     public function drillIntoSection(int $sectionId): void
     {
         $section = $this->ownSection($sectionId);
@@ -1366,6 +1394,14 @@ class Standard extends Component
             'filteredSections'  => $this->activeTab === 'section' ? $list : null,
             'filteredSubjects'  => $this->activeTab === 'subject' ? $list : null,
             'subjectClassName'  => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
+            // The header's trail: Classes › the class › the section.
+            'crumbClass'        => match ($this->activeTab) {
+                'section' => $this->filterStandard ? StudentStandard::whereKey((int) $this->filterStandard)->value('name') : null,
+                'subject' => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
+                default   => null,
+            },
+            'crumbSection'      => $this->activeTab === 'subject' && $this->filterSection
+                ? Section::whereKey((int) $this->filterSection)->value('name') : null,
             'allStandards'      => $this->classOptions(),
             'availableSections' => $this->getAvailableSectionsProperty(),
             // The subject form's section boxes: the class picked there.

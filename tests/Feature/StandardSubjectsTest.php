@@ -619,4 +619,28 @@ class StandardSubjectsTest extends TestCase
         $this->assertSame([$one->id], $this->classesOf($maths));
         $this->assertSame([$oneA->id], $this->sectionsOf($maths));
     }
+
+    /** No tabs and no filter band (2026-11-25): a class's arrow opens its sections, or its subjects when it has one. */
+    public function test_cards_open_sections_or_straight_to_subjects(): void
+    {
+        [$two, $twoA] = $this->classWithSections('Class 2');
+        $one = Standard::create(['organization_id' => $this->org, 'name' => 'Class 1']);
+        $oneA = Section::create(['standard_id' => $one->id, 'organization_id' => $this->org, 'name' => 'A']);
+
+        $page = Livewire::test(StandardPage::class);
+        $html = $page->html();
+        $this->assertStringNotContainsString("showTab('section')", $html);   // no tabs
+        $this->assertStringNotContainsString('Filter by', $html);            // no filter band
+        $this->assertStringContainsString('class="sc-figs"', $html);
+        $this->assertStringContainsString('wire:click.stop="openClass(' . $two->id . ')"', $html);
+
+        $page->call('openClass', $two->id)->assertSet('activeTab', 'section')->assertSet('filterStandard', $two->id)
+            ->assertSeeHtml('wire:click.stop="drillIntoSection(' . $twoA->id . ')"');
+        $page->call('drillIntoSection', $twoA->id)->assertSet('activeTab', 'subject');
+        $page->call('goBack')->assertSet('activeTab', 'section');            // two sections: back to them
+        $page->call('goBack')->assertSet('activeTab', 'standard');
+
+        $page->call('openClass', $one->id)->assertSet('activeTab', 'subject')->assertSet('filterSection', $oneA->id);
+        $page->call('goBack')->assertSet('activeTab', 'standard');            // one section: back to the classes
+    }
 }
