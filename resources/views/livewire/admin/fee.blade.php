@@ -5,11 +5,21 @@
     @include('livewire.super-admin.partials.home-skin')
     @include('livewire.super-admin.partials.dash-styles')
     <style>
-        .fee-chips { padding: 4px 24px 12px; background: #fff; }
-        @media (min-width: 640px) { .fee-chips { flex-wrap: wrap; overflow: visible; } }
-        .fee-chips .an-chip { cursor: pointer; }
+        /* The sticky header is the page's own colour; its title row and the open
+           section's rows are white, the chips sit on the page between them. */
+        .fee-head { background-color: inherit; }
+        .fee-head > :is(.border-t, .border-b):not(.bg-gray-50) { background-color: #fff; }
+        /* A line under the last row showing (a closed filter band is hidden):
+           each row's own, covered by the next row's top line. */
+        .fee-head > .fee-chips ~ * { box-shadow: 0 1px 0 #e5e7eb; }
+        /* Analytics' chips, all on one row: a little narrower so the nine fit
+           beside the sidebar; a narrow screen swipes them, as on Analytics. */
+        .fee-head > .fee-chips.sa-skin { background: transparent; }
+        .fee-chips { flex-wrap: nowrap; gap: 5px; padding: 14px 20px; }
+        .fee-chips .an-chip { gap: 5px; padding: 0 9px; font-size: 13px; cursor: pointer; }
+        .fee-chips .an-chip svg { width: 15px; height: 15px; }
         .fee-chips .an-chip.on .n { background: rgba(255,255,255,.22); color: #fff; }
-        @media (max-width: 639px) { .fee-chips { padding: 2px 14px 10px; } }
+        @media (max-width: 639px) { .fee-chips { padding: 12px 14px; } }
     </style>
 
     {{-- Tab catalog (label, icon, description, color) — defined up top so the
@@ -41,8 +51,11 @@
     {{-- ══════════════════════════════════════════════════
          HEADER (sticky: dynamic per-tab title + stats + Add + filter bar)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3">
+    {{-- The header: the title row with its line, then the chips on the page
+         (Analytics' look, not in the header's box), then the open section's
+         own tabs and filter band. --}}
+    <div class="fee-head sticky top-0 z-30">
+        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div>
