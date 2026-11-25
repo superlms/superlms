@@ -5,6 +5,12 @@
      tile on a white page that fills with its own pastel under the pointer. --}}
 <div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
+    <style>
+        /* Three rows of six in the user's order (2026-11-25): on a wide screen
+           each tile stays on its own row even when a school lacks a module.
+           A search, or a narrow screen, packs them in that order instead. */
+        @media (min-width: 768px) { .more-tiles:not(.is-filtering) > .sk-tile { grid-row: var(--row); } }
+    </style>
 
     {{-- ─── Header row ─── --}}
     <div class="sk-head">
@@ -29,11 +35,11 @@
     {{-- ─── The tiles ─── --}}
     <div class="sk-body flex-1 min-h-0 flex flex-col">
         <div class="sk-panel flex-1 min-h-0">
-            <div class="sk-tiles" :class="q && 'is-filtering'">
+            <div class="sk-tiles more-tiles" :class="q && 'is-filtering'">
                 @php $tints = [['#dff3ee', '#0f766e'], ['#dde9fb', '#2563eb'], ['#e9e2fb', '#7c3aed'], ['#f8edd0', '#b45309'], ['#f6dcd8', '#c2410c'], ['#e3efdc', '#4d7c0f']]; @endphp
                 @foreach ($items as $i => $item)
                     @php [$tint, $ink] = $tints[$i % count($tints)]; @endphp
-                    <a href="{{ route($item['route'], ['organization' => $organization]) }}" wire:key="more-{{ $item['route'] }}" class="sk-tile" style="--i: {{ $i }}; --tint: {{ $tint }}; --ink: {{ $ink }};"
+                    <a href="{{ route($item['route'], ['organization' => $organization]) }}" wire:key="more-{{ $item['route'] }}" class="sk-tile" style="--i: {{ $i }}; --row: {{ $item['row'] ?? 'auto' }}; --tint: {{ $tint }}; --ink: {{ $ink }};"
                         x-show="!q || {{ \Illuminate\Support\Js::from(mb_strtolower($item['title'])) }}.includes(q.trim().toLowerCase())">
                         <span class="sk-tile-ic"><x-icon name="{{ $item['icon'] }}" /></span>
                         <span>{{ $item['title'] }}</span>
