@@ -7,7 +7,7 @@ use App\Models\Admin\StudentGatePass;
 use App\Support\GatePassSlip;
 use Illuminate\Support\Facades\Auth;
 
-/** More → Gatepass's slip: one of the school's passes as an A5 PDF, opened to print. */
+/** More → Gatepass's slip: one of the school's passes as a B5 PDF, opened to print. */
 class GatePassController extends Controller
 {
     public function pdf($organization, $id)

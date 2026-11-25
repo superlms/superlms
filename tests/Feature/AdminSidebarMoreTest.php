@@ -143,13 +143,13 @@ class AdminSidebarMoreTest extends TestCase
 
         $this->assertContains('admin.exam-copy', $routes);
         $this->assertNotContains('admin.documents', $routes);
-        $this->assertSame('admin.boards', $routes[3]);      // the Class 9–12 students, after Admissions (2026-11-25)
-        $this->assertSame('admin.exam-copy', $routes[5]);   // where Documents was
-        $this->assertSame('admin.messaging', $routes[6]);   // the messaging wallet (2026-11-01)
-        // Reception, Gatepass and Complaints right after it (2026-11-04).
-        $this->assertSame('admin.push-notification', $routes[7]);   // the school's own push (2026-11-13)
-        $this->assertSame(['admin.reception', 'admin.gatepass', 'admin.complaints'], array_slice($routes, 8, 3));
-        $this->assertCount(19, $routes);                     // Credit is no longer a tile (2026-10-09)
+        // Three rows in the user's order (2026-11-25), Profile only in the
+        // sidebar's user card; the order itself: AdminMoreTilesTest.
+        $this->assertSame(['admin.messaging', 'admin.push-notification', 'admin.reception', 'admin.gatepass', 'admin.users', 'admin.boards'],
+            array_slice($routes, 0, 6));
+        $this->assertSame('admin.exam-copy', $routes[8]);
+        $this->assertNotContains('admin.profile', $routes);
+        $this->assertCount(18, $routes);                     // Credit is no longer a tile (2026-10-09)
         $this->assertNotContains('admin.credit', $routes);
 
         Livewire::test(More::class)->assertSee('Exam Copy')->assertSeeHtml('/exam-copy"');
@@ -173,8 +173,8 @@ class AdminSidebarMoreTest extends TestCase
         $routes = array_column(Livewire::test(More::class)->get('items'), 'route');
 
         $this->assertNotContains('admin.exam-copy', $routes);
-        $this->assertContains('admin.profile', $routes);
-        $this->assertCount(18, $routes);
+        $this->assertContains('admin.setting', $routes);
+        $this->assertCount(17, $routes);
     }
 
     public function test_a_sub_admin_sees_each_only_when_granted(): void

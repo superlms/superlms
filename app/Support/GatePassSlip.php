@@ -9,7 +9,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 /**
  * A student's gate pass as the slip the gate keeps: the school at the head,
  * the pass number and date, the student, why and when they went, who took
- * them, and the signatures. One A5 page, in the bundled Poppins faces.
+ * them, and the signatures. One B5 page in the Report Card's look (user's ask
+ * of 2026-11-25), in the bundled Poppins and Merriweather faces.
  */
 class GatePassSlip
 {
@@ -20,6 +21,7 @@ class GatePassSlip
         // A school under two names: the slip's class's name and logo (SchoolBrand).
         $org = SchoolBrand::org($pass->organization, $pass->standard_id ?: $pass->studentDetail?->standard_id);
         $website = trim((string) (SchoolInfo::where('organization_id', $pass->organization_id)->value('website_url') ?? ''));
+        $site    = $website !== '' ? rtrim(preg_replace('#^https?://#i', '', $website), '/') : '';
 
         $fontDir = PdfFonts::cacheDir();
         // Without the embedded faces it still renders, in dompdf's own font.
@@ -29,14 +31,17 @@ class GatePassSlip
             'pass'    => $pass,
             'org'     => $org,
             'logo'    => PdfLogo::src($org?->logo),
-            'contact' => implode('  ·  ', array_filter([
-                $org?->mobile_number ? 'Ph: ' . $org->mobile_number : null,
+            // As the Report Card writes them: phone / email under the address,
+            // the affiliation number and the website above the frame.
+            'contact' => implode(' / ', array_filter([
+                $org?->mobile_number ?: null,
                 $org?->email ?: null,
-                $website !== '' ? rtrim(preg_replace('#^https?://#i', '', $website), '/') : null,
             ])),
+            'website'     => $site,
+            'affiliation' => trim((string) ($org?->affiliation_no ?? '')),
             'fontCss' => $fontCss,
         ])
-            ->setPaper('a5', 'portrait')
+            ->setPaper('b5', 'portrait')
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true)
             ->setOption('isFontSubsettingEnabled', true)

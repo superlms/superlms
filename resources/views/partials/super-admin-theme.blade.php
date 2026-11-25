@@ -192,6 +192,10 @@
     body.lms-ui #main-scroll .lms-fh-before > .lms-fh-act { order: 2; }
     body.lms-ui #main-scroll .lms-fh-rowb { justify-content: flex-start !important; }
     body.lms-ui #main-scroll .lms-fh-rowb > [data-lms-fh-btn] { margin-left: auto; }
+    /* While the band is open the filter button is hidden, so the header's own
+       buttons keep to the right themselves (Attendance's "Mark Attendance"
+       slid up beside the title — user's ask, 2026-11-25). */
+    body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-fh-rowb > .lms-fh-act:not(.lms-fh-act ~ .lms-fh-act) { margin-left: auto; }
     body.lms-ui #main-scroll .lms-fh-abs { position: relative; padding-right: 64px !important; }
     body.lms-ui #main-scroll .lms-fh-abs > [data-lms-fh-btn] { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); }
     /* The round filter button and the round ×: Quick Links' header circles. */
