@@ -598,6 +598,16 @@ class Profile extends Component
 
     public function render()
     {
-        return view('livewire.components.profile');
+        // The school card's figures (Super Admin profile look, 2026-11-25).
+        $orgId = (int) Auth::user()->organization_id;
+        $count = fn (string $model) => (int) rescue(fn () => $model::where('organization_id', $orgId)->count(), 0, false);
+
+        return view('livewire.components.profile', [
+            'figures' => [
+                'students' => $count(\App\Models\Student\StudentDetail::class),
+                'teachers' => $count(\App\Models\Teacher\TeacherDetail::class),
+                'classes'  => $count(\App\Models\Student\Standard::class),
+            ],
+        ]);
     }
 }
