@@ -15,15 +15,16 @@ use Illuminate\Validation\ValidationException;
  * A school's Per Student fee is collected one of two ways (collect_from on its
  * structure, set on Super Admin → Fees):
  *
- *   school  — the school pays and the super admin marks it paid. A student the
- *             school has not paid for cannot sign in to the app (as before).
+ *   school  — the school pays and the super admin marks it paid. That is
+ *             between the school and SuperLMS: its students use the app as
+ *             usual, paid for or not.
  *   student — each student pays it in the app. They sign in to a payment
  *             screen with Pay Now (PhonePe) and nothing else until it is paid
  *             (the PlatformFeeGate middleware); meanwhile the school can
  *             neither take their fee nor mark their attendance ("locked").
  *
  * Schools on any other plan (or none) are not gated at all. This is the one
- * place every login, app request, fee submission and attendance mark asks.
+ * place every app request, fee submission and attendance mark asks.
  */
 class FeeAccess
 {
@@ -90,31 +91,6 @@ class FeeAccess
         return $structure && $structure->collectsFromStudents() && (float) $structure->amount > 0
             ? $structure
             : null;
-    }
-
-    /**
-     * Should this user be blocked from logging in on fee grounds?
-     * Only students ('user') of a school that pays their per-student fee,
-     * when it has not paid for them. A student who pays it themselves signs
-     * in — to the payment screen.
-     */
-    public static function studentLoginBlocked(?User $user): bool
-    {
-        if (!$user || $user->role !== 'user') {
-            return false;
-        }
-
-        $detail = StudentDetail::where('user_id', $user->id)->first();
-        if (!$detail) {
-            return false;
-        }
-
-        $structure = self::perStudentStructure($detail->organization_id);
-        if (!$structure || $structure->collectsFromStudents()) {
-            return false; // no per-student plan, or the student pays it in the app
-        }
-
-        return !self::studentFullyPaid($detail, $structure);
     }
 
     /**
@@ -277,32 +253,6 @@ class FeeAccess
                 'receipt_number' => $last->receipt_number,
             ] : null,
         ];
-    }
-
-    /**
-     * Revoke a student's app sessions (Sanctum tokens) so they are logged out
-     * on their next request. Called when a per-student payment is reverted so
-     * the student loses access until they pay again. A student who pays it in
-     * the app keeps their sign-in: the app's gate shows them the payment
-     * screen instead. Fails open.
-     */
-    public static function logoutStudent(StudentDetail $detail): void
-    {
-        try {
-            if (self::studentPaysStructure($detail->organization_id)) {
-                return;
-            }
-            $user = $detail->user()->first();
-            $user?->tokens()->delete();
-        } catch (\Throwable $e) {
-            logger()->warning('FeeAccess::logoutStudent failed: ' . $e->getMessage());
-        }
-    }
-
-    /** Standard 403 message shown to a fee-blocked student. */
-    public static function blockedMessage(): string
-    {
-        return 'Your fee payment is pending. Please pay your fee to continue using the app.';
     }
 
     /** What the app's gate answers a student who must pay first. */

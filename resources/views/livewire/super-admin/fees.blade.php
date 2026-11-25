@@ -603,7 +603,7 @@
                         @if ($byStudent)
                             Students see a payment screen with Pay Now (PhonePe) when they open the app. Until a student pays, their fee cannot be submitted and their attendance cannot be marked.
                         @elseif ($dCollect['per_student'])
-                            The school pays SuperLMS for its students — mark it paid here as the money comes. A student the school has not paid for cannot sign in.
+                            The school pays SuperLMS for its students — mark it paid here as the money comes. Its students use the app as usual meanwhile.
                         @elseif ($dStructure)
                             The school pays its {{ strtolower($dPlan) }} fee — mark it paid here as the money comes.
                         @else

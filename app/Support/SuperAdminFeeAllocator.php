@@ -325,14 +325,6 @@ class SuperAdminFeeAllocator
         $applied = round(array_sum(array_column($plan, 'take')), 2);
         $kind    = $plan[0]['kind'] ?? 'period';
 
-        if ($structure->fee_type === 'per_student') {
-            foreach ($plan as $p) {
-                if (!$p['full'] && $p['student_id'] && ($student = StudentDetail::find($p['student_id']))) {
-                    FeeAccess::logoutStudent($student);
-                }
-            }
-        }
-
         if ($plan) {
             $what = $kind === 'student'
                 ? $full . ' ' . ($full === 1 ? 'student' : 'students') . ' paid in full'
@@ -409,8 +401,7 @@ class SuperAdminFeeAllocator
             }
         }
 
-        $logout = [];
-        $alloc  = DB::transaction(function () use ($receipt, $structure, $delta, $amount, $mode, $date, $remark, $oldDate, $oldMode, $oldRemark, &$logout) {
+        $alloc = DB::transaction(function () use ($receipt, $structure, $delta, $amount, $mode, $date, $remark, $oldDate, $oldMode, $oldRemark) {
             // Where this payment's money is: payment id => amount, in the order it went.
             $known = is_array($receipt->allocation);
             $alloc = [];
@@ -424,9 +415,6 @@ class SuperAdminFeeAllocator
             if ($delta >= 0.005) {
                 foreach (self::writePlan($structure, self::plan(self::duesForEdit($receipt, $structure), $delta), $mode, $date, $remark) as $p) {
                     $alloc[$p['payment_id']] = round(($alloc[$p['payment_id']] ?? 0) + $p['take'], 2);
-                    if ($p['kind'] === 'student' && !$p['full']) {
-                        $logout[] = $p['student_id'];
-                    }
                 }
             } elseif ($delta <= -0.005) {
                 $back    = round(-$delta, 2);
@@ -463,7 +451,7 @@ class SuperAdminFeeAllocator
                     $changed[$row->id] = $row;
                 }
 
-                SuperAdminFeePayment::withoutEvents(function () use ($changed, $structure, &$logout) {
+                SuperAdminFeePayment::withoutEvents(function () use ($changed, $structure) {
                     foreach ($changed as $row) {
                         $fee  = self::rowFee($structure, $row);
                         $full = $fee > 0 && (float) $row->amount + 0.01 >= $fee;
@@ -473,9 +461,6 @@ class SuperAdminFeeAllocator
                         } else {
                             $row->is_paid = $full;
                             $row->save();
-                        }
-                        if ($row->student_detail_id && !$full) {
-                            $logout[] = $row->student_detail_id;
                         }
                     }
                 });
@@ -534,13 +519,6 @@ class SuperAdminFeeAllocator
 
             return $alloc;
         });
-
-        // A per-student school's student left part paid (or unpaid) loses app access.
-        foreach (array_unique(array_filter($logout)) as $studentId) {
-            if ($student = StudentDetail::find($studentId)) {
-                FeeAccess::logoutStudent($student);
-            }
-        }
 
         if (abs($delta) >= 0.005 || $date !== $oldDate) {
             try {

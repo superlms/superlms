@@ -1339,11 +1339,6 @@ class Fees extends Component
                 ->where('super_admin_fee_structure_id', $this->payStructureId)
                 ->get()->each->delete();
 
-            // Per-student plan: clearing the fee revokes the student's app access.
-            if ($structure->fee_type === 'per_student') {
-                \App\Support\FeeAccess::logoutStudent($student);
-            }
-
             $this->afterPaymentChange('Payment cleared — marked as pending.');
             return;
         }
@@ -1368,12 +1363,6 @@ class Fees extends Component
                 'is_paid'         => $isPaid,
             ]
         );
-
-        // Per-student plan: only a fully-paid student keeps app access — a
-        // partial payment (still due) logs them out until they clear it.
-        if ($structure->fee_type === 'per_student' && !$isPaid) {
-            \App\Support\FeeAccess::logoutStudent($student);
-        }
 
         $this->afterPaymentChange(
             $isPaid ? 'Fee fully paid!' : 'Partial payment recorded — balance still due.'

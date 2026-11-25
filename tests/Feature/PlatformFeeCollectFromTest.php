@@ -21,7 +21,7 @@ use Tests\TestCase;
 
 /**
  * Super Admin → Fees: who pays a Per Student fee. "School" — the super admin
- * marks it paid, and an unpaid student cannot sign in (as before). "Student"
+ * marks it paid, and its students use the app as usual meanwhile. "Student"
  * — each student pays in the app: until then the app's API answers only the
  * payment screen (402), Pay Now goes through the platform's PhonePe and books
  * the fee, and the school can neither take the student's fee nor mark their
@@ -200,15 +200,21 @@ class PlatformFeeCollectFromTest extends TestCase
         FeeAccess::flush();
     }
 
-    public function test_school_pays_keeps_the_old_login_block_and_locks_nothing(): void
+    public function test_school_pays_blocks_no_student_and_locks_nothing(): void
     {
         $fs = $this->perStudent('school');
         $this->paid($fs, 22);
 
-        $this->assertTrue(FeeAccess::studentLoginBlocked(User::find(2)));   // unpaid: no sign-in, as before
-        $this->assertFalse(FeeAccess::studentLoginBlocked(User::find(3)));
-        $this->assertSame([], FeeAccess::lockedIds(1));
+        // Riya's school has not paid for her: she still uses the app as usual.
         $this->assertFalse(FeeAccess::userMustPay(User::find(2)));
+        $this->assertSame([], FeeAccess::lockedIds(1));
+
+        Sanctum::actingAs(User::find(2));
+        $this->assertNotSame(402, $this->getJson('/api/v1/fees/summary')->status());
+        $this->getJson('/api/v1/platform-fee')
+            ->assertOk()
+            ->assertJsonPath('data.required', false)
+            ->assertJsonPath('data.must_pay', false);
     }
 
     public function test_students_pay_sign_in_to_the_payment_screen_and_nothing_else(): void
@@ -217,8 +223,7 @@ class PlatformFeeCollectFromTest extends TestCase
         $this->paid($fs, 22);
 
         $riya = User::find(2);
-        $this->assertFalse(FeeAccess::studentLoginBlocked($riya));        // signs in — to pay
-        $this->assertTrue(FeeAccess::userMustPay($riya));
+        $this->assertTrue(FeeAccess::userMustPay($riya));                 // signs in — to pay
         $this->assertSame([21 => true], FeeAccess::lockedIds(1));
 
         Sanctum::actingAs($riya);
