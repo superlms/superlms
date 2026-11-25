@@ -1,10 +1,13 @@
 {{-- Single-day attendance analytics as the card's header strip, matching the
      month-card header. Expects $stats = tally array and $title = the day.
      $subtitle (optional) replaces the default second line. $plain (optional)
-     leaves the strip uncoloured, as the teachers' day list has it. --}}
+     leaves the strip uncoloured, as the teachers' day list has it. $figures
+     (optional, default true) false leaves the figures out — the admin's
+     Attendance shows them in the page header instead (2026-11-25). --}}
 @php
     $subtitle = $subtitle ?? '';
     $plain = $plain ?? false;
+    $figures = $figures ?? true;
     $marked = $stats['present'] + $stats['absent'] + $stats['half_day'];
     $percent = $marked > 0 ? round(($stats['present'] + 0.5 * $stats['half_day']) / $marked * 100, 1) : 0;
 @endphp
@@ -14,6 +17,7 @@
         <h3 class="text-sm font-semibold text-gray-700">{{ $title }}</h3>
         <p class="text-[11px] text-gray-400">{{ $subtitle ?: 'Sundays are a standing holiday.' }}</p>
     </div>
+    @if ($figures)
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
         <span class="text-gray-600">Total <strong>{{ $stats['total'] }}</strong></span>
         <span class="text-emerald-700">Present <strong>{{ $stats['present'] }}</strong></span>
@@ -23,4 +27,5 @@
         <span class="text-gray-400">Not marked <strong>{{ $stats['not_marked'] }}</strong></span>
         <span class="px-2 py-0.5 rounded-full bg-white border border-indigo-200 font-semibold text-indigo-600">{{ $percent }}%</span>
     </div>
+    @endif
 </div>

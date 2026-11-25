@@ -158,6 +158,53 @@
             </div>
         </div>
 
+
+        {{-- Classes, sections and subjects as cards in the logout pop-up's look
+             (user's ask of 2026-11-25): a white card, a peach stage holding a
+             white panel with the name, every figure under it, and pill buttons —
+             View, Edit, Delete (rose) and Open (teal). Four to a row on a wide
+             screen. A click on a class or section card opens what is in it. --}}
+        @once
+        <style>
+            .sc-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+            @media (min-width: 640px)  { .sc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+            @media (min-width: 1024px) { .sc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+            @media (min-width: 1280px) { .sc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+            .sc-card { display: flex; flex-direction: column; min-width: 0; border-radius: 26px; background: #fff; overflow: hidden;
+                font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; border: 1px solid #eef1f0;
+                box-shadow: 0 1px 2px rgba(12,38,32,.04), 0 14px 30px -22px rgba(12,38,32,.35); transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s; }
+            .sc-card.go { cursor: pointer; }
+            .sc-card:hover { transform: translateY(-3px); box-shadow: 0 26px 44px -24px rgba(12,38,32,.42); }
+            .sc-stage { margin: 10px 10px 0; padding: 12px 14px 0; border-radius: 20px; overflow: hidden; background: linear-gradient(160deg, #fde6cf 0%, #f7c9a0 100%); }
+            .sc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+            .sc-pill { font-size: 11px; font-weight: 600; line-height: 1; padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,.62); color: #8a4b1c; white-space: nowrap; }
+            .sc-pill.on { color: #047857; }
+            .sc-pill.off { color: #6b7c76; }
+            .sc-panel { margin-bottom: -16px; padding: 18px 14px 30px; border-radius: 16px 16px 0 0; background: #fff; text-align: center; box-shadow: 0 12px 30px -16px rgba(12,38,32,.35); }
+            .sc-panel .sc-ic { display: flex; justify-content: center; margin-bottom: 8px; }
+            .sc-panel h3 { font-family: 'Plus Jakarta Sans', 'Geist', system-ui, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: -.03em; line-height: 1.25; color: #0c2620; overflow-wrap: anywhere; }
+            .sc-panel p { margin-top: 5px; font-size: 12.5px; line-height: 1.45; color: #6b7c76; overflow-wrap: anywhere; }
+            .sc-data { padding: 10px 18px 2px; }
+            .sc-data > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #f0f3f2; font-size: 13px; }
+            .sc-data > div:last-child { border-bottom: 0; }
+            .sc-data dt { color: #6b7c76; flex: none; }
+            .sc-data dd { color: #0c2620; font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+            .sc-data dd.soft { color: #95a39e; font-weight: 500; }
+            .sc-btns { display: flex; gap: 8px; padding: 12px 14px 0; margin-top: auto; }
+            .sc-btns + .sc-btns { margin-top: 0; padding-top: 8px; }
+            .sc-btns:last-child { padding-bottom: 14px; }
+            .sc-btn { flex: 1; min-width: 0; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 999px;
+                border: 1px solid transparent; font-size: 13px; font-weight: 500; letter-spacing: -.01em; white-space: nowrap;
+                transition: background .2s, border-color .2s, box-shadow .25s, transform .25s cubic-bezier(.2,.7,.2,1); }
+            .sc-btn svg { width: 15px; height: 15px; flex: none; }
+            .sc-btn.ghost { background: #fff; color: #0c2620; border-color: #e5eae8; }
+            .sc-btn.ghost:hover { border-color: #d6dedb; box-shadow: 0 1px 2px rgba(12,38,32,.06), 0 1px 3px rgba(12,38,32,.05); }
+            .sc-btn.danger { background: #f0506e; color: #fff; }
+            .sc-btn.danger:hover { background: #e11d48; box-shadow: 0 12px 26px -10px rgba(240,80,110,.7); transform: translateY(-1px); }
+            .sc-btn.teal { background: #0d9488; color: #fff; }
+            .sc-btn.teal:hover { background: #0f766e; box-shadow: 0 12px 26px -10px rgba(13,148,136,.7); transform: translateY(-1px); }
+        </style>
+        @endonce
         <div wire:loading.remove wire:target="{{ $listTargets }}">
 
             {{-- ════════════════ CLASSES (List) ════════════════ --}}
@@ -167,70 +214,42 @@
                     $wingNames = $this->wingOptions;
                 @endphp
                 @if ($filteredStandards->count())
-                    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                        <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <div class="col-span-1">S.No</div>
-                            <div class="col-span-3">Class Name</div>
-                            <div class="col-span-1">Code</div>
-                            <div class="col-span-1">Order</div>
-                            <div class="col-span-3">Sections</div>
-                            <div class="col-span-1 text-center">Status</div>
-                            <div class="col-span-2 text-right">Actions</div>
-                        </div>
+                    <div class="sc-grid">
                         @foreach ($filteredStandards as $idx => $std)
                             @php
+                                $card = $classCards[$std->id] ?? ['students' => 0, 'subjects' => 0, 'teacher' => null, 'sections' => []];
+                                $wing = $wingNames ? ($wingNames[\App\Support\SchoolBrand::wingOf($std)] ?? '') : '';
                                 // The first section in full, the others by their last letter: "Section A & B & C".
                                 $sectionText = \App\Support\SectionNames::joined($std->sections->pluck('name'));
+                                // Its class teachers: the class's own, else each section's.
+                                $teachers = collect([$card['teacher'] ?? null])->merge(collect($card['sections'])->pluck('teacher'))->filter()->unique()->values();
                             @endphp
-                            <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-purple-50/40 transition-colors cursor-pointer"
-                                wire:click="drillIntoClass({{ $std->id }})">
-                                <div class="col-span-1 text-sm text-gray-500">{{ $filteredStandards->firstItem() + $idx }}</div>
-                                <div class="col-span-3">
-                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}</p>
-                                    @if ($wingNames)
-                                        <p class="text-[11px] text-gray-500 truncate" title="Name on this class's documents">
-                                            {{ $wingNames[\App\Support\SchoolBrand::wingOf($std)] ?? '' }}
-                                        </p>
-                                    @endif
+                            <div class="sc-card go" wire:key="class-card-{{ $std->id }}" wire:click="drillIntoClass({{ $std->id }})">
+                                <div class="sc-stage">
+                                    <div class="sc-top">
+                                        <span class="sc-pill">#{{ $filteredStandards->firstItem() + $idx }}</span>
+                                        <span class="sc-pill {{ $std->is_active ? 'on' : 'off' }}">{{ $std->is_active ? 'Active' : 'Inactive' }}</span>
+                                    </div>
+                                    <div class="sc-panel">
+                                        <h3>{{ $std->name }}</h3>
+                                        <p>{{ $wing !== '' ? $wing : 'Class' }}</p>
+                                    </div>
                                 </div>
-                                <div class="col-span-1 text-sm text-gray-700 truncate">{{ $std->code ?: '—' }}</div>
-                                <div class="col-span-1 text-sm text-gray-700">{{ $std->order ?? '—' }}</div>
-                                <div class="col-span-3 text-sm text-gray-700 truncate" title="{{ $sectionText }}">
-                                    @if ($sectionText !== '')
-                                        {{ $sectionText }}
-                                    @else
-                                        <span class="text-gray-400">No sections</span>
-                                    @endif
+                                <dl class="sc-data">
+                                    <div><dt>Code</dt><dd class="{{ $std->code ? '' : 'soft' }}">{{ $std->code ?: '—' }}</dd></div>
+                                    <div><dt>Order</dt><dd>{{ $std->order ?? '—' }}</dd></div>
+                                    <div><dt>Sections</dt><dd class="{{ $sectionText !== '' ? '' : 'soft' }}">{{ $sectionText !== '' ? $sectionText : 'No sections' }}</dd></div>
+                                    <div><dt>Students</dt><dd>{{ number_format($card['students']) }}</dd></div>
+                                    <div><dt>Subjects</dt><dd>{{ number_format($card['subjects']) }}</dd></div>
+                                    <div><dt>Class teacher</dt><dd class="{{ $teachers->count() ? '' : 'soft' }}">{{ $teachers->count() ? $teachers->implode(', ') : 'Not assigned' }}</dd></div>
+                                </dl>
+                                <div class="sc-btns" wire:click.stop>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="onViewStandardAdmin({{ $std->id }})" title="View"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</button>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="editStandard({{ $std->id }})" title="Edit"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Edit</button>
+                                    <button type="button" class="sc-btn danger" wire:click.stop="onDeleteStandard({{ $std->id }})" title="Delete"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</button>
                                 </div>
-                                <div class="col-span-1 text-center text-sm {{ $std->is_active ? 'text-gray-700' : 'text-gray-400' }}">
-                                    {{ $std->is_active ? 'Active' : 'Inactive' }}
-                                </div>
-                                <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
-                                    <button wire:click.stop="onViewStandardAdmin({{ $std->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-green-50 text-green-600" title="View">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="editStandard({{ $std->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600" title="Edit">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="onDeleteStandard({{ $std->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="drillIntoClass({{ $std->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-purple-50 text-purple-600" title="Open sections">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
+                                <div class="sc-btns" wire:click.stop>
+                                    <button type="button" class="sc-btn teal" wire:click.stop="drillIntoClass({{ $std->id }})" title="Open sections">Open sections<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></button>
                                 </div>
                             </div>
                         @endforeach
@@ -253,51 +272,37 @@
                         <p class="text-xs text-gray-400 mt-1">Use the <strong>Class</strong> filter above, or click a class from the Classes tab.</p>
                     </div>
                 @elseif ($filteredSections->count())
-                    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                        <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <div class="col-span-1">#</div>
-                            <div class="col-span-4">Section</div>
-                            <div class="col-span-4">Class</div>
-                            <div class="col-span-1 text-center">Status</div>
-                            <div class="col-span-2 text-right">Actions</div>
-                        </div>
+                    <div class="sc-grid">
                         @foreach ($filteredSections as $idx => $section)
-                            <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-blue-50/40 transition-colors cursor-pointer"
-                                wire:click="drillIntoSection({{ $section->id }})">
-                                <div class="col-span-1 text-sm text-gray-500">{{ $filteredSections->firstItem() + $idx }}</div>
-                                <div class="col-span-4">
-                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $section->name }}</p>
+                            @php $card = $sectionCards[$section->id] ?? ['students' => 0, 'subjects' => 0, 'teacher' => null]; @endphp
+                            <div class="sc-card go" wire:key="section-card-{{ $section->id }}" wire:click="drillIntoSection({{ $section->id }})">
+                                <div class="sc-stage">
+                                    <div class="sc-top">
+                                        <span class="sc-pill">#{{ $filteredSections->firstItem() + $idx }}</span>
+                                        <span class="sc-pill {{ $section->is_active ? 'on' : 'off' }}">{{ $section->is_active ? 'Active' : 'Inactive' }}</span>
+                                    </div>
+                                    <div class="sc-panel">
+                                        <h3>{{ $section->name }}</h3>
+                                        <p>{{ $section->standard->name ?? '—' }}</p>
+                                    </div>
                                 </div>
-                                <div class="col-span-4 text-sm text-gray-600">{{ $section->standard->name ?? '—' }}</div>
-                                <div class="col-span-1 text-center text-sm {{ $section->is_active ? 'text-gray-700' : 'text-gray-400' }}">
-                                    {{ $section->is_active ? 'Active' : 'Inactive' }}
+                                <dl class="sc-data">
+                                    <div><dt>Class</dt><dd>{{ $section->standard->name ?? '—' }}</dd></div>
+                                    <div><dt>Code</dt><dd class="{{ $section->code ? '' : 'soft' }}">{{ $section->code ?: '—' }}</dd></div>
+                                    <div><dt>Students</dt><dd>{{ number_format($card['students']) }}</dd></div>
+                                    <div><dt>Subjects</dt><dd>{{ number_format($card['subjects']) }}</dd></div>
+                                    <div><dt>Class teacher</dt><dd class="{{ $card['teacher'] ? '' : 'soft' }}">{{ $card['teacher'] ?: 'Not assigned' }}</dd></div>
+                                    @if (trim((string) $section->description) !== '')
+                                        <div><dt>About</dt><dd>{{ \Illuminate\Support\Str::limit($section->description, 60) }}</dd></div>
+                                    @endif
+                                </dl>
+                                <div class="sc-btns" wire:click.stop>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="onViewSectionAdmin({{ $section->id }})" title="View"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</button>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="editSection({{ $section->id }})" title="Edit"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Edit</button>
+                                    <button type="button" class="sc-btn danger" wire:click.stop="onDeleteSection({{ $section->id }})" title="Delete"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</button>
                                 </div>
-                                <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
-                                    <button wire:click.stop="onViewSectionAdmin({{ $section->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-green-50 text-green-600" title="View">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="editSection({{ $section->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600" title="Edit">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="onDeleteSection({{ $section->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="drillIntoSection({{ $section->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600" title="Open subjects">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
+                                <div class="sc-btns" wire:click.stop>
+                                    <button type="button" class="sc-btn teal" wire:click.stop="drillIntoSection({{ $section->id }})" title="Open subjects">Open subjects<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></button>
                                 </div>
                             </div>
                         @endforeach
@@ -318,54 +323,39 @@
                         <p class="text-xs text-gray-400 mt-1">Pick a <strong>class</strong> then a <strong>section</strong> from the filters above, or drill in from the Sections tab.</p>
                     </div>
                 @elseif ($filteredSubjects->count())
-                    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                        <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <div class="col-span-1">#</div>
-                            <div class="col-span-3">Subject</div>
-                            <div class="col-span-2">Code</div>
-                            <div class="col-span-3">Class · Sections</div>
-                            <div class="col-span-1 text-center">Status</div>
-                            <div class="col-span-2 text-right">Actions</div>
-                        </div>
+                    <div class="sc-grid">
                         @foreach ($filteredSubjects as $idx => $subject)
-                            <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-emerald-50/40 transition-colors">
-                                <div class="col-span-1 text-sm text-gray-500">{{ $filteredSubjects->firstItem() + $idx }}</div>
-                                <div class="col-span-3 flex items-center gap-2.5">
-                                    <x-subject-icon :name="$subject->name" />
-                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $subject->name }}</p>
+                            @php
+                                $card = $subjectCards[$subject->id] ?? ['teachers' => [], 'mandatory' => null];
+                                // In several sections: the first in full, the others by their last letter.
+                                $secText = $subject->sections->count() ? \App\Support\SectionNames::joined($subject->sections->pluck('name')) : '';
+                            @endphp
+                            <div class="sc-card" wire:key="subject-card-{{ $subject->id }}">
+                                <div class="sc-stage">
+                                    <div class="sc-top">
+                                        <span class="sc-pill">#{{ $filteredSubjects->firstItem() + $idx }}</span>
+                                        <span class="sc-pill {{ $subject->is_active ? 'on' : 'off' }}">{{ $subject->is_active ? 'Active' : 'Inactive' }}</span>
+                                    </div>
+                                    <div class="sc-panel">
+                                        <div class="sc-ic"><x-subject-icon :name="$subject->name" /></div>
+                                        <h3>{{ $subject->name }}</h3>
+                                        <p>{{ $subjectClassName ?: '—' }}</p>
+                                    </div>
                                 </div>
-                                <div class="col-span-2 text-sm text-gray-700">{{ $subject->code }}</div>
-                                <div class="col-span-3 text-sm text-gray-600 truncate">
-                                    {{-- The class being looked at, and the subject's sections in it. --}}
-                                    {{ $subjectClassName ?: '—' }}
-                                    {{-- In several sections: the first in full, the others by their last letter. --}}
-                                    @if ($subject->sections->count())
-                                        <span class="text-gray-400">· {{ \App\Support\SectionNames::joined($subject->sections->pluck('name')) }}</span>
+                                <dl class="sc-data">
+                                    <div><dt>Code</dt><dd class="{{ $subject->code ? '' : 'soft' }}">{{ $subject->code ?: '—' }}</dd></div>
+                                    <div><dt>Class</dt><dd>{{ $subjectClassName ?: '—' }}</dd></div>
+                                    <div><dt>Sections</dt><dd class="{{ $secText !== '' ? '' : 'soft' }}">{{ $secText !== '' ? $secText : '—' }}</dd></div>
+                                    <div><dt>Compulsory</dt><dd class="{{ $card['mandatory'] === null ? 'soft' : '' }}">{{ $card['mandatory'] === null ? '—' : ($card['mandatory'] ? 'Yes' : 'No') }}</dd></div>
+                                    <div><dt>Teacher</dt><dd class="{{ $card['teachers'] ? '' : 'soft' }}">{{ $card['teachers'] ? implode(', ', $card['teachers']) : 'Not assigned' }}</dd></div>
+                                    @if (trim((string) $subject->description) !== '')
+                                        <div><dt>About</dt><dd>{{ \Illuminate\Support\Str::limit($subject->description, 60) }}</dd></div>
                                     @endif
-                                </div>
-                                <div class="col-span-1 text-center text-sm {{ $subject->is_active ? 'text-gray-700' : 'text-gray-400' }}">
-                                    {{ $subject->is_active ? 'Active' : 'Inactive' }}
-                                </div>
-                                <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
-                                    <button wire:click.stop="onViewSubjectAdmin({{ $subject->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-green-50 text-green-600" title="View">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="editSubject({{ $subject->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600" title="Edit">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
-                                    <button wire:click.stop="onDeleteSubject({{ $subject->id }})"
-                                        class="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                                </dl>
+                                <div class="sc-btns" wire:click.stop>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="onViewSubjectAdmin({{ $subject->id }})" title="View"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>View</button>
+                                    <button type="button" class="sc-btn ghost" wire:click.stop="editSubject({{ $subject->id }})" title="Edit"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Edit</button>
+                                    <button type="button" class="sc-btn danger" wire:click.stop="onDeleteSubject({{ $subject->id }})" title="Delete"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</button>
                                 </div>
                             </div>
                         @endforeach

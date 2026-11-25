@@ -25,10 +25,35 @@
 
     {{-- ══════════ HEADER + main tabs ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        @php
+            // The day's figures sit in the header, beside its button (user's ask of
+            // 2026-11-25), on both tabs' day view: teachers, or the class and
+            // section picked. The day card under the filters keeps its title only.
+            $hdrStats = $mainTab === 'teacher' && $teacherView === 'by_date' ? $tByDateStats
+                : ($mainTab === 'student' && $studentView === 'by_date' && $stStandard && $stSection ? $sByDateStats : null);
+            $hdrDay = $mainTab === 'teacher' ? $tDate : $stDate;
+        @endphp
         <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Attendance</h1>
             </div>
+            <div class="flex flex-wrap items-center gap-2">
+            @if ($hdrStats)
+                @php
+                    $hdrWorked = $hdrStats['present'] + $hdrStats['absent'] + $hdrStats['half_day'];
+                    $hdrPct = $hdrWorked > 0 ? round(($hdrStats['present'] + 0.5 * $hdrStats['half_day']) / $hdrWorked * 100, 1) : 0;
+                @endphp
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mr-2"
+                    title="{{ $mainTab === 'teacher' ? 'Teachers' : 'Students' }} · {{ \Carbon\Carbon::parse($hdrDay)->format('l, d M Y') }}">
+                    <span>Total: <strong class="text-gray-800">{{ $hdrStats['total'] }}</strong></span>
+                    <span>Present: <strong class="text-emerald-600">{{ $hdrStats['present'] }}</strong></span>
+                    <span>Absent: <strong class="text-rose-600">{{ $hdrStats['absent'] }}</strong></span>
+                    <span>Half: <strong class="text-amber-600">{{ $hdrStats['half_day'] }}</strong></span>
+                    <span>Holiday: <strong class="text-indigo-600">{{ $hdrStats['holiday'] }}</strong></span>
+                    <span>Not marked: <strong class="text-gray-700">{{ $hdrStats['not_marked'] }}</strong></span>
+                    <span><strong class="text-teal-700">{{ $hdrPct }}%</strong></span>
+                </div>
+            @endif
             @if ($mainTab === 'teacher')
                 <button wire:click="openTeacherMark"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
@@ -56,6 +81,7 @@
                     Save Timing
                 </button>
             @endif
+            </div>
         </div>
         <div class="border-t border-gray-200 px-4 sm:px-6">
             <div class="flex gap-1 overflow-x-auto">
@@ -211,6 +237,7 @@
                     @if ($tByDateStats)
                         @include('livewire.admin._partials.attendance-dayheader', [
                             'stats' => $tByDateStats,
+                            'figures' => false,
                             'title' => 'Teacher Attendance · ' . \Carbon\Carbon::parse($tDate)->format('l, d M Y'),
                             'plain' => true,
                         ])
@@ -256,6 +283,7 @@
                         @if ($sByDateStats)
                             @include('livewire.admin._partials.attendance-dayheader', [
                                 'stats' => $sByDateStats,
+                                'figures' => false,
                                 'title' => 'Student Attendance · ' . \Carbon\Carbon::parse($stDate)->format('l, d M Y'),
                                 'plain' => true,
                             ])

@@ -239,4 +239,19 @@ class TeacherMonthGridTest extends TestCase
             ->assertSeeHtml('<div class="att-cal">')
             ->assertSeeHtml('class="att-day is-present"');
     }
+
+    public function test_the_days_figures_are_in_the_header_not_the_card(): void
+    {
+        $asha = $this->teacher('Asha');
+        $this->mark($asha, now()->toDateString(), 1);
+
+        $html = \Livewire\Livewire::test(AdminAttendancePage::class)->html();
+        $head = substr($html, 0, strpos($html, "switchMainTab('teacher')"));
+        // In the header, beside Mark Attendance (2026-11-25) …
+        $this->assertMatchesRegularExpression('/Present: <strong class="text-emerald-600">1<\/strong>/', $head);
+        $this->assertStringContainsString('Mark Attendance', $head);
+        // … and no longer in the day card's strip.
+        $this->assertStringNotContainsString('Not marked <strong>', $html);
+        $this->assertStringContainsString('Teacher Attendance · ', $html);
+    }
 }

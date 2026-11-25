@@ -290,6 +290,164 @@ class Standard extends Component
         return $query->orderBy('order')->orderBy('id')->paginate($this->perPage());
     }
 
+    /**
+     * Each class card's figures (user's ask of 2026-11-25: the classes as cards,
+     * two to a row, with all their data) — for the classes on this page only,
+     * one query each: its students, and each section's; its subjects, counted
+     * as the View pop-up counts them (the class's own and its sections'); and
+     * each section's class teacher. A table a school lacks leaves its figure 0.
+     *
+     * @return array<int, array{students:int, subjects:int, teacher:?string, sections: array<int, array{students?:int, teacher?:string}>}>
+     */
+    protected function classCards($page): array
+    {
+        $ids = collect($page->items())->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if (!$ids) {
+            return [];
+        }
+        $org   = $this->orgId();
+        $cards = array_fill_keys($ids, ['students' => 0, 'subjects' => 0, 'teacher' => null, 'sections' => []]);
+
+        // Students, by class and section.
+        rescue(function () use (&$cards, $org, $ids) {
+            StudentDetail::query()->where('organization_id', $org)->whereIn('standard_id', $ids)
+            ->selectRaw('standard_id, section_id, COUNT(*) as n')->groupBy('standard_id', 'section_id')
+            ->toBase()->get()
+            ->each(function ($r) use (&$cards) {
+                $class = (int) $r->standard_id;
+                if (!isset($cards[$class])) return;
+                $cards[$class]['students'] += (int) $r->n;
+                if ($r->section_id) {
+                    $cards[$class]['sections'][(int) $r->section_id]['students'] = (int) $r->n;
+                }
+            });
+        }, null, false);
+
+        // Subjects: the class's own links and its sections' (Subject::taughtIn).
+        rescue(function () use (&$cards, $ids, $org) {
+            $pairs = DB::table('standard_subjects')->whereIn('standard_id', $ids)->get(['standard_id', 'subject_id'])
+                ->merge(DB::table('section_subjects')
+                    ->join('sections', fn ($j) => $j->on('sections.id', '=', 'section_subjects.section_id')
+                        ->on('sections.standard_id', '=', 'section_subjects.standard_id'))
+                    ->whereIn('section_subjects.standard_id', $ids)
+                    ->get(['section_subjects.standard_id', 'section_subjects.subject_id']));
+            $own = Subject::where('organization_id', $org)
+                ->whereIn('id', $pairs->pluck('subject_id')->unique()->values()->all())
+                ->pluck('id')->flip();
+            foreach ($pairs->groupBy('standard_id') as $class => $rows) {
+                if (isset($cards[(int) $class])) {
+                    $cards[(int) $class]['subjects'] = $rows->pluck('subject_id')->unique()->filter(fn ($id) => isset($own[$id]))->count();
+                }
+            }
+        }, null, false);
+
+        // Class teachers: a section's own, or the class's when given without one.
+        rescue(function () use (&$cards, $org, $ids) {
+            \App\Models\Teacher\AssignTeacherStandard::with('teacher.user:id,name')
+            ->where('organization_id', $org)->whereIn('standard_id', $ids)->get()
+            ->each(function ($a) use (&$cards) {
+                $name  = trim((string) ($a->teacher?->user?->name ?? ''));
+                $class = (int) $a->standard_id;
+                if ($name === '' || !isset($cards[$class])) return;
+                if ($a->section_id) {
+                    $cards[$class]['sections'][(int) $a->section_id]['teacher'] = $name;
+                } else {
+                    $cards[$class]['teacher'] = $name;
+                }
+            });
+        }, null, false);
+
+        return $cards;
+    }
+
+    /**
+     * Each section card's figures (2026-11-25): its students, its subjects (its
+     * own links for its class, as Subject::taughtIn reads them) and its class
+     * teacher — for the sections on this page, one query each.
+     *
+     * @return array<int, array{students:int, subjects:int, teacher:?string}>
+     */
+    protected function sectionCards($page): array
+    {
+        $ids = collect($page->items())->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if (!$ids) {
+            return [];
+        }
+        $org   = $this->orgId();
+        $cards = array_fill_keys($ids, ['students' => 0, 'subjects' => 0, 'teacher' => null]);
+
+        rescue(function () use (&$cards, $org, $ids) {
+            StudentDetail::query()->where('organization_id', $org)->whereIn('section_id', $ids)
+                ->selectRaw('section_id, COUNT(*) as n')->groupBy('section_id')->toBase()->get()
+                ->each(function ($r) use (&$cards) {
+                    if (isset($cards[(int) $r->section_id])) $cards[(int) $r->section_id]['students'] = (int) $r->n;
+                });
+        }, null, false);
+
+        rescue(function () use (&$cards, $ids) {
+            DB::table('section_subjects')
+                ->join('sections', fn ($j) => $j->on('sections.id', '=', 'section_subjects.section_id')
+                    ->on('sections.standard_id', '=', 'section_subjects.standard_id'))
+                ->whereIn('section_subjects.section_id', $ids)
+                ->selectRaw('section_subjects.section_id as id, COUNT(DISTINCT section_subjects.subject_id) as n')
+                ->groupBy('section_subjects.section_id')->get()
+                ->each(function ($r) use (&$cards) {
+                    if (isset($cards[(int) $r->id])) $cards[(int) $r->id]['subjects'] = (int) $r->n;
+                });
+        }, null, false);
+
+        rescue(function () use (&$cards, $org, $ids) {
+            \App\Models\Teacher\AssignTeacherStandard::with('teacher.user:id,name')
+                ->where('organization_id', $org)->whereIn('section_id', $ids)->get()
+                ->each(function ($a) use (&$cards) {
+                    $name = trim((string) ($a->teacher?->user?->name ?? ''));
+                    if ($name !== '' && isset($cards[(int) $a->section_id])) $cards[(int) $a->section_id]['teacher'] = $name;
+                });
+        }, null, false);
+
+        return $cards;
+    }
+
+    /**
+     * Each subject card's figures (2026-11-25), for the class and section being
+     * looked at: who teaches it there, and whether it is compulsory in the class.
+     *
+     * @return array<int, array{teachers: string[], mandatory: ?bool}>
+     */
+    protected function subjectCards($page): array
+    {
+        $ids = collect($page->items())->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $classId   = $this->filterSection ? $this->subjectListClassId() : 0;
+        $sectionId = (int) $this->filterSection;
+        if (!$ids || !$classId) {
+            return [];
+        }
+        $cards = array_fill_keys($ids, ['teachers' => [], 'mandatory' => null]);
+
+        rescue(function () use (&$cards, $ids, $classId, $sectionId) {
+            \App\Models\Teacher\TeacherSubject::with('teacher.user:id,name')
+                ->whereIn('subject_id', $ids)->where('standard_id', $classId)
+                ->where(fn ($q) => $q->where('section_id', $sectionId)->orWhereNull('section_id'))
+                ->get()
+                ->each(function ($t) use (&$cards) {
+                    $name = trim((string) ($t->teacher?->user?->name ?? ''));
+                    $id   = (int) $t->subject_id;
+                    if ($name !== '' && isset($cards[$id]) && !in_array($name, $cards[$id]['teachers'], true)) {
+                        $cards[$id]['teachers'][] = $name;
+                    }
+                });
+        }, null, false);
+
+        rescue(function () use (&$cards, $ids, $classId) {
+            StandardSubject::where('standard_id', $classId)->whereIn('subject_id', $ids)->get(['subject_id', 'is_mandatory'])
+                ->each(function ($l) use (&$cards) {
+                    if (isset($cards[(int) $l->subject_id])) $cards[(int) $l->subject_id]['mandatory'] = (bool) $l->is_mandatory;
+                });
+        }, null, false);
+
+        return $cards;
+    }
+
     public function getFilteredSectionsProperty()
     {
         // Require a class filter (of this school) — if none, return empty paginator
@@ -1202,6 +1360,9 @@ class Standard extends Component
             'list'              => $list,
             'tabCounts'         => $this->tabCounts($list),
             'filteredStandards' => $this->activeTab === 'standard' ? $list : null,
+            'classCards'        => $this->activeTab === 'standard' ? $this->classCards($list) : [],
+            'sectionCards'      => $this->activeTab === 'section' ? $this->sectionCards($list) : [],
+            'subjectCards'      => $this->activeTab === 'subject' ? $this->subjectCards($list) : [],
             'filteredSections'  => $this->activeTab === 'section' ? $list : null,
             'filteredSubjects'  => $this->activeTab === 'subject' ? $list : null,
             'subjectClassName'  => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
