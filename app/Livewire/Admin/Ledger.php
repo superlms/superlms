@@ -356,7 +356,7 @@ class Ledger extends Component
         $page    = $this->getPage();
         $perPage = 50;
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-            $entries->forPage($page, $perPage)->values(),
+            LedgerService::withClasses($entries->forPage($page, $perPage)->values()),
             $entries->count(),
             $perPage,
             $page,

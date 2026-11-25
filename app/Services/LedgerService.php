@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\CustomFee;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -260,6 +261,8 @@ class LedgerService
                     'reason'  => 'Admission fee collection'
                         . ($a->student_name ? ' · ' . $a->student_name : ''),
                     'by'      => self::recordedBy($orgId, $a->collected_by),
+                    // The class applied for, for the panel's Class column.
+                    'class_standard_id' => $a->standard_id ?? null,
                 ]);
             });
         }
@@ -329,6 +332,57 @@ class LedgerService
             ['date', 'asc'],
             ['sort_at', 'asc'],
         ])->values();
+    }
+
+    /**
+     * The panel's Class column (user's ask of 2026-11-25): each student's row
+     * gets 'class' as the student list shows it — "CLASS 5-A", the student's
+     * class and section now; an admission fee the class applied for; null for
+     * the rest. Called on the rows on screen only (one page), not the window.
+     */
+    public static function withClasses(Collection $rows): Collection
+    {
+        $studentIds  = $rows->pluck('student_id')->filter()->unique()->values()->all();
+        $standardIds = $rows->pluck('class_standard_id')->filter()->unique()->values()->all();
+
+        $students = collect();
+        if ($studentIds && Schema::hasColumn('student_details', 'standard_id') && Schema::hasTable('standards')) {
+            $q = DB::table('student_details as sd')
+                ->leftJoin('standards as st', 'st.id', '=', 'sd.standard_id')
+                ->whereIn('sd.id', $studentIds)
+                ->select('sd.id', 'st.name as standard');
+            if (Schema::hasColumn('student_details', 'section_id') && Schema::hasTable('sections')) {
+                $q->leftJoin('sections as se', 'se.id', '=', 'sd.section_id')->addSelect('se.name as section');
+            }
+            $students = $q->get()->keyBy('id');
+        }
+        $standards = $standardIds && Schema::hasTable('standards')
+            ? DB::table('standards')->whereIn('id', $standardIds)->pluck('name', 'id')
+            : collect();
+
+        // As the student list writes it: the class, then the section's last letter.
+        $label = function ($standard, $section = null): ?string {
+            $standard = trim((string) $standard);
+            if ($standard === '') {
+                return null;
+            }
+            $letter = mb_strtoupper(mb_substr(trim((string) $section), -1));
+
+            return $standard . ($letter !== '' ? '-' . $letter : '');
+        };
+
+        return $rows->map(function ($row) use ($students, $standards, $label) {
+            $class = null;
+            if (! empty($row['student_id']) && isset($students[$row['student_id']])) {
+                $s     = $students[$row['student_id']];
+                $class = $label($s->standard ?? null, $s->section ?? null);
+            } elseif (! empty($row['class_standard_id'])) {
+                $class = $label($standards[$row['class_standard_id']] ?? null);
+            }
+            $row['class'] = $class;
+
+            return $row;
+        });
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -404,6 +458,7 @@ class LedgerService
 
         return [
             'kind'         => $kind,
+            'student_id'   => $student->id ?? null,
             'student_name' => $text($student->full_name ?? null),
             'father_name'  => $text($student->father_name ?? null),
             'admission_no' => $text($student->admission_no ?? null),

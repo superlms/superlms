@@ -235,6 +235,8 @@ class TeacherMonthGridTest extends TestCase
             ->assertViewHas('tCardsTitle', 'Apr 2026 – Mar 2027')
             ->assertSee('September 2026')
             ->assertDontSeeHtml('bg-gradient-to-r from-purple-50')
-            ->assertSeeHtml('bg-emerald-50 text-emerald-700');
+            // Each month a table of square cells, a marked day's cell filled (2026-11-25).
+            ->assertSeeHtml('<div class="att-cal">')
+            ->assertSeeHtml('class="att-day is-present"');
     }
 }

@@ -177,6 +177,9 @@
         position: relative; padding-right: 52px !important;
         animation: lms-fh-in .2s cubic-bezier(.2,.7,.2,1);
     }
+    /* Thinner (user's ask, 2026-11-25): 6px over and under its fields, so the
+       band is 44px tall, not 56px; the fields and the × keep their size. */
+    body.lms-ui #main-scroll .lms-fh.lms-fopen .lms-fbar { padding-top: 6px !important; padding-bottom: 6px !important; }
     @keyframes lms-fh-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
     /* Where the filter button sits: in the header's row of buttons ("in"), at
        the end of the title's row ("row"), or at the header's right edge ("abs"). */

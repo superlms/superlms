@@ -167,18 +167,19 @@
                 <table class="w-full table-fixed">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            {{-- The date on one line ("23 Nov 2026") with the time under it,
-                                 so a row is two lines tall like the student list's. --}}
+                            {{-- Columns in the user's order (2026-11-25): Date, From, To,
+                                 Class, Particulars, Mode, Amount, Balance, Action. The date
+                                 is on one line ("23 Nov 2026") with the time under it, so a
+                                 row is two lines tall like the student list's. --}}
                             <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            {{-- A fee row's particulars are two short lines now and its From
-                                 two as well, so From takes some of the width. --}}
-                            <th class="w-[18%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                            <th class="w-[18%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
-                            <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
-                            <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
-                            <th class="w-[12%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="w-[16%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                            <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
+                            <th class="w-[10%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="w-[15%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                            <th class="w-[8%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
+                            <th class="w-[11%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="w-[11%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
-                            <th class="w-[8%] px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="w-[8%] px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -190,6 +191,23 @@
                                         <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
                                     @endif
                                 </td>
+                                {{-- The school's own side reads as whose entry it is — Admin,
+                                     Sub-admin or Accounts — not as the school's name. A student
+                                     reads as their name, the father's name small under it. --}}
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">
+                                    @if (!empty($row['student_name']))
+                                        {{ $row['student_name'] }}
+                                        @if (!empty($row['father_name']))
+                                            <span class="block text-xs text-gray-400">{{ $row['father_name'] }}</span>
+                                        @endif
+                                    @else
+                                        {{ $row['from_label'] }}
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to_label'] }}</td>
+                                {{-- The student's class as the student list shows it ("CLASS 5-A");
+                                     an admission fee the class applied for. --}}
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ ($row['class'] ?? null) ?: '—' }}</td>
                                 @if (!empty($row['kind']))
                                 {{-- A fee: only its kind — Academic, Transport or Penalty — and
                                      under it the student's admission number. The receipt and the
@@ -232,20 +250,6 @@
                                     </div>
                                 </td>
                                 @endif
-                                {{-- The school's own side reads as whose entry it is — Admin,
-                                     Sub-admin or Accounts — not as the school's name. A student
-                                     reads as their name, the father's name small under it. --}}
-                                <td class="px-3 py-3 text-sm text-gray-600 break-words">
-                                    @if (!empty($row['student_name']))
-                                        {{ $row['student_name'] }}
-                                        @if (!empty($row['father_name']))
-                                            <span class="block text-xs text-gray-400">{{ $row['father_name'] }}</span>
-                                        @endif
-                                    @else
-                                        {{ $row['from_label'] }}
-                                    @endif
-                                </td>
-                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to_label'] }}</td>
                                 <td class="px-3 py-3 text-sm text-gray-500">
                                     {{-- Payment mode, with how the row got here underneath it. --}}
                                     <div class="break-words">{{ $row['mode'] ?: '—' }}</div>
@@ -307,7 +311,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-4 py-16 text-center">
+                                <td colspan="9" class="px-4 py-16 text-center">
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />

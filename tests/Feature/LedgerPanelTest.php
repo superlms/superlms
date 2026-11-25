@@ -90,6 +90,30 @@ class LedgerPanelTest extends TestCase
         $this->assertStringNotContainsString('Aarav Sharma (26DPS150001)', strip_tags($table));
     }
 
+    public function test_the_columns_are_in_the_users_order_with_the_students_class(): void
+    {
+        Schema::table('student_details', function (Blueprint $t) {
+            $t->unsignedBigInteger('standard_id')->nullable(); $t->unsignedBigInteger('section_id')->nullable();
+        });
+        Schema::create('standards', function (Blueprint $t) { $t->id(); $t->string('name'); });
+        Schema::create('sections', function (Blueprint $t) { $t->id(); $t->string('name'); });
+        $std = DB::table('standards')->insertGetId(['name' => 'CLASS 5']);
+        $sec = DB::table('sections')->insertGetId(['name' => 'Section A']);
+        $sid = DB::table('student_details')->insertGetId(['full_name' => 'Navya Attri', 'admission_no' => '26ASIC140205',
+            'father_name' => 'Kalyan Singh', 'standard_id' => $std, 'section_id' => $sec]);
+        DB::table('fee_payments')->insert(['organization_id' => $this->org, 'student_detail_id' => $sid, 'amount' => 5000,
+            'payment_date' => now()->toDateString(), 'fee_type' => 'academic', 'payment_mode' => 'cash']);
+
+        $html  = Livewire::test(Ledger::class)->html();
+        $table = preg_replace('/<!--.*?-->/s', '', substr($html, 0, strpos($html, '</table>')));
+
+        preg_match_all('/<th [^>]*>\s*([^<]+?)\s*<\/th>/', $table, $heads);
+        $this->assertSame(['Date', 'From', 'To', 'Class', 'Particulars', 'Mode', 'Amount', 'Balance', 'Action'], $heads[1]);
+        // From, then To, then the class as the student list writes it, then Particulars.
+        $this->assertMatchesRegularExpression('/Navya Attri\s*<span[^>]*>Kalyan Singh<\/span>\s*<\/td>\s*<td[^>]*>[^<]*<\/td>\s*'
+            . '<td[^>]*>CLASS 5-A<\/td>\s*<td[^>]*>\s*<p[^>]*>Academic<\/p>/s', $table);
+    }
+
     public function test_an_admission_fee_and_a_salary_read_as_the_name_over_the_type(): void
     {
         Schema::create('admission_enquiries', function (Blueprint $t) {
