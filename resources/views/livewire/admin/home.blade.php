@@ -1,7 +1,8 @@
 <div class="sa-skin sa-home min-h-screen">
     {{-- The Super Admin's dashboard look (2026-11-04): KPI cards with their
          change and a sparkline, the fee chart beside a donut, the attendance
-         rate beside one dark card, then the rest in matching cards.
+         rate beside the Today card, then the rest in matching cards (all white
+         since 2026-11-25; the Quick Links card at the foot is gone).
          Since 2026-11-19 in the Super Admin Home's exact style too: its skin
          (livewire.super-admin.partials.home-skin), its header row and teal. --}}
     @include('livewire.super-admin.partials.dash-styles')
@@ -211,7 +212,7 @@
             </div>
         </div>
 
-        {{-- ═══════════════ Attendance rate (lines) + today (dark) ═══════════════ --}}
+        {{-- ═══════════════ Attendance rate (lines) + today ═══════════════ --}}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
             <div class="sa-card p-5 xl:col-span-2 min-w-0">
                 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
@@ -229,45 +230,45 @@
                 </div>
             </div>
 
-            <div class="sa-card-dark p-5 min-w-0 flex flex-col">
+            <div class="sa-card p-5 min-w-0 flex flex-col">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h3 class="text-[15px] font-semibold text-white">Today</h3>
-                        <p class="text-xs text-white/50 mt-0.5">{{ $pick ? \Carbon\Carbon::parse($pick['date'])->format('D, d M Y') : now()->format('D, d M Y') }} · students</p>
+                        <h3 class="sa-card-title">Today</h3>
+                        <p class="sa-card-sub">{{ $pick ? \Carbon\Carbon::parse($pick['date'])->format('D, d M Y') : now()->format('D, d M Y') }} · students</p>
                     </div>
-                    <a href="{{ route('admin.attendance', $org) }}" class="text-xs font-medium text-white/60 hover:text-white whitespace-nowrap">Open →</a>
+                    <a href="{{ route('admin.attendance', $org) }}" class="text-xs font-semibold text-teal-700 hover:text-teal-900 whitespace-nowrap">Open →</a>
                 </div>
                 <div class="flex justify-center my-5">
                     @include('livewire.super-admin.partials.dash-donut', [
                         'segments' => [
-                            ['label' => 'Present', 'value' => (int) ($pick['student_present'] ?? 0), 'color' => '#5eead4'],
+                            ['label' => 'Present', 'value' => (int) ($pick['student_present'] ?? 0), 'color' => '#0d9488'],
                             ['label' => 'Half day', 'value' => (int) ($pick['student_half'] ?? 0), 'color' => '#38bdf8'],
-                            ['label' => 'Absent', 'value' => (int) ($pick['student_absent'] ?? 0), 'color' => '#fb7185'],
-                            ['label' => 'Not marked', 'value' => $notMarked, 'color' => 'rgba(255,255,255,.14)'],
+                            ['label' => 'Absent', 'value' => (int) ($pick['student_absent'] ?? 0), 'color' => '#f43f5e'],
+                            ['label' => 'Not marked', 'value' => $notMarked, 'color' => '#e5e7eb'],
                         ],
-                        'center' => $todayMarked ? $pick['student_pct'] . '%' : '—', 'centerLabel' => 'Present', 'size' => 140, 'legend' => false, 'dark' => true, 'format' => null,
+                        'center' => $todayMarked ? $pick['student_pct'] . '%' : '—', 'centerLabel' => 'Present', 'size' => 140, 'legend' => false, 'dark' => false, 'format' => null,
                     ])
                 </div>
                 <dl class="mt-auto space-y-2.5 text-sm">
                     <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Present</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($pick['student_present'] ?? 0) }}</dd>
+                        <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#0d9488"></span>Present</dt>
+                        <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($pick['student_present'] ?? 0) }}</dd>
                     </div>
                     <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#38bdf8"></span>Half day</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($pick['student_half'] ?? 0) }}</dd>
+                        <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#38bdf8"></span>Half day</dt>
+                        <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($pick['student_half'] ?? 0) }}</dd>
                     </div>
                     <div class="flex items-center justify-between gap-2">
-                        <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#fb7185"></span>Absent</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($pick['student_absent'] ?? 0) }}</dd>
+                        <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#f43f5e"></span>Absent</dt>
+                        <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($pick['student_absent'] ?? 0) }}</dd>
                     </div>
-                    <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
-                        <dt class="text-white/60">Teachers present</dt>
-                        <dd class="font-semibold tabular-nums">{{ number_format($pick['teacher_present'] ?? 0) }} / {{ number_format($totalTeachers) }}</dd>
+                    <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-gray-100">
+                        <dt class="text-gray-500">Teachers present</dt>
+                        <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($pick['teacher_present'] ?? 0) }} / {{ number_format($totalTeachers) }}</dd>
                     </div>
                     <div class="flex items-center justify-between gap-2">
-                        <dt class="text-white/60">Teachers' rate</dt>
-                        <dd class="font-semibold tabular-nums">{{ $teacherMarked ? $pick['teacher_pct'] . '%' : 'Not marked' }}</dd>
+                        <dt class="text-gray-500">Teachers' rate</dt>
+                        <dd class="font-semibold tabular-nums text-gray-900">{{ $teacherMarked ? $pick['teacher_pct'] . '%' : 'Not marked' }}</dd>
                     </div>
                 </dl>
             </div>
@@ -523,25 +524,6 @@
                     @endif
                 </div>
 
-                {{-- Quick links --}}
-                <div class="sa-card min-w-0 overflow-hidden">
-                    <div class="px-5 pt-5 pb-3">
-                        <h3 class="sa-card-title">Quick Links</h3>
-                    </div>
-                    <div class="divide-y divide-gray-100 border-t border-gray-100">
-                        @foreach ([
-                            ['View All Students', 'admin.student'],
-                            ['View All Teachers', 'admin.teacher'],
-                            ['Manage Classes', 'admin.standard'],
-                            ['View Analytics', 'admin.analytics'],
-                        ] as [$label, $route])
-                            <a href="{{ route($route, $org) }}" class="flex items-center justify-between px-5 py-2.5 hover:bg-gray-50 transition-colors">
-                                <span class="text-sm text-gray-700">{{ $label }}</span>
-                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
             </div>
         </div>
     </div>

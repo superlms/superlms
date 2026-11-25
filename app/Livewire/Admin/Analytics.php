@@ -1439,6 +1439,12 @@ class Analytics extends Component
 
     public function render()
     {
-        return view('livewire.admin.analytics');
+        // Each tab's extra detail (2026-11-25): worked out here, not kept in the
+        // component's state, and held a minute per school and filter.
+        return view('livewire.admin.analytics', [
+            'detail' => \App\Support\AdminAnalyticsDetail::for(
+                $this->orgId(), (string) $this->performerClass, (string) $this->performerSection, (int) $this->admissionYear
+            ),
+        ]);
     }
 }

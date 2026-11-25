@@ -208,10 +208,13 @@ class AdminDashboardLookTest extends TestCase
                   'Fee Collection', '₹4.65L in 30 days', '₹17.85L pending', 'Students by Class', 'Class 5', 'Others',
                   'Attendance Rate', 'Today', 'Half day', 'Teachers present', 'Attendance · Last 7 Days',
                   'Upcoming Events', 'Annual Day', 'Main hall', 'Exam Performance', 'Latest · Half-Yearly', '66.2%', '4.7 pts',
-                  'Queries', 'LMS Rating', '4.5', 'Helpful for our office', 'Quick Links', 'Recent Searches', 'Fee Management'] as $seen) {
+                  'Queries', 'LMS Rating', '4.5', 'Helpful for our office', 'Recent Searches', 'Fee Management'] as $seen) {
             $this->assertStringContainsString($seen, $text, "Home shows \"{$seen}\"");
         }
-        foreach (['sa-card-dark', 'id="adminHomeFeeChart"', 'id="adminHomeAttChart"', 'id="adminHomeExamChart"', "saCharts.define('adminHome'", '/analytics"'] as $seen) {
+        // No Quick Links card at the foot, and Today a white card like the rest (2026-11-25).
+        $this->assertStringNotContainsString('View All Students', $text);
+        $this->assertDoesNotMatchRegularExpression('/class="sa-card-dark/', $html);
+        foreach (['id="adminHomeFeeChart"', 'id="adminHomeAttChart"', 'id="adminHomeExamChart"', "saCharts.define('adminHome'", '/analytics"'] as $seen) {
             $this->assertStringContainsString($seen, $html);
         }
 
@@ -301,7 +304,14 @@ class AdminDashboardLookTest extends TestCase
                   'adminFeeClassChart', 'adminTransportClassChart', 'adminTransportRouteChart'] as $canvas) {
             $this->assertStringContainsString('id="' . $canvas . '"', $html);
         }
-        $this->assertStringContainsString('sa-card-dark', $html);
+        // No dark card (2026-11-25), and each tab's extra detail under its cards.
+        $this->assertDoesNotMatchRegularExpression('/class="sa-card-dark/', $html);
+        foreach (['School at a Glance', 'Students by Class', 'This Month vs Last Month', 'Today, Class by Class', 'Students Absent Most',
+                  'By Day of the Week', 'Exam by Exam', 'Subject by Subject', 'How the Marks Spread', 'Class-wise Average',
+                  'Admitted by Class', 'Admission Applications', 'Enquiries by Month', 'Collected Over Time', 'Class-wise Fee',
+                  'How It Was Paid', 'Latest Payments', 'The Day at School', 'Homework · Last 7 Days', 'Latest Complaints'] as $seen) {
+            $this->assertStringContainsString($seen, $text, "Analytics shows \"{$seen}\"");
+        }
 
         $p = $this->payload($html, 'adminAnalytics');
         $this->assertSame([40, 12], $p['admissions']['data']);

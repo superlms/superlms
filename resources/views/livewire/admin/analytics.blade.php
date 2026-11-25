@@ -7,7 +7,10 @@
      section of its own, picked with the chips under the header (the URL's
      #hash keeps the one open). Every section is drawn hidden and x-show opens
      the picked one, so a re-render (a filter, the admission year) keeps it
-     open: Livewire's morph leaves an element x-show has shown alone. --}}
+     open: Livewire's morph leaves an element x-show has shown alone.
+     Since 2026-11-25 every tab carries more detail under its cards
+     (livewire.admin._partials.analytics-detail, App\Support\AdminAnalyticsDetail),
+     and the fee's position is a white card like the rest. --}}
 @php
     $wa = $this->whatsAppAnalytics();
     $anTabs = array_filter([
@@ -154,6 +157,8 @@
                 ['Unpaid Students', number_format($kpis['unpaid_students'] ?? 0), 'no payment yet', 'text-rose-600'],
                 ['New Admissions', number_format($kpis['new_admissions'] ?? 0), 'last 30 days', 'text-violet-600'],
             ]])
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'metrics', 'detail' => $detail])
         </section>
 
         {{-- ═══════════════════════ ATTENDANCE ═══════════════════════ --}}
@@ -252,6 +257,8 @@
                     <div class="text-center py-10 text-gray-400 text-sm">No attendance recorded yet.</div>
                 @endif
             </div>
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'attendance', 'detail' => $detail])
         </section>
 
         {{-- ═══════════════════════ PERFORMANCE ═══════════════════════ --}}
@@ -320,6 +327,8 @@
                     </div>
                 @endforeach
             </div>
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'performance', 'detail' => $detail])
         </section>
 
         {{-- ═══════════════════════ ADMISSIONS & ENQUIRIES ═══════════════════════ --}}
@@ -406,6 +415,8 @@
                     </div>
                 </div>
             </div>
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'admissions', 'detail' => $detail])
         </section>
 
         {{-- ═══════════════════════ FEE ═══════════════════════ --}}
@@ -418,7 +429,7 @@
                 ['Transport Fee', $inr($feeStats['transportFee'] ?? 0), 'of the total', 'text-gray-900'],
             ]])
 
-            {{-- Month by month (area) + where the fee stands (dark) --}}
+            {{-- Month by month (area) + where the fee stands --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="sa-card p-5 lg:col-span-2 min-w-0">
                     <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
@@ -433,36 +444,36 @@
                     </div>
                 </div>
 
-                <div class="sa-card-dark p-5 min-w-0 flex flex-col">
+                <div class="sa-card p-5 min-w-0 flex flex-col">
                     <div>
-                        <h3 class="text-[15px] font-semibold text-white">Where the Fee Stands</h3>
-                        <p class="text-xs text-white/50 mt-0.5">This session, up to today</p>
+                        <h3 class="sa-card-title">Where the Fee Stands</h3>
+                        <p class="sa-card-sub">This session, up to today</p>
                     </div>
                     <div class="flex justify-center my-5">
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Collected', 'value' => (float) ($feeStats['collected'] ?? 0), 'color' => '#5eead4'],
-                                ['label' => 'Remaining', 'value' => (float) ($feeStats['remaining'] ?? 0), 'color' => 'rgba(255,255,255,.14)'],
+                                ['label' => 'Collected', 'value' => (float) ($feeStats['collected'] ?? 0), 'color' => '#0d9488'],
+                                ['label' => 'Remaining', 'value' => (float) ($feeStats['remaining'] ?? 0), 'color' => '#e5e7eb'],
                             ],
-                            'center' => ($kpis['collect_rate'] ?? 0) . '%', 'centerLabel' => 'Collected', 'size' => 140, 'legend' => false, 'dark' => true, 'format' => null,
+                            'center' => ($kpis['collect_rate'] ?? 0) . '%', 'centerLabel' => 'Collected', 'size' => 140, 'legend' => false, 'dark' => false, 'format' => null,
                         ])
                     </div>
                     <dl class="mt-auto space-y-2.5 text-sm">
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#5eead4"></span>Collected</dt>
-                            <dd class="font-semibold tabular-nums">{{ $inr($feeStats['collected'] ?? 0) }}</dd>
+                            <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#0d9488"></span>Collected</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ $inr($feeStats['collected'] ?? 0) }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:rgba(255,255,255,.3)"></span>Remaining</dt>
-                            <dd class="font-semibold tabular-nums">{{ $inr($feeStats['remaining'] ?? 0) }}</dd>
+                            <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#e5e7eb"></span>Remaining</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ $inr($feeStats['remaining'] ?? 0) }}</dd>
                         </div>
-                        <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/10">
-                            <dt class="text-white/60">Average a day · 30 days</dt>
-                            <dd class="font-semibold tabular-nums">{{ $inr($kpis['avg_daily'] ?? 0) }}</dd>
+                        <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-gray-100">
+                            <dt class="text-gray-500">Average a day · 30 days</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ $inr($kpis['avg_daily'] ?? 0) }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-2">
-                            <dt class="text-white/60">Unpaid students</dt>
-                            <dd class="font-semibold tabular-nums">{{ number_format($kpis['unpaid_students'] ?? 0) }}</dd>
+                            <dt class="text-gray-500">Unpaid students</dt>
+                            <dd class="font-semibold tabular-nums text-gray-900">{{ number_format($kpis['unpaid_students'] ?? 0) }}</dd>
                         </div>
                     </dl>
                 </div>
@@ -511,6 +522,8 @@
                     @endif
                 </div>
             </div>
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'fee', 'detail' => $detail])
 
             {{-- ── Transport fee ───────────────────────────────────────────────
                  Transport is billed off the route's monthly fee rather than a
@@ -650,6 +663,8 @@
                     <div class="text-center py-10 text-gray-400 text-sm border-t border-gray-100">All teachers are present today — no arrangements needed.</div>
                 @endif
             </div>
+
+            @include('livewire.admin._partials.analytics-detail', ['part' => 'operations', 'detail' => $detail])
         </section>
     </div>
 
