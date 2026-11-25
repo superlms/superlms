@@ -142,6 +142,11 @@ class FeeMergedTabsTest extends TestCase
         $page->call('showTab', 'payment_qr');
         $this->assertSame(['qr_payments', 'qr'], [$page->get('activeTab'), $page->get('qrSubTab')]);
         $html = $page->html();
+        // Any section but Analytics opens as before the chips: its name is the
+        // header's title, the back button goes to Analytics, and no chips show.
+        $this->assertMatchesRegularExpression('#<h1[^>]*>\s*QR Code\s*</h1>#', $html);
+        $this->assertStringContainsString('wire:click="backToMenu" title="Back to Analytics"', $html);
+        $this->assertStringNotContainsString('fee-chip-', $html);
         $this->assertStringContainsString("wire:click=\"setQrSubTab('payments')\"", $html);
         $this->assertStringContainsString('Add QR', $html);                          // the QR tab's button
         $this->assertStringNotContainsString('wire:model.live="qrStatus"', $html);   // no payments filter here

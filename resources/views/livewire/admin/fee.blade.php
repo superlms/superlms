@@ -45,19 +45,31 @@
             || (\App\Services\FeeAutopay::tracked() && \App\Models\Admin\Fee\FeeAutopayMandate::where('organization_id', $autopayOrg)->exists())) {
             $feeTabs['autopay'] = ['Autopay', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', "Parents' UPI AutoPay — installments paid on their own", 'blue'];
         }
-        $headerTitle = 'Fee';
+        // Analytics is Fee's home: the title "Fee" and the chips under it. Any other
+        // section opens as it did before the chips (user's ask of 2026-11-25): its own
+        // name is the header's title, with the back button to Analytics before it, and
+        // its own tabs, buttons and filter as they were — no chips.
+        $feeHome     = $activeTab === 'analytics';
+        $headerTitle = $feeHome ? 'Fee' : ($feeTabs[$activeTab][0] ?? 'Fee');
     @endphp
 
     {{-- ══════════════════════════════════════════════════
          HEADER (sticky: dynamic per-tab title + stats + Add + filter bar)
     ══════════════════════════════════════════════════ --}}
-    {{-- The header: the title row with its line, then the chips on the page
-         (Analytics' look, not in the header's box), then the open section's
-         own tabs and filter band. --}}
-    <div class="fee-head sticky top-0 z-30">
-        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+    {{-- On Analytics: the title row with its line, then the chips on the page
+         (Analytics' look, not in the header's box), then its filter band. Any
+         other section: the old white header box — back button, the section's
+         name, its buttons — then its own tabs and filter band. --}}
+    <div class="{{ $feeHome ? 'fee-head' : 'bg-white border-b border-gray-200' }} sticky top-0 z-30">
+        <div class="{{ $feeHome ? 'bg-white border-b border-gray-200 ' : '' }}px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-3">
+                    @unless ($feeHome)
+                        <button wire:click="backToMenu" title="Back to Analytics"
+                            class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    @endunless
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">{{ $headerTitle }}</h1>
                     </div>
@@ -183,7 +195,8 @@
             </div>
         </div>
 
-        {{-- ══════════ THE SECTIONS — Analytics' chips (teal when open) ══════════ --}}
+        {{-- ══════════ THE SECTIONS — Analytics' chips, on Analytics only ══════════ --}}
+        @if ($feeHome)
         <nav class="sa-skin an-chips fee-chips" aria-label="Fee sections">
             @foreach ($feeTabs as $tab => [$label, $icon])
                 <button type="button" wire:key="fee-chip-{{ $tab }}" wire:click="showTab('{{ $tab }}')"
@@ -196,6 +209,7 @@
                 </button>
             @endforeach
         </nav>
+        @endif
 
         {{-- ══════════ PER-TAB FILTER BAR (gray-50, exam-style) ══════════ --}}
         @if ($activeTab === 'account_users')

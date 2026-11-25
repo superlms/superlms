@@ -167,10 +167,12 @@
                 <table class="w-full table-fixed">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="w-[10%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                            {{-- The date on one line ("23 Nov 2026") with the time under it,
+                                 so a row is two lines tall like the student list's. --}}
+                            <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                             {{-- A fee row's particulars are two short lines now and its From
                                  two as well, so From takes some of the width. --}}
-                            <th class="w-[20%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                            <th class="w-[18%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
                             <th class="w-[18%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
                             <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
                             <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
@@ -182,7 +184,7 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($entries as $row)
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-3 py-3 text-sm text-gray-600">
+                                <td class="px-3 py-3 text-sm text-gray-600 xl:whitespace-nowrap">
                                     {{ $row['date']->format('d M Y') }}
                                     @if (!empty($row['time']))
                                         <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
