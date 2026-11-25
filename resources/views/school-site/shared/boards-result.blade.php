@@ -26,6 +26,14 @@
     $payments  = array_slice(array_values(array_filter($fee['payments'] ?? [], fn ($p) => empty($p['is_concession']))), 0, 25);
     $status    = ['paid' => 'Paid', 'partial' => 'Part Paid', 'pending' => 'Due', 'na' => '—'];
 
+    $bd     = $b['board'] ?? null;
+    $pct    = fn ($n) => rtrim(rtrim(number_format((float) $n, 1, '.', ''), '0'), '.') . '%';
+    $locked = $bd ? array_keys(array_filter(['board roll number' => !$bd['roll_ok'], 'admit card' => !$bd['admit_ok']])) : [];
+    $need   = !$bd ? '' : (!$bd['roll_ok']
+        ? 'Your roll number shows when ' . $pct($bd['roll_need']) . ' of the fee is paid'
+            . (!$bd['admit_ok'] ? ' and your admit card when ' . $pct($bd['admit_need']) . ' is paid;' : ';')
+        : 'Your admit card shows when ' . $pct($bd['admit_need']) . ' of the fee is paid;');
+
     $qr     = $b['qr'] ?? null;
     $qrSvg  = null;
     if ($qr && empty($qr['image']) && !empty($qr['upi_id'])) {
@@ -56,6 +64,53 @@
         <div class="{{ $t['remaining'] > 0 ? 'due' : 'ok' }}"><span>Balance</span><b>{{ $money($t['remaining']) }}</b></div>
     </div>
 </div>
+
+@if ($bd)
+    {{-- The board roll number and admit card — each only once the share of the
+         fee the school asks for it is paid (More → Boards → Settings). --}}
+    <div class="lms-card bd-board">
+        <div class="lms-head">
+            <h2>Board Roll Number &amp; Admit Card</h2>
+            <span class="meta">Fee paid {{ $pct($bd['paid_pct']) }}</span>
+        </div>
+        @if ($locked)
+            <div class="bd-msg" role="alert">
+                <b>Please pay your fee to get your {{ implode(' and ', $locked) }}.</b>
+                <span>
+                    Pay it to your school{{ $qr && (!empty($qr['image']) || $qrSvg) ? " on the school's QR code below" : ' at the school office' }}.
+                    {{ $need }} you have paid {{ $pct($bd['paid_pct']) }}.
+                </span>
+                @if ($qr && (!empty($qr['image']) || $qrSvg))<a href="#bd-pay" class="bd-msg-go">Pay fee ↓</a>@endif
+            </div>
+        @endif
+        <dl class="bd-dl">
+            <div>
+                <dt>Board Roll Number</dt>
+                <dd>
+                    @if (!$bd['roll_ok'])
+                        <span class="bd-lock">Shows when {{ $pct($bd['roll_need']) }} of the fee is paid</span>
+                    @elseif ($bd['roll_number'])
+                        <span class="bd-roll">{{ $bd['roll_number'] }}</span>
+                    @else
+                        <span class="muted">The school has not added it yet.</span>
+                    @endif
+                </dd>
+            </div>
+            <div>
+                <dt>Admit Card</dt>
+                <dd>
+                    @if (!$bd['admit_ok'])
+                        <span class="bd-lock">Shows when {{ $pct($bd['admit_need']) }} of the fee is paid</span>
+                    @elseif ($bd['admit_url'])
+                        <a class="lms-btn bd-dl-btn" href="{{ $bd['admit_url'] }}" target="_blank" rel="noopener">Download Admit Card</a>
+                    @else
+                        <span class="muted">The school has not added it yet.</span>
+                    @endif
+                </dd>
+            </div>
+        </dl>
+    </div>
+@endif
 
 <div class="bd-cols">
     <div class="lms-card">
@@ -165,7 +220,7 @@
 </div>
 
 @if ($qr && (!empty($qr['image']) || $qrSvg))
-    <div class="lms-card bd-pay">
+    <div class="lms-card bd-pay" id="bd-pay">
         <div class="lms-head">
             <h2>Pay Fee</h2>
             <p class="note">Scan the school's QR with any UPI app to pay your fee.</p>

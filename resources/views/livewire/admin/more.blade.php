@@ -1,36 +1,48 @@
-<div class="min-h-screen bg-gray-50">
+{{-- School Admin → More in the Quick Links look (user's ask of 2026-11-25,
+     livewire.super-admin.partials.home-skin, sk-ql): one 60px header row —
+     the title, the search (filters the tiles as you type; Enter opens the
+     first) and the time with the date under it — and every screen a white
+     tile on a white page that fills with its own pastel under the pointer. --}}
+<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
+    @include('livewire.super-admin.partials.home-skin')
 
-    {{-- Header --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-30">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900">More</h1>
-            </div>
+    {{-- ─── Header row ─── --}}
+    <div class="sk-head">
+        <div class="sk-title">
+            <h1>More</h1>
+        </div>
+
+        <label class="sk-search">
+            <x-icon name="magnifying-glass" />
+            <span class="sr-only">Search</span>
+            <input type="text" x-model="q" placeholder="Search..." autocomplete="off"
+                x-on:keydown.escape="q = ''"
+                x-on:keydown.enter.prevent="const t = [...$root.querySelectorAll('.sk-tile')].find(el => el.style.display !== 'none'); if (t) t.click()">
+            <button type="button" x-show="q" x-on:click="q = ''" style="display: none" aria-label="Clear"><x-icon name="x-mark" class="w-3.5 h-3.5" /></button>
+        </label>
+
+        <div class="sk-right">
+            @include('livewire.super-admin.partials.ql-clock')
         </div>
     </div>
 
-    {{-- Tile grid — 5 cols x 2 rows on desktop; collapses gracefully on smaller screens. --}}
-    <div class="p-3 sm:p-4 md:p-6">
-        <div class="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
-            @php
-                $colors = ['blue','indigo','purple','green','yellow','pink','teal','rose','cyan','lime','fuchsia','red','orange','amber','sky','violet','gray'];
-            @endphp
-            @foreach ($items as $i => $item)
-                @php
-                    $color = $colors[abs(crc32($item['title'])) % count($colors)];
-                @endphp
-                <a href="{{ route($item['route'], ['organization' => $organization]) }}"
-                   wire:key="more-{{ $item['route'] }}"
-                   class="flex flex-col items-center justify-start p-3 sm:p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 active:scale-[0.98] transition overflow-hidden min-w-0">
-                    <div class="w-10 h-10 sm:w-11 sm:h-11 bg-{{ $color }}-100 rounded-full flex items-center justify-center mb-2 shrink-0">
-                        <x-icon name="{{ $item['icon'] }}" class="w-5 h-5 text-{{ $color }}-600" />
-                    </div>
-                    <span class="block w-full text-xs sm:text-sm font-medium text-center text-gray-800 leading-snug break-words"
-                          style="overflow-wrap: anywhere;">
-                        {{ $item['title'] }}
-                    </span>
-                </a>
-            @endforeach
+    {{-- ─── The tiles ─── --}}
+    <div class="sk-body flex-1 min-h-0 flex flex-col">
+        <div class="sk-panel flex-1 min-h-0">
+            <div class="sk-tiles" :class="q && 'is-filtering'">
+                @php $tints = [['#dff3ee', '#0f766e'], ['#dde9fb', '#2563eb'], ['#e9e2fb', '#7c3aed'], ['#f8edd0', '#b45309'], ['#f6dcd8', '#c2410c'], ['#e3efdc', '#4d7c0f']]; @endphp
+                @foreach ($items as $i => $item)
+                    @php [$tint, $ink] = $tints[$i % count($tints)]; @endphp
+                    <a href="{{ route($item['route'], ['organization' => $organization]) }}" wire:key="more-{{ $item['route'] }}" class="sk-tile" style="--i: {{ $i }}; --tint: {{ $tint }}; --ink: {{ $ink }};"
+                        x-show="!q || {{ \Illuminate\Support\Js::from(mb_strtolower($item['title'])) }}.includes(q.trim().toLowerCase())">
+                        <span class="sk-tile-ic"><x-icon name="{{ $item['icon'] }}" /></span>
+                        <span>{{ $item['title'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+            <p class="sk-empty" x-show="q && ![...$root.querySelectorAll('.sk-tile')].some(el => el.textContent.toLowerCase().includes(q.trim().toLowerCase()))" style="display: none">
+                Nothing found for “<span x-text="q"></span>”
+            </p>
         </div>
     </div>
 </div>

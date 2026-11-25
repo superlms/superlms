@@ -5,6 +5,8 @@ namespace App\Support;
 use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Models\Admin\Fee\PaymentQrCode;
 use App\Models\Admin\Transportation;
+use App\Models\Boards\BoardSetting;
+use App\Models\Boards\BoardStudent;
 use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Crypt;
@@ -131,6 +133,16 @@ class BoardsStudent
         return $student && $student->user && $student->user->is_active ? $student : null;
     }
 
+    /** The student's board roll number and admit card row, if the school has added either. */
+    public function boardRecord(int $studentId): ?BoardStudent
+    {
+        try {
+            return BoardStudent::where('organization_id', $this->orgId)->where('student_detail_id', $studentId)->first();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return null;   // before the migration
+        }
+    }
+
     /** "XXXX XXXX 1234" — the Aadhaar number with only its last four digits. */
     public static function maskAadhaar(?string $no): string
     {
@@ -142,9 +154,13 @@ class BoardsStudent
     /**
      * Everything the Boards page shows a student, and the admin's View: their
      * personal details, class details, their fee (as the admin's View Fee
-     * works it out) and the school's payment QR.
+     * works it out), the school's payment QR, and their board roll number and
+     * admit card. On the website ($forSchool false) the Aadhaar number shows
+     * only its last four digits, and the roll number and the admit card only
+     * once the student has paid the share of the fee the school asks for
+     * them (More → Boards → Settings); the school sees everything.
      */
-    public function data(StudentDetail $student, bool $fullAadhaar = false): array
+    public function data(StudentDetail $student, bool $forSchool = false): array
     {
         $student->loadMissing(['user', 'standard', 'section']);
         $org  = Organization::find($this->orgId);
@@ -164,7 +180,7 @@ class BoardsStudent
             'Religion'           => $student->religion,
             'Mobile'             => $student->phone,
             'Email'              => $student->email ?: ($student->user->email ?? ''),
-            'Aadhar Number'      => $fullAadhaar ? $student->aadhar_no : self::maskAadhaar($student->aadhar_no),
+            'Aadhar Number'      => $forSchool ? $student->aadhar_no : self::maskAadhaar($student->aadhar_no),
             'Apaar ID'           => $student->appar_id,
             'Registration Number' => $student->registration_number,
             'Local Address'      => $student->local_address,
@@ -190,7 +206,27 @@ class BoardsStudent
         $fee     = $this->buildStudentFeeView((int) $student->id);
         $balance = (float) ($fee['totals']['remaining'] ?? 0);
 
+        // The board roll number and admit card, behind the school's fee rules.
+        $net   = (float) ($fee['totals']['net'] ?? 0);
+        $paid  = (float) ($fee['totals']['paid'] ?? 0);
+        $pct   = $net > 0 ? min(100.0, $paid / $net * 100) : 100.0;
+        $rules = BoardSetting::rules($this->orgId);
+        $rec   = $this->boardRecord((int) $student->id);
+        $board = [
+            'paid_pct'   => floor($pct * 10) / 10,
+            'roll_need'  => $rules['roll'],
+            'admit_need' => $rules['admit'],
+            'roll_ok'    => $pct + 1e-9 >= $rules['roll'],
+            'admit_ok'   => $pct + 1e-9 >= $rules['admit'],
+            'has_roll'   => trim((string) $rec?->roll_number) !== '',
+            'has_admit'  => (bool) $rec?->admit_card_path,
+        ];
+        $board['roll_number'] = ($forSchool || $board['roll_ok']) && $board['has_roll'] ? trim($rec->roll_number) : null;
+        $board['admit_url']   = ($forSchool || $board['admit_ok']) && $board['has_admit'] ? $rec->admitCardUrl() : null;
+        $board['admit_name']  = $board['admit_url'] ? ($rec->admit_card_name ?: 'Admit Card') : null;
+
         return [
+            'board'    => $board,
             'name'     => $personal['Full Name'],
             'photo'    => ($student->user?->image) ?: ($student->image ?: null),
             'school'   => $org?->name ?? '',

@@ -8,6 +8,8 @@ use App\Livewire\Admin\Admissions;
 use App\Livewire\Admin\Boards;
 use App\Livewire\Admin\Enqueries;
 use App\Models\Admin\AdmissionEnquiry;
+use App\Models\Boards\BoardSetting;
+use App\Models\Boards\BoardStudent;
 use App\Models\Organization;
 use App\Models\SchoolWebsite;
 use App\Models\SchoolWebsiteEnquiry;
@@ -144,6 +146,15 @@ class SchoolBoardsAdmissionTest extends TestCase
                 $t->text('admin_text')->nullable(); $t->boolean('admin_reply')->default(false); $t->timestamps();
             });
         }
+        Schema::create('board_settings', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id')->unique(); $t->decimal('roll_fee_percent', 5, 2)->default(0);
+            $t->decimal('admit_fee_percent', 5, 2)->default(0); $t->timestamps();
+        });
+        Schema::create('board_students', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('student_detail_id')->unique();
+            $t->string('roll_number', 40)->nullable(); $t->string('admit_card_path')->nullable(); $t->string('admit_card_name')->nullable();
+            $t->unsignedBigInteger('updated_by')->nullable(); $t->timestamps();
+        });
         app()->forgetInstance('fee_structures.student_rows');
 
         DB::table('organizations')->insert([
@@ -434,5 +445,75 @@ class SchoolBoardsAdmissionTest extends TestCase
         $page->call('closeView')->call('clearFilters')->set('filterStandard', '8');
         $this->assertStringContainsString('Aman Kumar', $page->html());
         $this->assertStringNotContainsString('Riya Singh', $page->html());
+    }
+
+    /**
+     * User's ask of 2026-11-25 (later): More → Boards → Settings holds two fee
+     * rules — the share of the fee paid before the website shows the board
+     * roll number, and before it gives the admit card; each student's arrow
+     * opens their details with the roll number and admit card to save; below
+     * the rule the website asks the student to pay on the school's QR code.
+     */
+    public function test_the_roll_number_and_admit_card_show_on_the_website_only_past_the_fee_rules(): void
+    {
+        $aman = $this->students();   // fee 12,000, paid 5,000 → 41.6%
+        $page = fn () => $this->text($this->login(['name' => 'Aman Kumar', 'father' => 'Ramesh', 'dob' => '2010-05-04'])->json('html'));
+
+        // Nothing added and no rules yet: the card says so.
+        $this->assertStringContainsString('Board Roll Number & Admit Card Fee paid 41.6% Board Roll Number The school has not added it yet.', $page());
+
+        // Settings: the two rules, 0 to 100.
+        $boards = Livewire::test(Boards::class)->call('setTab', 'settings')->assertSee(['Board Roll Number', 'Admit Card'])
+            ->set('rollPercent', '120')->call('saveSettings')->assertHasErrors('rollPercent')
+            ->set('rollPercent', '40')->set('admitPercent', '100')->call('saveSettings')->assertHasNoErrors();
+        $this->assertSame(['roll' => 40.0, 'admit' => 100.0], BoardSetting::rules(1));
+        $this->assertSame('40', Livewire::test(Boards::class)->get('rollPercent'));
+
+        // A row's arrow: the student's details and the two fields, saved together.
+        $boards->call('setTab', 'students')->call('view', $aman)
+            ->assertSee(['Board Roll Number', 'Admit Card', 'Personal Details', 'Fee paid:'])
+            ->set('boardRoll', ' CBSE-26-0042 ')
+            ->set('admitCard', UploadedFile::fake()->create('aman-admit-card.pdf', 120, 'application/pdf'))
+            ->call('saveBoard')->assertHasNoErrors();
+        $rec = BoardStudent::sole();
+        $this->assertSame(['CBSE-26-0042', 'aman-admit-card.pdf', 1], [$rec->roll_number, $rec->admit_card_name, (int) $rec->organization_id]);
+        Storage::disk('s3')->assertExists($rec->admit_card_path);
+        $this->assertStringStartsWith('boards/admit-cards/1/', $rec->admit_card_path);
+        $list = $this->text($boards->call('closeView')->html());
+        $this->assertStringContainsString('CBSE-26-0042 Admit card ✓', $list);
+        $boards->call('view', $aman)->set('admitCard', UploadedFile::fake()->create('virus.exe', 10))->call('saveBoard')->assertHasErrors('admitCard');
+
+        // 41.6% paid: the roll number (40%) shows, the admit card (100%) does not — pay on the QR.
+        $html = $this->login(['name' => 'Aman Kumar', 'father' => 'Ramesh', 'dob' => '2010-05-04'])->json('html');
+        $text = $this->text($html);
+        $this->assertStringContainsString('Board Roll Number CBSE-26-0042', $text);
+        $this->assertStringContainsString("Please pay your fee to get your admit card. Pay it to your school on the school's QR code below.", $text);
+        $this->assertStringContainsString('Admit Card Shows when 100% of the fee is paid', $text);
+        $this->assertStringNotContainsString($rec->admit_card_path, $html);
+        $this->assertStringContainsString('href="#bd-pay"', $html);
+
+        // A higher roll-number rule: neither shows, and the number is not in the page at all.
+        BoardSetting::where('organization_id', 1)->update(['roll_fee_percent' => 50]);
+        $html = $this->login(['name' => 'Aman Kumar', 'father' => 'Ramesh', 'dob' => '2010-05-04'])->json('html');
+        $this->assertStringNotContainsString('CBSE-26-0042', $html);
+        $this->assertStringContainsString('Please pay your fee to get your board roll number and admit card.', $this->text($html));
+        $this->assertStringContainsString('Your roll number shows when 50% of the fee is paid and your admit card when 100% is paid; you have paid 41.6%.', $this->text($html));
+
+        // The whole fee paid: both, with the admit card to download, and no message.
+        DB::table('fee_payments')->insert(['organization_id' => 1, 'student_detail_id' => $aman, 'amount' => 7000, 'payment_mode' => 'upi', 'payment_date' => '2026-11-20']);
+        $html = $this->login(['name' => 'Aman Kumar', 'father' => 'Ramesh', 'dob' => '2010-05-04'])->json('html');
+        $this->assertStringContainsString('Board Roll Number CBSE-26-0042', $this->text($html));
+        $this->assertStringContainsString('Download Admit Card', $html);
+        $this->assertStringContainsString($rec->admit_card_path, $html);
+        $this->assertStringNotContainsString('Please pay your fee', $html);
+
+        // Removing the admit card deletes the file.
+        $boards->call('view', $aman)->call('removeAdmitCard');
+        Storage::disk('s3')->assertMissing($rec->admit_card_path);
+        $this->assertNull($rec->fresh()->admit_card_path);
+
+        // Not a Class 9–12 student: nothing opens.
+        $riya = (int) DB::table('student_details')->where('full_name', 'Riya Singh')->value('id');
+        $boards->call('closeView')->call('view', $riya)->assertSet('viewingId', null);
     }
 }
