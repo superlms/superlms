@@ -39,6 +39,43 @@
     <section>
         <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
 
+        @if (!empty($feeKpis))
+            {{-- The admin's Fee (2026-11-25): Analytics' KPI cards — the figure,
+                 its months as a sparkline, and what it is made of. --}}
+            @php
+                $monthAmounts = array_map('floatval', array_column($monthly, 'amount'));
+                $collTrend    = count($monthAmounts) >= 2
+                    ? \App\Support\DashboardChart::trend((float) end($monthAmounts), (float) $monthAmounts[count($monthAmounts) - 2])
+                    : null;
+            @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Total Billable', 'value' => '₹' . number_format($a['total_billable'] ?? 0, 0), 'icon' => 'banknotes', 'color' => 'teal',
+                    'series' => [], 'trend' => null, 'flat' => false,
+                    'sub' => '₹' . number_format($a['year_billable'] ?? 0, 0) . ' academic · ₹' . number_format($a['transport_billable'] ?? 0, 0) . ' transport'
+                        . (($a['dues_billable'] ?? 0) > 0 ? ' · ₹' . number_format($a['dues_billable'], 0) . ' dues' : ''),
+                    'href' => null,
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Collected', 'value' => '₹' . number_format($a['total_collected'] ?? 0, 0), 'icon' => 'arrow-trending-up', 'color' => 'emerald',
+                    'series' => $monthAmounts, 'trend' => $collTrend, 'flat' => true, 'compare' => 'vs last month',
+                    'sub' => ($a['penalty_collected'] ?? 0) > 0 ? '+ ₹' . number_format($a['penalty_collected'], 0) . ' penalty' : 'Academic + transport + dues',
+                    'href' => null,
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Outstanding', 'value' => '₹' . number_format($a['total_due'] ?? 0, 0), 'icon' => 'exclamation-circle', 'color' => 'rose',
+                    'series' => [], 'trend' => null, 'flat' => false,
+                    'sub' => ($a['defaulters'] ?? 0) . ' students with dues',
+                    'href' => null,
+                ])
+                @include('livewire.super-admin.partials.dash-kpi', [
+                    'label' => 'Collection Rate', 'value' => $rate . '%', 'icon' => 'chart-pie', 'color' => 'sky',
+                    'series' => [], 'trend' => null, 'flat' => false,
+                    'sub' => '₹' . number_format($perStudent, 0) . ' collected a student · ' . ($a['students'] ?? 0) . ' students',
+                    'href' => null,
+                ])
+            </div>
+        @else
         {{-- Total Billable is the academic fee, the bus fee and the Last Year
              Dues together (each net of concession); this year's academic fee
              and the bus fee follow it on their own. --}}
@@ -58,6 +95,7 @@
                 </div>
             @endforeach
         </div>
+        @endif
 
         @php
             $heads = [

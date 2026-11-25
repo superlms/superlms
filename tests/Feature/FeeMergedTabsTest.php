@@ -122,15 +122,20 @@ class FeeMergedTabsTest extends TestCase
         $html = $page->html();
 
         $this->assertStringContainsString('View &amp; Submit Fee', $html);
-        $this->assertStringNotContainsString('>Fee Submission</span>', $html);
-        $this->assertStringNotContainsString('>Payment QR</span>', $html);
-        $this->assertStringContainsString('>QR Payments</span>', $html);
-        $this->assertStringContainsString('>Analytics</span>', $html);              // kept
-        // Quick Links tiles: a round icon and the name — no description under it.
-        $this->assertStringContainsString('wire:key="fee-tile-view_fee"', $html);
-        $this->assertStringContainsString('grid grid-cols-3 auto-rows-fr', $html);              // 3 x 3, filling the screen
-        $this->assertSame(9, substr_count($html, 'wire:key="fee-tile-'));
+        $this->assertStringNotContainsString('Fee Submission', strip_tags($html));
+        $this->assertStringNotContainsString('Payment QR', strip_tags($html));
+        // The sections are Analytics' chips in the user's order (2026-11-25), and
+        // Fee opens on Analytics — no card menu, no way back to one.
+        $this->assertSame('analytics', $page->get('activeTab'));
+        preg_match_all('/wire:key="fee-chip-([a-z_]+)"/', $html, $chips);
+        $this->assertSame(['analytics', 'view_fee', 'fee_structure', 'payments', 'cycle', 'concession', 'penalties', 'qr_payments', 'account_users'], $chips[1]);
+        $this->assertMatchesRegularExpression('#wire:click="showTab\(\'analytics\'\)"\s*class="an-chip on"#', $html);
+        $this->assertStringContainsString('QR Code', $html);
+        $this->assertStringContainsString('Accounts User', $html);
+        $this->assertStringNotContainsString('fee-tile-', $html);
+        $this->assertStringNotContainsString('backToMenu', $html);
         $this->assertStringNotContainsString("A student's fee ledger — collect fee from it", $html);
+        $this->assertSame('analytics', $page->call('backToMenu')->get('activeTab'));
 
         $page->call('showTab', 'fee_submission');
         $this->assertSame('view_fee', $page->get('activeTab'));
@@ -221,10 +226,12 @@ class FeeMergedTabsTest extends TestCase
         $this->assertSame([1900.0, 1000.0, 65.5], [$a['total_collected'], $a['total_due'], $a['rate']]);
         $this->assertSame([1, 1], [$a['fully_paid'], $a['defaulters']]);
 
-        $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
-        $this->assertStringContainsString('Total Billable ₹2,900 Academic + transport + ₹500 dues', $text);
-        $this->assertStringContainsString('Academic · This Year ₹1,900 2 students', $text);
-        $this->assertStringContainsString('Transport ₹500 1 on transport', $text);
+        // The admin's Fee shows them as Analytics' KPI cards (2026-11-25).
+        $text = preg_replace('/\s+/', ' ', strip_tags(preg_replace('#<style\b.*?</style>#s', '', $page->html())));
+        $this->assertStringContainsString('Total Billable ₹2,900 ₹1,900 academic · ₹500 transport · ₹500 dues', $text);
+        $this->assertStringContainsString('Collected ₹1,900', $text);
+        $this->assertStringContainsString('Outstanding ₹1,000 1 students with dues', $text);
+        $this->assertStringContainsString('Collection Rate 65.5%', $text);
         $this->assertStringContainsString('Fully Paid Students 1 / 2', $text);
     }
 

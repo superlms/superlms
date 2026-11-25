@@ -356,6 +356,11 @@ class AdminTeacherController extends ApiController
         if ($problems = Usernames::problems($request->username)) {
             return $this->error(implode(' ', $problems), 422);
         }
+        // Each teacher's own Employee ID in the school (EmployeeIds).
+        $request->merge(['employee_id' => trim((string) $request->employee_id)]);
+        if ($problem = \App\Support\EmployeeIds::problem((int) $orgId, $request->employee_id)) {
+            return $this->error($problem, 422);
+        }
         if (LoginIdentifier::emailReserved($request->email)) {
             return $this->error('This email belongs to a school account. Please use a different one.', 422);
         }
@@ -434,6 +439,10 @@ class AdminTeacherController extends ApiController
         }
         if ($problems = Usernames::problems($request->username, $teacher->id)) {
             return $this->error(implode(' ', $problems), 422);
+        }
+        $request->merge(['employee_id' => trim((string) $request->employee_id)]);
+        if ($problem = \App\Support\EmployeeIds::problem((int) $orgId, $request->employee_id, (int) $teacher->id)) {
+            return $this->error($problem, 422);
         }
         if (LoginIdentifier::emailReserved($request->email)) {
             return $this->error('This email belongs to a school account. Please use a different one.', 422);

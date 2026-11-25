@@ -390,6 +390,13 @@ class Teacher extends Component
 
         $this->validate($rules, $messages);
 
+        // Each teacher's own Employee ID in the school (EmployeeIds).
+        $this->employeeId = trim((string) $this->employeeId);
+        if ($problem = \App\Support\EmployeeIds::problem((int) Auth::user()->organization_id, $this->employeeId, $this->editId ? (int) $this->editId : null)) {
+            $this->addError('employeeId', $problem);
+            return;
+        }
+
         try {
             $isEdit         = (bool) $this->editId;
             $plainPassword  = null;

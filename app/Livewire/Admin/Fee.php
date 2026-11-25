@@ -40,7 +40,11 @@ class Fee extends Component
         openPaymentDateEdit as protected submissionOpenPaymentDateEdit;
     }
 
-    public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
+    // The open section, picked with the chips under the header (Analytics'
+    // look, user's ask of 2026-11-25): Fee opens on Analytics, then View &
+    // Submit Fee, Fee Structure, Payments, Fee Cycle, Concession, Penalties,
+    // QR Code and Accounts User. There is no card menu any more.
+    public string $activeTab = 'analytics';
 
     // ─── Fee Structure ─────────────────────────────────────────────────────────
     public $structureStandardId = '';
@@ -94,7 +98,7 @@ class Fee extends Component
     public $students    = [];
 
     protected $queryString = [
-        'activeTab'  => ['except' => ''],
+        'activeTab'  => ['except' => 'analytics'],
         'search'     => ['except' => '', 'history' => false],
         'qrSubTab'   => ['except' => 'payments'],
     ];
@@ -106,8 +110,11 @@ class Fee extends Component
         $this->submitDate = today()->toDateString();
         $this->initPaymentFilters();
 
-        // Old links to the two tabs that were merged land on the merged ones.
-        if ($this->activeTab === 'fee_submission') {
+        // Old links to the two tabs that were merged land on the merged ones,
+        // and one to the old card menu on Analytics.
+        if ($this->activeTab === '') {
+            $this->activeTab = 'analytics';
+        } elseif ($this->activeTab === 'fee_submission') {
             $this->activeTab = 'view_fee';
         } elseif ($this->activeTab === 'payment_qr') {
             $this->activeTab = 'qr_payments';
@@ -126,12 +133,10 @@ class Fee extends Component
         return Auth::user()->organization_id;
     }
 
-    /** Return to the card menu (landing). */
+    /** The old card menu's way back: Analytics, where Fee opens now. */
     public function backToMenu(): void
     {
-        $this->activeTab = '';
-        $this->resetPage();
-        $this->search = '';
+        $this->showTab('analytics');
     }
 
     /** Fired by the embedded fee-structure component's Analytics button. */
@@ -474,12 +479,10 @@ class Fee extends Component
             $data = array_merge($data, $this->feeCycleViewData());
         }
 
-        if ($this->activeTab === '') {
-            // The QR Payments card carries how many wait to be checked.
-            $data['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
-                ->where('status', FeePaymentRequest::STATUS_PENDING)
-                ->count();
-        }
+        // The QR Code chip carries how many reported payments wait to be checked.
+        $data['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
+            ->where('status', FeePaymentRequest::STATUS_PENDING)
+            ->count();
 
         if ($this->activeTab === 'qr_payments' && $this->qrSubTab === 'qr') {
             // The header's button reads Add or Edit.

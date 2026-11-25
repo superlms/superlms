@@ -388,7 +388,8 @@ class FeeAutopayTest extends TestCase
         $m = $this->activeMandate();
         Auth::setUser(User::forceCreate(['name' => 'Head', 'role' => 'admin', 'organization_id' => $this->org]));
 
-        Livewire::test(Fee::class)->assertSee('Autopay');
+        // Fee opens on Analytics (2026-11-25), which reads tables this test has not got: open Autopay straight away.
+        Livewire::withQueryParams(['activeTab' => 'autopay'])->test(Fee::class)->assertSee('Autopay');
 
         $tab = Livewire::test(FeeAutopayTab::class)
             ->assertSee('Aarav Sharma')->assertSee('Active')->assertSee('₹5,000');

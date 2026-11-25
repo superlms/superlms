@@ -351,6 +351,12 @@ class Teacher extends Component
             $this->addError('editEmail', 'This email belongs to a school account. Please use a different one.');
             return;
         }
+        // Each teacher's own Employee ID in their school (EmployeeIds).
+        $this->editEmployeeId = trim((string) $this->editEmployeeId);
+        if ($problem = \App\Support\EmployeeIds::problem((int) $this->editOrgId, $this->editEmployeeId, $this->editUserId ? (int) $this->editUserId : null)) {
+            $this->addError('editEmployeeId', $problem);
+            return;
+        }
 
         $user     = User::find($this->editUserId);
         $oldEmail = $user?->email;
@@ -548,6 +554,12 @@ class Teacher extends Component
         // Teachers and students may share an address; a school account's is its own.
         if (LoginIdentifier::emailReserved($this->addEmail)) {
             $this->addError('addEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
+        }
+        // Each teacher's own Employee ID in their school (EmployeeIds).
+        $this->addEmployeeId = trim((string) $this->addEmployeeId);
+        if ($problem = \App\Support\EmployeeIds::problem((int) $this->addOrgId, $this->addEmployeeId)) {
+            $this->addError('addEmployeeId', $problem);
             return;
         }
 

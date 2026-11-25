@@ -2,22 +2,32 @@
     {{-- Local cloak rule so Alpine-collapsed panels stay hidden before init
          (independent of any global x-cloak style). --}}
     <style>[x-cloak]{display:none !important;}</style>
+    @include('livewire.super-admin.partials.home-skin')
+    @include('livewire.super-admin.partials.dash-styles')
+    <style>
+        .fee-chips { padding: 4px 24px 12px; background: #fff; }
+        @media (min-width: 640px) { .fee-chips { flex-wrap: wrap; overflow: visible; } }
+        .fee-chips .an-chip { cursor: pointer; }
+        .fee-chips .an-chip.on .n { background: rgba(255,255,255,.22); color: #fff; }
+        @media (max-width: 639px) { .fee-chips { padding: 2px 14px 10px; } }
+    </style>
 
     {{-- Tab catalog (label, icon, description, color) — defined up top so the
          sticky header can show the active tab's own name. --}}
     @php
+        // The sections, as chips under the header in this order (user's ask of
+        // 2026-11-25): Fee opens on Analytics. View Fee and Fee Submission are one
+        // tab (Submit Fee in the header); QR Code holds QR Payments and Payment QR.
         $feeTabs = [
-            'fee_structure'  => ['Fee Structure',  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 'Class-wise fee heads & amounts', 'blue'],
-            // View Fee and Fee Submission are one tab: the ledger, with Submit Fee in the header.
-            'view_fee'       => ['View & Submit Fee', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', "A student's fee ledger — collect fee from it", 'indigo'],
             'analytics'      => ['Analytics',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Collections & dues overview', 'rose'],
+            'view_fee'       => ['View & Submit Fee', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', "A student's fee ledger — collect fee from it", 'indigo'],
+            'fee_structure'  => ['Fee Structure',  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 'Class-wise fee heads & amounts', 'blue'],
             'payments'       => ['Payments',        'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', 'All recorded fee payments', 'cyan'],
-            'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'Late-fee penalties', 'amber'],
             'cycle'          => ['Fee Cycle',       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'Installments & due dates', 'purple'],
             'concession'     => ['Concession',      'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'Discounts & waivers', 'teal'],
-            // QR Payments carries Payment QR as its second tab (QR + UPI ID).
-            'qr_payments'    => ['QR Payments',     'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check payments · your QR & UPI ID', 'emerald'],
-            'account_users'  => ['Accounts user',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
+            'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'Late-fee penalties', 'amber'],
+            'qr_payments'    => ['QR Code',         'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check payments · your QR & UPI ID', 'emerald'],
+            'account_users'  => ['Accounts User',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
         ];
         // Autopay — where SuperLMS turned it on, or mandates were made while it was.
         $autopayOrg = (int) (auth()->user()->organization_id ?? 0);
@@ -25,19 +35,7 @@
             || (\App\Services\FeeAutopay::tracked() && \App\Models\Admin\Fee\FeeAutopayMandate::where('organization_id', $autopayOrg)->exists())) {
             $feeTabs['autopay'] = ['Autopay', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', "Parents' UPI AutoPay — installments paid on their own", 'blue'];
         }
-        $feeColorMap = [
-            'blue'    => ['bg' => 'bg-blue-50',    'text' => 'text-blue-600'],
-            'emerald' => ['bg' => 'bg-emerald-50', 'text' => 'text-emerald-600'],
-            'indigo'  => ['bg' => 'bg-indigo-50',  'text' => 'text-indigo-600'],
-            'rose'    => ['bg' => 'bg-rose-50',    'text' => 'text-rose-600'],
-            'cyan'    => ['bg' => 'bg-cyan-50',    'text' => 'text-cyan-600'],
-            'amber'   => ['bg' => 'bg-amber-50',   'text' => 'text-amber-600'],
-            'purple'  => ['bg' => 'bg-purple-50',  'text' => 'text-purple-600'],
-            'teal'    => ['bg' => 'bg-teal-50',    'text' => 'text-teal-600'],
-            'orange'  => ['bg' => 'bg-orange-50',  'text' => 'text-orange-600'],
-        ];
-        $headerTitle = $activeTab === '' ? 'Fees' : ($feeTabs[$activeTab][0] ?? 'Fees');
-        $headerDesc  = $activeTab === '' ? 'Manage fee structures, submissions, cycles and analytics' : ($feeTabs[$activeTab][2] ?? '');
+        $headerTitle = 'Fee';
     @endphp
 
     {{-- ══════════════════════════════════════════════════
@@ -47,12 +45,6 @@
         <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-3">
-                    @if ($activeTab !== '')
-                        <button wire:click="backToMenu" title="Back to fee sections"
-                            class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        </button>
-                    @endif
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">{{ $headerTitle }}</h1>
                     </div>
@@ -178,7 +170,19 @@
             </div>
         </div>
 
-        {{-- The sections' tiles are in the body below (a 3 × 3 grid that fills the screen). --}}
+        {{-- ══════════ THE SECTIONS — Analytics' chips (teal when open) ══════════ --}}
+        <nav class="sa-skin an-chips fee-chips" aria-label="Fee sections">
+            @foreach ($feeTabs as $tab => [$label, $icon])
+                <button type="button" wire:key="fee-chip-{{ $tab }}" wire:click="showTab('{{ $tab }}')"
+                    class="an-chip {{ $activeTab === $tab ? 'on' : '' }}" aria-pressed="{{ $activeTab === $tab ? 'true' : 'false' }}">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                    {{ $label }}
+                    @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
+                        <span class="n" title="{{ $qrPending }} to check">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
+                    @endif
+                </button>
+            @endforeach
+        </nav>
 
         {{-- ══════════ PER-TAB FILTER BAR (gray-50, exam-style) ══════════ --}}
         @if ($activeTab === 'account_users')
@@ -307,30 +311,6 @@
     <div class="p-4 sm:p-6 space-y-5">
 
     {{-- ════════════════════════════════════════════════════════════════ --}}
-    {{-- THE SECTIONS — Quick Links tiles (a round coloured icon and the   --}}
-    {{-- name) in a 3 × 3 grid that fills the screen under the header.     --}}
-    {{-- ════════════════════════════════════════════════════════════════ --}}
-    @if ($activeTab === '')
-        <div class="grid grid-cols-3 auto-rows-fr gap-3 sm:gap-4 min-h-[22rem] sm:h-[calc(100vh-12rem)]">
-            @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
-                @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
-                <button wire:click="showTab('{{ $tab }}')" wire:key="fee-tile-{{ $tab }}"
-                    class="relative group flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-2xl border border-gray-200 bg-white
-                           hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm active:scale-[0.98] transition p-3 sm:p-4 overflow-hidden min-w-0">
-                    <div class="w-12 h-12 sm:w-16 sm:h-16 {{ $c['bg'] }} rounded-full flex items-center justify-center shrink-0">
-                        <svg class="w-6 h-6 sm:w-8 sm:h-8 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
-                    </div>
-                    <span class="block w-full text-xs sm:text-sm leading-tight font-medium text-center text-gray-800 break-words"
-                        style="overflow-wrap: anywhere; word-break: break-word;">{{ $label }}</span>
-                    @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
-                        <span title="{{ $qrPending }} to check" class="absolute top-2 right-2 min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
-                    @endif
-                </button>
-            @endforeach
-        </div>
-    @endif
-
-    {{-- ════════════════════════════════════════════════════════════════ --}}
     {{-- TAB 1: FEE STRUCTURE  (embeds the standalone admin.fee-structure  --}}
     {{--          component so the two stay 1:1 in sync.)                  --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
@@ -378,7 +358,7 @@
     {{-- TAB 4: ANALYTICS                                                --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'analytics')
-        @include('livewire.partials.fee-analytics-panel')
+        @include('livewire.partials.fee-analytics-panel', ['feeKpis' => true])
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}
