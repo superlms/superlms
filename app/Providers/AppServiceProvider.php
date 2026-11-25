@@ -27,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // A refresh keeps the panel page where it was — its tab, filters,
+        // picked student and open slide-in panel (user's ask of 2026-11-25).
+        \App\Support\KeepStateOnReload::register();
+
         // In-app activity feed: notify school admins about every meaningful
         // create/update/delete across the app — including actions taken by
         // accountants, teachers and student/user accounts — with who did what.
