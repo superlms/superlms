@@ -238,7 +238,7 @@ class Boards extends Component
             ->orderBy('section_id')
             ->orderByRaw('roll_no + 0')
             ->orderBy('full_name')
-            ->paginate(50);
+            ->paginate(100);   // 100 a page (user's ask, 2026-11-26; was 50)
 
         // Each listed student's board roll number and admit card.
         try {
