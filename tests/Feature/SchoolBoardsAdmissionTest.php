@@ -429,6 +429,23 @@ class SchoolBoardsAdmissionTest extends TestCase
             $this->assertStringNotContainsString($not, $text, $not);
         }
 
+        // 2026-11-26: fits the screen (no side scroll), the filters in the header's
+        // tab row, no Aadhar column, the section under the class (no roll number),
+        // the fee under the mobile — the receipt's figures, as the slide-in's.
+        $html = $page->html();
+        $this->assertStringNotContainsString('overflow-x-auto', $html);
+        $this->assertStringContainsString('<table class="w-full table-fixed">', $html);
+        $this->assertStringNotContainsString('Aadhar No', $text);
+        $this->assertStringNotContainsString('123456789012', $text);
+        $this->assertStringNotContainsString('Roll 1', $text);
+        $this->assertStringContainsString('ADM-101 Class 10 A Mr. Ramesh', $text);   // the section ("A") under the class
+        $this->assertStringContainsString('Fee ₹5,000 / ₹12,000', $text);
+        $this->assertStringNotContainsString('border-t border-gray-200 bg-gray-50', $html);   // no filter band
+        $this->assertSame(['total' => 12000.0, 'paid' => 5000.0, 'balance' => 7000.0],
+            \App\Support\StudentFeeTotals::overallMany(1, [\App\Models\Student\StudentDetail::find($aman)])[$aman]);
+        $this->assertSame(\App\Support\StudentFeeTotals::overall(1, \App\Models\Student\StudentDetail::find($aman)),
+            \App\Support\StudentFeeTotals::overallMany(1, [\App\Models\Student\StudentDetail::find($aman)])[$aman]);
+
         $page->set('filterStandard', '12');
         $this->assertStringNotContainsString('ADM-101', $page->html());
         $page->call('clearFilters')->set('search', 'apaar-77');
@@ -465,7 +482,11 @@ class SchoolBoardsAdmissionTest extends TestCase
         // Settings: the two rules, 0 to 100.
         $boards = Livewire::test(Boards::class)->call('setTab', 'settings')->assertSee(['Board Roll Number', 'Admit Card'])
             ->set('rollPercent', '120')->call('saveSettings')->assertHasErrors('rollPercent')
-            ->set('rollPercent', '40')->set('admitPercent', '100')->call('saveSettings')->assertHasNoErrors();
+            ->set('rollPercent', '40')->set('admitPercent', '100')->call('saveSettings')->assertHasNoErrors()
+            // Both fields on one row; Save greys out again once saved.
+            ->assertSeeHtml('grid grid-cols-1 sm:grid-cols-2 gap-5')
+            ->assertSeeHtml('x-bind:disabled="! changed()"')
+            ->assertDispatched('boards-settings-saved', roll: '40', admit: '100');
         $this->assertSame(['roll' => 40.0, 'admit' => 100.0], BoardSetting::rules(1));
         $this->assertSame('40', Livewire::test(Boards::class)->get('rollPercent'));
 

@@ -16,7 +16,10 @@
             </div>
         </div>
 
-        <div class="border-t border-gray-200 px-4 sm:px-6">
+        {{-- The tabs, and on the same row — in the header, no band under it
+             (user's ask, 2026-11-26) — the list's filters: a class (9 to 12),
+             its section, then a name, number or ID. --}}
+        <div class="border-t border-gray-200 px-4 sm:px-6 flex flex-wrap items-center gap-x-3">
             <div class="flex gap-1">
                 @foreach (['students' => ['Students', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
                            'settings' => ['Settings', 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z']] as $key => [$label, $icon])
@@ -30,37 +33,34 @@
                     </button>
                 @endforeach
             </div>
-        </div>
 
-        @if ($tab === 'students')
-            {{-- Filter bar: a class (9 to 12), its section, then a name, number or ID. --}}
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <select wire:model.live="filterStandard"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[120px]">
+            @if ($tab === 'students')
+                <div class="ml-auto flex flex-wrap items-center justify-end gap-2 py-2">
+                    <select wire:model.live="filterStandard" aria-label="Class"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 w-[9.5rem]">
                         <option value="">All Classes (9–12)</option>
                         @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                     </select>
-                    <select data-sole-section wire:model.live="filterSection" @disabled($filterStandard === '')
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
+                    <select data-sole-section wire:model.live="filterSection" @disabled($filterStandard === '') aria-label="Section"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed w-[8.5rem]">
                         <option value="">All Sections</option>
                         @foreach ($filterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                     <div class="relative">
-                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
-                        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search name, father, adm. no., Apaar ID"
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-2.5 py-1.5 text-gray-700 w-64">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
+                        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search name, father, adm. no., Apaar ID" aria-label="Search"
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-2.5 py-1.5 text-gray-700 w-60">
                     </div>
                     @if ($filterStandard !== '' || $filterSection !== '' || $search !== '')
-                        <button wire:click="clearFilters"
+                        <button wire:click="clearFilters" title="Clear the filters"
                             class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             Clear
                         </button>
                     @endif
                 </div>
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
 
     @if ($tab === 'settings')
@@ -71,21 +71,36 @@
                     <h2 class="text-base font-semibold text-gray-900">Fee needed on the website's Boards login</h2>
                     <p class="text-xs text-gray-500 mt-1">How much of their fee a Class 9–12 student must have paid before the Boards page of your website shows them their board roll number, and before it gives their admit card. Until then they see a message to pay the fee on your school's QR code. 0% asks for nothing.</p>
                 </div>
-                <form wire:submit.prevent="saveSettings" class="px-5 py-5 space-y-5">
-                    @foreach (['rollPercent' => ['Board Roll Number', 'shows when this much of the fee is paid'], 'admitPercent' => ['Admit Card', 'can be downloaded when this much of the fee is paid']] as $field => [$label, $help])
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ $label }} <span class="text-gray-400 font-normal text-xs">— {{ $help }}</span></label>
-                            <div class="flex items-center gap-2 max-w-[220px]">
-                                <input type="number" min="0" max="100" step="0.01" wire:model.defer="{{ $field }}"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error($field) border-red-400 @enderror">
-                                <span class="text-sm font-semibold text-gray-500">%</span>
+                {{-- Both fields on one row; Save is greyed out until a field changes,
+                     and again once saved (user's ask, 2026-11-26). --}}
+                <form wire:submit.prevent="saveSettings" class="px-5 py-5 space-y-5"
+                    x-data="{
+                        base: [@js((string) $rollPercent), @js((string) $admitPercent)],
+                        cur:  [@js((string) $rollPercent), @js((string) $admitPercent)],
+                        changed() {
+                            return [0, 1].some(i => String(this.cur[i]).trim() !== String(this.base[i]).trim()
+                                && parseFloat(this.cur[i]) !== parseFloat(this.base[i]));
+                        },
+                    }"
+                    x-on:boards-settings-saved.window="base = [String($event.detail.roll), String($event.detail.admit)]; cur = [...base]">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        @foreach (['rollPercent' => ['Board Roll Number', 'shows when this much of the fee is paid', 0], 'admitPercent' => ['Admit Card', 'can be downloaded when this much of the fee is paid', 1]] as $field => [$label, $help, $i])
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">{{ $label }}</label>
+                                <p class="text-xs text-gray-400 mt-0.5 mb-1.5">{{ ucfirst($help) }}</p>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" min="0" max="100" step="0.01" wire:model.defer="{{ $field }}" x-on:input="cur[{{ $i }}] = $event.target.value"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error($field) border-red-400 @enderror">
+                                    <span class="text-sm font-semibold text-gray-500">%</span>
+                                </div>
+                                @error($field)<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
-                            @error($field)<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    @endforeach
-                    <div class="pt-2 border-t border-gray-100 flex items-center justify-end">
-                        <button type="submit" wire:loading.attr="disabled" wire:target="saveSettings"
-                            class="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-60">Save</button>
+                        @endforeach
+                    </div>
+                    <div class="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+                        <span x-show="changed()" x-cloak class="text-xs text-amber-600">Unsaved changes</span>
+                        <button type="submit" x-bind:disabled="! changed()" wire:loading.attr="disabled" wire:target="saveSettings"
+                            class="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">Save</button>
                     </div>
                 </form>
             </div>
@@ -95,20 +110,22 @@
         <div class="p-4 sm:p-6">
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 @if ($students->count() > 0)
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
+                    {{-- Fixed columns that fit the screen — no side scroll (user's ask,
+                         2026-11-26): no Aadhar column (it is on the student's slide-in),
+                         the class with its section under it, the fee under the mobile. --}}
+                    <div>
+                        <table class="w-full table-fixed">
                             <thead class="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Parents</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Aadhar No</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Apaar / Reg. No</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board Roll No</th>
-                                    <th class="px-3 py-3 whitespace-nowrap text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"><span class="sr-only">Open</span></th>
+                                    <th class="w-[4%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                                    <th class="w-[21%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                                    <th class="w-[16%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Parents</th>
+                                    <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</th>
+                                    <th class="w-[13%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
+                                    <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Apaar / Reg. No</th>
+                                    <th class="w-[8%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board Roll</th>
+                                    <th class="w-[4%] px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"><span class="sr-only">Open</span></th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -117,6 +134,7 @@
                                         $sName = $st->full_name ?: ($st->user->name ?? '—');
                                         $sImg  = ($st->user?->image) ?: $st->image;
                                         $brd   = $boardRows[$st->id] ?? null;
+                                        $fee   = $fees[$st->id] ?? null;
                                     @endphp
                                     <tr class="hover:bg-gray-50/70 transition-colors" wire:key="bd-{{ $st->id }}">
                                         <td class="px-3 py-3 text-sm text-gray-400 tabular-nums">{{ $students->firstItem() + $loop->index }}</td>
@@ -130,36 +148,47 @@
                                                     </div>
                                                 @endif
                                                 <div class="min-w-0">
-                                                    <p class="text-sm font-semibold text-gray-900 truncate max-w-[12rem]">{{ $sName }}</p>
+                                                    <p class="text-sm font-semibold text-gray-900 truncate" title="{{ $sName }}">{{ $sName }}</p>
                                                     <p class="text-xs text-gray-400 truncate">{{ $st->admission_no ?: '—' }}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-3 py-3 whitespace-nowrap">
-                                            <p class="text-sm text-gray-800">{{ $st->standard->name ?? '—' }}{{ $st->section?->name ? ' - ' . $st->section->name : '' }}</p>
-                                            <p class="text-xs text-gray-400 tabular-nums">Roll {{ $st->roll_no ?: '—' }}</p>
+                                        {{-- The class, and its section under it. --}}
+                                        <td class="px-3 py-3">
+                                            <p class="text-sm text-gray-800 truncate" title="{{ $st->standard->name ?? '' }}">{{ $st->standard->name ?? '—' }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $st->section?->name ?: '—' }}</p>
                                         </td>
                                         <td class="px-3 py-3">
-                                            <p class="text-sm text-gray-800 truncate max-w-[13rem]" title="Father">{{ $st->father_name ?: '—' }}</p>
-                                            <p class="text-xs text-gray-400 truncate max-w-[13rem]" title="Mother">{{ $st->mother_name ?: '—' }}</p>
+                                            <p class="text-sm text-gray-800 truncate" title="Father: {{ $st->father_name }}">{{ $st->father_name ?: '—' }}</p>
+                                            <p class="text-xs text-gray-400 truncate" title="Mother: {{ $st->mother_name }}">{{ $st->mother_name ?: '—' }}</p>
                                         </td>
-                                        <td class="px-3 py-3 whitespace-nowrap">
-                                            <p class="text-sm text-gray-800 tabular-nums">{{ $st->dob ? $st->dob->format('d M Y') : '—' }}</p>
+                                        <td class="px-3 py-3">
+                                            <p class="text-sm text-gray-800 tabular-nums truncate">{{ $st->dob ? $st->dob->format('d M Y') : '—' }}</p>
                                             <p class="text-xs text-gray-400">{{ $st->gender ? ucfirst($st->gender) : '—' }}</p>
                                         </td>
-                                        <td class="px-3 py-3 text-sm text-gray-700 tabular-nums whitespace-nowrap">{{ $st->phone ?: '—' }}</td>
-                                        <td class="px-3 py-3 text-sm text-gray-700 tabular-nums whitespace-nowrap">{{ $st->aadhar_no ?: '—' }}</td>
-                                        <td class="px-3 py-3 whitespace-nowrap">
-                                            <p class="text-sm text-gray-800" title="Apaar ID">{{ $st->appar_id ?: '—' }}</p>
-                                            <p class="text-xs text-gray-400" title="Registration Number">{{ $st->registration_number ?: '—' }}</p>
-                                        </td>
-                                        <td class="px-3 py-3 whitespace-nowrap">
-                                            <p class="text-sm font-semibold {{ $brd?->roll_number ? 'text-gray-900' : 'text-gray-300' }} tabular-nums">{{ $brd?->roll_number ?: '—' }}</p>
-                                            @if ($brd?->admit_card_path)
-                                                <p class="text-[11px] font-medium text-teal-700">Admit card ✓</p>
+                                        {{-- The mobile, and the fee under it, small: what is paid of the whole. --}}
+                                        <td class="px-3 py-3">
+                                            <p class="text-sm text-gray-700 tabular-nums truncate">{{ $st->phone ?: '—' }}</p>
+                                            @if ($fee)
+                                                <p class="text-[11px] tabular-nums truncate {{ $fee['total'] > 0 && $fee['balance'] <= 0 ? 'text-emerald-600' : 'text-gray-400' }}"
+                                                    title="Fee {{ $rs($fee['total']) }} · paid {{ $rs($fee['paid']) }} · due {{ $rs($fee['balance']) }}">
+                                                    Fee {{ $rs($fee['paid']) }} / {{ $rs($fee['total']) }}
+                                                </p>
+                                            @else
+                                                <p class="text-[11px] text-gray-400">Fee —</p>
                                             @endif
                                         </td>
-                                        <td class="px-3 py-3 text-center">
+                                        <td class="px-3 py-3">
+                                            <p class="text-sm text-gray-800 truncate" title="Apaar ID">{{ $st->appar_id ?: '—' }}</p>
+                                            <p class="text-xs text-gray-400 truncate" title="Registration Number">{{ $st->registration_number ?: '—' }}</p>
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <p class="text-sm font-semibold {{ $brd?->roll_number ? 'text-gray-900' : 'text-gray-300' }} tabular-nums truncate">{{ $brd?->roll_number ?: '—' }}</p>
+                                            @if ($brd?->admit_card_path)
+                                                <p class="text-[11px] font-medium text-teal-700 truncate">Admit card ✓</p>
+                                            @endif
+                                        </td>
+                                        <td class="px-2 py-3 text-center">
                                             <button wire:click="view({{ $st->id }})" title="Open {{ $sName }}" aria-label="Open {{ $sName }}"
                                                 class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>

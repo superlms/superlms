@@ -194,6 +194,8 @@ class Boards extends Component
         );
         $this->rollPercent  = self::percent((float) $this->rollPercent);
         $this->admitPercent = self::percent((float) $this->admitPercent);
+        // Save greys out again until a field changes (the form's Alpine state).
+        $this->dispatch('boards-settings-saved', roll: $this->rollPercent, admit: $this->admitPercent);
         $this->notification()->success('Saved', 'The Boards fee rules are saved.');
     }
 
@@ -246,6 +248,12 @@ class Boards extends Component
             $boardRows = collect();
         }
 
+        // Each listed student's fee — what is paid of the whole — shown under the
+        // mobile number (2026-11-26): the receipt's figures, for the page at once.
+        $fees = $this->tab === 'students'
+            ? rescue(fn () => \App\Support\StudentFeeTotals::overallMany($orgId, $students->getCollection()), [], report: true)
+            : [];
+
         $counts = StudentDetail::where('organization_id', $orgId)->whereIn('standard_id', $ids ?: [0])
             ->selectRaw('standard_id, COUNT(*) as n')->groupBy('standard_id')->pluck('n', 'standard_id');
 
@@ -257,6 +265,7 @@ class Boards extends Component
         return view('livewire.admin.boards', [
             'students'       => $students,
             'boardRows'      => $boardRows,
+            'fees'           => $fees,
             'standards'      => $standards,
             'counts'         => $counts,
             'total'          => (int) $counts->sum(),
