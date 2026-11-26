@@ -4,6 +4,8 @@
     @include('livewire.super-admin.partials.home-skin')
     <style>
         .fee-sa-chips { background: transparent; }
+        /* A school's page in the panel's teal (2026-11-26), not the old violet. */
+        .sa-chip.teal { background: #effaf7; color: #0f766e; }
     </style>
     @php
         // "CLASS 5 (B) · Adm: 26SSIC120328" — the class, its section by the
@@ -367,7 +369,7 @@
 
     {{-- ══════════ SCHOOL DETAIL VIEW ══════════
          In the Super Admin Home's look (2026-11-09): KPI cards with their
-         sparkline and change, the year's collection as a violet area chart
+         sparkline and change, the year's collection as a teal area chart
          beside a donut of who has paid, a dark Who Pays card (the school —
          marked paid here — or each student in the app), the fee and its
          progress, then Payments and the Students / Months list as Home's
@@ -448,7 +450,7 @@
                     @if ($selectedSchool->logo)
                         <img src="{{ $selectedSchool->logo }}" alt="" class="w-9 h-9 rounded-xl object-cover border border-gray-100 flex-shrink-0">
                     @else
-                        <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-sm font-semibold flex-shrink-0">{{ strtoupper(mb_substr($selectedSchool->name, 0, 1)) }}</span>
+                        <span class="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">{{ strtoupper(mb_substr($selectedSchool->name, 0, 1)) }}</span>
                     @endif
                     <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
                         <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $selectedSchool->name }}</h1>
@@ -516,12 +518,12 @@
             {{-- ═══════════════ KPIs — figure, sparkline of the year so far, change ═══════════════ --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'Collected', 'value' => $inr($dStats['collected']), 'icon' => 'banknotes', 'color' => 'violet',
+                    'label' => 'Collected', 'value' => $inr($dStats['collected']), 'icon' => 'banknotes', 'color' => 'teal',
                     'series' => $soFar, 'trend' => \App\Support\DashboardChart::trend((float) $thisMonth, (float) $lastMonth),
                     'sub' => $dStats['collection_pct'] . '% of ' . $inr($dStats['total_to_collect']) . ' · ' . $academicYear,
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
-                    'label' => 'To Collect', 'value' => $inr($dStats['total_to_collect']), 'icon' => 'currency-rupee', 'color' => 'sky',
+                    'label' => 'To Collect', 'value' => $inr($dStats['total_to_collect']), 'icon' => 'currency-rupee', 'color' => 'teal',
                     'series' => $cumulated, 'trend' => null, 'flat' => false,
                     'sub' => $dStructure
                         ? ($dStructure->fee_type === 'per_student'
@@ -536,7 +538,7 @@
                 ])
                 @include('livewire.super-admin.partials.dash-kpi', [
                     'label' => $dUnit === 'student' ? 'Students Paid' : ($dUnit === 'month' ? 'Months Paid' : 'Fee Paid'),
-                    'value' => number_format($dCounts['paid']) . ' / ' . number_format($dCounts['total']), 'icon' => 'user-group', 'color' => 'emerald',
+                    'value' => number_format($dCounts['paid']) . ' / ' . number_format($dCounts['total']), 'icon' => 'user-group', 'color' => 'teal',
                     'series' => array_slice($fyCount, 0, $nowIdx + 1), 'trend' => null, 'flat' => false,
                     'sub' => number_format($dCounts['partial']) . ' part paid · ' . number_format($dCounts['pending']) . ' pending',
                 ])
@@ -551,7 +553,7 @@
                             <p class="sa-card-sub">Money received month by month · {{ $fyLabels[0] }} – {{ end($fyLabels) }}</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="sa-chip"><span class="sa-dot" style="background:#7c3aed"></span>{{ $short($fyTotal) }} this year</span>
+                            <span class="sa-chip teal"><span class="sa-dot" style="background:#0d9488"></span>{{ $short($fyTotal) }} this year</span>
                             @if ($dStats['remaining'] > 0.5)
                                 <span class="sa-chip" style="background:#fef2f2;color:#b91c1c">{{ $short($dStats['remaining']) }} pending</span>
                             @endif
@@ -585,8 +587,8 @@
                     @if ($dCounts['total'] > 0)
                         @include('livewire.super-admin.partials.dash-donut', [
                             'segments' => [
-                                ['label' => 'Paid', 'value' => $dCounts['paid'], 'color' => '#7c3aed'],
-                                ['label' => 'Part paid', 'value' => $dCounts['partial'], 'color' => '#c4b5fd'],
+                                ['label' => 'Paid', 'value' => $dCounts['paid'], 'color' => '#0d9488'],
+                                ['label' => 'Part paid', 'value' => $dCounts['partial'], 'color' => '#99e0d3'],
                                 ['label' => 'Pending', 'value' => $dCounts['pending'], 'color' => '#e5e7eb'],
                             ],
                             'center' => number_format($dCounts['paid']) . '/' . number_format($dCounts['total']), 'centerLabel' => 'Paid',
@@ -595,7 +597,7 @@
                     @else
                         <div class="py-14 text-center">
                             <p class="text-sm text-gray-400">No fee structure set yet.</p>
-                            <button wire:click="openAddFeePanel" class="mt-3 text-sm font-medium text-violet-600 hover:text-violet-800">Add Fee →</button>
+                            <button wire:click="openAddFeePanel" class="mt-3 text-sm font-semibold text-teal-700 hover:text-teal-900">Add Fee →</button>
                         </div>
                     @endif
                 </div>
@@ -775,7 +777,7 @@
                         <h3 class="sa-card-title">Payments</h3>
                         <p class="sa-card-sub">{{ $academicYear }} · newest first</p>
                     </div>
-                    <span class="sa-chip">{{ number_format($dPay['count']) }} {{ $dPay['count'] === 1 ? 'payment' : 'payments' }} · {{ $inr($dPay['total']) }}</span>
+                    <span class="sa-chip teal">{{ number_format($dPay['count']) }} {{ $dPay['count'] === 1 ? 'payment' : 'payments' }} · {{ $inr($dPay['total']) }}</span>
                 </div>
 
                 @if ($dPay['count'] === 0)
@@ -801,7 +803,7 @@
                                         <td class="px-3 py-3 text-gray-700 whitespace-nowrap">{{ $pay->payment_date?->format('d M Y') ?? '—' }}</td>
                                         <td class="px-3 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ $inr($pay->amount) }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap">
-                                            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full {{ $pay->payment_mode === 'online' ? 'bg-violet-50 text-violet-700' : 'bg-gray-100 text-gray-600' }}">{{ $modeName($pay->payment_mode) }}</span>
+                                            <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full {{ $pay->payment_mode === 'online' ? 'bg-teal-50 text-teal-700' : 'bg-gray-100 text-gray-600' }}">{{ $modeName($pay->payment_mode) }}</span>
                                         </td>
                                         <td class="px-3 py-3 text-gray-700">
                                             <span class="block truncate max-w-[14rem]" title="{{ $pay->label ?: $selectedSchool->name }}">{{ $pay->label ?: $selectedSchool->name }}</span>
@@ -812,7 +814,7 @@
                                         <td class="px-5 py-3">
                                             <div class="flex items-center justify-center gap-1">
                                                 <button wire:click="viewPayment({{ $pay->id }})" title="View"
-                                                    class="p-1.5 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors">
+                                                    class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -833,7 +835,7 @@
                     </div>
                     @if ($dPay['count'] > $dPay['rows']->count())
                         <div class="px-5 py-3 border-t border-gray-100 text-center">
-                            <button wire:click="showMorePayments" class="text-xs font-medium text-violet-600 hover:text-violet-800">
+                            <button wire:click="showMorePayments" class="text-xs font-semibold text-teal-700 hover:text-teal-900">
                                 Show more ({{ number_format($dPay['count'] - $dPay['rows']->count()) }} more)
                             </button>
                         </div>
@@ -1029,7 +1031,7 @@
                                                     @if (!$row['is_paid'])
                                                         <button
                                                             wire:click="openMarkPaidModal({{ $row['id'] }}, {{ $row['structure_id'] }}, {{ $row['total_fee'] }}, {{ $row['collected'] }}, {{ $row['payment_id'] ?? 'null' }})"
-                                                            class="px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors">
+                                                            class="px-2.5 py-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
                                                             Mark Paid
                                                         </button>
                                                     @endif
@@ -1106,7 +1108,7 @@
                                                     @if ($inst['status'] !== 'paid')
                                                         <button
                                                             wire:click="openMarkInstallmentPaidModal('{{ $inst['key'] }}', '{{ $inst['label'] }}', {{ $inst['structure_id'] }}, {{ $inst['amount'] }}, {{ $inst['collected'] }}, {{ $inst['payment_id'] ?? 'null' }})"
-                                                            class="px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors">
+                                                            class="px-2.5 py-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
                                                             Mark Paid
                                                         </button>
                                                     @endif
@@ -2002,7 +2004,7 @@
     @include('livewire.super-admin.partials.dash-charts-js')
     <script>
         (function () {
-            const VIOLET = '#7c3aed', INK = '#111827';
+            const TEAL = '#0d9488', INK = '#0c2620';
             const short = v => v >= 1e7 ? (v / 1e7).toFixed(1) + 'Cr' : v >= 1e5 ? (v / 1e5).toFixed(1) + 'L' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'k' : v;
             const axis = { color: '#9ca3af', font: { size: 11 } };
 
@@ -2013,17 +2015,17 @@
                         labels: p.fee.labels || [],
                         datasets: [{
                             label: 'Collected', data: p.fee.data || [],
-                            borderColor: VIOLET, borderWidth: 2.5, tension: 0.42, fill: true,
+                            borderColor: TEAL, borderWidth: 2.5, tension: 0.42, fill: true,
                             backgroundColor: c => {
                                 const a = c.chart.chartArea;
-                                if (!a) return 'rgba(124,58,237,0.12)';
+                                if (!a) return 'rgba(13,148,136,0.12)';
                                 const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
-                                g.addColorStop(0, 'rgba(124,58,237,0.28)');
-                                g.addColorStop(1, 'rgba(124,58,237,0)');
+                                g.addColorStop(0, 'rgba(13,148,136,0.26)');
+                                g.addColorStop(1, 'rgba(13,148,136,0)');
                                 return g;
                             },
                             pointRadius: c => c.dataIndex === p.fee.peak ? 5 : 0,
-                            pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: VIOLET, pointBorderWidth: 2.5,
+                            pointHoverRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: TEAL, pointBorderWidth: 2.5,
                         }]
                     },
                     options: {
