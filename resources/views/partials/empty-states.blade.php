@@ -78,7 +78,8 @@
         var FILTER = /^(use the filter|pick |select |choose )|filter (above|first)|from the filter/i;
         var SEARCH = /match|for this (filter|search)|try (another|a different)|no results|for these filters|for the (selected|chosen)/i;
         var ACTION = /^(\+\s*)?(add|new|create|upload|record|generate|import|invite|book|schedule|write|post|compose)\b/i;
-        var SKIP   = '[data-no-empty-art], .es, .fixed, [role="dialog"], .lms-fbar, .sticky, nav, aside, header, select, .absolute[class*="z-"]';
+        // (#main-scroll — the page's own scroller — is itself .fixed: only a .fixed INSIDE it is a pop-up.)
+        var SKIP   = '[data-no-empty-art], .es, .fixed:not(#main-scroll), [role="dialog"], .lms-fbar, .sticky, nav, aside, header, select, .absolute[class*="z-"]';
         var ATTRS  = ['data-lms-empty', 'data-lms-empty-title', 'data-lms-empty-icon', 'data-lms-empty-raw', 'style', 'hidden'];
         var PLUS   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
         var FUNNEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.4V18l-3.6 2v-7.6z"/></svg>';
