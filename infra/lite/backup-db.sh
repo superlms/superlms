@@ -3,7 +3,7 @@
 # Reads DB creds + BACKUP_S3_BUCKET/PREFIX from infra/lite/.env.
 #
 # Install (on the box):
-#   ( crontab -l 2>/dev/null; echo "30 20 * * * /opt/superlms/infra/lite/backup-db.sh >> /var/log/superlms-backup.log 2>&1" ) | crontab -
+#   ( crontab -l 2>/dev/null; echo "30 20 * * * /opt/superlms/infra/lite/backup-db.sh >> /home/ec2-user/superlms-backup.log 2>&1" ) | crontab -
 #   # 20:30 UTC = 02:00 IST daily
 set -euo pipefail
 cd "$(dirname "$0")"

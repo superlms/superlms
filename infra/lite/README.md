@@ -172,7 +172,7 @@ recommended if the mobile app uses `cdn.superlms.in`.)
 
 ```bash
 ( crontab -l 2>/dev/null; \
-  echo "30 20 * * * /opt/superlms/infra/lite/backup-db.sh >> /var/log/superlms-backup.log 2>&1" ) | crontab -
+  echo "30 20 * * * /opt/superlms/infra/lite/backup-db.sh >> /home/ec2-user/superlms-backup.log 2>&1" ) | crontab -
 /opt/superlms/infra/lite/backup-db.sh   # run once to confirm it uploads
 ```
 Also enable **EBS snapshots** (Data Lifecycle Manager, daily) for whole-box
