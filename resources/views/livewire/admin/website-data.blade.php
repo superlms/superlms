@@ -28,9 +28,8 @@
     $strip    = 'bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-30';
     $backBtn  = 'inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex-shrink-0';
     $backIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>';
-    $tileCls  = 'group flex flex-col items-center justify-start rounded-2xl sm:rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition p-2.5 sm:p-3 overflow-hidden min-w-0 text-center';
 @endphp
-<div class="min-h-screen bg-gray-50"
+<div class="min-h-screen {{ $page ? 'bg-gray-50' : 'bg-white' }}"
      x-data="{
          changed: @entangle('dirty'),
          pop: null, popTimer: null,
@@ -49,16 +48,27 @@
          setOn(on) { this.run(this.$wire.setPageOn(on), on ? 'Enabling the page…' : 'Disabling the page…'); },
      }"
      x-on:beforeunload.window="if (changed) { $event.preventDefault(); $event.returnValue = ''; }">
+    {{-- Quick Links' tile styles (sa-skin / sk-ql / sk-tile). --}}
+    @include('livewire.super-admin.partials.home-skin')
     <style>
         [x-cloak]{display:none !important;}
         @keyframes wd-spin { to { transform: rotate(360deg); } }
         @keyframes wd-bar { 0% { left: -40%; } 100% { left: 100%; } }
         .wd-pop-x:hover { background: rgba(255,255,255,.1); color: #fff; }
-        /* Quick Links' grid: 3 tiles a row on a phone, 4 on a tablet, more on a computer. */
-        .wd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        @media (min-width: 640px)  { .wd-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        @media (min-width: 768px)  { .wd-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-        @media (min-width: 1280px) { .wd-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+        /* The tiles in Quick Links' look (user's ask, 2026-11-26): home-skin's
+           .sk-tile in .sa-skin.sk-ql — white, a soft icon box, the tile taking its
+           colour under the pointer — six to a row on a computer, as tall as they
+           need (Quick Links stretches its tiles to the window's height). */
+        .wd-tiles.sk-tiles { height: auto; grid-auto-rows: minmax(118px, auto); }
+        .wd-tiles .sk-tile { width: 100%; cursor: pointer; font: inherit; }
+        /* Disabled: icon and name faded (the tile's own opacity is the entrance animation's). */
+        .wd-tiles .sk-tile.is-off .sk-tile-ic, .wd-tiles .sk-tile.is-off .wd-name { opacity: .55; }
+        .wd-tiles .sk-tile .wd-name { overflow-wrap: anywhere; }
+        .wd-tiles .sk-tile .wd-sub { display: inline-flex; align-items: center; gap: 4px; margin-top: -6px; font-size: 11px; font-weight: 500; color: #8b9893; }
+        .wd-tiles .sk-tile .wd-sub.ok { color: #059669; }
+        .wd-tiles .sk-tile .wd-sub.off { color: #ef4444; }
+        .wd-tiles .sk-tile .wd-sub i { width: 6px; height: 6px; border-radius: 999px; background: currentColor; display: inline-block; }
+        .wd-tiles .sk-tile:hover .wd-sub { color: var(--ink, #0f766e); }
     </style>
 
     @if (! $page && ($group === '' || ! isset($menus[$group])))
@@ -72,25 +82,27 @@
             </div>
         </div>
 
-        <div class="p-3 sm:p-4 md:p-5">
-            <div class="wd-grid grid gap-2.5 sm:gap-3 md:gap-3.5">
+        <div class="sa-skin sk-ql">
+        <div class="sk-body">
+            <div class="sk-panel">
+            <div class="sk-tiles wd-tiles">
+                @php $tints = [['#dff3ee', '#0f766e'], ['#dde9fb', '#2563eb'], ['#e9e2fb', '#7c3aed'], ['#f8edd0', '#b45309'], ['#f6dcd8', '#c2410c'], ['#e3efdc', '#4d7c0f']]; @endphp
                 @foreach ($menus as $name => $rows)
                     @php
-                        [$icon, $color] = WebsitePages::menuTile($name);
+                        [$icon] = WebsitePages::menuTile($name);
+                        [$tint, $ink] = $tints[$loop->index % count($tints)];
                         $on   = collect($rows)->where('on', true);
                         $done = $on->where('status', 'filled')->count();
                         $all  = $on->where('status', '!=', 'form')->count();
                     @endphp
-                    <button type="button" wire:key="menu-{{ Str::slug($name) }}" wire:click="openGroup(@js($name))" class="{{ $tileCls }} {{ $on->isEmpty() ? 'opacity-60' : '' }}">
-                        <span class="w-11 h-11 sm:w-10 sm:h-10 mb-1.5 bg-{{ $color }}-100 rounded-full flex items-center justify-center shrink-0">
-                            <x-icon name="{{ $icon }}" class="w-5 h-5 text-{{ $color }}-600" />
-                        </span>
-                        <span class="block w-full text-[11px] md:text-xs leading-tight font-medium text-gray-800 break-words" style="overflow-wrap:anywhere;">{{ $name }}</span>
-                        <span class="block mt-0.5 text-[10px] md:text-[11px] {{ $all && $done === $all ? 'text-emerald-600' : 'text-gray-400' }}">
-                            {{ $on->isEmpty() ? 'Disabled' : ($all ? "{$done}/{$all} filled" : 'Form') }}
-                        </span>
+                    <button type="button" wire:key="menu-{{ Str::slug($name) }}" wire:click="openGroup(@js($name))"
+                        class="sk-tile {{ $on->isEmpty() ? 'is-off' : '' }}" style="--i: {{ $loop->index }}; --tint: {{ $tint }}; --ink: {{ $ink }};">
+                        <span class="sk-tile-ic"><x-icon name="{{ $icon }}" /></span>
+                        <span class="wd-name">{{ $name }}</span>
+                        <span class="wd-sub {{ $on->isEmpty() ? 'off' : ($all && $done === $all ? 'ok' : '') }}">{{ $on->isEmpty() ? 'Disabled' : ($all ? "{$done}/{$all} filled" : 'Form') }}</span>
                     </button>
                 @endforeach
+            </div>
             </div>
 
             @if ($off)
@@ -98,6 +110,7 @@
                     {{ $off }} {{ Str::plural('page', $off) }} disabled — not shown on your website. Open one and switch it to Enabled to show it.
                 </p>
             @endif
+        </div>
         </div>
 
     @elseif (! $page)
@@ -120,29 +133,35 @@
             </div>
         </div>
 
-        <div class="p-3 sm:p-4 md:p-5" wire:key="pages-{{ Str::slug($group) }}">
-            <div class="wd-grid grid gap-2.5 sm:gap-3 md:gap-3.5">
+        <div class="sa-skin sk-ql" wire:key="pages-{{ Str::slug($group) }}">
+        <div class="sk-body">
+            <div class="sk-panel">
+            <div class="sk-tiles wd-tiles">
+                @php $tints = [['#dff3ee', '#0f766e'], ['#dde9fb', '#2563eb'], ['#e9e2fb', '#7c3aed'], ['#f8edd0', '#b45309'], ['#f6dcd8', '#c2410c'], ['#e3efdc', '#4d7c0f']]; @endphp
                 @foreach ($menus[$group] as $slug => $row)
-                    @php [$icon, $color] = WebsitePages::tile($slug); @endphp
+                    @php
+                        [$icon] = WebsitePages::tile($slug);
+                        [$tint, $ink] = $tints[$loop->index % count($tints)];
+                    @endphp
                     <button type="button" wire:key="pg-{{ $slug }}" wire:click="openPage('{{ $slug }}')"
                         title="{{ $row['on'] ? ($row['summary'] ?: 'A form — nothing to fill in') : 'Disabled — not shown on your website' }}"
-                        class="{{ $tileCls }} {{ $row['on'] ? '' : 'opacity-60' }}">
-                        <span class="w-11 h-11 sm:w-10 sm:h-10 mb-1.5 bg-{{ $color }}-100 rounded-full flex items-center justify-center shrink-0">
-                            <x-icon name="{{ $icon }}" class="w-5 h-5 text-{{ $color }}-600" />
-                        </span>
-                        <span class="block w-full text-[11px] md:text-xs leading-tight font-medium text-gray-800 break-words" style="overflow-wrap:anywhere;">{{ $row['label'] }}</span>
+                        class="sk-tile {{ $row['on'] ? '' : 'is-off' }}" style="--i: {{ $loop->index }}; --tint: {{ $tint }}; --ink: {{ $ink }};">
+                        <span class="sk-tile-ic"><x-icon name="{{ $icon }}" /></span>
+                        <span class="wd-name">{{ $row['label'] }}</span>
                         @if (! $row['on'])
-                            <span class="inline-flex items-center gap-1 mt-0.5 text-[10px] md:text-[11px] text-red-500"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Disabled</span>
+                            <span class="wd-sub off"><i></i>Disabled</span>
                         @elseif ($row['status'] === 'filled')
-                            <span class="inline-flex items-center gap-1 mt-0.5 text-[10px] md:text-[11px] text-emerald-600"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Filled</span>
+                            <span class="wd-sub ok"><i></i>Filled</span>
                         @elseif ($row['status'] === 'empty')
-                            <span class="inline-flex items-center gap-1 mt-0.5 text-[10px] md:text-[11px] text-gray-400"><span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>Empty</span>
+                            <span class="wd-sub"><i></i>Empty</span>
                         @else
-                            <span class="mt-0.5 text-[10px] md:text-[11px] text-gray-400">Form</span>
+                            <span class="wd-sub">Form</span>
                         @endif
                     </button>
                 @endforeach
             </div>
+            </div>
+        </div>
         </div>
 
     @else

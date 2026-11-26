@@ -631,7 +631,16 @@ class StandardSubjectsTest extends TestCase
         $html = $page->html();
         $this->assertStringNotContainsString("showTab('section')", $html);   // no tabs
         $this->assertStringNotContainsString('Filter by', $html);            // no filter band
-        $this->assertStringContainsString('class="sc-figs"', $html);
+        // The card (2026-11-26): code and students small on the right, no Order; the
+        // class teacher, then the subjects; a line, then round buttons.
+        $this->assertStringContainsString('class="sc-meta"', $html);
+        $this->assertStringNotContainsString('class="sc-figs"', $html);
+        $this->assertStringNotContainsString('>Order<', $html);
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Code — 0 students Class teacher: Not assigned', $text);
+        $this->assertStringContainsString('Class teacher: Not assigned Subjects: 0', $text);
+        $this->assertStringContainsString('class="sc-btn sc-view"', $html);
+        $this->assertStringContainsString('class="sc-btn sc-go"', $html);
         $this->assertStringContainsString('wire:click.stop="openClass(' . $two->id . ')"', $html);
 
         $page->call('openClass', $two->id)->assertSet('activeTab', 'section')->assertSet('filterStandard', $two->id)
