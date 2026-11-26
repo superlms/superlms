@@ -49,7 +49,7 @@
             {{-- The current session, just before the icons. --}}
             <span class="sk-pill sk-session" title="Current session"><x-icon name="calendar-days" class="w-3.5 h-3.5" /> {{ $sessionLabel }}</span>
 
-            {{-- In the corner: Messages, then Notifications — each in a soft circle. --}}
+            {{-- In the corner: Messages, then Notifications — each in a thin circle, no colour behind it. --}}
             <div class="sk-actions">
                 @if (\Illuminate\Support\Facades\Route::has('admin.messages'))
                     <a href="{{ route('admin.messages', ['organization' => $organization]) }}" class="sk-btn" title="Messages" aria-label="Messages"

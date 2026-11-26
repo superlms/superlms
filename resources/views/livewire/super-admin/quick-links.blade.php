@@ -55,8 +55,9 @@
             {{-- In the corner: Messages — the live chat with the schools' admins
                  and the sub super admins (2026-11-26), the badge counting unread
                  messages as the chat notifier reports them — then Notifications.
-                 Plain icons, no circle behind them (user's ask, 2026-11-26). --}}
-            <div class="sk-actions sk-plain">
+                 Each in a thin circle with no colour behind it, as the school
+                 admin's (user's ask, 2026-11-26). --}}
+            <div class="sk-actions">
                 <a href="{{ route('super-admin.messages') }}" class="sk-btn" title="Messages" aria-label="Messages"
                     x-data="{ count: {{ (int) $unreadMessages }} }" x-on:chat-sync.window="count = $event.detail.unread">
                     <x-icon name="chat-bubble-oval-left-ellipsis" />

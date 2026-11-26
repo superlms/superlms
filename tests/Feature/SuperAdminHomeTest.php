@@ -113,8 +113,8 @@ class SuperAdminHomeTest extends TestCase
             ->assertDontSeeHtml('Filter by:')
             ->assertDontSeeHtml('wire:model.live="sort"')
             ->assertDontSeeHtml('title="Current session')
-            // In the corner: Messages (the chat, since 2026-11-26) and then the bell, plain icons.
-            ->assertSeeHtmlInOrder(['class="sk-clock"', 'class="sk-actions sk-plain"', 'href="' . route('super-admin.messages') . '" class="sk-btn"', 'class="sk-btn sk-bell"'])
+            // In the corner: Messages (the chat, since 2026-11-26) and then the bell, each in a thin circle with no fill.
+            ->assertSeeHtmlInOrder(['class="sk-clock"', 'class="sk-actions"', 'href="' . route('super-admin.messages') . '" class="sk-btn"', 'class="sk-btn sk-bell"'])
             ->assertSeeHtml("Livewire.dispatch('open-notifications')")
             ->assertDontSeeHtml("Livewire.dispatch('open-logout-confirm')")
             ->assertDontSeeHtml('title="Profile"')

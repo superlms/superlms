@@ -106,25 +106,20 @@
     .sk-clock { display: inline-flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; padding: 0 2px; line-height: 1.15; white-space: nowrap; }
     .sk-clock b { font-size: 13px; font-weight: 600; color: var(--sk-ink); letter-spacing: -.005em; }
     .sk-clock small { font-size: 10.5px; font-weight: 500; color: #8b9893; }
-    /* Messages and Notifications: a soft mint circle each, the icon in the
-       ink; under the pointer the circle fills teal and the icon turns white
-       (the bell rings a little). The count sits on the circle's rim. */
+    /* Messages and Notifications (both panels, 2026-11-26): a thin circle
+       round each icon and no colour behind it; under the pointer the circle
+       and the icon turn teal (the bell rings a little), still no fill. The
+       count sits on the circle's rim. */
     .sk-ql .sk-actions { gap: 8px; border-left: 1px solid var(--sk-line); padding-left: 12px; margin-left: 2px; }
-    .sk-ql .sk-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #e3ece9; background: #f3f8f6; color: #1f3a33;
-        box-shadow: 0 1px 2px rgba(12,38,32,.05); transition: background .2s, border-color .2s, color .2s, box-shadow .25s, transform .2s; }
+    .sk-ql .sk-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #dfe6e3; background: transparent; color: #33463f;
+        box-shadow: none; transition: border-color .2s, color .2s, transform .2s; }
     .sk-ql .sk-btn svg { width: 19px; height: 19px; }
     .sk-ql .sk-btn svg * { stroke-width: 1.7px; }
-    .sk-ql .sk-btn:hover { background: var(--sk-teal); border-color: var(--sk-teal); color: #fff; transform: translateY(-1px); box-shadow: 0 10px 20px -10px rgba(13,148,136,.7); }
+    .sk-ql .sk-btn:hover { background: transparent; border-color: var(--sk-teal); color: var(--sk-teal-700); transform: translateY(-1px); box-shadow: none; }
     .sk-ql .sk-btn:focus-visible { outline: 2px solid var(--sk-teal); outline-offset: 2px; }
     .sk-ql .sk-bell:hover svg { animation: sk-ring .7s ease; transform-origin: 50% 4px; }
     @keyframes sk-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
     .sk-ql .sk-badge { top: -3px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; line-height: 1; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 6px -1px rgba(244,63,94,.5); }
-    /* The Super Admin's icons (.sk-plain, 2026-11-26): no circle behind them —
-       just the icon, a touch bigger; under the pointer it turns teal. */
-    .sk-ql .sk-plain .sk-btn { width: 34px; height: 38px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: #33463f; }
-    .sk-ql .sk-plain .sk-btn svg { width: 22px; height: 22px; }
-    .sk-ql .sk-plain .sk-btn:hover { background: transparent; color: var(--sk-teal-700); box-shadow: none; transform: none; }
-    .sk-ql .sk-plain .sk-badge { top: 2px; right: -3px; }
     .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
     @media (min-width: 1024px) and (max-width: 1109px) { .sk-ql .sk-session { display: none; } }
     @media (prefers-reduced-motion: reduce) { .sk-ql .sk-bell:hover svg { animation: none; } }

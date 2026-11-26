@@ -28,6 +28,7 @@ class TimeTablePanelTest extends TestCase
             $t->id();
             $t->string('name');
             $t->string('email')->nullable();
+            $t->string('image')->nullable();
             $t->boolean('is_active')->default(true);
             $t->unsignedBigInteger('organization_id')->nullable();
             $t->timestamps();
@@ -547,36 +548,62 @@ class TimeTablePanelTest extends TestCase
         $this->assertSame(['2 1 1 08:00-08:40'], $this->periods(1));
     }
 
-    // ───────────────────────── the cards ─────────────────────────
+    // ───────────────────────── the week ─────────────────────────
 
-    public function test_the_timetable_is_shown_as_a_flat_list_of_periods(): void
+    public function test_the_timetable_is_one_week_a_column_a_day_and_a_row_a_period(): void
     {
         $this->day();
         foreach ([1, 2, 3] as $day) $this->period(1, 1, 1, $day);
         foreach ([4, 5] as $day) $this->period(1, 2, 2, $day);
         $this->period(1, 2, 2, 4, '11:00', '11:45');
+        DB::table('users')->where('id', 1)->update(['image' => 'https://cdn.example/ravi.jpg']);
 
         $html = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1')->html();
         $card = substr($html, strpos($html, 'Class 5 · A</h3>'));
         $text = $this->text($card);
 
-        $this->assertStringContainsString('2 periods', $text);
-        $this->assertStringContainsString('# Time Subject Teacher Days', $text);
-        // Period 1 with its two lines, then the lunch break where it falls, then period 3.
-        $this->assertStringContainsString('1 09:00 AM – 09:45 AM Hindi Ravi Mon, Tue, Wed Maths Sonu Thu, Fri 10:30 AM – 11:00 AM Lunch break 3 11:00 AM – 11:45 AM Maths Sonu Thu', $text);
+        // Weekly is the chip before the days, on while no day is picked.
+        $this->assertMatchesRegularExpression('/<button wire:click="showWeek" aria-pressed="true"[^>]*>.*?Weekly\s*<\/button>(\s*<!--.*?-->)*\s*<button wire:click="toggleFilterDay\(1\)"/s', $html);
 
-        // A flat list: no table, no tags, no initials in circles. Edit and print are on the card.
-        foreach (['<table', 'bg-indigo-50', 'bg-teal-100', 'rounded-full', 'bg-blue-50'] as $class) {
-            $this->assertStringNotContainsString($class, $card);
-        }
+        $this->assertStringContainsString('2 periods · Monday to Saturday', $text);
+        $this->assertStringContainsString('Period Monday Tuesday Wednesday Thursday Friday Saturday', $text);
+        // A row a period of the school's day, a cell a day: the subject, then the
+        // teacher with their photo (initials without one); the lunch break across the week.
+        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Hindi Ravi Hindi Ravi Hindi Ravi Maths S Sonu Maths S Sonu — '
+            . 'Period 2 09:45 AM 10:30 AM — — — — — — 10:30 AM 11:00 AM Lunch break '
+            . 'Period 3 11:00 AM 11:45 AM — — — Maths S Sonu — —', $text);
+        $this->assertSame(3, substr_count($card, '<img src="https://cdn.example/ravi.jpg"'));
+        $this->assertStringContainsString('role="table"', $card);
         $this->assertStringContainsString('wire:click="onEditSection(1, 1)"', $html);
+        $this->assertStringContainsString('wire:click="onDeleteSection(1, 1)"', $html);
         $this->assertStringContainsString('title="Print"', $html);
 
-        // A teacher's own periods: no lunch line, the class beside each.
-        $teacher = Livewire::test(TimeTable::class)->call('setViewMode', 'teacher')->set('filterTeacher', '2')->html();
-        $text = $this->text(substr($teacher, strpos($teacher, 'Class 5 · A</h3>')));
-        $this->assertStringContainsString('1 09:00 AM – 09:45 AM Maths Sonu Class 5 · A Thu, Fri 3 11:00 AM – 11:45 AM Maths Sonu Class 5 · A Thu', $text);
-        $this->assertStringNotContainsString('Lunch break', $text);
+        // A day picked: that day's column alone; Weekly brings the week back.
+        $page = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1')->call('toggleFilterDay', 4);
+        $text = $this->text(substr($page->html(), strpos($page->html(), 'Class 5 · A</h3>')));
+        $this->assertStringContainsString('2 periods · Thu Period Thursday Period 1 09:00 AM 09:45 AM Maths S Sonu Period 2', $text);
+        $this->assertStringNotContainsString('Monday', $text);
+        $this->assertStringContainsString('aria-pressed="false"', $page->html());
+        $page->call('showWeek')->assertSet('filterDays', []);
+    }
+
+    public function test_a_teachers_week_shows_the_class_in_each_cell_and_free_periods(): void
+    {
+        $this->day();
+        foreach ([4, 5] as $day) $this->period(1, 2, 2, $day);
+        $this->period(4, 2, 1, 1, '11:00', '11:45', 2);
+
+        $html = Livewire::test(TimeTable::class)->call('setViewMode', 'teacher')->set('filterTeacher', '2')->html();
+        $text = $this->text(substr($html, strpos($html, 'Sonu</h3>')));
+
+        // One card for the teacher's week, the class beside each subject.
+        $this->assertStringContainsString('Sonu 3 periods a week · Monday to Saturday', $text);
+        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Free Free Free Maths Class 5 · A Maths Class 5 · A Free', $text);
+        $this->assertStringContainsString('Lunch break Period 3 11:00 AM 11:45 AM Hindi Class 6 · A Free', $text);
+        $this->assertSame(1, substr_count($html, 'data-tt-week'));
+        // Editing a class's timetable is the Class View's: none on the teacher's card.
+        $this->assertStringNotContainsString('wire:click="onEditSection(', $html);
+        $this->assertStringContainsString('title="Download"', $html);
     }
 
     public function test_a_school_with_no_periods_set_sees_its_timetable_as_before(): void
@@ -587,7 +614,8 @@ class TimeTablePanelTest extends TestCase
         $html = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1')->html();
         $text = $this->text(substr($html, strpos($html, 'Class 5 · A</h3>')));
 
-        $this->assertStringContainsString('1 09:00 AM – 09:45 AM Hindi Ravi Mon, Tue, Wed 2 10:00 AM – 10:45 AM Maths Sonu Thu', $text);
+        // The times numbered as they come.
+        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Hindi R Ravi Hindi R Ravi Hindi R Ravi — — — Period 2 10:00 AM 10:45 AM — — — Maths S Sonu — —', $text);
         $this->assertStringNotContainsString('Lunch break', $text);
     }
 }

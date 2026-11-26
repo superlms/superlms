@@ -1,5 +1,38 @@
 <div class="min-h-screen bg-gray-50">
-    <style>[x-cloak]{display:none !important;}</style>
+    <style>
+        [x-cloak]{display:none !important;}
+
+        /* The week (2026-11-26): Period | Monday … Saturday, a row a period. */
+        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); }
+        .tt-row { display: contents; }
+        .tt-h { padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e;
+            background: #fafbfb; border-bottom: 1px solid #eef1f0; white-space: nowrap; }
+        .tt-h + .tt-h { border-left: 1px solid #f0f3f2; }
+        .tt-h.is-today { color: #0f766e; background: #effaf7; }
+        .tt-time { display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 10px 12px; border-bottom: 1px solid #f0f3f2; min-width: 0; }
+        .tt-no { font-size: 11px; font-weight: 600; color: #95a39e; margin-bottom: 2px; }
+        .tt-tm { font-size: 12.5px; font-weight: 500; color: #2b433b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tt-tm2 { font-size: 11.5px; color: #8a9893; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tt-slot { display: flex; flex-direction: column; gap: 6px; padding: 6px; min-width: 0; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; }
+        .tt-slot.is-today { background: #f8fcfb; }
+        .tt-card { flex: 1 1 auto; min-width: 0; padding: 8px 9px 8px 10px; border-radius: 10px; background: var(--tt-bg); border-left: 3px solid var(--tt-ac);
+            transition: box-shadow .2s, transform .2s; }
+        .tt-card:hover { box-shadow: 0 8px 18px -12px rgba(12,38,32,.45); transform: translateY(-1px); }
+        .tt-sub { font-size: 12.5px; font-weight: 600; line-height: 1.3; color: #0c2620; overflow-wrap: anywhere;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .tt-who { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-width: 0; font-size: 11.5px; color: #44544f; }
+        .tt-who > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tt-who img, .tt-av { width: 20px; height: 20px; flex: none; border-radius: 999px; box-shadow: 0 0 0 1px rgba(12,38,32,.1); }
+        .tt-who img { object-fit: cover; background: #fff; }
+        .tt-av { display: grid; place-items: center; background: #fff; color: var(--tt-ac); font-size: 9px; font-weight: 700; letter-spacing: -.02em; }
+        .tt-ic { width: 14px; height: 14px; flex: none; color: var(--tt-ac); }
+        .tt-free { margin: auto; padding: 8px 0; font-size: 12px; color: #c3ccc9; }
+        .tt-lunch .tt-time { background: #fffaf2; }
+        .tt-lunch-bar { grid-column: 2 / -1; display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 12px; font-weight: 600;
+            letter-spacing: .08em; text-transform: uppercase; color: #a16207; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2;
+            background: repeating-linear-gradient(135deg, #fffaf2 0 10px, #fff4e2 10px 20px); }
+        .tt-grid > .tt-row:last-child > * { border-bottom: 0; }
+    </style>
 
     {{-- ══════════════════════════════════════════════════
          HEADER + TABS + FILTER BAR (exams-style)
@@ -118,7 +151,13 @@
                     </select>
                 @endif
 
-                <div class="flex items-center gap-1.5 ml-1">
+                <div class="flex flex-wrap items-center gap-1.5 ml-1">
+                    {{-- Weekly: Monday to Saturday side by side (no day picked). --}}
+                    <button wire:click="showWeek" aria-pressed="{{ empty($filterDays) ? 'true' : 'false' }}"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors {{ empty($filterDays) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50' }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        Weekly
+                    </button>
                     @foreach ($daysOfWeek as $dayNum => $dayName)
                         <button wire:click="toggleFilterDay({{ $dayNum }})"
                             class="px-2 py-1 text-xs font-medium rounded-md border transition-colors {{ in_array($dayNum, $filterDays) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50' }}">
@@ -219,7 +258,7 @@
                 </div>
                 <p class="text-sm text-gray-600 font-medium">Select a teacher to view their schedule.</p>
             </div>
-        @elseif ($sectionCards->isEmpty())
+        @elseif (!$week)
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
                 <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -232,101 +271,143 @@
         @else
 
             {{-- ══════════════════════════════════════════════════
-                 CARDS — one per (class, section), laid out as Mark Attendance
-                 is: a plain header with the actions, one line of headings, a
-                 flat list of rows. A row is a period: its serial, its time,
-                 then who teaches what on which days; the lunch break sits
-                 where it falls. No table, no tags, no coloured boxes.
+                 THE WEEK — one card (user's ask of 2026-11-26), in place of the
+                 old list of periods: a column a day (Monday to Saturday, or the
+                 days picked), a row a period of the school's day, the lunch
+                 break across the week where it falls. Each cell is a small card:
+                 the subject, then the teacher with their photo (initials when
+                 there is none) — in Teacher View the class instead, the teacher
+                 being in the card's header. Today's column is tinted.
             ══════════════════════════════════════════════════ --}}
-            @foreach ($sectionCards as $card)
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    {{-- Card header: combined Class · Section + action icons --}}
-                    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-gray-100">
+            @php
+                $byTeacher = $viewMode === 'teacher';
+                $wkDays    = $week['days'];
+                $today     = now()->dayOfWeekIso;
+                // A soft tint and an edge per subject, so a subject reads the same all week.
+                $tones     = [['#effaf7', '#0d9488'], ['#f0f9ff', '#0284c7'], ['#fffbeb', '#d97706'], ['#fff1f2', '#e11d48'],
+                              ['#fff7ed', '#ea580c'], ['#f7fee7', '#65a30d'], ['#fdf4ff', '#c026d3'], ['#f1f5f9', '#475569']];
+                $tone      = fn (int $id) => $tones[$id % count($tones)];
+                $initials  = fn (string $n) => collect(preg_split('/\s+/', trim($n)))->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('') ?: '?';
+                $clock     = fn ($t) => \Carbon\Carbon::parse($t)->format('h:i A');
+                $daysLabel = count($wkDays) === count($daysOfWeek) ? 'Monday to Saturday' : collect($wkDays)->map(fn ($d) => $daysOfWeek[$d])->implode(', ');
+                $orgId     = auth()->user()->organization_id;
+                $ttPdfUrl  = $byTeacher
+                    ? route('admin.timetable.teacher.pdf', ['organization' => $orgId, 'teacher' => $filterTeacher])
+                    : route('admin.timetable.pdf', ['organization' => $orgId, 'standard' => $week['standard_id'], 'section' => $week['section_id']]);
+                $ttCardPrintUrl = $byTeacher
+                    ? route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
+                    : route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'class', 'standard' => $week['standard_id'], 'section' => $week['section_id'], 'days' => implode(',', $filterDays)]));
+            @endphp
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-tt-week>
+                {{-- Card header: the class · section (or the teacher) and the actions --}}
+                <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-gray-100">
+                    <div class="min-w-0 flex items-center gap-3">
+                        @if ($byTeacher)
+                            @if ($week['teacher_image'])
+                                <img src="{{ $week['teacher_image'] }}" alt="" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <span class="w-9 h-9 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{{ $initials($week['teacher']) }}</span>
+                            @endif
+                        @endif
                         <div class="min-w-0">
-                            <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $card['standard'] }} · {{ $card['section'] }}</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $card['count'] }} period{{ $card['count'] === 1 ? '' : 's' }}</p>
+                            <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $byTeacher ? $week['teacher'] : $week['standard'] . ' · ' . $week['section'] }}</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">
+                                @if ($byTeacher)
+                                    {{ $week['lessons'] }} period{{ $week['lessons'] === 1 ? '' : 's' }} a week · {{ $daysLabel }}
+                                @else
+                                    {{ $week['count'] }} period{{ $week['count'] === 1 ? '' : 's' }} · {{ $daysLabel }}
+                                @endif
+                            </p>
                         </div>
-                        @php
-                            $ttPdfUrl = $viewMode === 'teacher'
-                                ? route('admin.timetable.teacher.pdf', ['organization' => auth()->user()->organization_id, 'teacher' => $filterTeacher])
-                                : route('admin.timetable.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $card['standard_id'], 'section' => $card['section_id']]);
-                            $ttCardPrintUrl = $viewMode === 'teacher'
-                                ? route('admin.timetable.print', array_filter(['organization' => auth()->user()->organization_id, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
-                                : route('admin.timetable.print', array_filter(['organization' => auth()->user()->organization_id, 'mode' => 'class', 'standard' => $card['standard_id'], 'section' => $card['section_id'], 'days' => implode(',', $filterDays)]));
-                        @endphp
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                            <button wire:click="onEditSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})" title="Edit"
+                    </div>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        @unless ($byTeacher)
+                            <button wire:click="onEditSection({{ $week['standard_id'] }}, {{ $week['section_id'] }})" title="Edit"
                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                             </button>
-                            <a href="{{ $ttPdfUrl }}" target="_blank" title="Download"
-                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
-                                </svg>
-                            </a>
-                            <a href="{{ $ttCardPrintUrl }}" target="_blank" title="Print"
-                                class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                </svg>
-                            </a>
-                            <button wire:click="onDeleteSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})" title="Delete entire section timetable"
+                        @endunless
+                        <a href="{{ $ttPdfUrl }}" target="_blank" title="Download"
+                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+                            </svg>
+                        </a>
+                        <a href="{{ $ttCardPrintUrl }}" target="_blank" title="Print"
+                            class="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                        </a>
+                        @unless ($byTeacher)
+                            <button wire:click="onDeleteSection({{ $week['standard_id'] }}, {{ $week['section_id'] }})" title="Delete entire section timetable"
                                 class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </button>
-                        </div>
-                    </div>
-
-                    {{-- Card body: one line of headings, then a flat list of periods --}}
-                    <div class="overflow-x-auto">
-                        <div class="min-w-[40rem]">
-                            <div class="flex items-center gap-3 px-4 sm:px-6 py-2 border-b border-gray-100 text-[11px] text-gray-400 uppercase tracking-wider">
-                                <span class="w-5 flex-shrink-0">#</span>
-                                <span class="w-40 flex-shrink-0">Time</span>
-                                <span class="flex-1 min-w-0">Subject</span>
-                                <span class="flex-1 min-w-0">Teacher</span>
-                                @if ($viewMode === 'teacher')
-                                    <span class="w-36 flex-shrink-0">Class · Section</span>
-                                @endif
-                                <span class="w-48 flex-shrink-0">Days</span>
-                            </div>
-                            <div class="divide-y divide-gray-100">
-                                @foreach ($card['rows'] as $r)
-                                    @if ($r['type'] === 'lunch')
-                                        <div class="flex items-center gap-3 px-4 sm:px-6 py-2 bg-gray-50/60">
-                                            <span class="w-5 flex-shrink-0"></span>
-                                            <span class="w-40 text-sm text-gray-500 tabular-nums flex-shrink-0">{{ \Carbon\Carbon::parse($r['start_time'])->format('h:i A') }} – {{ \Carbon\Carbon::parse($r['end_time'])->format('h:i A') }}</span>
-                                            <span class="flex-1 min-w-0 text-sm text-gray-500">Lunch break</span>
-                                        </div>
-                                    @else
-                                        <div class="px-4 sm:px-6 py-2.5 space-y-1">
-                                            @foreach ($r['lines'] as $l => $line)
-                                                <div class="flex items-start gap-3">
-                                                    <span class="w-5 pt-0.5 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $l === 0 ? ($r['no'] ?? '–') : '' }}</span>
-                                                    <span class="w-40 text-sm text-gray-600 tabular-nums flex-shrink-0">
-                                                        @if ($l === 0){{ \Carbon\Carbon::parse($r['start_time'])->format('h:i A') }} – {{ \Carbon\Carbon::parse($r['end_time'])->format('h:i A') }}@endif
-                                                    </span>
-                                                    <span class="flex-1 min-w-0 text-sm text-gray-900">{{ $line['subject'] }}</span>
-                                                    <span class="flex-1 min-w-0 text-sm text-gray-700">{{ $line['teacher'] }}</span>
-                                                    @if ($viewMode === 'teacher')
-                                                        <span class="w-36 text-sm text-gray-700 flex-shrink-0">{{ $card['standard'] }} · {{ $card['section'] }}</span>
-                                                    @endif
-                                                    <span class="w-48 text-sm text-gray-500 flex-shrink-0">{{ collect($line['days'])->map(fn ($d) => $daysOfWeek[$d] ?? $d)->implode(', ') }}</span>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                @endforeach
-                            </div>
-                        </div>
+                        @endunless
                     </div>
                 </div>
-            @endforeach
+
+                {{-- The grid: Period | Monday … Saturday --}}
+                <div class="overflow-x-auto">
+                    <div class="tt-grid" role="table" aria-label="Weekly timetable"
+                        style="--tt-cols: 118px repeat({{ count($wkDays) }}, minmax(0, 1fr)); min-width: {{ 118 + count($wkDays) * 132 }}px">
+                        <div class="tt-row" role="row">
+                            <div class="tt-h" role="columnheader">Period</div>
+                            @foreach ($wkDays as $d)
+                                <div class="tt-h {{ $d === $today ? 'is-today' : '' }}" role="columnheader">{{ $daysOfWeekFull[$d] }}</div>
+                            @endforeach
+                        </div>
+                        @foreach ($week['rows'] as $r)
+                            @if ($r['type'] === 'lunch')
+                                <div class="tt-row tt-lunch" role="row" wire:key="tt-lunch">
+                                    <div class="tt-time" role="rowheader">
+                                        <span class="tt-tm">{{ $clock($r['start']) }}</span>
+                                        <span class="tt-tm2">{{ $clock($r['end']) }}</span>
+                                    </div>
+                                    <div class="tt-lunch-bar" role="cell">Lunch break</div>
+                                </div>
+                            @else
+                                <div class="tt-row" role="row" wire:key="tt-row-{{ $r['start'] }}-{{ $r['end'] }}">
+                                    <div class="tt-time" role="rowheader">
+                                        <span class="tt-no">{{ $r['no'] ? 'Period ' . $r['no'] : 'Period –' }}</span>
+                                        <span class="tt-tm">{{ $clock($r['start']) }}</span>
+                                        <span class="tt-tm2">{{ $clock($r['end']) }}</span>
+                                    </div>
+                                    @foreach ($wkDays as $d)
+                                        <div class="tt-slot {{ $d === $today ? 'is-today' : '' }}" role="cell">
+                                            @forelse ($r['cells'][$d] ?? [] as $c)
+                                                @php [$tBg, $tAc] = $tone($c['subject_id']); @endphp
+                                                <div class="tt-card" style="--tt-bg: {{ $tBg }}; --tt-ac: {{ $tAc }}">
+                                                    <p class="tt-sub" title="{{ $c['subject'] }}">{{ $c['subject'] }}</p>
+                                                    @if ($byTeacher)
+                                                        <p class="tt-who"><svg class="tt-ic" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m-6.16-9.42A12 12 0 0012 20.06a12 12 0 006.16-9.48" /></svg><span>{{ $c['class'] }}</span></p>
+                                                    @else
+                                                        <p class="tt-who" title="{{ $c['teacher'] }}">
+                                                            @if ($c['image'])
+                                                                <img src="{{ $c['image'] }}" alt="" loading="lazy">
+                                                            @else
+                                                                <span class="tt-av" aria-hidden="true">{{ $initials($c['teacher']) }}</span>
+                                                            @endif
+                                                            <span>{{ $c['teacher'] }}</span>
+                                                        </p>
+                                                    @endif
+                                                </div>
+                                            @empty
+                                                <span class="tt-free">{{ $byTeacher ? 'Free' : '—' }}</span>
+                                            @endforelse
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+            </div>
         @endif
     </div>
 

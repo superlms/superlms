@@ -143,7 +143,7 @@ class SuperAdminChatTest extends TestCase
 
         $ql = Livewire::test(\App\Livewire\SuperAdmin\QuickLinks::class);
         $this->assertStringContainsString('href="' . route('super-admin.messages') . '" class="sk-btn"', $ql->html());
-        $this->assertStringContainsString('sk-actions sk-plain', $ql->html());
+        $this->assertStringContainsString('class="sk-actions"', $ql->html());   // a thin circle each, no fill (2026-11-26)
         $this->assertSame(1, $ql->viewData('unreadMessages'));
     }
 }

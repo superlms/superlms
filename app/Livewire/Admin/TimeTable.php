@@ -161,6 +161,13 @@ class TimeTable extends Component
         $this->resetPage();
     }
 
+    /** The Weekly chip: every day, Monday to Saturday, side by side. */
+    public function showWeek(): void
+    {
+        $this->filterDays = [];
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['filterClass', 'filterSection', 'filterTeacher', 'filterDays']);
@@ -1229,7 +1236,7 @@ class TimeTable extends Component
         $entries = collect();
         if ($this->viewMode === 'class' && $this->filterClass && $this->filterSection) {
             $entries = TeacherTimeTable::with([
-                'teacher.user:id,name',
+                'teacher.user:id,name,image',
                 'standard:id,name',
                 'section:id,name',
                 'subject:id,name,code',
@@ -1241,7 +1248,7 @@ class TimeTable extends Component
                 ->get();
         } elseif ($this->viewMode === 'teacher' && $this->filterTeacher) {
             $entries = TeacherTimeTable::with([
-                'teacher.user:id,name',
+                'teacher.user:id,name,image',
                 'standard:id,name',
                 'section:id,name',
                 'subject:id,name,code',
@@ -1252,75 +1259,11 @@ class TimeTable extends Component
                 ->get();
         }
 
-        // The school's day: the serial of the period each time is, and — on the
-        // class's own timetable — where the lunch break falls.
-        $periods  = $this->periods();
-        $lunch    = $this->lunch();
-        $periodNo = [];
-        foreach ($periods as $p) {
-            $periodNo[$p['start'] . '|' . $p['end']] = $p['no'];
-        }
+        // The school's day: its periods and where the lunch break falls.
+        $periods = $this->periods();
+        $lunch   = $this->lunch();
 
-        // CLASS VIEW: one card with the section's periods.
-        // TEACHER VIEW: one card per (class, section) of that teacher, with the teacher's periods there.
-        // A row is one time of the day; its lines are who teaches what then, and on which days.
-        $sectionCards = collect();
-        if ($entries->isNotEmpty()) {
-            $sectionCards = $entries
-                ->groupBy(fn($e) => $e->standard_id . '|' . ($e->section_id ?? ''))
-                ->map(function ($items) use ($periods, $periodNo, $lunch) {
-                    $first = $items->first();
-                    $rows = $items
-                        ->groupBy(fn($e) => substr((string) $e->start_time, 0, 5) . '|' . substr((string) $e->end_time, 0, 5))
-                        ->map(function ($g, $key) use ($periodNo) {
-                            $first = $g->first();
-                            return [
-                                'type'       => 'period',
-                                'no'         => $periodNo[$key] ?? null,
-                                'start_time' => substr((string) $first->start_time, 0, 5),
-                                'end_time'   => substr((string) $first->end_time, 0, 5),
-                                'lines'      => $g
-                                    ->groupBy(fn($e) => $e->subject_id . '|' . $e->teacher_detail_id)
-                                    ->map(fn($l) => [
-                                        'subject' => $l->first()->subject?->name ?? '—',
-                                        'teacher' => $l->first()->teacher?->user?->name ?? '—',
-                                        'days'    => $l->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all(),
-                                    ])
-                                    ->sortBy(fn($l) => $l['days'][0] ?? 9)
-                                    ->values()
-                                    ->all(),
-                            ];
-                        })
-                        ->sortBy('start_time')
-                        ->values();
-
-                    // A school with no periods set numbers the rows as they come, as before.
-                    if (empty($periods)) {
-                        $rows = $rows->map(fn($r, $i) => array_merge($r, ['no' => $i + 1]));
-                    }
-                    $count = $rows->count();
-
-                    if ($lunch && $this->viewMode === 'class') {
-                        $at = $rows->search(fn($r) => $r['start_time'] >= $lunch['start']);
-                        $rows->splice($at === false ? $rows->count() : $at, 0, [[
-                            'type'       => 'lunch',
-                            'start_time' => $lunch['start'],
-                            'end_time'   => $lunch['end'],
-                        ]]);
-                    }
-
-                    return [
-                        'standard_id' => $first->standard_id,
-                        'section_id'  => $first->section_id,
-                        'standard'    => $first->standard?->name ?? '—',
-                        'section'     => $first->section?->name ?? '—',
-                        'rows'        => $rows->values(),
-                        'count'       => $count,
-                    ];
-                })
-                ->sortBy([['standard_id', 'asc'], ['section_id', 'asc']])
-                ->values();
-        }
+        $week = $entries->isNotEmpty() ? $this->weekGrid($entries, $periods, $lunch) : null;
 
         // PERIODS TAB: the day in order — each period, and the lunch break where it falls.
         $dayRows = collect($periods)->map(fn($p) => ['type' => 'period'] + $p);
@@ -1330,10 +1273,78 @@ class TimeTable extends Component
         $dayRows = $dayRows->sortBy('start')->values();
 
         return view('livewire.admin.time-table', [
-            'sectionCards' => $sectionCards,
-            'periods'      => $periods,
-            'lunch'        => $lunch,
-            'dayRows'      => $dayRows,
+            'week'    => $week,
+            'periods' => $periods,
+            'lunch'   => $lunch,
+            'dayRows' => $dayRows,
         ]);
+    }
+
+    /**
+     * The week as one grid (user's ask of 2026-11-26): a column a day —
+     * Monday to Saturday, or the days picked — and a row a period of the
+     * school's day (a time not among them gets a row of its own), the lunch
+     * break where it falls. A cell holds who teaches what then: the subject,
+     * the teacher with their photo and, in the teacher's week, the class.
+     * Class View: the section's week. Teacher View: the teacher's week.
+     */
+    private function weekGrid(\Illuminate\Support\Collection $entries, array $periods, ?array $lunch): array
+    {
+        $days = array_keys($this->daysOfWeek);
+        if (!empty($this->filterDays)) {
+            $picked = array_map('intval', $this->filterDays);
+            $days   = array_values(array_filter($days, fn ($d) => in_array($d, $picked, true)));
+        }
+
+        $slots = [];
+        foreach ($periods as $p) {
+            $slots[$p['start'] . '|' . $p['end']] = ['type' => 'period', 'no' => $p['no'], 'start' => $p['start'], 'end' => $p['end'], 'cells' => []];
+        }
+        foreach ($entries as $e) {
+            $start = substr((string) $e->start_time, 0, 5);
+            $end   = substr((string) $e->end_time, 0, 5);
+            $key   = $start . '|' . $end;
+            $slots[$key] ??= ['type' => 'period', 'no' => null, 'start' => $start, 'end' => $end, 'cells' => []];
+
+            $user = $e->teacher?->user;
+            $slots[$key]['cells'][(int) $e->day_of_week][$e->subject_id . '|' . $e->teacher_detail_id . '|' . $e->standard_id . '|' . $e->section_id] = [
+                'subject'    => $e->subject?->name ?? '—',
+                'subject_id' => (int) $e->subject_id,
+                'teacher'    => $user?->name ?? '—',
+                'image'      => $user?->image ?: null,
+                'class'      => ($e->standard?->name ?? '—') . ' · ' . ($e->section?->name ?? '—'),
+            ];
+        }
+
+        $rows = collect($slots)
+            ->map(fn ($r) => array_merge($r, ['cells' => array_map('array_values', $r['cells'])]))
+            ->sortBy('start')
+            ->values();
+        // A school with no periods set numbers the rows as they come, as before.
+        if (empty($periods)) {
+            $rows = $rows->map(fn ($r, $i) => array_merge($r, ['no' => $i + 1]));
+        }
+        $taught = $rows->filter(fn ($r) => !empty($r['cells']))->count();
+
+        if ($lunch) {
+            $at = $rows->search(fn ($r) => $r['start'] >= $lunch['start']);
+            $rows->splice($at === false ? $rows->count() : $at, 0, [['type' => 'lunch', 'no' => null, 'start' => $lunch['start'], 'end' => $lunch['end'], 'cells' => []]]);
+        }
+
+        $first = $entries->first();
+        $user  = $first->teacher?->user;
+
+        return [
+            'days'          => $days,
+            'rows'          => $rows->values()->all(),
+            'count'         => $taught,
+            'lessons'       => $entries->count(),
+            'standard_id'   => $first->standard_id,
+            'section_id'    => $first->section_id,
+            'standard'      => $first->standard?->name ?? '—',
+            'section'       => $first->section?->name ?? '—',
+            'teacher'       => $user?->name ?? '—',
+            'teacher_image' => $user?->image ?: null,
+        ];
     }
 }
