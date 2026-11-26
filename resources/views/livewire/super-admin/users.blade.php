@@ -72,8 +72,9 @@
     <div class="p-4 sm:p-6">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[720px]">
-                    <thead class="bg-gray-50 border-b border-gray-200">
+                {{-- Nothing to list: no column heads and no 720px floor, only the empty state. --}}
+                <table @class(['w-full', 'min-w-[720px]' => $users->isNotEmpty()])>
+                    <thead @class(['bg-gray-50 border-b border-gray-200', 'hidden' => $users->isEmpty()])>
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
@@ -145,13 +146,15 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="5" class="px-6 py-16 text-center">
-                                    <p class="text-sm font-semibold text-gray-800">No users{{ ($search || $filterStatus !== '' || $filterOrg !== '') ? ' for this filter' : ' yet' }}</p>
-                                    @if (!$search && $filterStatus === '' && $filterOrg === '')
-                                        <button wire:click="openCreate" class="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800">Add a user →</button>
+                            <tr class="es-row">
+                                <td colspan="5" class="p-0">
+                                    @if ($search || $filterStatus !== '' || $filterOrg !== '')
+                                        <x-empty-state icon="search" title="No users match this filter"
+                                            text="Try another search, status or school." clear="clearFilters" />
                                     @else
-                                        <p class="text-xs text-gray-400 mt-1">Try another search, status or school.</p>
+                                        <x-empty-state title="No users yet"
+                                            text="Add a team member with their own login and only the functionalities you pick."
+                                            action="Add User" click="openCreate" />
                                     @endif
                                 </td>
                             </tr>

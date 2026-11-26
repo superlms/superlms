@@ -85,6 +85,27 @@ class UsersRulesMoreTest extends TestCase
         $this->assertStringContainsString('wire:click="selectAllPermissions"', $html);
     }
 
+    public function test_an_empty_users_list_shows_the_empty_state(): void
+    {
+        // Nothing yet: no column heads, the illustration, a line and Add User.
+        $page = Livewire::test(Users::class);
+        $html = $page->html();
+        $this->assertStringContainsString('<thead class="bg-gray-50 border-b border-gray-200 hidden">', $html);
+        $this->assertStringContainsString('<p class="es-title">No users yet</p>', $html);
+        $this->assertStringContainsString('<button type="button" wire:click="openCreate" class="es-btn">', $html);
+        $this->assertStringNotContainsString('Add a user →', $html);
+
+        // A search that finds nothing: the magnifier, and Clear filters brings the list back.
+        User::forceCreate(['name' => 'Ravi Clerk', 'role' => 'sub-admin', 'organization_id' => $this->org, 'is_active' => true]);
+        $html = $page->set('search', 'zzz')->html();
+        $this->assertStringContainsString('<p class="es-title">No users match this filter</p>', $html);
+        $this->assertStringContainsString('wire:click="clearFilters" class="es-btn es-btn-light"', $html);
+        $html = $page->call('clearFilters')->html();
+        $this->assertStringContainsString('Ravi Clerk', $html);
+        $this->assertStringContainsString('<thead class="bg-gray-50 border-b border-gray-200">', $html);
+        $this->assertStringNotContainsString('class="es-title"', $html);
+    }
+
     public function test_rules_tabs_sit_under_the_heading(): void
     {
         Schema::create('rules_and_regulations', function (Blueprint $t) {
