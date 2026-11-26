@@ -483,24 +483,53 @@ class SuperAdminFeeReceiveTest extends TestCase
 
         $alpha = $text(Livewire::test(Fees::class)->call('selectSchool', 1));
         // In the Home's look (2026-11-09): KPI cards, the year's collection,
-        // who pays, the fee, then Payments and Students.
-        foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'To Collect ₹2,000',
-                  'Collected ₹1,200', '60% of ₹2,000 · 2026-2027', 'Students Paid 2 / 4', '1 part paid · 1 pending',
+        // who pays, the fee, its collection, then Payments — the Analytics
+        // chip; the students are the Students chip's (2026-11-26).
+        foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'Analytics Students 4',
+                  'To Collect ₹2,000', 'Collected ₹1,200', '60% of ₹2,000 · 2026-2027', 'Students Paid 2 / 4', '1 part paid · 1 pending',
                   'Fee Collection Money received month by month · Apr 26 – Mar 27 ₹1,200 this year',
-                  'Who Pays', 'The school pays', 'Fee Structure', 'Amount ₹500 / student', 'Who pays The school',
-                  'Who the school has paid for 2 paid 1 part paid 1 pending All Classes'] as $seen) {
+                  'Who Pays', 'The school pays', 'Marked paid 2 students Still to mark 2 students Mark as Paid',
+                  'Fee Structure', 'Amount ₹500 / student', 'Who pays The school',
+                  'Collection 2026-2027 60% ₹1,200 of ₹2,000 Students 4 Payments 1 Remaining ₹800 Avg / student ₹500'] as $seen) {
             $this->assertStringContainsString($seen, $alpha);
         }
-        $this->assertStringNotContainsString('View Fee', $alpha);   // no tabs: one page
+        $this->assertStringNotContainsString('View Fee', $alpha);
+        $this->assertStringNotContainsString('Who the school has paid for', $alpha);
+        // Who Pays is a white card like the others now, not the dark one.
+        $this->assertDoesNotMatchRegularExpression('/class="[^"]*sa-card-dark/', Livewire::test(Fees::class)->call('selectSchool', 1)->html());
+
+        // Students: the classes with their paid / total, then the list with
+        // a chip per status counting the class picked.
+        $students = fn () => Livewire::test(Fees::class)->call('selectSchool', 1)->call('setTab', 'students');
+        $all = $text($students());
+        $this->assertStringContainsString('Classes Tap a class to see its students All Classes 2 / 4 paid 1 part paid · 1 pending ₹800 due Class 1 2 / 3 paid 1 part paid · 0 pending ₹300 due Class 2 0 / 1 paid 1 pending ₹500 due', $all);
+        $this->assertStringContainsString('Students Who the school has paid for All 4 Paid 2 Part paid 1 Pending 1 All Classes', $all);
+        $this->assertStringNotContainsString('Fee Collection', $all);
 
         // Class wise by default — the order Amount Received marks students
         // paid in — with the class and the section's last letter under the
         // name (2026-10-13); A to Z on asking.
-        $this->assertStringContainsString('1 Kiran Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 2 Ravi Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 3 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $alpha);
-        $this->assertStringContainsString('4 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $alpha);
-        $byName = $text(Livewire::test(Fees::class)->call('selectSchool', 1)->set('viewFeeSort', 'name'));
+        $this->assertStringContainsString('1 Kiran Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 2 Ravi Class 1 (A) · Adm: — ₹500 ₹500 Paid Cash · 12 Oct 2026 Edit 3 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $all);
+        $this->assertStringContainsString('4 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $all);
+        $byName = $text($students()->set('viewFeeSort', 'name'));
         $this->assertStringContainsString('1 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $byName);
         $this->assertStringContainsString('4 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $byName);
+
+        // A class picked: its students numbered from 1, the chips count it;
+        // a status on top shows only those.
+        $class2 = 20;
+        $picked = $text($students()->set('viewFeeStandardId', (string) $class2));
+        $this->assertStringContainsString('Class 2 — Students', $picked);
+        $this->assertStringContainsString('All 1 Paid 0 Part paid 0 Pending 1', $picked);
+        $this->assertStringContainsString('1 Aman Class 2 (A)', $picked);
+        $this->assertStringNotContainsString('Kiran Class 1', $picked);
+        $partial = $text($students()->set('viewFeeStatus', 'partial'));
+        $this->assertStringContainsString('1 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Part paid', $partial);
+        $this->assertStringNotContainsString('Kiran Class 1', $partial);
+
+        // Another school starts on Analytics with nothing picked.
+        $page = $students()->set('viewFeeStatus', 'paid')->call('selectSchool', 2);
+        $page->assertSet('activeTab', 'analytics')->assertSet('viewFeeStatus', '');
 
         $beta = $text(Livewire::test(Fees::class)->call('selectSchool', 2));
         foreach (['Monthly · Annual Platform Fee · 2026-2027', 'Months Paid 0 / 2', 'Months', 'Apr 2026 ₹1,000 ₹0 Pending', 'Jun 2026 — ₹0 No fee'] as $seen) {
@@ -574,8 +603,10 @@ class SuperAdminFeeReceiveTest extends TestCase
         // Fee Structure, a payment, Edit Payment, Record / Mark Paid, Update Fee.
         $this->assertSame(5, substr_count($html, 'data-panel-skeleton'));
         $this->assertStringContainsString('wire:target="openPayModal,openMarkPaidModal,openInstallmentPayModal,openMarkInstallmentPaidModal"', $html);
-        // The Students card's rows while a filter or the sort is slow.
-        $this->assertSame(2, substr_count($html, 'wire:target="viewFeeStandardId,viewFeeSectionId,viewFeeStatus,viewFeeSort,clearViewFeeFilters"'));
+        // The Students tab's rows while a filter or the sort is slow.
+        $this->assertSame(0, substr_count($html, 'wire:target="viewFeeStandardId,viewFeeSectionId,viewFeeStatus,viewFeeSort,clearViewFeeFilters"'));
+        $students = html_entity_decode(Livewire::test(Fees::class)->call('selectSchool', 1)->call('setTab', 'students')->html(), ENT_QUOTES);
+        $this->assertSame(2, substr_count($students, 'wire:target="viewFeeStandardId,viewFeeSectionId,viewFeeStatus,viewFeeSort,clearViewFeeFilters"'));
     }
 
     // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────

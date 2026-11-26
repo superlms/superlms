@@ -1,5 +1,10 @@
 <div class="min-h-screen bg-gray-50">
     @include('livewire.super-admin.partials.dash-styles')
+    {{-- Analytics' chips (.an-chip) for a school's Analytics / Students. --}}
+    @include('livewire.super-admin.partials.home-skin')
+    <style>
+        .fee-sa-chips { background: transparent; }
+    </style>
     @php
         // "CLASS 5 (B) · Adm: 26SSIC120328" — the class, its section by the
         // last letter of the name, then the admission number.
@@ -483,8 +488,31 @@
             </div>
         </div>
 
-        <div class="p-4 sm:p-6 space-y-5">
+        {{-- ═══════════════ CHIPS — as on Analytics (2026-11-26) ═══════════════
+             A per-student school's page in two: Analytics (its figures, cards
+             and payments) and Students (class by class, then who has paid,
+             picked by class and status). --}}
+        @php
+            $hasStudentsTab = $dStructure?->fee_type === 'per_student';
+            $onStudents     = $hasStudentsTab && $activeTab === 'students';
+        @endphp
+        @if ($hasStudentsTab)
+            <nav class="sa-skin an-chips fee-sa-chips" aria-label="Fee sections">
+                @foreach (['analytics' => ['Analytics', 'chart-bar'], 'students' => ['Students', 'user-group']] as $key => [$label, $icon])
+                    @php $chipOn = ($onStudents ? 'students' : 'analytics') === $key; @endphp
+                    <button type="button" wire:click="setTab('{{ $key }}')" class="an-chip {{ $chipOn ? 'on' : '' }}" aria-pressed="{{ $chipOn ? 'true' : 'false' }}">
+                        <x-icon name="{{ $icon }}" /> {{ $label }}
+                        @if ($key === 'students')
+                            <span class="n">{{ number_format($dCounts['total']) }}</span>
+                        @endif
+                    </button>
+                @endforeach
+            </nav>
+        @endif
 
+        <div class="p-4 sm:p-6 {{ $hasStudentsTab ? 'pt-4 sm:pt-5' : '' }} space-y-5" wire:loading.delay.class="opacity-60 pointer-events-none" wire:target="setTab">
+
+        @if (!$onStudents)
             {{-- ═══════════════ KPIs — figure, sparkline of the year so far, change ═══════════════ --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 @include('livewire.super-admin.partials.dash-kpi', [
@@ -573,33 +601,37 @@
                 </div>
             </div>
 
-            {{-- ═══════════════ Who pays (dark) · the fee · its progress ═══════════════ --}}
+            {{-- ═══════════════ Who pays · the fee · its progress ═══════════════
+                 Three white cards alike (2026-11-26, the user's ask: Who Pays was
+                 a dark card): a title row with its icon or link, then the
+                 figures as label · value rows split by hairlines, teal for
+                 what is done, rose for what is still due. --}}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                <div class="sa-card-dark p-5 min-w-0 flex flex-col">
+                <div class="sa-card p-5 min-w-0 flex flex-col">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <h3 class="text-[15px] font-semibold text-white">Who Pays</h3>
-                            <p class="text-xs text-white/50 mt-0.5">How this school's fee is collected</p>
+                            <h3 class="sa-card-title">Who Pays</h3>
+                            <p class="sa-card-sub">How this school's fee is collected</p>
                         </div>
-                        <span class="w-9 h-9 rounded-xl bg-white/10 text-white flex items-center justify-center flex-shrink-0">
+                        <span class="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center flex-shrink-0">
                             <x-icon name="{{ $byStudent ? 'device-phone-mobile' : 'building-library' }}" class="w-4 h-4" />
                         </span>
                     </div>
 
                     @if ($dCollect['per_student'])
                         {{-- The switch: the school, or each student in the app. --}}
-                        <div class="mt-4 grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/10 text-sm">
+                        <div class="mt-4 grid grid-cols-2 gap-1 p-1 rounded-full bg-gray-100 text-sm" role="group" aria-label="Who pays">
                             @foreach (['school' => 'School', 'student' => 'Students'] as $mode => $label)
-                                <button type="button" wire:click="confirmCollectFrom('{{ $mode }}')"
-                                    class="px-3 py-1.5 rounded-lg font-medium transition-colors {{ $dCollect['mode'] === $mode ? 'bg-white text-gray-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10' }}">
+                                <button type="button" wire:click="confirmCollectFrom('{{ $mode }}')" aria-pressed="{{ $dCollect['mode'] === $mode ? 'true' : 'false' }}"
+                                    class="h-8 px-3 rounded-full font-medium transition-colors {{ $dCollect['mode'] === $mode ? 'bg-white text-teal-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-800' }}">
                                     {{ $label }}
                                 </button>
                             @endforeach
                         </div>
                     @endif
 
-                    <p class="mt-4 text-lg font-semibold leading-snug">{{ $byStudent ? 'Each student pays in the app' : 'The school pays' }}</p>
-                    <p class="text-xs text-white/60 mt-1 leading-relaxed">
+                    <p class="mt-4 text-[15px] font-semibold text-gray-900 leading-snug">{{ $byStudent ? 'Each student pays in the app' : 'The school pays' }}</p>
+                    <p class="text-xs text-gray-500 mt-1 leading-relaxed">
                         @if ($byStudent)
                             Students see a payment screen with Pay Now (PhonePe) when they open the app. Until a student pays, their fee cannot be submitted and their attendance cannot be marked.
                         @elseif ($dCollect['per_student'])
@@ -611,34 +643,36 @@
                         @endif
                     </p>
 
-                    <dl class="mt-5 space-y-2.5 text-sm">
+                    <dl class="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-sm">
                         @if ($byStudent)
-                            <div class="flex items-center justify-between gap-2">
-                                <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Paid in the app</dt>
-                                <dd class="font-semibold tabular-nums">{{ number_format($dCollect['online']) }} · {{ $inr($dCollect['online_amount']) }}</dd>
+                            <div class="flex items-center justify-between gap-2 py-2.5">
+                                <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#0d9488"></span>Paid in the app</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($dCollect['online']) }} · {{ $inr($dCollect['online_amount']) }}</dd>
                             </div>
-                            <div class="flex items-center justify-between gap-2">
-                                <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#fb7185"></span>Locked till they pay</dt>
-                                <dd class="font-semibold tabular-nums">{{ number_format($dCollect['locked']) }} {{ $dCollect['locked'] === 1 ? 'student' : 'students' }}</dd>
+                            <div class="flex items-center justify-between gap-2 py-2.5">
+                                <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#f43f5e"></span>Locked till they pay</dt>
+                                <dd class="font-semibold text-rose-600 tabular-nums">{{ number_format($dCollect['locked']) }} {{ $dCollect['locked'] === 1 ? 'student' : 'students' }}</dd>
                             </div>
                         @else
-                            <div class="flex items-center justify-between gap-2">
-                                <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#a78bfa"></span>Marked paid</dt>
-                                <dd class="font-semibold tabular-nums">{{ $units($dCounts['paid']) }}</dd>
+                            <div class="flex items-center justify-between gap-2 py-2.5">
+                                <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#0d9488"></span>Marked paid</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $units($dCounts['paid']) }}</dd>
                             </div>
-                            <div class="flex items-center justify-between gap-2">
-                                <dt class="flex items-center gap-2 text-white/60"><span class="sa-dot" style="background:#fb7185"></span>Still to mark</dt>
-                                <dd class="font-semibold tabular-nums">{{ $units($dDue) }}</dd>
+                            <div class="flex items-center justify-between gap-2 py-2.5">
+                                <dt class="flex items-center gap-2 text-gray-500"><span class="sa-dot" style="background:#f43f5e"></span>Still to mark</dt>
+                                <dd class="font-semibold {{ $dDue > 0 ? 'text-rose-600' : 'text-gray-900' }} tabular-nums">{{ $units($dDue) }}</dd>
                             </div>
                         @endif
                     </dl>
 
                     @if ($currentFeeType && !$byStudent)
-                        <button wire:click="openUpdatePanelForCurrent"
-                            class="mt-5 pt-0 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-gray-900 bg-white rounded-lg hover:bg-violet-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                            Mark as Paid
-                        </button>
+                        <div class="mt-auto pt-4">
+                            <button wire:click="openUpdatePanelForCurrent"
+                                class="w-full inline-flex items-center justify-center gap-1.5 h-10 px-4 text-sm font-semibold text-white bg-teal-600 rounded-full hover:bg-teal-700 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                Mark as Paid
+                            </button>
+                        </div>
                     @endif
                 </div>
 
@@ -649,12 +683,12 @@
                             <p class="sa-card-sub">{{ $academicYear }}</p>
                         </div>
                         @if ($currentFeeType)
-                            <button wire:click="openUpdateFeePanel" class="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap">Edit →</button>
+                            <button wire:click="openUpdateFeePanel" class="text-xs font-semibold text-teal-700 hover:text-teal-900 whitespace-nowrap">Edit →</button>
                         @endif
                     </div>
 
                     @if ($feeStructures->count())
-                        <div class="space-y-5">
+                        <div class="space-y-4">
                             @foreach ($feeStructures as $fs)
                                 @php
                                     $schoolKids = $dStats['total_students'];
@@ -668,7 +702,7 @@
                                         default                         => $inr($fs->amount) . ' / student',
                                     };
                                 @endphp
-                                <dl class="space-y-3 text-sm">
+                                <dl class="divide-y divide-gray-100 border-t border-gray-100 text-sm">
                                     @foreach (array_filter([
                                         ['Fee Type', $fs->fee_type === 'class_wise' ? ($fs->standard?->name ?? 'Class') : \App\Support\SuperAdminFeeTotals::planName($fs)],
                                         $fs->fee_label ? ['Label', $fs->fee_label] : null,
@@ -676,7 +710,7 @@
                                         ['Students', number_format($fsStudents)],
                                         $fs->fee_type === 'per_student' ? ['Who pays', \App\Support\FeeAccess::collectFrom($fs) === 'student' ? 'Students, in the app' : 'The school'] : null,
                                     ]) as [$label, $val])
-                                        <div class="flex items-baseline justify-between gap-3">
+                                        <div class="flex items-baseline justify-between gap-3 py-2.5">
                                             <dt class="text-gray-500">{{ $label }}</dt>
                                             <dd class="font-semibold text-gray-900 text-right tabular-nums truncate">{{ $val }}</dd>
                                         </div>
@@ -687,34 +721,45 @@
                     @else
                         <div class="flex-1 flex flex-col items-center justify-center text-center py-8">
                             <p class="text-sm text-gray-400">No fee structure set yet.</p>
-                            <button wire:click="openAddFeePanel" class="mt-3 text-sm font-medium text-violet-600 hover:text-violet-800">Add Fee →</button>
+                            <button wire:click="openAddFeePanel" class="mt-3 text-sm font-semibold text-teal-700 hover:text-teal-900">Add Fee →</button>
                         </div>
                     @endif
                 </div>
 
+                {{-- Collection: the share collected as one figure and its bar,
+                     then the same label · value rows as the Fee Structure. --}}
+                @php $colPct = min(100, max(0, (float) $dStats['collection_pct'])); @endphp
                 <div class="sa-card p-5 min-w-0 flex flex-col md:col-span-2 xl:col-span-1">
                     <div class="flex items-start justify-between gap-3 mb-4">
                         <div class="min-w-0">
                             <h3 class="sa-card-title">Collection</h3>
-                            <p class="sa-card-sub">{{ $inr($dStats['collected']) }} of {{ $inr($dStats['total_to_collect']) }} collected</p>
+                            <p class="sa-card-sub">{{ $academicYear }}</p>
                         </div>
+                        <span class="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center flex-shrink-0">
+                            <x-icon name="chart-pie" class="w-4 h-4" />
+                        </span>
                     </div>
-                    <p class="text-[28px] leading-none font-semibold text-gray-900 tabular-nums">{{ $dStats['collection_pct'] }}%</p>
-                    <div class="mt-3 h-2 rounded-full bg-gray-100"><div class="h-2 rounded-full bg-violet-600" style="width: {{ min(100, $dStats['collection_pct']) }}%"></div></div>
-                    <div class="mt-5 grid grid-cols-2 gap-3">
+                    <div class="flex items-end justify-between gap-3">
+                        <p class="text-[28px] leading-none font-semibold text-gray-900 tabular-nums">{{ $dStats['collection_pct'] }}%</p>
+                        <p class="text-xs text-gray-500 text-right tabular-nums">{{ $inr($dStats['collected']) }} of {{ $inr($dStats['total_to_collect']) }}</p>
+                    </div>
+                    <div class="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ round($colPct) }}">
+                        <div class="h-2 rounded-full bg-teal-600" style="width: {{ $colPct }}%"></div>
+                    </div>
+                    <dl class="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-sm">
                         @foreach (array_filter([
-                            ['Students', number_format($dStats['total_students']), 'bg-gray-50', 'text-gray-400', 'text-gray-900'],
-                            ['Payments', number_format(array_sum($fyCount)), 'bg-gray-50', 'text-gray-400', 'text-gray-900'],
-                            ['Remaining', $inr($dStats['remaining']), 'bg-rose-50', 'text-rose-400', 'text-rose-700'],
+                            ['Students', number_format($dStats['total_students']), 'text-gray-900'],
+                            ['Payments', number_format(array_sum($fyCount)), 'text-gray-900'],
+                            ['Remaining', $inr($dStats['remaining']), $dStats['remaining'] > 0.5 ? 'text-rose-600' : 'text-gray-900'],
                             // Money of deleted students that nobody owed yet: it goes to the next student added.
-                            ($dStats['carried'] ?? 0) > 0.005 ? ['Carried', $inr($dStats['carried']), 'bg-amber-50', 'text-amber-500', 'text-amber-700'] : ['Avg / student', $inr($dStats['avg_per_student']), 'bg-violet-50', 'text-violet-500', 'text-violet-800'],
-                        ]) as [$label, $val, $bg, $lab, $ink])
-                            <div class="rounded-xl {{ $bg }} px-3.5 py-3 min-w-0">
-                                <p class="text-xs {{ $lab }} truncate">{{ $label }}</p>
-                                <p class="text-base font-semibold {{ $ink }} tabular-nums mt-0.5 truncate">{{ $val }}</p>
+                            ($dStats['carried'] ?? 0) > 0.005 ? ['Carried', $inr($dStats['carried']), 'text-amber-600'] : ['Avg / student', $inr($dStats['avg_per_student']), 'text-gray-900'],
+                        ]) as [$label, $val, $ink])
+                            <div class="flex items-baseline justify-between gap-3 py-2.5">
+                                <dt class="text-gray-500">{{ $label }}</dt>
+                                <dd class="font-semibold {{ $ink }} text-right tabular-nums truncate">{{ $val }}</dd>
                             </div>
                         @endforeach
-                    </div>
+                    </dl>
                 </div>
             </div>
 
@@ -796,29 +841,97 @@
                 @endif
             </div>
 
-            {{-- ═══════════════════ STUDENTS (per student) / MONTHS (monthly, one time) ═══════════════════ --}}
-            @if ($dStructure?->fee_type === 'per_student')
+        @endif
+
+            {{-- ═══════════════════ STUDENTS TAB (per student) ═══════════════════
+                 In Analytics' look (2026-11-26): the classes on the left — each
+                 with its paid / total, a bar of paid and part paid, and what is
+                 still due; a tap picks the class — and the students on the
+                 right, picked by class, section and status (the status chips
+                 count the class picked). The MONTHS of a monthly / one time
+                 fee stay on the Analytics page, under Payments. --}}
+            @if ($onStudents)
                 @php
                     $vfRows    = $this->viewFeeStudents();
-                    $vfPaid    = collect($vfRows)->where('status', 'paid')->count();
-                    $vfPartial = collect($vfRows)->where('status', 'partial')->count();
-                    $vfPending = collect($vfRows)->where('status', 'pending')->count();
-                    $vfSel     = 'text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 disabled:bg-gray-50 disabled:text-gray-400';
+                    $vfCounts  = $this->viewFeeStatusCounts();
+                    $vfClasses = $this->viewFeeClasses();
+                    $vfSel     = 'text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-50 disabled:text-gray-400';
+                    $vfAll     = ['students' => 0, 'paid' => 0, 'partial' => 0, 'pending' => 0, 'collected' => 0.0, 'due' => 0.0];
+                    foreach ($vfClasses as $c) {
+                        foreach ($vfAll as $k => $_) {
+                            $vfAll[$k] += $c[$k];
+                        }
+                    }
+                    $vfPicked    = (string) $viewFeeStandardId;
+                    $vfClassName = $vfPicked !== '' ? (collect($vfClasses)->firstWhere('id', (int) $vfPicked)['name'] ?? $viewStandards->firstWhere('id', (int) $vfPicked)?->name) : null;
+                    $vfStatuses  = [
+                        ''        => ['All', 'all', '#94a3b8', 'bg-teal-50 border-teal-300 text-teal-800'],
+                        'paid'    => ['Paid', 'paid', '#10b981', 'bg-emerald-50 border-emerald-300 text-emerald-800'],
+                        'partial' => ['Part paid', 'partial', '#f59e0b', 'bg-amber-50 border-amber-300 text-amber-800'],
+                        'pending' => ['Pending', 'pending', '#f43f5e', 'bg-rose-50 border-rose-300 text-rose-700'],
+                    ];
                 @endphp
-                <div class="sa-card min-w-0 overflow-hidden">
-                    <div class="px-5 pt-5 pb-3 flex flex-wrap items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <h3 class="sa-card-title">Students</h3>
-                            <p class="sa-card-sub">{{ $byStudent ? 'Who has paid in the app — and who is locked till they pay' : 'Who the school has paid for' }}</p>
+                <div class="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start">
+
+                    {{-- Classes: all of them first, then class by class in the school's order. --}}
+                    <div class="sa-card min-w-0 overflow-hidden" data-fee-classes>
+                        <div class="px-5 pt-5 pb-3">
+                            <h3 class="sa-card-title">Classes</h3>
+                            <p class="sa-card-sub">Tap a class to see its students</p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 text-xs">
-                            <span class="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700"><span class="sa-dot" style="background:#10b981;width:.375rem;height:.375rem"></span>{{ $vfPaid }} paid</span>
-                            <span class="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700"><span class="sa-dot" style="background:#f59e0b;width:.375rem;height:.375rem"></span>{{ $vfPartial }} part paid</span>
-                            <span class="inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-600"><span class="sa-dot" style="background:#f43f5e;width:.375rem;height:.375rem"></span>{{ $vfPending }} pending</span>
+                        <div class="border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1">
+                            @foreach (array_merge([['id' => '', 'name' => 'All Classes'] + $vfAll], $vfClasses) as $c)
+                                @php
+                                    $cId    = $c['id'] === null ? null : (string) $c['id'];
+                                    $cOn    = $cId !== null && $cId === $vfPicked;
+                                    $cPaid  = $c['students'] > 0 ? $c['paid'] / $c['students'] * 100 : 0;
+                                    $cPart  = $c['students'] > 0 ? $c['partial'] / $c['students'] * 100 : 0;
+                                @endphp
+                                <button type="button"
+                                    @if ($cId !== null) wire:click="$set('viewFeeStandardId', '{{ $cId }}')" @else disabled @endif
+                                    wire:key="sa-fee-class-{{ $cId ?? 'none' }}"
+                                    aria-pressed="{{ $cOn ? 'true' : 'false' }}"
+                                    class="relative w-full text-left px-5 py-3 border-b border-gray-100 transition-colors disabled:cursor-default {{ $cOn ? 'bg-teal-50/70' : 'hover:bg-gray-50' }}">
+                                    @if ($cOn)
+                                        <span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-teal-600" aria-hidden="true"></span>
+                                    @endif
+                                    <span class="flex items-baseline justify-between gap-3">
+                                        <span class="min-w-0 truncate text-sm font-medium {{ $cOn ? 'text-teal-800' : 'text-gray-800' }}">{{ $c['name'] }}</span>
+                                        <span class="flex-shrink-0 text-xs text-gray-500 tabular-nums"><b class="font-semibold text-gray-900">{{ number_format($c['paid']) }}</b> / {{ number_format($c['students']) }} paid</span>
+                                    </span>
+                                    <span class="mt-2 flex h-1.5 rounded-full bg-gray-100 overflow-hidden" aria-hidden="true">
+                                        <i class="block h-full bg-teal-600" style="width: {{ round($cPaid, 2) }}%"></i>
+                                        <i class="block h-full bg-amber-400" style="width: {{ round($cPart, 2) }}%"></i>
+                                    </span>
+                                    <span class="mt-1.5 flex items-baseline justify-between gap-3 text-[11px] text-gray-400 tabular-nums">
+                                        <span class="truncate">{{ $c['partial'] > 0 ? number_format($c['partial']) . ' part paid · ' : '' }}{{ number_format($c['pending']) }} pending</span>
+                                        <span class="flex-shrink-0 {{ $c['due'] > 0.5 ? 'text-rose-500' : 'text-emerald-600' }}">{{ $c['due'] > 0.5 ? $inr($c['due']) . ' due' : 'All paid' }}</span>
+                                    </span>
+                                </button>
+                            @endforeach
                         </div>
                     </div>
 
-                    {{-- Filter: class / section / status, and the sort --}}
+                <div class="sa-card min-w-0 overflow-hidden">
+                    <div class="px-5 pt-5 pb-3 flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h3 class="sa-card-title">{{ $vfClassName ? $vfClassName . ' — Students' : 'Students' }}</h3>
+                            <p class="sa-card-sub">{{ $byStudent ? 'Who has paid in the app — and who is locked till they pay' : 'Who the school has paid for' }}</p>
+                        </div>
+                        {{-- Status: a tap shows only those; the counts are of the class picked. --}}
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs" role="group" aria-label="Status">
+                            @foreach ($vfStatuses as $val => [$sLabel, $sKey, $sDot, $sOn])
+                                @php $sIsOn = $viewFeeStatus === $val; @endphp
+                                <button type="button" wire:click="$set('viewFeeStatus', '{{ $val }}')" aria-pressed="{{ $sIsOn ? 'true' : 'false' }}"
+                                    class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border font-medium transition-colors {{ $sIsOn ? $sOn : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-900' }}">
+                                    <span class="sa-dot" style="background: {{ $sDot }}; width: .375rem; height: .375rem"></span>{{ $sLabel }}
+                                    <b class="font-semibold tabular-nums">{{ number_format($vfCounts[$sKey]) }}</b>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- Filter: class / section, and the sort --}}
                     <div class="px-5 pb-3 flex flex-wrap items-center gap-2">
                         <select wire:model.live="viewFeeStandardId" class="{{ $vfSel }}">
                             <option value="">All Classes</option>
@@ -831,12 +944,6 @@
                             @foreach ($viewFeeSections as $sec)
                                 <option value="{{ $sec->id }}">{{ $sec->name }}</option>
                             @endforeach
-                        </select>
-                        <select wire:model.live="viewFeeStatus" class="{{ $vfSel }}">
-                            <option value="">All Status</option>
-                            <option value="paid">Paid</option>
-                            <option value="partial">Part paid</option>
-                            <option value="pending">Pending</option>
                         </select>
                         {{-- Sort: class wise (the order the fee marks students paid in) or A to Z --}}
                         <select wire:model.live="viewFeeSort" title="Sort" class="{{ $vfSel }}">
@@ -874,7 +981,7 @@
                         <p class="px-5 py-12 text-center text-sm text-gray-400 border-t border-gray-100">No students match the selected filters.</p>
                     @else
                         <div class="overflow-x-auto">
-                            <table class="w-full text-sm min-w-[680px]">
+                            <table class="w-full text-sm min-w-[600px]">
                                 <thead class="text-gray-400 text-[11px] uppercase tracking-wide">
                                     <tr class="border-y border-gray-100 bg-gray-50/60">
                                         <th class="px-5 py-2.5 text-left font-medium w-12">S.No</th>
@@ -890,7 +997,7 @@
                                         @php [$pName, $pTone, $pDot] = $pill[$row['status']]; @endphp
                                         <tr class="hover:bg-gray-50/70" wire:key="sa-fee-student-{{ $row['id'] }}">
                                             <td class="px-5 py-3 text-gray-400 tabular-nums">{{ $row['serial'] }}</td>
-                                            <td class="px-3 py-3 min-w-[200px]">
+                                            <td class="px-3 py-3 min-w-[180px]">
                                                 <p class="font-medium text-gray-800 leading-tight">{{ $row['name'] }}</p>
                                                 <p class="text-xs text-gray-400 mt-0.5">{{ $studentWhere($row) }}</p>
                                             </td>
@@ -935,6 +1042,7 @@
                         </div>
                     @endif
                     </div>
+                </div>
                 </div>
             @elseif ($dStructure?->fee_type === 'one_time')
                 <div class="sa-card min-w-0 overflow-hidden">

@@ -341,6 +341,8 @@
             // Split after a "?" or "!" only: a full stop may be in a name ("St. Mary's", "D.A.V.").
             var m = msg.match(/^([\s\S]+?[?!])\s+([\s\S]+)$/);
             var title = m ? m[1] : msg, line = m ? m[2] : '';
+            // A line of its own (opts.line): the whole message is the title.
+            if (opts && opts.line) { title = msg; line = String(opts.line); }
             open('ask', null);
             st.yes = yes;
             st.p = { title: title, items: line ? line.split(/\n+/).map(function (t) { return { type: 'line', t: t.trim(), el: null }; }).filter(function (it) { return it.t; }) : [], acts: [] };
@@ -350,9 +352,40 @@
         }
 
         window.lmsConfirm = function (message, yes, opts) {
-            if (!on()) { if (window.confirm(message) && yes) yes(); return; }
+            if (!on()) { if (window.confirm(message + (opts && opts.line ? '\n' + opts.line : '')) && yes) yes(); return; }
             ask(message, yes, opts);
         };
+
+        // ── "This page has expired" (a Livewire request answered 419: the
+        // session or its CSRF token ran out) in the same card, not Livewire's
+        // own browser box (user's ask of 2026-11-26). Refresh reloads the page,
+        // as Livewire's OK did; Cancel leaves it as it is. Livewire's error box
+        // behind it is not shown either. Several requests failing at once, or
+        // the page's own auto-refresh after a Cancel, open no second card; the
+        // next click or key of the user's asks again.
+        var lastAct = 0, expiredCancelled = false;
+        ['pointerdown', 'keydown'].forEach(function (ev) {
+            document.addEventListener(ev, function () { lastAct = Date.now(); }, true);
+        });
+        function hookExpiry() {
+            if (window.__ldcExpiryHooked || !window.Livewire || typeof window.Livewire.hook !== 'function') return;
+            window.__ldcExpiryHooked = true;
+            window.Livewire.hook('request', function (r) {
+                if (!r || typeof r.fail !== 'function') return;
+                r.fail(function (f) {
+                    if (!f || f.status !== 419 || !on()) return;
+                    if (typeof f.preventDefault === 'function') f.preventDefault();
+                    if (st && st.expired) return;
+                    if (expiredCancelled && Date.now() - lastAct > 3000) return;
+                    ask('This page has expired', function () { window.location.reload(); },
+                        { yes: 'Refresh', line: 'You were away for a while. Refresh the page to carry on.' });
+                    st.expired = true;
+                    st.no = function () { expiredCancelled = true; };
+                });
+            });
+        }
+        document.addEventListener('livewire:init', hookExpiry);
+        hookExpiry();
 
         function confirmOf(el) {
             if (!el.getAttributeNames) return null;

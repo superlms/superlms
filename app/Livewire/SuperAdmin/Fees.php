@@ -23,9 +23,12 @@ class Fees extends Component
     // ─── View State ───────────────────────────────────────────────────────────
     public string $activeView     = 'list';
     public        $selectedSchool = null;
-    // A tab switch is one step for the header's Back.
-    #[Url(history: true, except: 'view_fee')]
-    public string $activeTab      = 'view_fee';
+    // A school's page: 'analytics' (its figures, cards and payments) or
+    // 'students' (per student: who has paid, by class and status) — the
+    // chips under the header, as on Analytics (2026-11-26). A tab switch is
+    // one step for the browser's Back.
+    #[Url(history: true, except: 'analytics')]
+    public string $activeTab      = 'analytics';
 
     // ─── Academic Year ────────────────────────────────────────────────────────
     public string $academicYear = '';
@@ -264,11 +267,14 @@ class Fees extends Component
         $this->loadSchoolStats();
         $this->activeTab  = 'analytics';
         $this->activeView = 'school';
+        // Another school's classes: its own filters start empty.
+        $this->clearViewFeeFilters();
     }
 
     public function backToList(): void
     {
         $this->activeView     = 'list';
+        $this->activeTab      = 'analytics';
         $this->selectedSchool = null;
         $this->schoolStats    = [];
         $this->paymentsShown  = 10;
@@ -278,7 +284,7 @@ class Fees extends Component
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = $tab;
+        $this->activeTab = in_array($tab, ['analytics', 'students'], true) ? $tab : 'analytics';
     }
 
     /** The active one_time/per_student structure's type for this school+year, if any. */
@@ -880,6 +886,8 @@ class Fees extends Component
             'email'         => $s->user?->email ?? '—',
             'section'       => $s->section?->name ?? '—',
             'class'         => $s->relationLoaded('standard') ? $s->standard?->name : null,
+            'standard_id'   => $s->standard_id,
+            'section_id'    => $s->section_id,
             'total_fee'     => $feeAmount,
             'collected'     => $collected,
             'remaining'     => $remaining,
@@ -1472,22 +1480,37 @@ class Fees extends Component
             ->first();
     }
 
+    /** The school's rows and classes, worked out once a request (the Students tab asks three times). */
+    private array $feeMemo = [];
+
+    /** The school's classes in its class order (id => name). */
+    private function schoolClassOrder(): array
+    {
+        $key = 'classes:' . $this->selectedSchool->id;
+
+        return $this->feeMemo[$key] ??= Standard::where('organization_id', $this->selectedSchool->id)
+            ->inClassOrder()->pluck('name', 'id')->all();
+    }
+
     /**
-     * Student rows for the View Fee tab — who has paid and who hasn't — filtered
-     * by class, section and status. Only per-student schools track per-student
-     * fee status (one-time / monthly fees are collected org-wide).
+     * Every student of the school with their fee — no class, section or
+     * status picked — in the sort picked. Only per-student schools track a
+     * student's fee (one-time / monthly fees are collected org-wide).
      */
-    public function viewFeeStudents(): array
+    private function allFeeStudents(): array
     {
         $structure = $this->viewFeeStructure();
         if (!$structure) {
             return [];
         }
 
+        $key = 'rows:' . $structure->id . ':' . $this->viewFeeSort;
+        if (isset($this->feeMemo[$key])) {
+            return $this->feeMemo[$key];
+        }
+
         $students = StudentDetail::with(['user', 'section', 'standard:id,name'])
             ->where('organization_id', $this->selectedSchool->id)
-            ->when($this->viewFeeStandardId, fn ($q) => $q->where('standard_id', $this->viewFeeStandardId))
-            ->when($this->viewFeeSectionId, fn ($q) => $q->where('section_id', $this->viewFeeSectionId))
             ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
@@ -1495,8 +1518,7 @@ class Fees extends Component
         // the school's class order, then section; A to Z stays inside a
         // section, the sort being stable. A to Z keeps the query's order.
         if ($this->viewFeeSort !== 'name') {
-            $rank = array_flip(Standard::where('organization_id', $this->selectedSchool->id)
-                ->inClassOrder()->pluck('id')->all());
+            $rank = array_flip(array_keys($this->schoolClassOrder()));
             $students = $students->sortBy(fn ($s) => [$rank[$s->standard_id] ?? PHP_INT_MAX, mb_strtolower((string) $s->section?->name)])->values();
         }
 
@@ -1505,15 +1527,88 @@ class Fees extends Component
             ->get()
             ->keyBy('student_detail_id');
 
-        $rows = $students->values()
+        return $this->feeMemo[$key] = $students->values()
             ->map(fn ($s, $i) => $this->mapStudentFeeRow($s, $i, $structure, $payments))
             ->toArray();
+    }
+
+    /** The class (and section) picked, any status: what the status chips count. */
+    private function classFeeStudents(): array
+    {
+        $std = (string) $this->viewFeeStandardId;
+        $sec = (string) $this->viewFeeSectionId;
+
+        return array_values(array_filter($this->allFeeStudents(), fn ($r) =>
+            ($std === '' || (string) $r['standard_id'] === $std) && ($sec === '' || (string) $r['section_id'] === $sec)));
+    }
+
+    /**
+     * Student rows for the Students tab — who has paid and who hasn't —
+     * filtered by class, section and status, numbered 1, 2, 3 … as shown.
+     */
+    public function viewFeeStudents(): array
+    {
+        $rows = $this->classFeeStudents();
 
         if ($this->viewFeeStatus !== '') {
             $rows = array_values(array_filter($rows, fn ($r) => $r['status'] === $this->viewFeeStatus));
         }
+        foreach ($rows as $i => $row) {
+            $rows[$i]['serial'] = $i + 1;
+        }
 
         return $rows;
+    }
+
+    /** All / paid / part paid / pending of the class picked (the whole school without one). */
+    public function viewFeeStatusCounts(): array
+    {
+        $counts = ['all' => 0, 'paid' => 0, 'partial' => 0, 'pending' => 0];
+        foreach ($this->classFeeStudents() as $row) {
+            $counts['all']++;
+            $counts[$row['status']]++;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * The Students tab's classes, in the school's class order: students,
+     * paid, part paid, pending, collected and still due — for the whole
+     * school, whatever is picked. Classes without students are left out;
+     * students without a class come last ('id' null: nothing to pick).
+     */
+    public function viewFeeClasses(): array
+    {
+        $blank = ['students' => 0, 'paid' => 0, 'partial' => 0, 'pending' => 0, 'collected' => 0.0, 'due' => 0.0];
+        $by    = [];
+        foreach ($this->allFeeStudents() as $row) {
+            $k = (string) ($row['standard_id'] ?? '');
+            $by[$k] ??= $blank;
+            $by[$k]['students']++;
+            $by[$k][$row['status']]++;
+            $by[$k]['collected'] += (float) $row['collected'];
+            $by[$k]['due']       += (float) $row['remaining'];
+        }
+
+        $classes = [];
+        foreach ($this->schoolClassOrder() as $id => $name) {
+            if (isset($by[(string) $id])) {
+                $classes[] = ['id' => (int) $id, 'name' => $name] + $by[(string) $id];
+                unset($by[(string) $id]);
+            }
+        }
+        if ($by) {
+            $rest = $blank;
+            foreach ($by as $part) {
+                foreach ($blank as $k => $_) {
+                    $rest[$k] += $part[$k];
+                }
+            }
+            $classes[] = ['id' => null, 'name' => 'No class'] + $rest;
+        }
+
+        return $classes;
     }
 
     // ─── School view (home look): the school's own fee, all on one page ───────
