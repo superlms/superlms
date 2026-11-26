@@ -119,6 +119,12 @@
     .sk-ql .sk-bell:hover svg { animation: sk-ring .7s ease; transform-origin: 50% 4px; }
     @keyframes sk-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
     .sk-ql .sk-badge { top: -3px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; line-height: 1; background: #f43f5e; border: 2px solid #fff; box-shadow: 0 2px 6px -1px rgba(244,63,94,.5); }
+    /* The Super Admin's icons (.sk-plain, 2026-11-26): no circle behind them —
+       just the icon, a touch bigger; under the pointer it turns teal. */
+    .sk-ql .sk-plain .sk-btn { width: 34px; height: 38px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: #33463f; }
+    .sk-ql .sk-plain .sk-btn svg { width: 22px; height: 22px; }
+    .sk-ql .sk-plain .sk-btn:hover { background: transparent; color: var(--sk-teal-700); box-shadow: none; transform: none; }
+    .sk-ql .sk-plain .sk-badge { top: 2px; right: -3px; }
     .sk-ql .sk-right { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
     @media (min-width: 1024px) and (max-width: 1109px) { .sk-ql .sk-session { display: none; } }
     @media (prefers-reduced-motion: reduce) { .sk-ql .sk-bell:hover svg { animation: none; } }

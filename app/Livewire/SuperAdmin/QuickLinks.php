@@ -65,16 +65,16 @@ class QuickLinks extends Component
         // Support — beside the bell. It greets the person signed in by name
         // ("Welcome! Amit Dagur"), the super admin and a sub super admin alike
         // (user's ask, 2026-11-19); the role only when no name is on record.
+        // Since 2026-11-26 Messages is the live chat with the schools' admins and
+        // the sub super admins (Chat\Messenger), its badge the unread messages.
         $user        = auth()->user();
         $roleLabel   = $user?->role === 'sub-super-admin' ? 'Sub Super Admin' : 'Super Admin';
-        $supportLink = $user?->canAccessSuperAdminRoute('super-admin.support') ?? false;
 
         return view('livewire.super-admin.quick-links', [
             'orderedLinks'        => $links,
             'roleLabel'           => $roleLabel,
             'welcomeName'         => trim((string) $user?->name) ?: $roleLabel,
-            'supportLink'         => $supportLink,
-            'pendingQueries'      => $supportLink ? $this->pendingQueries() : 0,
+            'unreadMessages'      => $this->unreadMessages(),
             'unreadNotifications' => $this->unreadNotifications(),
             'assistantEnabled'    => $user
                 && in_array($user->role, (array) config('gemini.roles', []), true)
@@ -89,11 +89,11 @@ class QuickLinks extends Component
         //
     }
 
-    /** Schools' queries on Support the Super Admin has not answered yet. */
-    private function pendingQueries(): int
+    /** Unread chat messages to the person signed in. */
+    private function unreadMessages(): int
     {
         try {
-            return \App\Models\Admin\ContactSuperAdmin::where('super_admin_reply', false)->count();
+            return \App\Models\Chat\Message::unreadCountFor((int) auth()->id());
         } catch (\Throwable $e) {
             return 0;
         }

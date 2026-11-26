@@ -112,56 +112,53 @@
         </div>
 
         {{-- Filter bar --}}
+        {{-- One row at a laptop's width (user's ask, 2026-11-26: the band had
+             grown to two rows): no "Start" / "End" words — the two dates read
+             "from – to" — tighter gaps, narrower selects, and the search takes
+             what is left, with room kept at the end for the band's ×. --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <div class="flex flex-wrap lg:flex-nowrap items-center gap-1.5 lg:pr-9">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 flex-shrink-0">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                     Filter by:
                 </div>
 
                 <button wire:click="thisMonth"
-                    class="px-2.5 py-1.5 text-xs font-medium rounded-md border {{ $isThisMonth ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
+                    class="flex-shrink-0 whitespace-nowrap px-2.5 py-1.5 text-xs font-medium rounded-md border {{ $isThisMonth ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
                     This Month
                 </button>
                 <button wire:click="overall"
-                    class="px-2.5 py-1.5 text-xs font-medium rounded-md border {{ $isOverall ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
+                    class="flex-shrink-0 px-2.5 py-1.5 text-xs font-medium rounded-md border {{ $isOverall ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
                     Overall
                 </button>
 
-                <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
-
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Start</label>
-                    <input type="date" wire:model.live="startDate" max="{{ $endDate }}"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <input type="date" wire:model.live="startDate" max="{{ $endDate }}" aria-label="From date" title="From"
+                        class="w-[8rem] text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    <span class="text-xs text-gray-400">–</span>
+                    <input type="date" wire:model.live="endDate" min="{{ $startDate }}" aria-label="To date" title="To"
+                        class="w-[8rem] text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">End</label>
-                    <input type="date" wire:model.live="endDate" min="{{ $startDate }}"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-
-                <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
 
                 <select wire:model.live="typeFilter" aria-label="Type"
-                    class="text-xs bg-white border border-gray-200 rounded-md pl-2.5 pr-8 py-1.5 text-gray-700">
+                    class="w-[9.85rem] flex-shrink-0 text-xs bg-white border border-gray-200 rounded-md pl-2.5 pr-8 py-1.5 text-gray-700">
                     <option value="">Credit &amp; expense</option>
                     <option value="credit">Credits</option>
                     <option value="expense">Expenses</option>
                 </select>
                 <select wire:model.live="sourceFilter" aria-label="Source"
-                    class="text-xs bg-white border border-gray-200 rounded-md pl-2.5 pr-8 py-1.5 text-gray-700">
+                    class="w-[9.25rem] flex-shrink-0 text-xs bg-white border border-gray-200 rounded-md pl-2.5 pr-8 py-1.5 text-gray-700">
                     <option value="">Every source</option>
                     @foreach (\App\Livewire\SuperAdmin\Ledger::SOURCES as $src)
                         <option value="{{ $src }}">{{ $src }}</option>
                     @endforeach
                 </select>
                 <input type="search" wire:model.live.debounce.400ms="search" placeholder="Search school, party, remark…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="flex-1 min-w-[7rem] max-w-[15rem] text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 @if (!$isOverall || $filtered)
                     <button wire:click="clearFilters"
-                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>

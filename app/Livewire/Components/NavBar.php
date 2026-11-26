@@ -205,6 +205,9 @@ class NavBar extends Component
         if ($user->role === 'accounts') {
             return redirect()->route('accounts.messages', ['organization' => $user->organization_id]);
         }
+        if (in_array($user->role, ['super-admin', 'sub-super-admin'], true)) {
+            return redirect()->route('super-admin.messages');
+        }
 
         return null;
     }
@@ -216,7 +219,7 @@ class NavBar extends Component
     protected function unreadMessagesCount(): int
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['admin', 'sub-admin', 'accounts'], true)) {
+        if (!$user || !in_array($user->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin'], true)) {
             return 0;
         }
 

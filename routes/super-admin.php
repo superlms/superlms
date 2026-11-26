@@ -72,6 +72,8 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('store', Store::class)->name('super-admin.store');
     Route::get('enquiries', Enquiry::class)->name('super-admin.enquiries');
     Route::get('support', Support::class)->name('super-admin.support');
+    // The live chat with the schools' admins and the sub super admins (2026-11-26).
+    Route::get('messages', \App\Livewire\Chat\Messenger::class)->name('super-admin.messages');
     Route::get('website-data', WebsiteData::class)->name('super-admin.website-data');
     Route::get('analytics', Analytics::class)->name('super-admin.analytics');
     Route::get('reports', Reports::class)->name('super-admin.reports');

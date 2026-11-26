@@ -40,6 +40,10 @@
     {{-- Every list of both panels in Home / Analytics' look (2026-11-22) —
          CSS only; drop this line to bring the old list look back. --}}
     @include('partials.list-theme')
+    {{-- Every empty list of both panels in the Users page's empty look, a
+         funnel where the filter must be used first (2026-11-26) — drop this
+         line to undo. --}}
+    @include('partials.empty-states')
     {{-- Laptops, PCs and tablets (2026-11-25): tables, chip rows and the
          like fit every screen from 768 px up — drop this line to undo. --}}
     @include('partials.screen-fit')
@@ -333,7 +337,7 @@
     </div>
 
     {{-- ─── Live chat notifications (toast preview + badge sync) ─── --}}
-    @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts']))
+    @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin']))
         @livewire('chat.notifier')
     @endif
 

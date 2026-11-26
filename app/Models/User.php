@@ -174,7 +174,7 @@ class User extends Authenticatable
 
         // Always-allowed routes for any signed-in sub-super-admin
         // (quick-links is the landing page and only shows granted tiles)
-        $always = ['super-admin.profile', 'super-admin.notification', 'super-admin.notification.live', 'super-admin.quick-links'];
+        $always = ['super-admin.profile', 'super-admin.notification', 'super-admin.notification.live', 'super-admin.quick-links', 'super-admin.messages'];
         if (in_array($routeName, $always, true)) {
             return true;
         }

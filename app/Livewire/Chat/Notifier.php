@@ -18,7 +18,8 @@ class Notifier extends Component
     public int $lastSeenId = 0;
     public int $unread     = 0;
 
-    protected const CHAT_ROLES = ['admin', 'sub-admin', 'accounts'];
+    // The Super Admin and sub super admins chat too (2026-11-26).
+    protected const CHAT_ROLES = ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin'];
 
     protected function eligible(): bool
     {
@@ -102,6 +103,9 @@ class Notifier extends Component
         }
         if ($user->role === 'accounts') {
             return route('accounts.messages', ['organization' => $user->organization_id]);
+        }
+        if (in_array($user->role, Messenger::PLATFORM_ROLES, true)) {
+            return route('super-admin.messages');
         }
         return route('admin.messages', ['organization' => $user->organization_id]);
     }

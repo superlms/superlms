@@ -21,6 +21,13 @@ use WireUi\Traits\WireUiActions;
  * Deletes are one-sided: removing a message (or a whole chat) only hides it
  * for the person who did it — the other side keeps their copy until they
  * delete it themselves.
+ *
+ * Since 2026-11-26 the Super Admin is in it too (Super Admin → Messages, the
+ * top bar's chat icon): the Super Admin chats with every school's admin and
+ * with the sub super admins; a sub super admin with the Super Admin and the
+ * other sub super admins; a school's admin also sees the Super Admin. A chat
+ * with a school's admin belongs to that school (organization_id), one between
+ * the platform's own people to none (organization_id 0).
  */
 class Messenger extends Component
 {
@@ -50,9 +57,15 @@ class Messenger extends Component
     /** Roles that share this organization-wide chat. */
     protected const CHAT_ROLES = ['admin', 'sub-admin', 'accounts'];
 
+    /** The platform's own people: they chat with the schools' admins and each other. */
+    public const PLATFORM_ROLES = ['super-admin', 'sub-super-admin'];
+
+    /** Organization id of a chat between the platform's own people. */
+    protected const PLATFORM_ORG = 0;
+
     public function mount(): void
     {
-        if (!in_array(Auth::user()->role, self::CHAT_ROLES, true)) {
+        if (!in_array(Auth::user()->role, array_merge(self::CHAT_ROLES, self::PLATFORM_ROLES), true)) {
             abort(403);
         }
     }
@@ -67,28 +80,83 @@ class Messenger extends Component
         return (int) Auth::user()->organization_id;
     }
 
+    /** The Super Admin or a sub super admin. */
+    protected function isPlatform(): bool
+    {
+        return in_array(Auth::user()->role, self::PLATFORM_ROLES, true);
+    }
+
     public static function roleLabel(?string $role): string
     {
         return match ($role) {
-            'admin'     => 'Admin',
-            'sub-admin' => 'Sub-admin',
-            'accounts'  => 'Accounts',
-            default     => ucfirst((string) $role),
+            'admin'           => 'Admin',
+            'sub-admin'       => 'Sub-admin',
+            'accounts'        => 'Accounts',
+            'super-admin'     => 'Super Admin',
+            'sub-super-admin' => 'Sub Super Admin',
+            default           => ucfirst((string) $role),
         };
     }
 
     /**
-     * The people the current user is allowed to chat with: everyone else in
-     * the same organization whose role is admin / sub-admin / accounts but is
-     * a different role than the current user (cross-role chat).
+     * The people the current user is allowed to chat with.
+     *
+     *  · a school's people: everyone else in the same organization whose role
+     *    is admin / sub-admin / accounts but a different role (cross-role
+     *    chat) — and, for an admin, the Super Admin (the first super-admin
+     *    login, plus any other one already in a chat with them);
+     *  · the Super Admin: every school's admin and every sub super admin;
+     *  · a sub super admin: the Super Admin and the other sub super admins.
      */
     protected function candidateQuery()
     {
-        return User::where('organization_id', $this->orgId())
+        $me = Auth::user();
+
+        if ($this->isPlatform()) {
+            $roles = $me->role === 'super-admin' ? ['admin', 'sub-super-admin'] : ['super-admin', 'sub-super-admin'];
+
+            return User::whereIn('role', $roles)
+                ->where('id', '!=', $this->meId())
+                ->where(fn ($q) => $q->where('is_active', 1)->orWhere('role', 'super-admin'));
+        }
+
+        $school = fn ($q) => $q->where('organization_id', $this->orgId())
             ->where('is_active', 1)
             ->whereIn('role', self::CHAT_ROLES)
-            ->where('role', '!=', Auth::user()->role)
-            ->where('id', '!=', $this->meId());
+            ->where('role', '!=', $me->role);
+
+        if ($me->role !== 'admin') {
+            return User::where($school)->where('id', '!=', $this->meId());
+        }
+
+        $superAdmins = array_values(array_unique(array_filter(array_merge(
+            [User::where('role', 'super-admin')->orderBy('id')->value('id')],
+            $this->counterpartIds('super-admin')
+        ))));
+
+        return User::where('id', '!=', $this->meId())
+            ->where(fn ($q) => $q->where($school)
+                ->orWhere(fn ($s) => $s->where('role', 'super-admin')->whereIn('id', $superAdmins ?: [0])));
+    }
+
+    /** Ids of people with $role I already have a two-person chat with. */
+    protected function counterpartIds(string $role): array
+    {
+        return DB::table('chat_conversation_user as mine')
+            ->join('chat_conversation_user as theirs', fn ($j) => $j->on('theirs.conversation_id', '=', 'mine.conversation_id')
+                ->whereColumn('theirs.user_id', '!=', 'mine.user_id'))
+            ->join('users', 'users.id', '=', 'theirs.user_id')
+            ->where('mine.user_id', $this->meId())
+            ->where('users.role', $role)
+            ->pluck('theirs.user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /** Every conversation I am in (being in it is what lets me see it). */
+    protected function myConversations()
+    {
+        return Conversation::whereHas('participants', fn ($q) => $q->where('user_id', $this->meId()));
     }
 
     public function openChat(int $userId): void
@@ -123,11 +191,9 @@ class Messenger extends Component
 
     protected function findOrCreateConversation(int $otherId): Conversation
     {
-        $meId  = $this->meId();
-        $orgId = $this->orgId();
+        $meId = $this->meId();
 
-        $existing = Conversation::where('organization_id', $orgId)
-            ->whereHas('participants', fn($q) => $q->where('user_id', $meId))
+        $existing = $this->myConversations()
             ->whereHas('participants', fn($q) => $q->where('user_id', $otherId))
             ->withCount('participants')
             ->get()
@@ -136,6 +202,12 @@ class Messenger extends Component
         if ($existing) {
             return $existing;
         }
+
+        // A chat with a school's admin belongs to that school; one between the
+        // platform's own people to none.
+        $orgId = $this->isPlatform()
+            ? (int) (User::whereKey($otherId)->value('organization_id') ?? self::PLATFORM_ORG)
+            : $this->orgId();
 
         $conversation = Conversation::create([
             'organization_id' => $orgId,
@@ -153,9 +225,7 @@ class Messenger extends Component
             return null;
         }
 
-        return Conversation::where('organization_id', $this->orgId())
-            ->whereHas('participants', fn($q) => $q->where('user_id', $this->meId()))
-            ->find($this->conversationId);
+        return $this->myConversations()->find($this->conversationId);
     }
 
     public function sendMessage(?string $body = null): void
@@ -226,7 +296,7 @@ class Messenger extends Component
             ->whereNull('read_at')
             ->update([
                 'read_at'      => now(),
-                'delivered_at' => DB::raw('COALESCE(delivered_at, NOW())'),
+                'delivered_at' => DB::raw('COALESCE(delivered_at, CURRENT_TIMESTAMP)'),
             ]);
 
         $conversation = $this->currentConversation();
@@ -238,10 +308,7 @@ class Messenger extends Component
     /** Ids of every conversation the current user belongs to. */
     protected function myConversationIds(): array
     {
-        return Conversation::where('organization_id', $this->orgId())
-            ->whereHas('participants', fn($q) => $q->where('user_id', $this->meId()))
-            ->pluck('id')
-            ->all();
+        return $this->myConversations()->pluck('id')->all();
     }
 
     public function toggleSelectMode(): void
@@ -269,9 +336,7 @@ class Messenger extends Component
     /** Pin / unpin a chat for me only — it sorts to the top of my list. */
     public function togglePinThread(int $conversationId): void
     {
-        $conversation = Conversation::where('organization_id', $this->orgId())
-            ->whereHas('participants', fn($q) => $q->where('user_id', $this->meId()))
-            ->find($conversationId);
+        $conversation = $this->myConversations()->find($conversationId);
 
         if (!$conversation) {
             return;
@@ -312,9 +377,8 @@ class Messenger extends Component
         $meId = $this->meId();
 
         // Restrict to conversations the current user is actually part of.
-        $owned = Conversation::where('organization_id', $this->orgId())
+        $owned = $this->myConversations()
             ->whereIn('id', $ids)
-            ->whereHas('participants', fn($q) => $q->where('user_id', $meId))
             ->pluck('id')
             ->all();
 
@@ -608,10 +672,23 @@ class Messenger extends Component
         $myPivots = DB::table('chat_conversation_user as cu')
             ->join('chat_conversations as c', 'c.id', '=', 'cu.conversation_id')
             ->where('cu.user_id', $meId)
-            ->where('c.organization_id', $this->orgId())
             ->select('cu.conversation_id', 'cu.pinned_at', 'cu.cleared_at')
             ->get()
             ->keyBy('conversation_id');
+
+        // The Super Admin's side names each admin's school; a school's side names the Super Admin "SuperLMS".
+        $platform = $this->isPlatform();
+        $schools  = $platform ? \App\Models\Organization::pluck('name', 'id') : collect();
+        $labelFor = function (User $u) use ($platform, $schools): string {
+            if ($platform && $u->role === 'admin') {
+                return 'Admin · ' . ($schools[$u->organization_id] ?? 'School');
+            }
+            if (!$platform && $u->role === 'super-admin') {
+                return 'Super Admin · SuperLMS';
+            }
+
+            return self::roleLabel($u->role);
+        };
 
         // Map counterpart user id → conversation id (two-participant threads).
         $conversationByUser = [];
@@ -633,7 +710,7 @@ class Messenger extends Component
                 ->orWhere('email', 'like', "%{$this->contactSearch}%")))
             ->orderBy('name')
             ->get()
-            ->map(function (User $u) use ($meId, $conversationByUser, $myPivots) {
+            ->map(function (User $u) use ($meId, $conversationByUser, $myPivots, $labelFor) {
                 $cid   = $conversationByUser[$u->id] ?? null;
                 $pivot = $cid ? $myPivots->get($cid) : null;
 
@@ -653,7 +730,7 @@ class Messenger extends Component
 
                 return [
                     'user'            => $u,
-                    'role_label'      => self::roleLabel($u->role),
+                    'role_label'      => $labelFor($u),
                     'conversation_id' => $cid,
                     'unread'          => $unread,
                     'last'            => $last,
@@ -698,10 +775,15 @@ class Messenger extends Component
             'messages'        => $messages,
             'pinnedMessages'  => $pinned,
             'otherUser'       => $other,
-            'otherRoleLabel'  => $other ? self::roleLabel($other->role) : '',
+            'otherRoleLabel'  => $other ? $labelFor($other) : '',
             'myId'            => $meId,
             'forwardContacts' => $forwardContacts,
-            'panelLabel'      => 'Admins · Sub-admins · Accounts',
+            'panelLabel'      => match (true) {
+                Auth::user()->role === 'super-admin' => "Schools' admins · Sub super admins",
+                $platform                            => 'Super Admin · Sub super admins',
+                Auth::user()->role === 'admin'       => 'Super Admin · Sub-admins · Accounts',
+                default                              => 'Admins · Sub-admins · Accounts',
+            },
         ]);
     }
 }

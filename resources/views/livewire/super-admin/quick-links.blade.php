@@ -52,18 +52,16 @@
 
             @include('livewire.super-admin.partials.ql-clock')
 
-            {{-- In the corner: Messages (the schools' queries on Support, the
-                 badge counting those not yet answered), then Notifications —
-                 each in a soft circle. --}}
-            <div class="sk-actions">
-                @if ($supportLink)
-                    <a href="{{ route('super-admin.support') }}" class="sk-btn" title="Messages — queries from schools" aria-label="Messages">
-                        <x-icon name="chat-bubble-oval-left-ellipsis" />
-                        @if ($pendingQueries > 0)
-                            <span class="sk-badge">{{ $pendingQueries > 99 ? '99+' : $pendingQueries }}</span>
-                        @endif
-                    </a>
-                @endif
+            {{-- In the corner: Messages — the live chat with the schools' admins
+                 and the sub super admins (2026-11-26), the badge counting unread
+                 messages as the chat notifier reports them — then Notifications.
+                 Plain icons, no circle behind them (user's ask, 2026-11-26). --}}
+            <div class="sk-actions sk-plain">
+                <a href="{{ route('super-admin.messages') }}" class="sk-btn" title="Messages" aria-label="Messages"
+                    x-data="{ count: {{ (int) $unreadMessages }} }" x-on:chat-sync.window="count = $event.detail.unread">
+                    <x-icon name="chat-bubble-oval-left-ellipsis" />
+                    <span class="sk-badge" x-show="count > 0" x-cloak x-text="count > 99 ? '99+' : count" @if ($unreadMessages <= 0) style="display: none" @endif>{{ $unreadMessages > 99 ? '99+' : $unreadMessages }}</span>
+                </a>
                 <button type="button" class="sk-btn sk-bell" x-on:click="Livewire.dispatch('open-notifications')" title="Notifications" aria-label="Notifications">
                     <x-icon name="bell" />
                     @if ($unreadNotifications > 0)
