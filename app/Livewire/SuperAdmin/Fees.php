@@ -1165,6 +1165,8 @@ class Fees extends Component
                 : [],
             'per_student' => $structure?->fee_type === 'per_student',
             'monthly'     => $structure?->installment_frequency === 'monthly',
+            // ₹0 typed in: saving deletes the payment.
+            'delete'      => is_numeric($this->editPayAmount) && $new < 0.005,
         ];
     }
 
@@ -1177,8 +1179,9 @@ class Fees extends Component
             return;
         }
 
+        // ₹0 deletes the payment (editReceipt takes back all it paid and removes it).
         $this->validate([
-            'editPayAmount' => 'required|numeric|min:0.01',
+            'editPayAmount' => 'required|numeric|min:0',
             'editPayMode'   => 'required|in:' . implode(',', array_keys($this->editPaymentModes())),
             'editPayDate'   => 'required|date',
             'editPayRemark' => 'nullable|string|max:255',
@@ -1196,7 +1199,7 @@ class Fees extends Component
         }
 
         $this->closeEditPayment();
-        $this->afterPaymentChange('Payment updated.');
+        $this->afterPaymentChange(!empty($result['deleted']) ? 'Payment deleted.' : 'Payment updated.');
     }
 
     // ─── Pay / Edit Payment Modal (shared) ─────────────────────────────────────

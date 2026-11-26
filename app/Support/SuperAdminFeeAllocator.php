@@ -368,21 +368,41 @@ class SuperAdminFeeAllocator
      * writes them, and the receipt carries the change itself, so the receipts
      * still add up to the payment rows.
      *
-     * Returns ['ok' => true, 'delta' => …] or ['ok' => false, 'error' => …].
+     * An amount of ₹0 deletes the payment (user's ask, 2026-11-26): all it
+     * paid is taken back the same way, the date, mode and remark stay as they
+     * were, and the receipt itself is removed — so it leaves the school's
+     * Payments, Reports and the Super Admin Ledger as if it never came.
+     *
+     * Returns ['ok' => true, 'delta' => …, 'deleted' => bool] or ['ok' => false, 'error' => …].
      */
     public static function editReceipt(SuperAdminFeeReceipt $receipt, float $amount, string $mode, string $date, ?string $remark = null): array
     {
-        $remark    = trim((string) $remark);
         $old       = round((float) $receipt->amount, 2);
         $amount    = round($amount, 2);
-        $delta     = round($amount - $old, 2);
+        $deleting  = $amount < 0.005;
         $oldDate   = $receipt->payment_date?->toDateString();
         $oldMode   = (string) $receipt->payment_mode;
         $oldRemark = trim((string) $receipt->remark);
         $structure = $receipt->feeStructure;
 
+        if ($deleting) {
+            $amount = 0.0;
+            $mode   = $oldMode;
+            $date   = $oldDate ?? $date;
+            $remark = $oldRemark;
+        }
+        $remark = trim((string) $remark);
+        $delta  = round($amount - $old, 2);
+
         if ($old <= 0) {
             return ['ok' => false, 'error' => 'Only money received can be edited.'];
+        }
+        if ($deleting && !$structure) {
+            // Its fee is gone (and its payment rows with it): only the receipt is left.
+            $receipt->delete();
+            self::noteDeleted($receipt, $old, $oldDate);
+
+            return ['ok' => true, 'delta' => $delta, 'deleted' => true];
         }
         if (abs($delta) >= 0.005 && !$structure) {
             return ['ok' => false, 'error' => "This payment's fee is no longer set, so only its date, mode and remark can change."];
@@ -394,14 +414,15 @@ class SuperAdminFeeAllocator
                     . ($due > 0.005 ? ' (₹' . number_format($due, 0) . ' more).' : ', the whole fee is paid.')];
             }
         }
-        if ($delta <= -0.005) {
+        if ($delta <= -0.005 && !$deleting) {
+            // (A deleted payment gives back what is still there of it, however little.)
             $collected = round((float) SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)->sum('amount'), 2);
             if (-$delta > $collected + 0.005) {
                 return ['ok' => false, 'error' => 'Only ₹' . number_format($collected, 0) . ' has been collected on this fee.'];
             }
         }
 
-        $alloc = DB::transaction(function () use ($receipt, $structure, $delta, $amount, $mode, $date, $remark, $oldDate, $oldMode, $oldRemark) {
+        $alloc = DB::transaction(function () use ($receipt, $structure, $delta, $amount, $mode, $date, $remark, $oldDate, $oldMode, $oldRemark, $deleting) {
             // Where this payment's money is: payment id => amount, in the order it went.
             $known = is_array($receipt->allocation);
             $alloc = [];
@@ -468,6 +489,12 @@ class SuperAdminFeeAllocator
                 $alloc = array_filter($alloc, fn ($take) => $take >= 0.005);
             }
 
+            if ($deleting) {
+                $receipt->delete();
+
+                return $alloc;
+            }
+
             // The new date, mode and remark on the rows this payment was the last money on.
             if ($oldDate && ($date !== $oldDate || $mode !== $oldMode || $remark !== $oldRemark)) {
                 $rows = SuperAdminFeePayment::where('super_admin_fee_structure_id', $receipt->super_admin_fee_structure_id)
@@ -520,6 +547,12 @@ class SuperAdminFeeAllocator
             return $alloc;
         });
 
+        if ($deleting) {
+            self::noteDeleted($receipt, $old, $oldDate);
+
+            return ['ok' => true, 'delta' => $delta, 'deleted' => true];
+        }
+
         if (abs($delta) >= 0.005 || $date !== $oldDate) {
             try {
                 $on = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '—';
@@ -535,7 +568,24 @@ class SuperAdminFeeAllocator
             }
         }
 
-        return ['ok' => true, 'delta' => $delta];
+        return ['ok' => true, 'delta' => $delta, 'deleted' => false];
+    }
+
+    /** Tell the super admins a school's payment was deleted (edited to ₹0). */
+    private static function noteDeleted(SuperAdminFeeReceipt $receipt, float $old, ?string $oldDate): void
+    {
+        try {
+            ActivityNotifier::toSuperAdmins(
+                'School fee payment deleted',
+                'A payment from ' . (Organization::find($receipt->organization_id)?->name ?? 'a school')
+                    . ' of ₹' . number_format($old, 2)
+                    . ' on ' . ($oldDate ? \Illuminate\Support\Carbon::parse($oldDate)->format('d M Y') : '—')
+                    . ' was deleted.',
+                ['type' => 'school_fee_payment']
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     // ─── A student deleted: the school's money stays the school's ──────────────

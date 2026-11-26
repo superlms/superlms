@@ -52,10 +52,15 @@ class Ledger extends Component
         'endDate'   => ['except' => '', 'history' => false],
     ];
 
+    /**
+     * The Ledger opens on every transaction, from the first day to today
+     * (user's ask, 2026-11-26) — no date window; This Month and the dates
+     * narrow it.
+     */
     public function mount(): void
     {
-        $this->startDate = now()->startOfMonth()->toDateString();
-        $this->endDate   = now()->toDateString();
+        $this->startDate = '';
+        $this->endDate   = '';
     }
 
     public function updatedStartDate(): void { $this->resetPage(); }
@@ -93,8 +98,8 @@ class Ledger extends Component
 
     public function clearFilters(): void
     {
-        $this->startDate    = now()->startOfMonth()->toDateString();
-        $this->endDate      = now()->toDateString();
+        $this->startDate    = '';
+        $this->endDate      = '';
         $this->typeFilter   = '';
         $this->sourceFilter = '';
         $this->search       = '';
@@ -289,6 +294,7 @@ class Ledger extends Component
                 && in_array($this->endDate, [now()->toDateString(), now()->endOfMonth()->toDateString()], true),
             'isOverall'      => $this->startDate === '' && $this->endDate === '',
             'filtered'       => $this->typeFilter !== '' || $this->sourceFilter !== '' || $needle !== '',
+            'ledgerOwner'    => SuperAdminLedgerService::ownerName(),
         ]);
     }
 }

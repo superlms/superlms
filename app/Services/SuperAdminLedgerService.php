@@ -37,6 +37,26 @@ class SuperAdminLedgerService
     /** The platform's own side of a row. */
     public const NAME = 'SuperLMS';
 
+    /**
+     * Who SuperLMS is on the list — the main super admin's name, small under
+     * "SuperLMS" (user's ask, 2026-11-26: "Amit Dagur").
+     */
+    public static function ownerName(): string
+    {
+        $key = 'superadmin.ledger.owner';
+        if (!app()->bound($key)) {
+            try {
+                $name = \App\Models\User::where('role', 'super-admin')->orderBy('id')->value('name');
+            } catch (\Throwable $e) {
+                $name = null;
+            }
+            $name = trim((string) $name);
+            app()->instance($key, $name !== '' && $name !== 'Super Admin' ? $name : 'Amit Dagur');
+        }
+
+        return (string) app($key);
+    }
+
     public static function tracked(): bool
     {
         $key = 'superadmin.ledger.tracked';

@@ -141,8 +141,8 @@ class SuperAdminLedgerMessagingTest extends TestCase
     public function test_the_ledger_reads_fees_as_credits_and_salaries_as_expenses_and_keeps_entries_by_hand(): void
     {
         DB::table('super_admin_fee_receipts')->insert([
-            ['organization_id' => 1, 'amount' => 15000, 'academic_year' => '2026-2027', 'payment_mode' => 'online', 'payment_date' => '2026-10-20', 'label' => '214 students', 'items' => 214, 'created_at' => '2026-10-20 10:00:00', 'updated_at' => now()],
-            ['organization_id' => 2, 'amount' => -70, 'academic_year' => '2026-2027', 'payment_mode' => 'cash', 'payment_date' => '2026-10-22', 'label' => 'Aarav', 'items' => 1, 'created_at' => '2026-10-22 10:00:00', 'updated_at' => now()],
+            ['organization_id' => 1, 'amount' => 15000, 'academic_year' => '2026-2027', 'payment_mode' => 'online', 'payment_date' => '2026-10-20', 'label' => '214 students', 'items' => 214, 'receipt_number' => 'SARC-1-2026-00001 – SARC-1-2026-00214', 'created_at' => '2026-10-20 10:00:00', 'updated_at' => now()],
+            ['organization_id' => 2, 'amount' => -70, 'academic_year' => '2026-2027', 'payment_mode' => 'cash', 'payment_date' => '2026-10-22', 'label' => 'Aarav', 'items' => 1, 'receipt_number' => 'SARC-2-2026-00009', 'created_at' => '2026-10-22 10:00:00', 'updated_at' => now()],
         ]);
         DB::table('super_admin_employees')->insert(['id' => 1, 'name' => 'Neha']);
         DB::table('super_admin_salary_payments')->insert([
@@ -158,12 +158,17 @@ class SuperAdminLedgerMessagingTest extends TestCase
         $this->assertSame(10430.0, SuperAdminLedgerService::netBalance());
 
         $this->actingAs($this->super());
-        $page = Livewire::test(Ledger::class)->call('overall');
+        // It opens on everything, from the first day to today (2026-11-26).
+        $page = Livewire::test(Ledger::class)->assertSet('startDate', '')->assertSet('endDate', '');
         $text = $this->text($page);
-        foreach (['Platform fee · 214 students · 2026-2027', 'Sunrise School', 'School Fee', 'Salary · Oct 2026', 'Neha',
-                  'Messaging wallet recharge · Ref. UTR1', 'Platform fee corrected · Aarav', 'Credit: ₹15,500.00', 'Expense: ₹5,070.00'] as $seen) {
+        // Two-line rows: the particulars' first part over the rest, no source tag
+        // or receipt number, and SuperLMS with the super admin's name under it.
+        foreach (['Platform fee 214 students · 2026-2027', 'Sunrise School', 'SuperLMS Super', 'Salary Oct 2026', 'Neha',
+                  'Messaging wallet recharge Ref. UTR1', 'Platform fee corrected Aarav · 2026-2027', 'Credit: ₹15,500.00', 'Expense: ₹5,070.00'] as $seen) {
             $this->assertStringContainsString($seen, $text);
         }
+        $this->assertStringNotContainsString('SARC-', $text);
+        $this->assertStringNotContainsString('text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0', $page->html());   // the rows' old source tag
 
         // Add an expense, change it, delete it.
         $page->call('openAdd')->call('chooseType', 'expense')
@@ -185,7 +190,7 @@ class SuperAdminLedgerMessagingTest extends TestCase
         $this->assertSame(15800.0, SuperAdminLedgerService::creditSum(null, null));
         $page->set('sourceFilter', 'Salary');
         $this->assertStringNotContainsString('Set-up help', $this->text($page));
-        $this->assertStringContainsString('Salary · Oct 2026', $this->text($page));
+        $this->assertStringContainsString('Salary Oct 2026', $this->text($page));
 
         // The analytics sit in the header alone: Credit and Expense open their split
         // by source, a line of it lists just those entries and the same line again

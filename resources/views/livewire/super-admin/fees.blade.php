@@ -1709,6 +1709,9 @@
                                             </div>
                                         @endif
                                     @endif
+                                @elseif ($ePrev['delete'])
+                                    {{-- ₹0: the payment is deleted (SuperAdminFeeAllocator::editReceipt). --}}
+                                    <p class="text-xs text-red-500">₹0 deletes this payment — the ₹{{ number_format($ePrev['old'], 0) }} it paid is taken back and it leaves Payments, Reports and the Ledger.</p>
                                 @elseif ($ePrev['new'] > 0 && $ePrev['delta'] <= -0.005)
                                     <p class="text-xs text-gray-600">₹{{ number_format(-$ePrev['delta'], 0) }} less — taken back from what this payment paid, the last {{ $ePrev['per_student'] ? 'students' : ($ePrev['monthly'] ? 'months' : 'part') }} first.</p>
                                 @endif
@@ -1716,18 +1719,18 @@
                                 {{-- Asks once before saving, as Amount Received does. --}}
                                 <div x-data="{ ask: false }" class="flex items-center justify-end gap-2">
                                     <button type="button" x-show="!ask" x-on:click="ask = true"
-                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">
-                                        Save Amount
+                                        class="px-5 py-2 {{ $ePrev['delete'] ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white text-sm font-medium rounded-md">
+                                        {{ $ePrev['delete'] ? 'Delete Payment' : 'Save Amount' }}
                                     </button>
-                                    <span x-show="ask" x-cloak class="text-xs text-gray-500 mr-auto">Save the changes to this payment?</span>
+                                    <span x-show="ask" x-cloak class="text-xs text-gray-500 mr-auto">{{ $ePrev['delete'] ? 'Delete this payment?' : 'Save the changes to this payment?' }}</span>
                                     <button type="button" x-show="ask" x-cloak x-on:click="ask = false"
                                         class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
                                         Cancel
                                     </button>
                                     <button type="button" x-show="ask" x-cloak wire:click="saveEditPayment" x-on:click="ask = false"
                                         wire:loading.attr="disabled" wire:target="saveEditPayment"
-                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
-                                        Yes, save{{ $ePrev['new'] > 0 ? ' ₹' . number_format($ePrev['new'], 0) : '' }}
+                                        class="px-5 py-2 {{ $ePrev['delete'] ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-900 hover:bg-gray-800' }} text-white text-sm font-medium rounded-md disabled:opacity-60">
+                                        {{ $ePrev['delete'] ? 'Yes, delete payment' : 'Yes, save' . ($ePrev['new'] > 0 ? ' ₹' . number_format($ePrev['new'], 0) : '') }}
                                     </button>
                                 </div>
                             </div>

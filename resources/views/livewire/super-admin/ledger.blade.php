@@ -159,7 +159,7 @@
                 <input type="search" wire:model.live.debounce.400ms="search" placeholder="Search school, party, remark…"
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
-                @if (!$isThisMonth || $filtered)
+                @if (!$isOverall || $filtered)
                     <button wire:click="clearFilters"
                         class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -174,14 +174,19 @@
     <div class="p-4 sm:p-6">
 
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {{-- Two-line rows, as the school admin's Ledger has them (user's ask,
+                 2026-11-26): the date on one line with the time under it, the
+                 particulars as their first part with the rest small under it —
+                 no source tag and no receipt number (both are on View) — and
+                 SuperLMS with the super admin's name small under it. --}}
             <table class="w-full table-fixed">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="w-[10%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                        <th class="w-[24%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                        <th class="w-[15%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                        <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="w-[19%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                        <th class="w-[20%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
                         <th class="w-[13%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
-                        <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
+                        <th class="w-[8%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
                         <th class="w-[11%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                         <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
                         <th class="w-[8%] px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -189,26 +194,38 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($entries as $row)
+                        @php
+                            // "Platform fee · 112 students · 2026-2027" → "Platform fee" over "112 students · 2026-2027".
+                            [$rTitle, $rMore] = array_pad(explode(' · ', (string) $row['reason'], 2), 2, '');
+                            // SuperLMS's side: the super admin's name small under it.
+                            $fromSub = $row['from'] === \App\Services\SuperAdminLedgerService::NAME ? $ledgerOwner : null;
+                            $toSub   = $row['to'] === \App\Services\SuperAdminLedgerService::NAME ? $ledgerOwner : null;
+                        @endphp
                         <tr class="hover:bg-gray-50 transition-colors" wire:key="sa-ledger-{{ $row['source'] }}-{{ $row['manual_id'] ?? '' }}-{{ $loop->index }}-{{ $row['sort_at'] }}">
-                            <td class="px-3 py-3 text-sm text-gray-600">
+                            <td class="px-3 py-3 text-sm text-gray-600 xl:whitespace-nowrap">
                                 {{ $row['date']->format('d M Y') }}
                                 @if (!empty($row['time']))
                                     <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
                                 @endif
                             </td>
                             <td class="px-3 py-3">
-                                <div class="flex items-start gap-2 flex-wrap">
-                                    <p class="text-sm font-medium text-gray-900 break-words">{{ $row['reason'] }}</p>
-                                    @if ($row['source'] !== 'Manual')
-                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 {{ $srcClass[$row['source']] ?? 'bg-gray-100 text-gray-600' }}">{{ $row['source'] }}</span>
-                                    @endif
-                                </div>
-                                @if (!empty($row['receipt']))
-                                    <p class="text-xs text-gray-400 break-words">{{ $row['receipt'] }}</p>
+                                <p class="text-sm font-medium text-gray-900 break-words">{{ $rTitle }}</p>
+                                @if ($rMore !== '')
+                                    <p class="text-xs text-gray-400 break-words">{{ $rMore }}</p>
                                 @endif
                             </td>
-                            <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['from'] }}</td>
-                            <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to'] }}</td>
+                            <td class="px-3 py-3 text-sm text-gray-600 break-words">
+                                {{ $row['from'] }}
+                                @if ($fromSub)
+                                    <span class="block text-xs text-gray-400">{{ $fromSub }}</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-3 text-sm text-gray-600 break-words">
+                                {{ $row['to'] }}
+                                @if ($toSub)
+                                    <span class="block text-xs text-gray-400">{{ $toSub }}</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-3 text-sm text-gray-500">
                                 <div class="break-words">{{ $row['mode'] ?: '—' }}</div>
                                 <span class="block text-[11px] text-gray-400">{{ empty($row['manual_id']) ? 'Auto' : 'Manual' }}</span>
@@ -226,8 +243,8 @@
                                             time: @js($row['time'] ?? null),
                                             reason: @js($row['reason']),
                                             source: @js($row['source']),
-                                            from: @js($row['from']),
-                                            to: @js($row['to']),
+                                            from: @js($row['from'] . ($fromSub ? ' · ' . $fromSub : '')),
+                                            to: @js($row['to'] . ($toSub ? ' · ' . $toSub : '')),
                                             collectedBy: @js($row['collected_by'] ?? null),
                                             receipt: @js($row['receipt'] ?? null),
                                             mode: @js($row['mode'] ?: '—'),

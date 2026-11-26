@@ -683,6 +683,47 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertStringNotContainsString('₹999', $seen);
     }
 
+    public function test_a_payment_edited_to_zero_is_deleted(): void
+    {
+        $this->trackAllocation();
+        $this->signIn();
+        $s   = $this->alphaStudents();
+        $fs  = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 500]);
+        $row = fn ($who) => $this->payment($fs->id, ['student_detail_id' => $s[$who]]);
+
+        SuperAdminFeeAllocator::apply($fs, 1200, 'cash', '2026-10-12', 'First lot');   // Kiran 500, Ravi 500, Zoya 200
+        SuperAdminFeeAllocator::apply($fs, 600, 'upi', '2026-10-15');                  // Zoya +300, Aman 300
+        [$first, $second] = $this->receipts()->orderBy('id')->get()->all();
+
+        $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $page = Livewire::test(Fees::class)->call('selectSchool', 1)
+            ->call('openEditPayment', $first->id)->set('editPayAmount', '0');
+        $seen = $text($page);
+        $this->assertStringContainsString('₹0 deletes this payment — the ₹1,200 it paid is taken back', $seen);
+        $this->assertStringContainsString('Yes, delete payment', $seen);
+
+        // A date typed in with it changes nothing: the payment goes as it was.
+        $page->set('editPayDate', '2026-10-20')->call('saveEditPayment')->assertHasNoErrors()->assertSet('editPaymentId', null);
+
+        // All it paid is taken back — Kiran and Ravi pending again, Zoya keeps the 15th's 300.
+        $this->assertNull($row('kiran'));
+        $this->assertNull($row('ravi'));
+        $this->assertEquals(300, $row('zoya')->amount);
+        $this->assertSame('2026-10-15', substr($row('zoya')->payment_date, 0, 10));
+        $this->assertEquals(300, $row('aman')->amount);
+
+        // The receipt is gone, with no correction row in its place: only the 15th's payment is left.
+        $this->assertNull($this->receipts()->find($first->id));
+        $this->assertSame(1, $this->receipts()->count());
+        $this->assertEquals(600, $this->receipts()->sum('amount'));
+        $this->assertReceiptsAddUp();
+        $this->assertStringContainsString('1 payment · ₹600', $text(Livewire::test(Fees::class)->call('selectSchool', 1)));
+        // … and the Ledger has just that one.
+        $ledger = \App\Services\SuperAdminLedgerService::entries(null, null);
+        $this->assertSame(1, $ledger->count());
+        $this->assertEquals(600, $ledger->first()['amount']);
+    }
+
     public function test_a_payment_saved_before_knows_no_rows_and_gives_back_from_the_last_paid(): void
     {
         $this->trackAllocation();
