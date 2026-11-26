@@ -105,7 +105,10 @@
                             <div><dt>Days</dt><dd>{{ $num($span) }}</dd></div>
                         </dl>
                     @else
-                        <p class="text-sm text-gray-400 py-10 text-center">No session is current yet. Click <b>Make current</b> on one below.</p>
+                        <div class="text-sm text-gray-400 py-10 text-center">
+                            <p class="font-semibold text-gray-800">No session is current yet</p>
+                            <p class="mt-1">Click <b>Make current</b> on one below.</p>
+                        </div>
                     @endif
                 </div>
 
@@ -141,7 +144,8 @@
                 @if ($sessions->isEmpty())
                     <div class="px-6 py-16 text-center">
                         <span class="ss-ic mx-auto mb-3"><x-icon name="calendar-days" /></span>
-                        <p class="text-sm text-gray-500">No sessions yet. Click <strong>Add Session</strong> to add the first one.</p>
+                        <p class="text-sm font-semibold text-gray-800">No sessions yet</p>
+                        <p class="text-sm text-gray-500 mt-1">Click <strong>Add Session</strong> to add the first one.</p>
                     </div>
                 @else
                     <div class="hidden md:block overflow-x-auto">

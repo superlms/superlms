@@ -11,7 +11,7 @@
      by / Sort (tiles keep the sidebar's order); the time with the date under
      it, then the session, then Messages and Notifications in soft circles —
      as the Super Admin's. --}}
-<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
+<div class="sa-skin sk-full sk-ql flex flex-col" data-no-empty-art x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}

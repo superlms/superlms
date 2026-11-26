@@ -3,7 +3,7 @@
      the title, the search (filters the tiles as you type; Enter opens the
      first) and the time with the date under it — and every screen a white
      tile on a white page that fills with its own pastel under the pointer. --}}
-<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
+<div class="sa-skin sk-full sk-ql flex flex-col" data-no-empty-art x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
     <style>
         /* Three rows of six in the user's order (2026-11-25): on a wide screen

@@ -171,7 +171,8 @@
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                     </div>
-                                    <p class="text-sm text-gray-500">No documents yet. Click <strong>Add Doc</strong> to upload one.</p>
+                                    <p class="text-sm font-semibold text-gray-800">No documents yet</p>
+                                    <p class="text-xs text-gray-400 mt-1">Click <strong>Add Doc</strong> to upload one — or several at once.</p>
                                 </td>
                             </tr>
                         @endforelse

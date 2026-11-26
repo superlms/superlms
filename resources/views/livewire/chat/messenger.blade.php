@@ -1,4 +1,4 @@
-<div class="h-[calc(100vh-4rem)] bg-white" wire:poll.4s
+<div class="h-[calc(100vh-4rem)] bg-white" data-no-empty-art wire:poll.4s
      x-data="{
          copy(text) {
              const done = () => window.lmsToast && window.lmsToast({ type: 'success', message: 'Copied' });

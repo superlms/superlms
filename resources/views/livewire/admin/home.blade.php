@@ -1,4 +1,4 @@
-<div class="sa-skin sa-home min-h-screen">
+<div class="sa-skin sa-home min-h-screen" data-no-empty-art>
     {{-- The Super Admin's dashboard look (2026-11-04): KPI cards with their
          change and a sparkline, the fee chart beside a donut, the attendance
          rate beside the Today card, then the rest in matching cards (all white

@@ -383,7 +383,8 @@
                             </div>
                         @empty
                             <div class="py-12 text-center">
-                                <p class="text-sm text-gray-400">No policies yet. Click "Add Policy" to create one.</p>
+                                <p class="text-sm font-semibold text-gray-800">No policies yet</p>
+                                <p class="text-xs text-gray-400 mt-1">Click "Add Policy" to create one.</p>
                             </div>
                         @endforelse
                     </div>

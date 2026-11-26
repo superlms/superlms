@@ -324,7 +324,10 @@
                 </div>
 
                 @if (count($savedFiles) === 0 && count($files) === 0)
-                    <p class="px-5 py-8 text-center text-sm text-gray-400">No documents attached. Click "Add document" to upload PDFs.</p>
+                    <div class="px-5 py-8 text-center text-sm text-gray-400">
+                        <p class="font-semibold text-gray-800">No documents attached</p>
+                        <p class="mt-1">Click "Add document" to upload PDFs.</p>
+                    </div>
                 @else
                     <div class="overflow-x-auto">
                         <table class="w-full min-w-[620px] table-fixed">

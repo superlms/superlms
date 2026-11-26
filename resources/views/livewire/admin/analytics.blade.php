@@ -23,7 +23,7 @@
         'operations' => ['Operations', 'arrows-right-left'],
     ]);
 @endphp
-<div class="sa-skin sa-home min-h-screen"
+<div class="sa-skin sa-home min-h-screen" data-no-empty-art
     x-data="{
         tabs: {{ \Illuminate\Support\Js::from(array_keys($anTabs)) }},
         tab: 'metrics',

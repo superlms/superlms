@@ -18,7 +18,7 @@
      with the date under it in small type; Messages then Notifications in the
      corner, each in a soft circle. Later that day: "Welcome! <their name>"
      for the super admin and every sub super admin. --}}
-<div class="sa-skin sk-full sk-ql flex flex-col" x-data="{ q: '' }">
+<div class="sa-skin sk-full sk-ql flex flex-col" data-no-empty-art x-data="{ q: '' }">
     @include('livewire.super-admin.partials.home-skin')
 
     {{-- ─── Header row ─── --}}

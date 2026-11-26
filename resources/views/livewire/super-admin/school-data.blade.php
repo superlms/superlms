@@ -108,7 +108,8 @@
                 <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
                     <x-icon name="circle-stack" class="w-5 h-5" />
                 </div>
-                <p class="text-sm text-gray-500">No schools yet. Add one on <a href="{{ route('super-admin.schools') }}" class="font-medium text-violet-600 hover:text-violet-800">Schools</a>.</p>
+                <p class="text-sm font-semibold text-gray-800">No schools yet</p>
+                <p class="text-sm text-gray-500 mt-1">Add one on <a href="{{ route('super-admin.schools') }}" class="font-medium text-violet-600 hover:text-violet-800">Schools</a>.</p>
             </div>
         @else
             @php
