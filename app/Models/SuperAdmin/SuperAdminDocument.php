@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -48,6 +50,43 @@ class SuperAdminDocument extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
+    /**
+     * The files in this document, each with its own name, in their order
+     * (2026-11-26). The document's own file columns hold the first of them.
+     */
+    public function files(): HasMany
+    {
+        return $this->hasMany(SuperAdminDocumentFile::class, 'super_admin_document_id')
+            ->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Its files — from super_admin_document_files, or (a document from before
+     * that table, not moved yet) its own file as the only one, unsaved.
+     */
+    public function fileList(): Collection
+    {
+        $files = $this->relationLoaded('files') ? $this->files : $this->files()->get();
+        if ($files->isNotEmpty() || !$this->file_path) {
+            return $files;
+        }
+
+        return collect([new SuperAdminDocumentFile([
+            'super_admin_document_id' => $this->id,
+            'name'                    => $this->title,
+            'file_path'               => $this->file_path,
+            'file_name'               => $this->file_name,
+            'file_size'               => $this->file_size,
+            'mime_type'               => $this->mime_type,
+        ])]);
+    }
+
+    /** All its files' size together, e.g. "2.1 MB". */
+    public function totalSize(): string
+    {
+        return self::readableBytes((int) $this->fileList()->sum('file_size'));
+    }
+
     /** Public S3 URL for inline viewing (images / PDFs open in a new tab). */
     public function getUrlAttribute(): string
     {
@@ -57,7 +96,12 @@ class SuperAdminDocument extends Model
     /** Human-readable file size, e.g. "1.4 MB". */
     public function getReadableSizeAttribute(): string
     {
-        $bytes = (int) $this->file_size;
+        return self::readableBytes((int) $this->file_size);
+    }
+
+    /** 1468006 → "1.4 MB"; nothing → "—". */
+    public static function readableBytes(int $bytes): string
+    {
         if ($bytes <= 0) {
             return '—';
         }

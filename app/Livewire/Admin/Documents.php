@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Livewire\Concerns\PicksManyDocuments;
 use App\Models\Admin\AdminDocument;
 use App\Models\SuperAdmin\SuperAdminDocument;
+use App\Models\SuperAdmin\SuperAdminDocumentFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -21,7 +22,9 @@ use WireUi\Traits\WireUiActions;
  *      Add Doc takes one file or several at once (PicksManyDocuments), each
  *      its own document with its own title.
  *   2. "Admin Documents" — documents the super-admin has pushed down to this
- *      organization; admins can only view & download these.
+ *      organization; admins can only view & download these. One such
+ *      document can hold several files, each with its own name: one row,
+ *      and View lists them all (2026-11-26).
  */
 class Documents extends Component
 {
@@ -43,6 +46,9 @@ class Documents extends Component
 
     // ─── Delete confirm ───────────────────────────────────────────────────────
     public ?int $deleteId = null;
+
+    // ─── View a Super Admin document and every file in it (2026-11-26) ───────
+    public ?int $viewSharedId = null;
 
     public function mount(): void
     {
@@ -242,21 +248,57 @@ class Documents extends Component
         }
     }
 
-    /** Download a document the super-admin shared with this school. */
+    /** Download a document the super-admin shared with this school (its first file). */
     public function downloadShared(int $id)
     {
         $doc = SuperAdminDocument::forOrganization($this->orgId())->find($id);
 
-        if (!$doc || !$doc->file_path) {
+        return $this->sendSharedFile($doc?->fileList()->first());
+    }
+
+    /** One file of a document the super-admin shared, under the name it was given. */
+    public function downloadSharedFile(int $fileId)
+    {
+        $file = SuperAdminDocumentFile::find($fileId);
+        if ($file && !SuperAdminDocument::forOrganization($this->orgId())->whereKey($file->super_admin_document_id)->exists()) {
+            $file = null;
+        }
+
+        return $this->sendSharedFile($file);
+    }
+
+    private function sendSharedFile(?SuperAdminDocumentFile $file)
+    {
+        if (!$file || !$file->file_path) {
             $this->notification()->error('Not found', 'This document is no longer available.');
             return;
         }
 
         try {
-            return Storage::disk('s3')->download($doc->file_path, $doc->file_name);
+            return Storage::disk('s3')->download($file->file_path, $file->downloadName());
         } catch (\Throwable $e) {
             $this->notification()->error('Download failed', $e->getMessage());
         }
+    }
+
+    /** View: a document the super-admin shared, with every file in it. */
+    public function viewShared(int $id): void
+    {
+        if (SuperAdminDocument::forOrganization($this->orgId())->whereKey($id)->exists()) {
+            $this->viewSharedId = $id;
+        }
+    }
+
+    public function closeViewShared(): void
+    {
+        $this->viewSharedId = null;
+    }
+
+    public function viewedShared(): ?SuperAdminDocument
+    {
+        return $this->viewSharedId
+            ? SuperAdminDocument::forOrganization($this->orgId())->with('files')->find($this->viewSharedId)
+            : null;
     }
 
     // ─── Delete ────────────────────────────────────────────────────────────────
@@ -303,6 +345,7 @@ class Documents extends Component
 
         // A tab of its own now, so as many a page as the school's documents.
         $sharedDocuments = SuperAdminDocument::forOrganization($this->orgId())
+            ->with('files')
             ->latest()
             ->paginate(12, ['*'], 'sharedPage');
 

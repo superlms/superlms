@@ -55,6 +55,7 @@ class SuperAdminDocsAboutRatingTest extends TestCase
             $t->unsignedBigInteger('uploaded_by')->nullable();
             $t->timestamps();
         });
+        (require base_path('database/migrations/2026_11_26_130000_create_super_admin_document_files_table.php'))->up();   // its files (2026-11-26)
         Schema::create('super_admin_document_organization', function (Blueprint $t) {
             $t->id();
             $t->unsignedBigInteger('document_id');

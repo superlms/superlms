@@ -94,18 +94,30 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($sharedDocuments as $i => $doc)
-                            @php [$typeLabel, $typeClass] = $docType($doc->file_name); @endphp
+                            @php
+                                // One row a document, however many files it has (2026-11-26).
+                                $dFiles = $doc->fileList();
+                                $dCount = $dFiles->count();
+                                [$typeLabel, $typeClass] = $dCount > 1 ? ['FILES', 'bg-teal-50 text-teal-700'] : $docType($doc->file_name);
+                                $dNames = $dFiles->pluck('name')->filter()->join(', ');
+                            @endphp
                             <tr class="hover:bg-gray-50/70 transition-colors" wire:key="shared-{{ $doc->id }}">
                                 <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $sharedDocuments->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            @if ($dCount > 1)
+                                                <span class="text-sm font-bold leading-none">{{ $dCount }}</span>
+                                            @else
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            @endif
                                             <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
                                         </span>
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
-                                            @if ($doc->readable_size !== '—')
+                                            @if ($dCount > 1)
+                                                <p class="text-xs text-gray-400 truncate max-w-[300px]" title="{{ $dNames }}">{{ $dNames }}</p>
+                                            @elseif ($doc->readable_size !== '—')
                                                 <p class="text-xs text-gray-400">{{ $doc->readable_size }}</p>
                                             @endif
                                         </div>
@@ -117,10 +129,16 @@
                                 <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
-                                        <a href="{{ $doc->url }}" target="_blank" rel="noopener" title="View"
-                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
-                                        <button wire:click="downloadShared({{ $doc->id }})" title="Download"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
+                                        @if ($dCount > 1)
+                                            {{-- Several files: View lists them, each to open or download. --}}
+                                            <button wire:click="viewShared({{ $doc->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>
+                                        @else
+                                            <a href="{{ $doc->url }}" target="_blank" rel="noopener" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
+                                            <button wire:click="downloadShared({{ $doc->id }})" title="Download"
+                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -287,6 +305,13 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- ══════════ VIEW — a Super Admin document and every file in it ══════════ --}}
+    @if ($viewSharedId && ($vDoc = $this->viewedShared()))
+        @include('livewire.partials.document-files-view', [
+            'vDoc' => $vDoc, 'vClose' => 'closeViewShared', 'vDownload' => 'downloadSharedFile', 'vEdit' => null, 'vAudience' => false,
+        ])
     @endif
 
     {{-- ══════════ DELETE CONFIRM ══════════ --}}

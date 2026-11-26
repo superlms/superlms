@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Livewire\Concerns\PicksManyDocuments;
 use App\Models\Organization;
 use App\Models\SuperAdmin\SuperAdminDocument;
+use App\Models\SuperAdmin\SuperAdminDocumentFile;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,9 +22,11 @@ use WireUi\Traits\WireUiActions;
  * own Documents screen (plus a bell notification) to view and download. Add and
  * edit both happen in a right slide-in panel.
  *
- * Add Doc takes one file or several at once (PicksManyDocuments): each becomes
- * a document of its own, with its own title, all going to the same schools —
- * and the schools' admins get one bell notification for the lot.
+ * A document is a title, a description and one file or several (user's ask,
+ * 2026-11-26): the title comes first, then the description, then the files —
+ * picked one by one or many at once (PicksManyDocuments), each with a name of
+ * its own. It is one row in the list; View shows every file in it. The
+ * schools' admins get one bell notification for it.
  */
 class Documents extends Component
 {
@@ -37,10 +40,13 @@ class Documents extends Component
     public ?int   $editId        = null;
     public string $title         = '';
     public string $description   = '';
-    public $file                 = null;
-    public string $existingFileName = '';
+    /** Editing: the document's files kept, in order — [['id', 'name', 'file_name', 'size'], …]. New ones go on $docFiles. */
+    public array  $keptFiles     = [];
     public string $audienceScope = 'all';   // private | all | selected
     public array  $selectedOrgs  = [];
+
+    // ─── View slide-in: one document and all its files ───────────────────────
+    public ?int $viewId = null;
 
     // ─── Filters ─────────────────────────────────────────────────────────────
     public string $search     = '';
@@ -74,6 +80,7 @@ class Documents extends Component
     {
         $this->resetForm();
         $this->editId    = null;
+        $this->viewId    = null;
         $this->showPanel = true;
     }
 
@@ -90,12 +97,18 @@ class Documents extends Component
         }
 
         $this->resetForm();
-        $this->editId           = $doc->id;
-        $this->title            = $doc->title;
-        $this->description      = (string) $doc->description;
-        $this->existingFileName = $doc->file_name;
-        $this->audienceScope    = $doc->audience_scope;
-        $this->selectedOrgs     = $doc->organizations->pluck('id')->all();
+        $this->viewId        = null;
+        $this->editId        = $doc->id;
+        $this->title         = $doc->title;
+        $this->description   = (string) $doc->description;
+        $this->keptFiles     = self::fileRows($doc)->map(fn (SuperAdminDocumentFile $f) => [
+            'id'        => $f->id,
+            'name'      => (string) $f->name,
+            'file_name' => (string) $f->file_name,
+            'size'      => $f->readable_size,
+        ])->values()->all();
+        $this->audienceScope = $doc->audience_scope;
+        $this->selectedOrgs  = $doc->organizations->pluck('id')->all();
 
         if (($lockedOrgId = $this->lockedOrganizationId()) && $this->audienceScope !== 'private') {
             $this->audienceScope = 'selected';
@@ -111,9 +124,39 @@ class Documents extends Component
         $this->resetForm();
     }
 
+    /** Take a kept file out of the document being edited (it goes when the document is saved). */
+    public function removeKeptFile(int $index): void
+    {
+        unset($this->keptFiles[$index]);
+        $this->keptFiles = array_values($this->keptFiles);
+        $this->resetErrorBag(['docFiles']);
+        $this->resetValidation('keptFiles.*');
+    }
+
+    /**
+     * A document's files as rows of super_admin_document_files — one from
+     * before that table gets its own file as its first row here.
+     */
+    private static function fileRows(SuperAdminDocument $doc): \Illuminate\Support\Collection
+    {
+        $files = $doc->files()->get();
+        if ($files->isEmpty() && $doc->file_path) {
+            $files = collect([$doc->files()->create([
+                'name'       => $doc->title,
+                'file_path'  => $doc->file_path,
+                'file_name'  => $doc->file_name ?: basename($doc->file_path),
+                'file_size'  => (int) $doc->file_size,
+                'mime_type'  => $doc->mime_type,
+                'sort_order' => 0,
+            ])]);
+        }
+
+        return $files;
+    }
+
     private function resetForm(): void
     {
-        $this->reset(['title', 'description', 'file', 'existingFileName', 'editId']);
+        $this->reset(['title', 'description', 'keptFiles', 'editId']);
         $this->resetManyDocs();
         $this->resetValidation();
 
@@ -157,139 +200,226 @@ class Documents extends Component
         ];
         $messages = ['selectedOrgs.required_if' => 'Pick at least one school, or choose "All schools".'];
 
-        if ($this->editId) {
-            $this->validate([
-                'title'       => 'required|string|max:255',
-                'description' => 'nullable|string|max:1000',
-                // Replacing the file is optional when editing.
-                'file'        => 'nullable|file|max:5120', // KB → 5 MB
-            ] + $audience, [
-                'file.max' => 'The file may not be larger than 5 MB.',
-            ] + $messages);
+        // Title first, then the description, then the files — each file with its own name.
+        $rules = [
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ] + $this->manyDocsRules() + $audience;
+        $named = [
+            'title.required'         => 'Give the document a title.',
+            'docTitles.*.required'   => 'Give this file a name.',
+            'keptFiles.*.name.required' => 'Give this file a name.',
+            'keptFiles.*.name.max'   => 'Keep the name to 255 characters.',
+        ];
 
-            try {
-                $this->updateDocument();
-            } catch (\Throwable $e) {
-                report($e);
-                $this->notification()->error('Save failed', $e->getMessage());
+        if ($this->editId) {
+            // Editing: the files kept and the new ones together — at least one, at most maxDocs().
+            $rules['docFiles']         = 'array|max:' . max(0, static::maxDocs() - count($this->keptFiles));
+            $rules['keptFiles']        = 'array';
+            $rules['keptFiles.*.name'] = 'required|string|max:255';
+            $this->validate($rules, $named + $this->manyDocsMessages() + $messages
+                + ['docFiles.max' => 'Up to ' . static::maxDocs() . ' files in a document.']);
+
+            if (count($this->keptFiles) + count($this->docFiles) === 0) {
+                $this->addError('docFiles', 'Keep at least one file, or add one.');
                 return;
             }
 
-            $this->closePanel();
+            if ($this->updateDocument()) {
+                $this->closePanel();
+            }
             $this->resetPage();
             return;
         }
 
-        // Adding: one document per file picked, each with its own title.
-        $this->validate($this->manyDocsRules() + ['description' => 'nullable|string|max:1000'] + $audience,
-            $this->manyDocsMessages() + $messages);
+        $this->validate($rules, $named + $this->manyDocsMessages() + $messages);
 
-        if ($this->createDocuments()) {
+        if ($this->createDocument()) {
             $this->closePanel();
         }
         $this->resetPage();
     }
 
     /**
-     * Each file picked becomes a document, all going to the same schools. A
-     * file that fails stays in the panel with the reason, the rest are saved;
-     * true when every one was.
+     * Put every new file on S3 first: all of them or none — a file that does
+     * not get there leaves the panel open with the reason, and the ones that
+     * did are taken off again. [index => key], or null when one failed.
      */
-    private function createDocuments(): bool
+    private function storeNewFiles(): ?array
     {
-        $created = [];
-        $failed  = [];
+        $stored = [];
+        $failed = [];
 
         foreach ($this->docFiles as $i => $file) {
             try {
-                $key = $this->storeDoc($file, 'super-admin/documents');
-
-                $doc = SuperAdminDocument::create([
-                    'title'          => trim((string) ($this->docTitles[$i] ?? '')) ?: static::titleFromFileName($file->getClientOriginalName()),
-                    'description'    => $this->description ?: null,
-                    'file_path'      => $key,
-                    'file_name'      => $file->getClientOriginalName(),
-                    'file_size'      => $file->getSize(),
-                    'mime_type'      => $file->getMimeType(),
-                    'audience_scope' => $this->audienceScope,
-                    'uploaded_by'    => Auth::id() ?: null,
-                ]);
-
-                if ($this->audienceScope === 'selected') {
-                    $doc->organizations()->sync($this->selectedOrgs);
-                }
-
-                $created[] = $doc;
-                $this->forgetDoc($i);
+                $stored[$i] = $this->storeDoc($file, 'super-admin/documents');
             } catch (\Throwable $e) {
                 report($e);
                 $failed[] = $file->getClientOriginalName() . ': ' . Str::limit($e->getMessage(), 120);
             }
         }
 
-        $this->docFiles  = array_values($this->docFiles);
-        $this->docTitles = array_values($this->docTitles);
-
-        $n     = count($created);
-        $words = $n === 1 ? 'Document' : $n . ' documents';
-
-        if ($n > 0) {
-            // A private document stays here: no school sees it, nobody is notified.
-            if ($this->audienceScope === 'private') {
-                $this->notification()->success($words . ' saved', 'Kept private — no school can see ' . ($n === 1 ? 'it' : 'them') . '.');
-            } else {
-                $this->notifyAdmins($created);
-                $this->notification()->success($words . ' sent', 'Schools can now view and download ' . ($n === 1 ? 'it' : 'them') . '.');
-            }
-        }
-
         if ($failed) {
+            $this->dropKeys(array_values($stored));
             $this->addError('docFiles', 'Not saved — ' . implode('; ', $failed));
             $this->notification()->error(count($failed) === 1 ? 'A file was not saved' : count($failed) . ' files were not saved', 'They are still in the panel — try Save again.');
+
+            return null;
+        }
+
+        return $stored;
+    }
+
+    /** The rows for the new files, after $sort. */
+    private function newFileRows(array $stored, int $sort): array
+    {
+        $rows = [];
+        foreach ($this->docFiles as $i => $file) {
+            $rows[] = [
+                'name'       => trim((string) ($this->docTitles[$i] ?? '')) ?: static::titleFromFileName($file->getClientOriginalName()),
+                'file_path'  => $stored[$i],
+                'file_name'  => $file->getClientOriginalName(),
+                'file_size'  => (int) $file->getSize(),
+                'mime_type'  => $file->getMimeType(),
+                'sort_order' => $sort++,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** The document's own file columns follow its first file. */
+    private static function firstFileColumns(SuperAdminDocument $doc): array
+    {
+        $first = $doc->files()->first();
+
+        return $first ? [
+            'file_path' => $first->file_path,
+            'file_name' => $first->file_name,
+            'file_size' => (int) $first->file_size,
+            'mime_type' => $first->mime_type,
+        ] : [];
+    }
+
+    private function dropKeys(array $keys): void
+    {
+        foreach (array_filter(array_unique($keys)) as $key) {
+            try {
+                Storage::disk('s3')->delete($key);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+    }
+
+    /** One document: the title, the description and every file picked, each with its name. */
+    private function createDocument(): bool
+    {
+        $stored = $this->storeNewFiles();
+        if ($stored === null) {
             return false;
+        }
+
+        try {
+            $doc = DB::transaction(function () use ($stored) {
+                $rows  = $this->newFileRows($stored, 0);
+                $first = $rows[0];
+
+                $doc = SuperAdminDocument::create([
+                    'title'          => trim($this->title),
+                    'description'    => trim($this->description) ?: null,
+                    'file_path'      => $first['file_path'],
+                    'file_name'      => $first['file_name'],
+                    'file_size'      => $first['file_size'],
+                    'mime_type'      => $first['mime_type'],
+                    'audience_scope' => $this->audienceScope,
+                    'uploaded_by'    => Auth::id() ?: null,
+                ]);
+                $doc->files()->createMany($rows);
+
+                if ($this->audienceScope === 'selected') {
+                    $doc->organizations()->sync($this->selectedOrgs);
+                }
+
+                return $doc;
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dropKeys(array_values($stored));
+            $this->notification()->error('Save failed', Str::limit($e->getMessage(), 160));
+
+            return false;
+        }
+
+        $n     = count($stored);
+        $files = $n === 1 ? '' : ' with ' . $n . ' files';
+
+        // A private document stays here: no school sees it, nobody is notified.
+        if ($this->audienceScope === 'private') {
+            $this->notification()->success('Document saved' . $files, 'Kept private — no school can see it.');
+        } else {
+            $this->notifyAdmins([$doc]);
+            $this->notification()->success('Document sent' . $files, 'Schools can now view and download it.');
         }
 
         return true;
     }
 
-    private function updateDocument(): void
+    /**
+     * The title, description and who gets it; the kept files take their new
+     * names and order, the ones taken out go, the new ones join at the end.
+     */
+    private function updateDocument(): bool
     {
-        $doc = SuperAdminDocument::findOrFail($this->editId);
-
-        $data = [
-            'title'          => $this->title,
-            'description'    => $this->description ?: null,
-            'audience_scope' => $this->audienceScope,
-        ];
-
-        // Replacing the file is optional; swap in the new one and drop the old.
-        $oldKey = null;
-        if ($this->file) {
-            $key = $this->file->store('super-admin/documents', 's3');
-            Storage::disk('s3')->setVisibility($key, 'public');
-            $oldKey            = $doc->file_path;
-            $data['file_path'] = $key;
-            $data['file_name'] = $this->file->getClientOriginalName();
-            $data['file_size'] = $this->file->getSize();
-            $data['mime_type'] = $this->file->getMimeType();
+        $doc = SuperAdminDocument::find($this->editId);
+        if (!$doc) {
+            $this->notification()->error('Not found', 'This document is no longer available.');
+            return true;
         }
 
-        $doc->update($data);
-
-        if ($this->audienceScope === 'selected') {
-            $doc->organizations()->sync($this->selectedOrgs);
-        } else {
-            // 'all' resolves without the pivot; 'private' must reach nobody.
-            $doc->organizations()->detach();
+        $stored = $this->storeNewFiles();
+        if ($stored === null) {
+            return false;
         }
 
-        if ($oldKey) {
-            try {
-                Storage::disk('s3')->delete($oldKey);
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        try {
+            $gone = DB::transaction(function () use ($doc, $stored) {
+                $keep = array_map(fn ($f) => (int) $f['id'], $this->keptFiles);
+                $old  = $doc->files()->get();
+                $gone = $old->whereNotIn('id', $keep)->pluck('file_path')->all();
+                $doc->files()->whereNotIn('id', $keep ?: [0])->delete();
+
+                $sort = 0;
+                foreach ($this->keptFiles as $f) {
+                    $doc->files()->whereKey((int) $f['id'])->update(['name' => trim((string) $f['name']), 'sort_order' => $sort++]);
+                }
+                $doc->files()->createMany($this->newFileRows($stored, $sort));
+
+                $doc->update([
+                    'title'          => trim($this->title),
+                    'description'    => trim($this->description) ?: null,
+                    'audience_scope' => $this->audienceScope,
+                ] + self::firstFileColumns($doc));
+
+                if ($this->audienceScope === 'selected') {
+                    $doc->organizations()->sync($this->selectedOrgs);
+                } else {
+                    // 'all' resolves without the pivot; 'private' must reach nobody.
+                    $doc->organizations()->detach();
+                }
+
+                // A key still used by a kept file (a document from before) stays.
+                return array_diff($gone, $doc->files()->pluck('file_path')->all());
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dropKeys(array_values($stored));
+            $this->notification()->error('Save failed', Str::limit($e->getMessage(), 160));
+
+            return false;
         }
+
+        $this->dropKeys($gone);
 
         $this->notification()->success(
             'Document updated',
@@ -297,6 +427,8 @@ class Documents extends Component
                 ? 'Kept private — no school can see it.'
                 : 'Your changes have been saved.'
         );
+
+        return true;
     }
 
     /** Target organization ids for a document (resolved from its audience). */
@@ -373,22 +505,73 @@ class Documents extends Component
         }
     }
 
+    // ─── View: one document and every file in it ───────────────────────────────
+
+    /** The documents this user sees: all of them, or a locked school's plus their own private ones. */
+    private function visibleDocuments()
+    {
+        $lockedOrgId = $this->lockedOrganizationId();
+
+        return SuperAdminDocument::query()->when($lockedOrgId, function ($q) use ($lockedOrgId) {
+            $q->where(function ($w) use ($lockedOrgId) {
+                $w->where('audience_scope', 'all')
+                  ->orWhere(fn ($p) => $p->where('audience_scope', 'private')
+                      ->where('uploaded_by', Auth::id()))
+                  ->orWhereHas('organizations', fn ($o) => $o->where('organizations.id', $lockedOrgId));
+            });
+        });
+    }
+
+    public function view(int $id): void
+    {
+        if ($this->visibleDocuments()->whereKey($id)->exists()) {
+            $this->viewId = $id;
+        }
+    }
+
+    public function closeView(): void
+    {
+        $this->viewId = null;
+    }
+
+    public function viewedDocument(): ?SuperAdminDocument
+    {
+        return $this->viewId
+            ? $this->visibleDocuments()->with(['organizations:id,name', 'files'])->find($this->viewId)
+            : null;
+    }
+
     // ─── Download ──────────────────────────────────────────────────────────────
 
+    /** A document's first file (the row's Download, for a document of one file). */
     public function downloadDocument(int $id)
     {
-        $doc = SuperAdminDocument::when(
-            $this->lockedOrganizationId(),
-            fn ($q, $orgId) => $q->forOrganization($orgId)
-        )->find($id);
+        $doc  = $this->visibleDocuments()->find($id);
+        $file = $doc?->fileList()->first();
 
-        if (!$doc || !$doc->file_path) {
+        return $this->sendFile($file);
+    }
+
+    /** One file of a document, under the name it was given. */
+    public function downloadFile(int $fileId)
+    {
+        $file = SuperAdminDocumentFile::find($fileId);
+        if ($file && !$this->visibleDocuments()->whereKey($file->super_admin_document_id)->exists()) {
+            $file = null;
+        }
+
+        return $this->sendFile($file);
+    }
+
+    private function sendFile(?SuperAdminDocumentFile $file)
+    {
+        if (!$file || !$file->file_path) {
             $this->notification()->error('Not found', 'This document is no longer available.');
             return;
         }
 
         try {
-            return Storage::disk('s3')->download($doc->file_path, $doc->file_name);
+            return Storage::disk('s3')->download($file->file_path, $file->downloadName());
         } catch (\Throwable $e) {
             $this->notification()->error('Download failed', $e->getMessage());
         }
@@ -418,18 +601,18 @@ class Documents extends Component
         )->find($this->deleteId);
 
         if ($doc) {
-            try {
-                if ($doc->file_path) {
-                    Storage::disk('s3')->delete($doc->file_path);
-                }
-            } catch (\Throwable $e) {
-                report($e);
-            }
+            // Every file in it goes with it.
+            $keys = $doc->files()->pluck('file_path')->push($doc->file_path)->all();
+            $doc->files()->delete();
             $doc->organizations()->detach();
             $doc->delete();
+            $this->dropKeys($keys);
             $this->notification()->success('Deleted', 'Document removed.');
         }
 
+        if ($this->viewId === $this->deleteId) {
+            $this->viewId = null;
+        }
         $this->deleteId = null;
         $this->resetPage();
     }
@@ -458,22 +641,16 @@ class Documents extends Component
     {
         $lockedOrgId = $this->lockedOrganizationId();
 
-        $documents = SuperAdminDocument::with('organizations:id,name')
-            ->when($lockedOrgId, function ($q) use ($lockedOrgId) {
-                // Everything this school can see, plus my own private uploads.
-                $q->where(function ($w) use ($lockedOrgId) {
-                    $w->where('audience_scope', 'all')
-                      ->orWhere(fn ($p) => $p->where('audience_scope', 'private')
-                          ->where('uploaded_by', Auth::id()))
-                      ->orWhereHas('organizations', fn ($o) => $o->where('organizations.id', $lockedOrgId));
-                });
-            })
+        // Everything this school can see, plus my own private uploads; each with its files.
+        $documents = $this->visibleDocuments()
+            ->with(['organizations:id,name', 'files'])
             ->when($this->search, function ($q) {
                 $term = '%' . $this->search . '%';
                 $q->where(function ($w) use ($term) {
                     $w->where('title', 'like', $term)
                       ->orWhere('file_name', 'like', $term)
-                      ->orWhere('description', 'like', $term);
+                      ->orWhere('description', 'like', $term)
+                      ->orWhereHas('files', fn ($f) => $f->where(fn ($g) => $g->where('name', 'like', $term)->orWhere('file_name', 'like', $term)));
                 });
             })
             ->when($this->filterOrg, fn ($q) => $q->forOrganization((int) $this->filterOrg))

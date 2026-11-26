@@ -3,8 +3,14 @@
      S3 temporary uploads take one at a time — and each is listed with a
      title made from its name, to change before saving. A file over 5 MB is
      left out before it is sent. While files are going up the picker
-     dispatches 'doc-uploading' with how many are left, for the Save button. --}}
+     dispatches 'doc-uploading' with how many are left, for the Save button.
+
+     $pickNames (Super Admin, 2026-11-26): the files are all in ONE document
+     that has its own title, so each file gets a Name, not a title; $pickMore
+     says the document already has files (editing), so the box adds more. --}}
 @php
+    $pickNames = $pickNames ?? false;
+    $pickMore  = $pickMore ?? false;
     $kind = function (string $name): array {
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         return match (true) {
@@ -20,7 +26,9 @@
     $maxDocs = $this->maxDocs();
 @endphp
 <div>
-    <label class="block text-sm font-medium text-gray-700 mb-1.5">Files <span class="text-red-500">*</span></label>
+    @unless ($pickMore)
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Files <span class="text-red-500">*</span></label>
+    @endunless
 
     <div x-data="{
             left: 0, total: 0, over: false, skipped: [],
@@ -46,7 +54,7 @@
             :class="over ? 'border-blue-400 bg-blue-50/60' : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'">
             <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             <span x-show="!left" class="text-sm font-medium text-gray-700">
-                {{ count($docFiles) ? 'Add more files' : 'Choose files' }} <span class="font-normal text-gray-400">or drop them here</span>
+                {{ count($docFiles) || $pickMore ? 'Add more files' : 'Choose files' }} <span class="font-normal text-gray-400">or drop them here</span>
             </span>
             <span x-show="left" x-cloak class="text-sm font-medium text-blue-700" x-text="'Uploading ' + (total - left + 1) + ' of ' + total + '…'"></span>
             <span class="text-xs text-gray-400">One or several at once — up to {{ $maxDocs }}, each up to 5 MB</span>
@@ -61,8 +69,13 @@
     @if (count($docFiles))
         <div class="mt-3 border border-gray-200 rounded-lg overflow-hidden">
             <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
-                <strong class="text-gray-700">{{ count($docFiles) }} {{ count($docFiles) === 1 ? 'file' : 'files' }}</strong>
-                — {{ count($docFiles) === 1 ? 'give it a title' : 'each becomes a document of its own; give each a title' }}
+                @if ($pickNames)
+                    <strong class="text-gray-700">{{ count($docFiles) }} {{ $pickMore ? 'new ' : '' }}{{ count($docFiles) === 1 ? 'file' : 'files' }}</strong>
+                    — {{ count($docFiles) === 1 ? 'give it a name' : 'all in this document; give each its name' }}
+                @else
+                    <strong class="text-gray-700">{{ count($docFiles) }} {{ count($docFiles) === 1 ? 'file' : 'files' }}</strong>
+                    — {{ count($docFiles) === 1 ? 'give it a title' : 'each becomes a document of its own; give each a title' }}
+                @endif
             </div>
             <div class="divide-y divide-gray-100 max-h-80 overflow-y-auto">
                 @foreach ($docFiles as $i => $picked)
@@ -73,7 +86,7 @@
                     <div class="flex items-start gap-3 px-3 py-2.5" wire:key="doc-pick-{{ $picked->getFilename() }}">
                         <span class="w-9 h-9 mt-0.5 rounded-lg {{ $tile }} flex items-center justify-center flex-shrink-0 text-[9px] font-bold">{{ $label }}</span>
                         <div class="flex-1 min-w-0">
-                            <input type="text" wire:model="docTitles.{{ $i }}" maxlength="255" placeholder="Title" aria-label="Title for {{ $fileName }}"
+                            <input type="text" wire:model="docTitles.{{ $i }}" maxlength="255" placeholder="{{ $pickNames ? 'Name' : 'Title' }}" aria-label="{{ $pickNames ? 'Name' : 'Title' }} for {{ $fileName }}"
                                 class="w-full px-2.5 py-1.5 border {{ $errors->has('docTitles.' . $i) ? 'border-red-300' : 'border-gray-300' }} rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             <p class="text-[11px] text-gray-400 truncate mt-0.5" title="{{ $fileName }}">{{ $fileName }}</p>
                             @error('docTitles.' . $i)<p class="text-xs text-red-500">{{ $message }}</p>@enderror
