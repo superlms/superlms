@@ -29,9 +29,32 @@
                             <span>Father's Name (first word) <b>*</b></span>
                             <input type="text" name="father" data-label="the first word of your father's name" maxlength="60" autocomplete="off" placeholder="e.g. Ramesh" required>
                         </label>
+                        {{-- Day / Month / Year lists, not the browser's date box: that box puts the
+                             day and month in the browser's own order (mm/dd/yyyy in US English), so a
+                             date typed the Indian way went in as another date and no student matched
+                             (2026-11-27). --}}
                         <label>
                             <span>Date of Birth <b>*</b></span>
-                            <input type="date" name="dob" data-label="your date of birth" max="{{ now()->toDateString() }}" required>
+                            <span class="bd-dob">
+                                <select name="dob_d" data-label="the day you were born" aria-label="Day of birth" required>
+                                    <option value="">Day</option>
+                                    @for ($d = 1; $d <= 31; $d++)
+                                        <option value="{{ $d }}">{{ $d }}</option>
+                                    @endfor
+                                </select>
+                                <select name="dob_m" data-label="the month you were born" aria-label="Month of birth" required>
+                                    <option value="">Month</option>
+                                    @foreach (['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as $i => $m)
+                                        <option value="{{ $i + 1 }}">{{ $m }}</option>
+                                    @endforeach
+                                </select>
+                                <select name="dob_y" data-label="the year you were born" aria-label="Year of birth" required>
+                                    <option value="">Year</option>
+                                    @for ($y = now()->year - 5; $y >= now()->year - 35; $y--)
+                                        <option value="{{ $y }}">{{ $y }}</option>
+                                    @endfor
+                                </select>
+                            </span>
                         </label>
                     </div>
                     <div class="sform-foot">
@@ -59,6 +82,22 @@
         del: function () { try { sessionStorage.removeItem(key); } catch (e) {} }
     };
     var say = function (t, ok) { msg.textContent = t; msg.style.color = ok ? '#059669' : '#DC2626'; };
+    var field = function (n) { return form.querySelector('[name=' + n + ']'); };
+    var dd = field('dob_d'), mm = field('dob_m'), yy = field('dob_y');
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // Days in the month picked (Feb in a leap year until the year is picked).
+    var daysIn = function () {
+        var m = Number(mm.value), y = Number(yy.value) || 2000;
+        return m ? new Date(y, m, 0).getDate() : 31;
+    };
+    // A day the month picked does not have cannot be chosen.
+    function fitDays() {
+        var max = daysIn();
+        Array.prototype.forEach.call(dd.options, function (o) { o.disabled = o.value !== '' && Number(o.value) > max; });
+    }
+    mm.addEventListener('change', fitDays);
+    yy.addEventListener('change', fitDays);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
 
     function show(json) {
         store.set(json.token);
@@ -73,6 +112,7 @@
         out.hidden = true;
         login.hidden = false;
         form.reset();
+        fitDays();
         msg.textContent = '';
     }
     async function post(url, data) {
@@ -88,13 +128,15 @@
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
         var missing = Array.prototype.find.call(form.querySelectorAll('[required]'), function (f) { return !f.value.trim(); });
-        if (missing) { say('Please enter ' + missing.dataset.label + '.'); missing.focus(); return; }
+        if (missing) { say((missing.tagName === 'SELECT' ? 'Please choose ' : 'Please enter ') + missing.dataset.label + '.'); missing.focus(); return; }
+        var d = Number(dd.value), m = Number(mm.value), y = Number(yy.value);
+        if (d > daysIn()) { say(MONTHS[m - 1] + ' ' + y + ' has only ' + daysIn() + ' days. Please check the date of birth.'); dd.focus(); return; }
 
         var label = btn.textContent;
         btn.disabled = true; btn.textContent = 'Checking…'; msg.textContent = '';
         try {
-            var val = function (n) { return form.querySelector('[name=' + n + ']').value.trim(); };
-            var r = await post('/api/website/school-boards/login', { name: val('name'), father: val('father'), dob: val('dob') });
+            var val = function (n) { return field(n).value.trim(); };
+            var r = await post('/api/website/school-boards/login', { name: val('name'), father: val('father'), dob: y + '-' + pad(m) + '-' + pad(d) });
             if (r.ok) { show(r.json); }
             else if (r.status === 429) { say('Too many tries. Please wait a minute and try again.'); }
             else {

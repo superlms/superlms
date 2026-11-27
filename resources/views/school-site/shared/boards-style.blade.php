@@ -8,7 +8,10 @@
     .bd { max-width: 980px; margin: 0 auto; }
     .bd [hidden] { display: none !important; }
     .bd-login { max-width: 760px; margin-left: auto; margin-right: auto; }
-    .bd-login .sform-grid.bd-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .bd-login .sform-grid.bd-grid3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
+    .bd-login .bd-dob { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px; }
+    /* height = the text boxes' (14px × 1.4 line + 9px padding twice + 1px border twice) */
+    .bd-login .lms-form .bd-dob select { min-width: 0; height: calc(14px * 1.4 + 20px); padding: 0 4px 0 9px; cursor: pointer; }
     .bd-login .bd-hint { margin: 12px 0 0; font-size: 12.5px; color: #6B7280; }
 
     .bd-who-in { display: flex; align-items: center; gap: 14px; padding: 18px 20px; }

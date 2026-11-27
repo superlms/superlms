@@ -313,6 +313,14 @@ class SchoolBoardsAdmissionTest extends TestCase
             foreach (['Student Name', "Father's Name (first word)", 'Date of Birth'] as $field) {
                 $this->assertStringContainsString($field, html_entity_decode($html), "{$tpl}: {$field}");
             }
+            // The date of birth is Day / Month / Year lists, never the browser's date box
+            // (whose day/month order follows the browser's language).
+            foreach (['dob_d', 'dob_m', 'dob_y'] as $list) {
+                $this->assertMatchesRegularExpression('#<select name="' . $list . '"#', $html, "{$tpl}: {$list}");
+            }
+            $this->assertStringContainsString('<option value="8">Aug</option>', $html, $tpl);
+            $this->assertStringContainsString('<option value="' . (now()->year - 12) . '">', $html, $tpl);
+            $this->assertStringNotContainsString('type="date"', $html, $tpl);
             preg_match('#<ul class="menu-list" id="menuList">(.*?)</ul>\s*<div class="menu-panel-foot">#s', $html, $m);
             preg_match_all('#<li class="[^"]*">\s*<(?:a href="[^"]*"|button type="button" aria-haspopup="true")>\s*([^<]+?)\s*<#', $m[1] ?? '', $items);
             $this->assertSame('Boards', end($items[1]), $tpl);
