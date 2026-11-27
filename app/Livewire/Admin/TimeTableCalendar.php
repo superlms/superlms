@@ -282,17 +282,30 @@ class TimeTableCalendar extends LivewireCalendar
         ];
     }
 
+    /** The academic session the month on screen is in: April to March (user's ask of 2026-11-27); its first year. */
+    public function sessionStartYear(): int
+    {
+        return $this->startsAt->month >= 4 ? $this->startsAt->year : $this->startsAt->year - 1;
+    }
+
+    /** "2026–27" */
+    public function sessionLabel(): string
+    {
+        $y = $this->sessionStartYear();
+        return $y . '–' . substr((string) ($y + 1), -2);
+    }
+
     #[Computed]
     public function yearlyCalendar(): array
     {
-        $year     = $this->startsAt->year;
-        $calendar = [];
+        $startYear = $this->sessionStartYear();
+        $calendar  = [];
 
-        // Load the whole year's events in one query — the monthly `events`
+        // Load the whole session's events in one query — the monthly `events`
         // collection only covers the active month, so we can't reuse it here.
         $organizationId = Auth::user()->organization_id;
-        $yearStart      = Carbon::create($year, 1, 1)->startOfDay();
-        $yearEnd        = Carbon::create($year, 12, 31)->endOfDay();
+        $yearStart      = Carbon::create($startYear, 4, 1)->startOfDay();
+        $yearEnd        = Carbon::create($startYear + 1, 3, 31)->endOfDay();
 
         // Group by Y-m-d for O(1) lookup per day.
         $eventsByDay = TimeTable::where('organization_id', $organizationId)
@@ -301,8 +314,11 @@ class TimeTableCalendar extends LivewireCalendar
             ->get(['id', 'date'])
             ->groupBy(fn ($e) => Carbon::parse($e->date)->format('Y-m-d'));
 
-        for ($month = 1; $month <= 12; $month++) {
-            $date        = Carbon::create($year, $month, 1);
+        // April of the session's first year to March of the next.
+        for ($m = 0; $m < 12; $m++) {
+            $date        = Carbon::create($startYear, 4, 1)->addMonthsNoOverflow($m);
+            $year        = $date->year;
+            $month       = $date->month;
             $daysInMonth = $date->daysInMonth;
             $days        = [];
             $monthTotal  = 0;
@@ -561,6 +577,7 @@ class TimeTableCalendar extends LivewireCalendar
             // The year is only worked out when it is shown (the month's events
             // list is the month's own events, sorted in the view).
             'yearlyCalendar'   => $this->view === 'year' ? $this->yearlyCalendar : [],
+            'sessionLabel'     => $this->sessionLabel(),
             'view'             => $this->view,
             'startsAt'         => $this->startsAt,
             'eventsCount'      => $this->eventsCount,

@@ -1,7 +1,7 @@
 {{-- With a week on screen, on md+ the page is the window's height and the
      week's rows share what is left under the header (user's ask of
      2026-11-27: no blank space under the timetable), never under 42px. --}}
-<div class="min-h-screen bg-gray-50 {{ $week ? 'md:h-dvh md:min-h-[30rem] md:flex md:flex-col' : '' }}">
+<div class="tt-page min-h-screen bg-gray-50 {{ $week ? 'tt-fill' : '' }}">
     <style>
         [x-cloak]{display:none !important;}
 
@@ -10,7 +10,20 @@
            of it bold, no colours; in Class View the teacher's photo (initials
            without one) with the subject and the teacher's name beside it,
            centred on it. The rows grow to fill the window (--tt-rows). */
-        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); grid-template-rows: var(--tt-rows, none); min-height: 100%; background: #fff; }
+        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); grid-template-rows: var(--tt-rows, none); background: #fff; }
+        /* With a week on screen (md+): the page is the window's height and,
+           flex all the way down, the card, its scroll box and the grid take
+           up what is left under the header — so the rows (--tt-rows) share
+           it and nothing is left blank. All in this style (no utility
+           classes), so it never waits on the site's stylesheet. */
+        @media (min-width: 768px) {
+            .tt-page.tt-fill { height: 100vh; height: 100dvh; min-height: 30rem; display: flex; flex-direction: column; }
+            .tt-fill > .tt-head { flex: none; }
+            .tt-fill > .tt-body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+            .tt-fill > .tt-body > .tt-weekcard { flex: 1 1 0; min-height: 0; }
+            .tt-fill .tt-box { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+            .tt-fill .tt-box > .tt-grid { flex: 1 0 auto; }
+        }
         .tt-row { display: contents; }
         .tt-h { padding: 7px 10px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e;
             background: #fff; border-bottom: 1px solid #eef1f0; white-space: nowrap; }
@@ -54,7 +67,7 @@
     {{-- ══════════════════════════════════════════════════
          HEADER + TABS + FILTER BAR (exams-style)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30 flex-none">
+    <div class="tt-head bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -79,7 +92,7 @@
                             <span class="sm:hidden">{{ empty($periods) ? 'Add' : 'Edit' }}</span>
                         </button>
                     @else
-                        <button wire:click="onCreateTimetable"
+                        <button wire:click="startCreate"
                             class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -197,7 +210,7 @@
         @endif
     </div>
 
-    <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5 {{ $week ? 'md:flex-1 md:min-h-0 md:flex md:flex-col' : '' }}">
+    <div class="tt-body px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5">
 
         @if ($viewMode === 'periods')
             {{-- ══════════════════════════════════════════════════
@@ -283,7 +296,7 @@
                     </svg>
                 </div>
                 <p class="text-sm text-gray-600 font-medium">No timetable entries yet.</p>
-                <button wire:click="onCreateTimetable" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800">Create one →</button>
+                <button wire:click="{{ $viewMode === 'class' ? 'startEditing' : 'startCreate' }}" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800">Create one →</button>
             </div>
         @else
 
@@ -321,7 +334,7 @@
                     ? route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
                     : route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'class', 'standard' => $week['standard_id'], 'section' => $week['section_id'], 'days' => implode(',', $filterDays)]));
             @endphp
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col md:flex-1 md:min-h-0" data-tt-week
+            <div class="tt-weekcard bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col" data-tt-week
                 x-data="{
                     edits: {}, busy: false,
                     get n() { return Object.keys(this.edits).length },
@@ -350,7 +363,9 @@
                         <div class="min-w-0 flex items-baseline gap-2">
                             <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $byTeacher ? $week['teacher'] : $week['standard'] . ' · ' . $week['section'] }}</h3>
                             <p class="text-xs text-gray-400 truncate">
-                                @if ($isEditing)
+                                @if ($isEditing && $week['lessons'] === 0)
+                                    New timetable — pick a subject and a teacher in each cell, then Save
+                                @elseif ($isEditing)
                                     Editing — pick a subject or a teacher from a cell's arrow, then Save
                                 @elseif ($byTeacher)
                                     {{ $week['lessons'] }} period{{ $week['lessons'] === 1 ? '' : 's' }} a week · {{ $daysLabel }}
@@ -409,7 +424,7 @@
                     // 42px); the lunch break as tall as its line.
                     $ttRows = 'auto ' . collect($week['rows'])->map(fn ($r) => $r['type'] === 'lunch' ? 'auto' : 'minmax(42px, 1fr)')->implode(' ');
                 @endphp
-                <div class="overflow-x-auto md:flex-1 md:min-h-0 md:overflow-y-auto">
+                <div class="tt-box overflow-x-auto">
                     <div class="tt-grid" role="table" aria-label="Weekly timetable"
                         style="--tt-cols: 104px repeat({{ count($wkDays) }}, minmax(0, 1fr)); --tt-rows: {{ $ttRows }}; min-width: {{ 104 + count($wkDays) * 132 }}px">
                         <div class="tt-row" role="row">
@@ -880,6 +895,46 @@
                         <span wire:loading.remove wire:target="savePeriods">Save Periods</span>
                         <span wire:loading wire:target="savePeriods">Saving...</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         CREATE TIMETABLE — pick the class and the section; the week then opens
+         on them, its cells ready to fill (no slide-in panel).
+    ══════════════════════════════════════════════════ --}}
+    @if ($showPick)
+        <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="New timetable"
+            x-data x-on:keydown.escape.window="$wire.closePick()" data-tt-pick>
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="closePick"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+                <h3 class="text-base font-semibold text-gray-900">New Timetable</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Pick the class and the section — its week opens to fill in.</p>
+                <div class="mt-5 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Class</label>
+                        <select wire:model.live="pickClass" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Class</option>
+                            @foreach ($standards as $std)
+                                <option value="{{ $std->id }}">{{ $std->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div data-sole-section-wrap>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
+                        <select data-sole-section wire:model.live="pickSection" @disabled(!$pickClass) class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Section</option>
+                            @foreach ($pickSections as $sec)
+                                <option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 mt-6">
+                    <button type="button" wire:click="closePick" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button type="button" wire:click="openPicked" @disabled(!$pickClass || !$pickSection)
+                        class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50">Open</button>
                 </div>
             </div>
         </div>

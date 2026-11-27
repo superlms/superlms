@@ -675,6 +675,43 @@ class TimeTablePanelTest extends TestCase
         $this->assertSame(['1 2 2 09:45-10:30', '2 1 1 09:00-09:45'], $this->periods(1));
     }
 
+    public function test_create_timetable_picks_the_class_and_section_then_opens_the_week_to_fill(): void
+    {
+        $this->day();
+
+        // The header's button: a small box for the class and the section — not the slide-in panel.
+        $page = Livewire::test(TimeTable::class);
+        $this->assertStringContainsString('wire:click="startCreate"', $page->html());
+        $page->call('startCreate')->assertSet('showPick', true)->assertSet('open', false);
+        $this->assertStringContainsString('data-tt-pick', $page->html());
+
+        // Class 6 has one section: it is picked with the class.
+        $page->set('pickClass', '2')->assertSet('pickSection', '4');
+        $page->set('pickClass', '1')->assertSet('pickSection', '')->set('pickSection', '2')->call('openPicked')
+            ->assertSet('showPick', false)->assertSet('editing', true)->assertSet('filterClass', '1')->assertSet('filterSection', '2');
+
+        // The empty week, every cell a pair of dropdowns.
+        $html = $page->html();
+        $this->assertStringContainsString('Class 5 · B</h3>', $html);
+        $this->assertStringContainsString('New timetable', $html);
+        $this->assertSame(18, substr_count($html, 'class="tt-pick is-sub"'));
+
+        $page->call('saveCells', ['1|09:00|09:45' => ['subject_id' => '1', 'teacher_id' => '1'], '2|09:45|10:30' => ['subject_id' => '2', 'teacher_id' => '2']])
+            ->assertSet('editing', false);
+        $this->assertSame(['1 1 1 09:00-09:45', '2 2 2 09:45-10:30'], $this->periods(2));
+
+        // Cancelled before anything is saved: back to "no timetable yet".
+        $empty = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '3')->call('startEditing')->assertSet('editing', true);
+        $this->assertStringContainsString('class="tt-pick is-sub"', $empty->html());
+        $this->assertStringContainsString('No timetable entries yet.', $empty->call('cancelEditing')->html());
+    }
+
+    public function test_create_timetable_without_periods_asks_for_them_first(): void
+    {
+        Livewire::test(TimeTable::class)->call('startCreate')->assertSet('showPick', false)
+            ->assertSet('viewMode', 'periods')->assertSet('showPeriodPanel', true);
+    }
+
     public function test_a_teacher_may_take_two_sections_of_a_class_but_not_two_classes_at_once(): void
     {
         $this->day();

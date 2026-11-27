@@ -70,8 +70,14 @@
             .cal-ge4 { display: block; }
             .cal-l3 { display: none; }
         }
-        .cal-list::-webkit-scrollbar { width: 6px; }
-        .cal-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+        /* The month's events never make their card taller (user's ask of
+           2026-11-27): beside the month (xl+) the card is the month's height,
+           under it at most 26rem; past that the list scrolls on a slim bar. */
+        .cal-list { overflow-y: auto; max-height: 26rem; scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+        @media (min-width: 1280px) { .cal-list { max-height: none; } }
+        .cal-list::-webkit-scrollbar { width: 4px; }
+        .cal-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .cal-list::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
         .cal-list::-webkit-scrollbar-track { background: transparent; }
     </style>
 
@@ -91,13 +97,13 @@
             <div class="flex-none flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100" data-cal-nav>
                 <div class="flex items-center gap-1.5">
                     <button type="button" wire:click="{{ $isMonth ? 'goToPreviousMonth' : 'goToPreviousYear' }}"
-                        title="{{ $isMonth ? 'Previous month' : 'Previous year' }}" aria-label="{{ $isMonth ? 'Previous month' : 'Previous year' }}" class="{{ $navBtn }}">
+                        title="{{ $isMonth ? 'Previous month' : 'Previous session' }}" aria-label="{{ $isMonth ? 'Previous month' : 'Previous session' }}" class="{{ $navBtn }}">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <h2 class="text-sm font-semibold text-gray-900 min-w-[7.5rem] text-center" wire:loading.class="opacity-60"
-                        wire:target="goToPreviousMonth,goToNextMonth,goToPreviousYear,goToNextYear,goToCurrentMonth">{{ $isMonth ? $startsAt->format('F Y') : $startsAt->format('Y') }}</h2>
+                        wire:target="goToPreviousMonth,goToNextMonth,goToPreviousYear,goToNextYear,goToCurrentMonth">{{ $isMonth ? $startsAt->format('F Y') : 'Session ' . $sessionLabel }}</h2>
                     <button type="button" wire:click="{{ $isMonth ? 'goToNextMonth' : 'goToNextYear' }}"
-                        title="{{ $isMonth ? 'Next month' : 'Next year' }}" aria-label="{{ $isMonth ? 'Next month' : 'Next year' }}" class="{{ $navBtn }}">
+                        title="{{ $isMonth ? 'Next month' : 'Next session' }}" aria-label="{{ $isMonth ? 'Next month' : 'Next session' }}" class="{{ $navBtn }}">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                     @if ($isMonth && !$startsAt->isSameMonth(now()))

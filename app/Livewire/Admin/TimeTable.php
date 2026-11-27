@@ -58,6 +58,13 @@ class TimeTable extends Component
     // saved together with Save (saveCells).
     public bool $editing = false;
 
+    // Create Timetable (2026-11-27): a small box to pick the class and the
+    // section, then the same week opens to be filled in — no panel.
+    public bool   $showPick     = false;
+    public string $pickClass    = '';
+    public string $pickSection  = '';
+    public array  $pickSections = [];
+
     // ─── Delete confirm ──────────────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
     public string $deleteStandardId  = '';
@@ -1214,7 +1221,64 @@ class TimeTable extends Component
     public function startEditing(): void
     {
         if ($this->viewMode !== 'class' || !$this->filterClass || !$this->filterSection) return;
+        // An empty week is drawn from the school's periods: none yet, they come first.
+        if (empty($this->periods()) && !TeacherTimeTable::where('organization_id', Auth::user()->organization_id)
+                ->where('standard_id', $this->filterClass)->where('section_id', $this->filterSection)->exists()) {
+            $this->startCreate();
+            return;
+        }
         $this->editing = true;
+    }
+
+    /**
+     * Create Timetable: a small box asks for the class and the section (the
+     * ones on screen already picked), then the week opens on them, its cells
+     * ready to fill (startEditing). A school with no periods adds them first.
+     */
+    public function startCreate(): void
+    {
+        if (empty($this->periods())) {
+            $this->notification()->warning('Add the periods first', 'Timetable → Periods: how many periods the day has and when each one is.');
+            $this->goAddPeriods();
+            return;
+        }
+        $this->pickClass = $this->filterClass;
+        $this->updatedPickClass();
+        if ($this->filterSection && collect($this->pickSections)->contains(fn ($s) => (string) $s['id'] === (string) $this->filterSection)) {
+            $this->pickSection = $this->filterSection;
+        }
+        $this->showPick = true;
+    }
+
+    public function updatedPickClass(): void
+    {
+        $this->pickSections = $this->pickClass && collect($this->standards)->contains(fn ($s) => (string) $s->id === (string) $this->pickClass)
+            ? Section::where('standard_id', $this->pickClass)->where('is_active', true)->orderBy('id')->get(['id', 'name'])->toArray()
+            : [];
+        // A class with one section has it picked.
+        $this->pickSection = count($this->pickSections) === 1 ? (string) $this->pickSections[0]['id'] : '';
+    }
+
+    public function closePick(): void
+    {
+        $this->showPick = false;
+    }
+
+    /** The class and section picked: the week opens on them, to fill in (or change). */
+    public function openPicked(): void
+    {
+        if (!$this->pickClass || !collect($this->pickSections)->contains(fn ($s) => (string) $s['id'] === (string) $this->pickSection)) {
+            $this->notification()->error('Pick a class and a section.');
+            return;
+        }
+        $this->viewMode       = 'class';
+        $this->filterClass    = $this->pickClass;
+        $this->filterSections = $this->pickSections;
+        $this->filterSection  = $this->pickSection;
+        $this->filterDays     = [];
+        $this->showPick       = false;
+        $this->editing        = true;
+        $this->resetPage();
     }
 
     public function cancelEditing(): void
@@ -1463,7 +1527,10 @@ class TimeTable extends Component
         $periods = $this->periods();
         $lunch   = $this->lunch();
 
-        $week = $entries->isNotEmpty() ? $this->weekGrid($entries, $periods, $lunch) : null;
+        // A section with nothing yet still opens its (empty) week while it is
+        // being filled in — Create Timetable.
+        $blank = $this->editing && $this->viewMode === 'class' && $this->filterClass && $this->filterSection && !empty($periods);
+        $week  = ($entries->isNotEmpty() || $blank) ? $this->weekGrid($entries, $periods, $lunch) : null;
         if (!$week) {
             $this->editing = false;
         }
@@ -1587,17 +1654,22 @@ class TimeTable extends Component
         }
 
         $first = $entries->first();
-        $user  = $first->teacher?->user;
+        $user  = $first?->teacher?->user;
+
+        // An empty week (a section being given its timetable): the class and
+        // section on screen.
+        $standardId = $first ? (int) $first->standard_id : (int) $this->filterClass;
+        $sectionId  = $first ? (int) $first->section_id : (int) $this->filterSection;
 
         return [
             'days'          => $days,
             'rows'          => $rows->values()->all(),
             'count'         => $taught,
             'lessons'       => $entries->count(),
-            'standard_id'   => $first->standard_id,
-            'section_id'    => $first->section_id,
-            'standard'      => $first->standard?->name ?? '—',
-            'section'       => $first->section?->name ?? '—',
+            'standard_id'   => $standardId,
+            'section_id'    => $sectionId,
+            'standard'      => $first ? ($first->standard?->name ?? '—') : (collect($this->standards)->first(fn ($s) => (int) $s->id === $standardId)?->name ?? '—'),
+            'section'       => $first ? ($first->section?->name ?? '—') : (collect($this->filterSections)->first(fn ($s) => (int) $s['id'] === $sectionId)['name'] ?? Section::find($sectionId)?->name ?? '—'),
             'teacher'       => $user?->name ?? '—',
             'teacher_image' => $user?->image ?: null,
         ];

@@ -127,6 +127,31 @@ class CalendarPanelTest extends TestCase
         $this->assertStringNotContainsString('Upcoming Events', $html);
     }
 
+    /** Yearly is the academic session: April to March (2026-11-27). */
+    public function test_yearly_is_the_session_from_april_to_march(): void
+    {
+        DB::table('time_tables')->insert([
+            ['organization_id' => $this->org, 'title' => 'Before', 'date' => '2026-03-31', 'event_type' => 'event', 'is_all_day' => true],
+            ['organization_id' => $this->org, 'title' => 'Board exams', 'date' => '2027-03-02', 'event_type' => 'exam', 'is_all_day' => true],
+        ]);
+
+        $page = Livewire::test(TimeTableCalendar::class)->call('switchToYearlyView');
+        $html = $page->html();
+        $year = $page->instance()->yearlyCalendar;
+
+        $this->assertSame(['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'], array_column($year, 'name'));
+        $this->assertSame([2026, 4], [$year[0]['year'], $year[0]['month']]);
+        $this->assertSame([2027, 3], [$year[11]['year'], $year[11]['month']]);
+        $this->assertSame(1, $year[6]['totalEvents']);    // October: Sports Day
+        $this->assertSame(1, $year[11]['totalEvents']);   // March 2027: Board exams; March 2026 is the session before
+        $this->assertStringContainsString('Session 2026–27', $html);
+
+        // Previous / next move a whole session; a month opens on its own year.
+        $this->assertStringContainsString('Session 2025–26', $page->call('goToPreviousYear')->html());
+        $page->call('goToNextYear')->call('switchToMonthlyView', 2027, 3);
+        $this->assertStringContainsString('March 2027', $page->html());
+    }
+
     public function test_an_events_details_are_one_column_of_label_and_value_rows(): void
     {
         $id = DB::table('time_tables')->value('id');
