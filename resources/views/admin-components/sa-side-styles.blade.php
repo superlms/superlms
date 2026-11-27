@@ -25,11 +25,12 @@
     }
 
     /* Logo · SUPERLMS, centred, a little shorter (4px less); under it a divider
-       across the sidebar's full width (user's ask of 2026-11-19), in the colour
-       of Quick Links' header line, so the two read as one line. The row is
-       exactly 60px, as that header, so the two lines meet on the same pixel. */
-    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; padding: 0 18px; flex-shrink: 0; border-bottom: 1px solid transparent; }
-    .sa-brand::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--sa-line); pointer-events: none; }
+       across the sidebar's full width (user's ask of 2026-11-19). It is the
+       pages' header line itself — the same width and colour (--sa-hw /
+       --sa-hline, partials.super-admin-theme; thinner since 2026-11-27) and a
+       border like theirs, so it is drawn on the same screen pixels. The row is
+       exactly 60px, as those headers, so the two lines meet as one. */
+    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; padding: 0 18px; flex-shrink: 0; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, var(--sa-line)); }
     .sa-brand-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }

@@ -60,7 +60,16 @@
 <style>
     body.lms-ui {
         --sa-t: #0d9488; --sa-t7: #0f766e; --sa-t50: #effaf7; --sa-t100: #d8f3ec; --sa-t200: #b1e6db;
-        --sa-ink: #0c2620; --sa-line2: #d6dedb; --sa-hline: #eef1f0;
+        --sa-ink: #0c2620; --sa-line2: #d6dedb;
+        /* The one line under every header and under the sidebar's logo, the
+           same in both (user's ask of 2026-11-27: thinner than the old 1px
+           #eef1f0). A normal screen can't draw less than one pixel, so there it
+           is a third lighter; a sharp (2x) screen gets a true half-width line.
+           The sidebar (admin-components.sa-side-styles) reads these two too. */
+        --sa-hline: #f4f6f5; --sa-hw: 1px;
+    }
+    @media (min-resolution: 2dppx) {
+        body.lms-ui { --sa-hline: #eef1f0; --sa-hw: .5px; }
     }
 
     /* ─── 1. Header rows: 60px, the line level with the sidebar's divider ─── */
@@ -72,7 +81,7 @@
            centred in that height. */
         body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)) {
             padding-top: 0 !important; padding-bottom: 0 !important; min-height: 60px;
-            border-bottom: 1px solid var(--sa-hline) !important;
+            border-bottom: var(--sa-hw) solid var(--sa-hline) !important;
         }
         body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)):not(.flex) > :first-child:has(h1) { min-height: 59px; }
         /* (only a row already laid out across at this width is centred) */
@@ -81,14 +90,16 @@
         /* The row of filters or tabs under it starts on that line (no second one). */
         body.lms-ui #main-scroll .bg-white.border-b .py-3:has(h1):not(:has(.py-3 h1)) + .border-t { border-top-width: 0 !important; }
         /* The sticky white header around them: its own bottom edge in the same soft line. */
-        body.lms-ui #main-scroll .bg-white.border-b:has(h1) { border-bottom-color: var(--sa-hline); }
+        body.lms-ui #main-scroll .bg-white.border-b:has(h1) { border-bottom-color: var(--sa-hline); border-bottom-width: var(--sa-hw); }
         /* A header whose title row is all it holds: that row's line is its edge. */
         body.lms-ui #main-scroll .bg-white.border-b:has(> .py-3:last-child h1) { border-bottom-width: 0 !important; }
-        body.lms-ui #main-scroll .bg-white.border-b.py-3:has(h1) { border-bottom-width: 1px !important; }
+        body.lms-ui #main-scroll .bg-white.border-b.py-3:has(h1) { border-bottom-width: var(--sa-hw) !important; }
+        /* Home and Analytics' header: the same line. */
+        body.lms-ui .sa-home .sk-head { border-bottom: var(--sa-hw) solid var(--sa-hline); }
     }
     @media (min-width: 1024px) {
         /* Home and Analytics: the same 60px row (Quick Links has it already). */
-        body.lms-ui .sa-home .sk-head { height: 60px; padding-top: 0; padding-bottom: 0; flex-wrap: nowrap; border-bottom-color: var(--sa-hline); }
+        body.lms-ui .sa-home .sk-head { height: 60px; padding-top: 0; padding-bottom: 0; flex-wrap: nowrap; }
     }
 
     /* ─── 2. Buttons: full pills; the main ones the website's teal ─── */

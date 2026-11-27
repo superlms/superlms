@@ -82,7 +82,7 @@
           pointer each lifts and fills with its own pastel (the website's
           panels), its icon turning white with a little bounce. ── */
     .sa-skin.sk-ql { background: #fff; min-height: calc(100vh - var(--lms-nav-h, 0px)); }
-    .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: 1px solid #eef1f0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, #eef1f0); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .sk-ql .sk-title { align-items: center; gap: 10px; flex: none; }
     .sk-ql .sk-clock, .sk-ql .sk-actions, .sk-ql .sk-session { flex: none; }
     /* 2026-11-19 (user's ask): "Welcome! <role>" all in the ink, not bold —
