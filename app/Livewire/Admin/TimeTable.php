@@ -52,6 +52,12 @@ class TimeTable extends Component
     public string $lunchStart      = '';
     public string $lunchEnd        = '';
 
+    // ─── Editing in the week itself (user's ask of 2026-11-27) ───────────
+    // Edit keeps the week on screen — no panel: each cell's subject and teacher
+    // get a dropdown arrow, what is picked is kept in the page (Alpine) and
+    // saved together with Save (saveCells).
+    public bool $editing = false;
+
     // ─── Delete confirm ──────────────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
     public string $deleteStandardId  = '';
@@ -132,12 +138,14 @@ class TimeTable extends Component
     public function setViewMode(string $mode): void
     {
         $this->viewMode = in_array($mode, ['class', 'teacher', 'periods'], true) ? $mode : 'class';
+        $this->editing  = false;
         $this->resetPage();
     }
 
     // ─── Filter handlers ─────────────────────────────────────────────────
     public function updatedFilterClass(): void
     {
+        $this->editing        = false;
         $this->filterSection  = '';
         $this->filterSections = $this->filterClass
             ? Section::where('standard_id', $this->filterClass)
@@ -149,12 +157,13 @@ class TimeTable extends Component
         $this->resetPage();
     }
 
-    public function updatedFilterSection(): void { $this->resetPage(); }
+    public function updatedFilterSection(): void { $this->editing = false; $this->resetPage(); }
     public function updatedFilterTeacher(): void { $this->resetPage(); }
 
     public function toggleFilterDay(int $day): void
     {
         if (!in_array($day, $this->defaultDays, true)) return;
+        $this->editing    = false;
         $this->filterDays = in_array($day, $this->filterDays, true)
             ? array_values(array_diff($this->filterDays, [$day]))
             : array_merge($this->filterDays, [$day]);
@@ -164,12 +173,14 @@ class TimeTable extends Component
     /** The Weekly chip: every day, Monday to Saturday, side by side. */
     public function showWeek(): void
     {
+        $this->editing    = false;
         $this->filterDays = [];
         $this->resetPage();
     }
 
     public function clearFilters(): void
     {
+        $this->editing = false;
         $this->reset(['filterClass', 'filterSection', 'filterTeacher', 'filterDays']);
         $this->filterSections = [];
         $this->resetPage();
@@ -542,11 +553,17 @@ class TimeTable extends Component
         $this->sectionSubjects = [];
         if (!$this->createStandardId || !$this->createSectionId) return;
 
+        $this->sectionSubjects = $this->subjectsFor((int) $this->createStandardId, (int) $this->createSectionId);
+    }
+
+    /** A section's subjects as [['id' =>, 'name' =>], …] — the school's active subjects when it has none of its own. */
+    private function subjectsFor(int $standardId, int $sectionId): array
+    {
         $org = Auth::user()->organization_id;
         $subjects = SectionSubject::with('subject')
             ->where('organization_id', $org)
-            ->where('standard_id', $this->createStandardId)
-            ->where('section_id', $this->createSectionId)
+            ->where('standard_id', $standardId)
+            ->where('section_id', $sectionId)
             ->get()
             ->pluck('subject')
             ->filter()
@@ -561,7 +578,7 @@ class TimeTable extends Component
                 ->get();
         }
 
-        $this->sectionSubjects = $subjects
+        return $subjects
             ->map(fn($s) => ['id' => (int) $s->id, 'name' => $s->name])
             ->all();
     }
@@ -1192,6 +1209,189 @@ class TimeTable extends Component
         $this->open = true;
     }
 
+    // ─── Edit in the week itself ─────────────────────────────────────────
+    /** Edit: the week stays on screen, each cell's subject and teacher a dropdown. */
+    public function startEditing(): void
+    {
+        if ($this->viewMode !== 'class' || !$this->filterClass || !$this->filterSection) return;
+        $this->editing = true;
+    }
+
+    public function cancelEditing(): void
+    {
+        $this->editing = false;
+    }
+
+    /** Turns down a save: says why and leaves the page (and what was picked in it) as it is. */
+    private function refuse(string $why): bool
+    {
+        $this->notification()->error('Not saved', $why);
+        $this->skipRender();
+        return false;
+    }
+
+    /** A cell's name in a message: "Mon · Period 3", or its time when it is not one of the periods. */
+    private function cellName(int $day, string $start, string $end): string
+    {
+        $no = collect($this->periods())->first(fn ($p) => $p['start'] === $start && $p['end'] === $end)['no'] ?? null;
+        return ($this->daysOfWeek[$day] ?? $day) . ' · ' . ($no ? "Period {$no}" : "{$start} – {$end}");
+    }
+
+    /**
+     * Saves what was changed in the week: $edits['day|HH:MM|HH:MM'] =
+     * ['subject_id' => …, 'teacher_id' => …] (only what was changed in that
+     * cell). A cell with both is that period; with neither, a free period. A
+     * teacher may take another section of the same class at the same time —
+     * a class taken together — but not another class: that is refused, as the
+     * form refuses it. Each teacher hears once what changed. Returns whether
+     * it was saved.
+     */
+    public function saveCells(array $edits): bool
+    {
+        if (!$this->editing || $this->viewMode !== 'class' || !$this->filterClass || !$this->filterSection) {
+            $this->skipRender();
+            return false;
+        }
+
+        $org      = (int) Auth::user()->organization_id;
+        $standard = (int) $this->filterClass;
+        $section  = (int) $this->filterSection;
+        if (!collect($this->standards)->contains(fn ($s) => (int) $s->id === $standard)
+            || !Section::where('id', $section)->where('standard_id', $standard)->exists()) {
+            return $this->refuse('That class is not this school\'s.');
+        }
+
+        // What the section has now, a cell at a time.
+        $saved = [];
+        foreach (TeacherTimeTable::where('organization_id', $org)->where('standard_id', $standard)->where('section_id', $section)->get() as $e) {
+            $key = (int) $e->day_of_week . '|' . substr((string) $e->start_time, 0, 5) . '|' . substr((string) $e->end_time, 0, 5);
+            $saved[$key] ??= ['subject' => (int) $e->subject_id, 'teacher' => (int) $e->teacher_detail_id, 'count' => 0];
+            $saved[$key]['count']++;
+        }
+
+        // A cell may be at one of the school's periods or one of the section's own times.
+        $slots = [];
+        foreach ($this->periods() as $p) $slots[$p['start'] . '|' . $p['end']] = true;
+        foreach (array_keys($saved) as $key) $slots[substr($key, strpos($key, '|') + 1)] = true;
+
+        $subjects = array_merge(array_column($this->subjectsFor($standard, $section), 'id'), array_column($saved, 'subject'));
+        $teachers = array_merge(collect($this->allTeachers)->map(fn ($t) => (int) $t->id)->all(), array_column($saved, 'teacher'));
+
+        $plan = [];
+        foreach ($edits as $key => $e) {
+            if (!is_array($e) || !preg_match('/^([1-6])\|(\d\d:\d\d)\|(\d\d:\d\d)$/', (string) $key, $m) || !isset($slots[$m[2] . '|' . $m[3]])) continue;
+            [$day, $start, $end] = [(int) $m[1], $m[2], $m[3]];
+            $was     = $saved[$key] ?? ['subject' => 0, 'teacher' => 0, 'count' => 0];
+            $subject = array_key_exists('subject_id', $e) ? (int) $e['subject_id'] : $was['subject'];
+            $teacher = array_key_exists('teacher_id', $e) ? (int) $e['teacher_id'] : $was['teacher'];
+            $name    = $this->cellName($day, $start, $end);
+
+            if (($subject && !in_array($subject, $subjects, true)) || ($teacher && !in_array($teacher, $teachers, true))) {
+                return $this->refuse("{$name}: that subject or teacher is not one of this class's.");
+            }
+            if ((bool) $subject !== (bool) $teacher) {
+                return $this->refuse("{$name}: pick both a subject and a teacher — or No subject and No teacher for a free period.");
+            }
+            if ($subject === $was['subject'] && $teacher === $was['teacher'] && $was['count'] <= 1) continue;
+
+            $plan[$key] = compact('day', 'start', 'end', 'subject', 'teacher') + ['newTeacher' => $teacher !== $was['teacher']];
+        }
+
+        if (empty($plan)) {
+            $this->editing = false;
+            $this->notification()->info('Nothing changed');
+            return true;
+        }
+
+        // A teacher newly put in a cell must not be in another class then.
+        $rows = collect($plan)->map(fn ($p) => ['type' => 'period', 'start' => $p['start'], 'end' => $p['end']])->unique(fn ($r) => $r['start'] . '|' . $r['end'])->values()->all();
+        $elsewhere = $this->teachersElsewhere($rows, array_values(array_unique(array_column($plan, 'day'))), $standard, $section);
+        foreach ($plan as $p) {
+            if (!$p['teacher'] || !$p['newTeacher']) continue;
+            $clash = $elsewhere[$p['day']][$p['start'] . '|' . $p['end']][$p['teacher']]['clash'] ?? [];
+            if ($clash) {
+                $who = collect($this->allTeachers)->first(fn ($t) => (int) $t->id === $p['teacher'])?->user?->name ?? 'The teacher';
+                return $this->refuse($this->cellName($p['day'], $p['start'], $p['end']) . ": {$who} is busy with " . implode(', ', $clash) . ' at this time.');
+            }
+        }
+
+        $push   = app(TeacherPushNotifier::class);
+        $before = $push->timetableSnapshot($org, $standard, $section);
+
+        try {
+            DB::transaction(function () use ($plan, $org, $standard, $section) {
+                foreach ($plan as $p) {
+                    TeacherTimeTable::where('organization_id', $org)
+                        ->where('standard_id', $standard)
+                        ->where('section_id', $section)
+                        ->where('day_of_week', $p['day'])
+                        ->where('start_time', 'like', $p['start'] . '%')
+                        ->where('end_time', 'like', $p['end'] . '%')
+                        ->delete();
+                    if ($p['subject'] && $p['teacher']) {
+                        TeacherTimeTable::create([
+                            'organization_id'   => $org,
+                            'assigned_by'       => Auth::id(),
+                            'teacher_detail_id' => $p['teacher'],
+                            'standard_id'       => $standard,
+                            'section_id'        => $section,
+                            'subject_id'        => $p['subject'],
+                            'day_of_week'       => $p['day'],
+                            'start_time'        => $this->hms($p['start']),
+                            'end_time'          => $this->hms($p['end']),
+                            'is_active'         => true,
+                        ]);
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            logger()->error('Timetable cell save error: ' . $e->getMessage());
+            return $this->refuse('Could not save — please try again.');
+        }
+
+        $push->timetableSaved($before);
+        $n = count($plan);
+        $this->notification()->success('Saved!', $n . ' period' . ($n === 1 ? '' : 's') . ' changed.');
+        $this->editing = false;
+        $this->loadStats();
+        return true;
+    }
+
+    /**
+     * Where else each teacher is at the week's times, from every other
+     * section's timetable: [day]['HH:MM|HH:MM'][teacher_id] = ['with' => ['B' => 'B', …],
+     * 'clash' => ['Class 6 · A' => 'Class 6 · A', …]]. Another section of the
+     * same class at that time is a class taken together (allowed); another
+     * class at that time is a clash.
+     */
+    private function teachersElsewhere(array $rows, array $days, int $standardId, int $sectionId): array
+    {
+        $rows = array_values(array_filter($rows, fn ($r) => ($r['type'] ?? '') === 'period'));
+        if (!$rows || !$days) return [];
+
+        $out = [];
+        $entries = TeacherTimeTable::with(['standard:id,name', 'section:id,name'])
+            ->where('organization_id', Auth::user()->organization_id)
+            ->whereIn('day_of_week', $days)
+            ->where(fn ($q) => $q->where('standard_id', '!=', $standardId)->orWhere('section_id', '!=', $sectionId))
+            ->get(['id', 'teacher_detail_id', 'standard_id', 'section_id', 'day_of_week', 'start_time', 'end_time']);
+
+        foreach ($entries as $e) {
+            $start = substr((string) $e->start_time, 0, 5);
+            $end   = substr((string) $e->end_time, 0, 5);
+            $same  = (int) $e->standard_id === $standardId;
+            $label = $same
+                ? ($e->section?->name ?? '—')
+                : ($e->standard?->name ?? '—') . ' · ' . ($e->section?->name ?? '—');
+            foreach ($rows as $r) {
+                if ($start >= $r['end'] || $end <= $r['start']) continue;
+                $out[(int) $e->day_of_week][$r['start'] . '|' . $r['end']][(int) $e->teacher_detail_id][$same ? 'with' : 'clash'][$label] = $label;
+            }
+        }
+
+        return $out;
+    }
+
     // ─── Delete whole section's timetable ────────────────────────────────
     public function onDeleteSection(int $standardId, int $sectionId): void
     {
@@ -1264,6 +1464,34 @@ class TimeTable extends Component
         $lunch   = $this->lunch();
 
         $week = $entries->isNotEmpty() ? $this->weekGrid($entries, $periods, $lunch) : null;
+        if (!$week) {
+            $this->editing = false;
+        }
+
+        // Class View: where else each teacher is at each time (another section
+        // of the class: taken together; another class: a clash) — and, while
+        // editing, what each cell's dropdowns offer.
+        $elsewhere = [];
+        $editSubjects = [];
+        $editTeachers = [];
+        if ($week && $this->viewMode === 'class') {
+            $elsewhere = $this->teachersElsewhere($week['rows'], $week['days'], (int) $this->filterClass, (int) $this->filterSection);
+            if ($this->editing) {
+                $editSubjects = collect($this->subjectsFor((int) $this->filterClass, (int) $this->filterSection))->keyBy('id');
+                $editTeachers = collect($this->allTeachers)->mapWithKeys(fn ($t) => [(int) $t->id => ['id' => (int) $t->id, 'name' => $t->user?->name ?? '—']]);
+                // A subject or teacher the class has now but that is not on the lists (taken off since) stays pickable.
+                foreach ($week['rows'] as $r) {
+                    foreach ($r['cells'] as $cells) {
+                        foreach ($cells as $c) {
+                            $editSubjects->put($c['subject_id'], $editSubjects->get($c['subject_id']) ?? ['id' => $c['subject_id'], 'name' => $c['subject']]);
+                            $editTeachers->put($c['teacher_id'], $editTeachers->get($c['teacher_id']) ?? ['id' => $c['teacher_id'], 'name' => $c['teacher']]);
+                        }
+                    }
+                }
+                $editSubjects = $editSubjects->values()->all();
+                $editTeachers = $editTeachers->values()->all();
+            }
+        }
 
         // PERIODS TAB: the day in order — each period, and the lunch break where it falls.
         $dayRows = collect($periods)->map(fn($p) => ['type' => 'period'] + $p);
@@ -1273,10 +1501,13 @@ class TimeTable extends Component
         $dayRows = $dayRows->sortBy('start')->values();
 
         return view('livewire.admin.time-table', [
-            'week'    => $week,
-            'periods' => $periods,
-            'lunch'   => $lunch,
-            'dayRows' => $dayRows,
+            'week'         => $week,
+            'periods'      => $periods,
+            'lunch'        => $lunch,
+            'dayRows'      => $dayRows,
+            'elsewhere'    => $elsewhere,
+            'editSubjects' => $editSubjects,
+            'editTeachers' => $editTeachers,
         ]);
     }
 
@@ -1284,8 +1515,10 @@ class TimeTable extends Component
      * The week as one grid (user's ask of 2026-11-26): a column a day —
      * Monday to Saturday, or the days picked — and a row a period of the
      * school's day (a time not among them gets a row of its own), the lunch
-     * break where it falls. A cell holds who teaches what then: the subject,
-     * the teacher with their photo and, in the teacher's week, the class.
+     * break where it falls. A cell holds who teaches what then: the subject
+     * and the teacher (plain text since 2026-11-27) or, in the teacher's
+     * week, the class — sections of one class taken together as one line
+     * ("Class 5 · A, B"); two classes at once is a clash.
      * Class View: the section's week. Teacher View: the teacher's week.
      */
     private function weekGrid(\Illuminate\Support\Collection $entries, array $periods, ?array $lunch): array
@@ -1306,14 +1539,35 @@ class TimeTable extends Component
             $key   = $start . '|' . $end;
             $slots[$key] ??= ['type' => 'period', 'no' => null, 'start' => $start, 'end' => $end, 'cells' => []];
 
-            $user = $e->teacher?->user;
-            $slots[$key]['cells'][(int) $e->day_of_week][$e->subject_id . '|' . $e->teacher_detail_id . '|' . $e->standard_id . '|' . $e->section_id] = [
-                'subject'    => $e->subject?->name ?? '—',
-                'subject_id' => (int) $e->subject_id,
-                'teacher'    => $user?->name ?? '—',
-                'image'      => $user?->image ?: null,
-                'class'      => ($e->standard?->name ?? '—') . ' · ' . ($e->section?->name ?? '—'),
+            $user  = $e->teacher?->user;
+            $day   = (int) $e->day_of_week;
+            $group = $this->viewMode === 'teacher'
+                ? $e->subject_id . '|' . $e->standard_id
+                : $e->subject_id . '|' . $e->teacher_detail_id . '|' . $e->standard_id . '|' . $e->section_id;
+            $cell  = $slots[$key]['cells'][$day][$group] ?? [
+                'subject'     => $e->subject?->name ?? '—',
+                'subject_id'  => (int) $e->subject_id,
+                'teacher'     => $user?->name ?? '—',
+                'teacher_id'  => (int) $e->teacher_detail_id,
+                'standard_id' => (int) $e->standard_id,
+                'standard'    => $e->standard?->name ?? '—',
+                'sections'    => [],
+                'clash'       => false,
             ];
+            $cell['sections'][(int) $e->section_id] = $e->section?->name ?? '—';
+            $cell['class'] = $cell['standard'] . ' · ' . implode(', ', $cell['sections']);
+            $slots[$key]['cells'][$day][$group] = $cell;
+        }
+
+        // The teacher's week: two classes at the same time is a clash.
+        if ($this->viewMode === 'teacher') {
+            foreach ($slots as $key => $slot) {
+                foreach ($slot['cells'] as $day => $cells) {
+                    if (count(array_unique(array_column($cells, 'standard_id'))) > 1) {
+                        foreach (array_keys($cells) as $g) $slots[$key]['cells'][$day][$g]['clash'] = true;
+                    }
+                }
+            }
         }
 
         $rows = collect($slots)

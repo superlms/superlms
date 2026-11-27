@@ -2,36 +2,45 @@
     <style>
         [x-cloak]{display:none !important;}
 
-        /* The week (2026-11-26): Period | Monday … Saturday, a row a period. */
-        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); }
+        /* The week (2026-11-26): Period | Monday … Saturday, a row a period.
+           Since 2026-11-27 (user's ask) plain: white cells, the subject and
+           the teacher as text, no colours — and low rows (42px), so eight
+           periods and the lunch break fit a 1366×768 laptop without scrolling. */
+        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); background: #fff; }
         .tt-row { display: contents; }
-        .tt-h { padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e;
-            background: #fafbfb; border-bottom: 1px solid #eef1f0; white-space: nowrap; }
+        .tt-h { padding: 7px 10px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e;
+            background: #fff; border-bottom: 1px solid #eef1f0; white-space: nowrap; }
         .tt-h + .tt-h { border-left: 1px solid #f0f3f2; }
-        .tt-h.is-today { color: #0f766e; background: #effaf7; }
-        .tt-time { display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 10px 12px; border-bottom: 1px solid #f0f3f2; min-width: 0; }
-        .tt-no { font-size: 11px; font-weight: 600; color: #95a39e; margin-bottom: 2px; }
-        .tt-tm { font-size: 12.5px; font-weight: 500; color: #2b433b; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .tt-tm2 { font-size: 11.5px; color: #8a9893; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .tt-slot { display: flex; flex-direction: column; gap: 6px; padding: 6px; min-width: 0; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; }
-        .tt-slot.is-today { background: #f8fcfb; }
-        .tt-card { flex: 1 1 auto; min-width: 0; padding: 8px 9px 8px 10px; border-radius: 10px; background: var(--tt-bg); border-left: 3px solid var(--tt-ac);
-            transition: box-shadow .2s, transform .2s; }
-        .tt-card:hover { box-shadow: 0 8px 18px -12px rgba(12,38,32,.45); transform: translateY(-1px); }
-        .tt-sub { font-size: 12.5px; font-weight: 600; line-height: 1.3; color: #0c2620; overflow-wrap: anywhere;
-            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .tt-who { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-width: 0; font-size: 11.5px; color: #44544f; }
-        .tt-who > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tt-who img, .tt-av { width: 20px; height: 20px; flex: none; border-radius: 999px; box-shadow: 0 0 0 1px rgba(12,38,32,.1); }
-        .tt-who img { object-fit: cover; background: #fff; }
-        .tt-av { display: grid; place-items: center; background: #fff; color: var(--tt-ac); font-size: 9px; font-weight: 700; letter-spacing: -.02em; }
-        .tt-ic { width: 14px; height: 14px; flex: none; color: var(--tt-ac); }
-        .tt-free { margin: auto; padding: 8px 0; font-size: 12px; color: #c3ccc9; }
-        .tt-lunch .tt-time { background: #fffaf2; }
-        .tt-lunch-bar { grid-column: 2 / -1; display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 12px; font-weight: 600;
-            letter-spacing: .08em; text-transform: uppercase; color: #a16207; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2;
-            background: repeating-linear-gradient(135deg, #fffaf2 0 10px, #fff4e2 10px 20px); }
+        .tt-h.is-today { color: #0f766e; }
+        .tt-time { display: flex; flex-direction: column; justify-content: center; min-height: 42px; padding: 3px 10px; border-bottom: 1px solid #f0f3f2; min-width: 0; }
+        .tt-no { font-size: 11px; font-weight: 600; line-height: 14px; color: #95a39e; }
+        .tt-tm { font-size: 12px; font-weight: 500; line-height: 16px; color: #2b433b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tt-slot { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 42px; padding: 3px 10px; min-width: 0;
+            background: #fff; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; }
+        .tt-c { min-width: 0; }
+        .tt-sub, .tt-who, .tt-clash { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tt-sub { font-size: 12.5px; font-weight: 600; line-height: 17px; color: #0c2620; }
+        .tt-who { font-size: 11.5px; line-height: 16px; color: #5f716b; }
+        .tt-with { color: #95a39e; }
+        .tt-clash { font-size: 10.5px; font-weight: 600; line-height: 14px; color: #dc2626; }
+        .tt-free { font-size: 12px; color: #c3ccc9; }
+        .tt-lunch .tt-time, .tt-lunch-bar { min-height: 0; padding-top: 3px; padding-bottom: 3px; }
+        .tt-lunch-bar { grid-column: 2 / -1; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600;
+            letter-spacing: .1em; text-transform: uppercase; color: #95a39e; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; }
         .tt-grid > .tt-row:last-child > * { border-bottom: 0; }
+        /* Editing: the subject and the teacher each a dropdown that reads as
+           the text, with its arrow after it; what was changed reads teal. */
+        #main-scroll select.tt-pick { display: block; width: calc(100% + 6px); max-width: none; margin: 0 -6px 0 -4px; padding: 0 18px 0 4px;
+            -webkit-appearance: none; appearance: none; border: 0 !important; border-radius: 5px !important; box-shadow: none !important; outline: 0;
+            background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235f716b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 3px center / 12px;
+            cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+        #main-scroll select.tt-pick:hover, #main-scroll select.tt-pick:focus { background-color: #f3f6f5; }
+        .tt-slot:has(> select.tt-pick) { gap: 2px; }
+        #main-scroll select.tt-pick.is-sub { height: 17px; font-size: 12.5px; font-weight: 600; line-height: 17px; color: #0c2620; }
+        #main-scroll select.tt-pick.is-who { height: 16px; font-size: 11.5px; font-weight: 400; line-height: 16px; color: #5f716b; }
+        #main-scroll select.tt-pick:has(option:checked[value=""]) { color: #aab5b1; font-weight: 500; }
+        #main-scroll select.tt-pick.is-changed { color: #0f766e; }
+        #main-scroll select.tt-pick option { color: #0c2620; font-weight: 400; }
     </style>
 
     {{-- ══════════════════════════════════════════════════
@@ -180,7 +189,7 @@
         @endif
     </div>
 
-    <div class="p-4 sm:p-6 space-y-4 sm:space-y-5">
+    <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5">
 
         @if ($viewMode === 'periods')
             {{-- ══════════════════════════════════════════════════
@@ -274,21 +283,27 @@
                  THE WEEK — one card (user's ask of 2026-11-26), in place of the
                  old list of periods: a column a day (Monday to Saturday, or the
                  days picked), a row a period of the school's day, the lunch
-                 break across the week where it falls. Each cell is a small card:
-                 the subject, then the teacher with their photo (initials when
-                 there is none) — in Teacher View the class instead, the teacher
-                 being in the card's header. Today's column is tinted.
+                 break across the week where it falls. Each cell (2026-11-27:
+                 plain, white, no colours) holds the subject and the teacher as
+                 text — in Teacher View the class instead, the teacher being in
+                 the card's header. A teacher who takes another section of the
+                 class at that time too: "with B" after the name. One who is in
+                 another class then: that class in red under it (a clash).
+
+                 Edit keeps this screen — no panel: each cell's subject and
+                 teacher become dropdowns (the arrow after them); what is picked
+                 is kept in the page and saved together with Save. A teacher in
+                 another class at that time is listed as busy and cannot be
+                 picked; one in another section of this class is listed "with".
             ══════════════════════════════════════════════════ --}}
             @php
                 $byTeacher = $viewMode === 'teacher';
                 $wkDays    = $week['days'];
                 $today     = now()->dayOfWeekIso;
-                // A soft tint and an edge per subject, so a subject reads the same all week.
-                $tones     = [['#effaf7', '#0d9488'], ['#f0f9ff', '#0284c7'], ['#fffbeb', '#d97706'], ['#fff1f2', '#e11d48'],
-                              ['#fff7ed', '#ea580c'], ['#f7fee7', '#65a30d'], ['#fdf4ff', '#c026d3'], ['#f1f5f9', '#475569']];
-                $tone      = fn (int $id) => $tones[$id % count($tones)];
                 $initials  = fn (string $n) => collect(preg_split('/\s+/', trim($n)))->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('') ?: '?';
                 $clock     = fn ($t) => \Carbon\Carbon::parse($t)->format('h:i A');
+                $hm        = fn ($t) => \Carbon\Carbon::parse($t)->format('h:i');
+                $isEditing = $editing && !$byTeacher;
                 $daysLabel = count($wkDays) === count($daysOfWeek) ? 'Monday to Saturday' : collect($wkDays)->map(fn ($d) => $daysOfWeek[$d])->implode(', ');
                 $orgId     = auth()->user()->organization_id;
                 $ttPdfUrl  = $byTeacher
@@ -298,21 +313,38 @@
                     ? route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
                     : route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'class', 'standard' => $week['standard_id'], 'section' => $week['section_id'], 'days' => implode(',', $filterDays)]));
             @endphp
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-tt-week>
-                {{-- Card header: the class · section (or the teacher) and the actions --}}
-                <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-gray-100">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-tt-week
+                x-data="{
+                    edits: {}, busy: false,
+                    get n() { return Object.keys(this.edits).length },
+                    pick(key, field, el) {
+                        const e = Object.assign({}, this.edits[key] || {});
+                        if (el.value === el.dataset.was) delete e[field]; else e[field] = el.value;
+                        if (Object.keys(e).length) this.edits[key] = e; else delete this.edits[key];
+                        el.classList.toggle('is-changed', el.value !== el.dataset.was);
+                    },
+                    save() {
+                        if (this.busy) return;
+                        this.busy = true;
+                        this.$wire.saveCells(this.edits).then(ok => { if (ok) this.edits = {} }).finally(() => this.busy = false);
+                    },
+                }">
+                {{-- Card header: the class · section (or the teacher) and the actions, on one line --}}
+                <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 min-h-[44px] border-b border-gray-100">
                     <div class="min-w-0 flex items-center gap-3">
                         @if ($byTeacher)
                             @if ($week['teacher_image'])
-                                <img src="{{ $week['teacher_image'] }}" alt="" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                <img src="{{ $week['teacher_image'] }}" alt="" class="w-7 h-7 rounded-full object-cover border border-gray-200 flex-shrink-0">
                             @else
-                                <span class="w-9 h-9 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{{ $initials($week['teacher']) }}</span>
+                                <span class="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0">{{ $initials($week['teacher']) }}</span>
                             @endif
                         @endif
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex items-baseline gap-2">
                             <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $byTeacher ? $week['teacher'] : $week['standard'] . ' · ' . $week['section'] }}</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">
-                                @if ($byTeacher)
+                            <p class="text-xs text-gray-400 truncate">
+                                @if ($isEditing)
+                                    Editing — pick a subject or a teacher from a cell's arrow, then Save
+                                @elseif ($byTeacher)
                                     {{ $week['lessons'] }} period{{ $week['lessons'] === 1 ? '' : 's' }} a week · {{ $daysLabel }}
                                 @else
                                     {{ $week['count'] }} period{{ $week['count'] === 1 ? '' : 's' }} · {{ $daysLabel }}
@@ -320,9 +352,19 @@
                             </p>
                         </div>
                     </div>
+                    @if ($isEditing)
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" wire:click="cancelEditing" x-on:click="edits = {}"
+                            class="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                        <button type="button" x-on:click="save()" x-bind:disabled="busy"
+                            class="px-4 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-60">
+                            <span x-text="n ? 'Save (' + n + ')' : 'Save'">Save</span>
+                        </button>
+                    </div>
+                    @else
                     <div class="flex items-center gap-1 flex-shrink-0">
                         @unless ($byTeacher)
-                            <button wire:click="onEditSection({{ $week['standard_id'] }}, {{ $week['section_id'] }})" title="Edit"
+                            <button type="button" wire:click="startEditing" x-on:click="edits = {}" title="Edit"
                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -350,12 +392,13 @@
                             </button>
                         @endunless
                     </div>
+                    @endif
                 </div>
 
                 {{-- The grid: Period | Monday … Saturday --}}
                 <div class="overflow-x-auto">
                     <div class="tt-grid" role="table" aria-label="Weekly timetable"
-                        style="--tt-cols: 118px repeat({{ count($wkDays) }}, minmax(0, 1fr)); min-width: {{ 118 + count($wkDays) * 132 }}px">
+                        style="--tt-cols: 104px repeat({{ count($wkDays) }}, minmax(0, 1fr)); min-width: {{ 104 + count($wkDays) * 132 }}px">
                         <div class="tt-row" role="row">
                             <div class="tt-h" role="columnheader">Period</div>
                             @foreach ($wkDays as $d)
@@ -366,41 +409,69 @@
                             @if ($r['type'] === 'lunch')
                                 <div class="tt-row tt-lunch" role="row" wire:key="tt-lunch">
                                     <div class="tt-time" role="rowheader">
-                                        <span class="tt-tm">{{ $clock($r['start']) }}</span>
-                                        <span class="tt-tm2">{{ $clock($r['end']) }}</span>
+                                        <span class="tt-tm" title="{{ $clock($r['start']) }} – {{ $clock($r['end']) }}">{{ $hm($r['start']) }} – {{ $hm($r['end']) }}</span>
                                     </div>
                                     <div class="tt-lunch-bar" role="cell">Lunch break</div>
                                 </div>
                             @else
+                                @php $slotKey = $r['start'] . '|' . $r['end']; @endphp
                                 <div class="tt-row" role="row" wire:key="tt-row-{{ $r['start'] }}-{{ $r['end'] }}">
                                     <div class="tt-time" role="rowheader">
                                         <span class="tt-no">{{ $r['no'] ? 'Period ' . $r['no'] : 'Period –' }}</span>
-                                        <span class="tt-tm">{{ $clock($r['start']) }}</span>
-                                        <span class="tt-tm2">{{ $clock($r['end']) }}</span>
+                                        <span class="tt-tm" title="{{ $clock($r['start']) }} – {{ $clock($r['end']) }}">{{ $hm($r['start']) }} – {{ $hm($r['end']) }}</span>
                                     </div>
                                     @foreach ($wkDays as $d)
-                                        <div class="tt-slot {{ $d === $today ? 'is-today' : '' }}" role="cell">
-                                            @forelse ($r['cells'][$d] ?? [] as $c)
-                                                @php [$tBg, $tAc] = $tone($c['subject_id']); @endphp
-                                                <div class="tt-card" style="--tt-bg: {{ $tBg }}; --tt-ac: {{ $tAc }}">
-                                                    <p class="tt-sub" title="{{ $c['subject'] }}">{{ $c['subject'] }}</p>
-                                                    @if ($byTeacher)
-                                                        <p class="tt-who"><svg class="tt-ic" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m-6.16-9.42A12 12 0 0012 20.06a12 12 0 006.16-9.48" /></svg><span>{{ $c['class'] }}</span></p>
-                                                    @else
-                                                        <p class="tt-who" title="{{ $c['teacher'] }}">
-                                                            @if ($c['image'])
-                                                                <img src="{{ $c['image'] }}" alt="" loading="lazy">
-                                                            @else
-                                                                <span class="tt-av" aria-hidden="true">{{ $initials($c['teacher']) }}</span>
-                                                            @endif
-                                                            <span>{{ $c['teacher'] }}</span>
-                                                        </p>
-                                                    @endif
-                                                </div>
-                                            @empty
-                                                <span class="tt-free">{{ $byTeacher ? 'Free' : '—' }}</span>
-                                            @endforelse
-                                        </div>
+                                        @if ($isEditing)
+                                            @php
+                                                $cellKey = $d . '|' . $slotKey;
+                                                $cur     = ($r['cells'][$d] ?? [])[0] ?? null;
+                                                $where   = $daysOfWeek[$d] . ', ' . ($r['no'] ? 'Period ' . $r['no'] : $r['start'] . ' – ' . $r['end']);
+                                            @endphp
+                                            <div class="tt-slot" role="cell" wire:key="tt-edit-{{ $cellKey }}">
+                                                <select class="tt-pick is-sub" aria-label="Subject, {{ $where }}" data-was="{{ $cur['subject_id'] ?? '' }}"
+                                                    x-on:change="pick('{{ $cellKey }}', 'subject_id', $el)">
+                                                    <option value="">No subject</option>
+                                                    @foreach ($editSubjects as $s)
+                                                        <option value="{{ $s['id'] }}" @selected($cur && $cur['subject_id'] === $s['id'])>{{ $s['name'] }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <select class="tt-pick is-who" aria-label="Teacher, {{ $where }}" data-was="{{ $cur['teacher_id'] ?? '' }}"
+                                                    x-on:change="pick('{{ $cellKey }}', 'teacher_id', $el)">
+                                                    <option value="">No teacher</option>
+                                                    @foreach ($editTeachers as $t)
+                                                        @php
+                                                            $at    = $elsewhere[$d][$slotKey][$t['id']] ?? [];
+                                                            $mine  = $cur && $cur['teacher_id'] === $t['id'];
+                                                            $label = $t['name'] . (!empty($at['clash']) ? ' — busy: ' . implode(', ', $at['clash'])
+                                                                : (!empty($at['with']) ? ' — with Sec ' . implode(', ', $at['with']) : ''));
+                                                        @endphp
+                                                        <option value="{{ $t['id'] }}" @selected($mine) @disabled(!empty($at['clash']) && !$mine)>{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @else
+                                            <div class="tt-slot" role="cell">
+                                                @forelse ($r['cells'][$d] ?? [] as $c)
+                                                    @php
+                                                        $at    = $byTeacher ? [] : ($elsewhere[$d][$slotKey][$c['teacher_id']] ?? []);
+                                                        $clash = $byTeacher ? ($c['clash'] ? [$c['class']] : []) : array_values($at['clash'] ?? []);
+                                                    @endphp
+                                                    <div class="tt-c">
+                                                        <p class="tt-sub" title="{{ $c['subject'] }}">{{ $c['subject'] }}</p>
+                                                        @if ($byTeacher)
+                                                            <p class="tt-who" title="{{ $c['class'] }}">{{ $c['class'] }}</p>
+                                                        @else
+                                                            <p class="tt-who" title="{{ $c['teacher'] }}{{ !empty($at['with']) ? ' — also takes Section ' . implode(', ', $at['with']) . ' of this class at this time' : '' }}">{{ $c['teacher'] }}@if (!empty($at['with']))<span class="tt-with"> · with {{ implode(', ', $at['with']) }}</span>@endif</p>
+                                                        @endif
+                                                        @if ($clash)
+                                                            <p class="tt-clash" title="{{ $byTeacher ? 'Two classes at the same time' : $c['teacher'] . ' is also in ' . implode(', ', $clash) . ' at this time' }}">{{ $byTeacher ? 'Clash: two classes at once' : 'Also in ' . implode(', ', $clash) }}</p>
+                                                        @endif
+                                                    </div>
+                                                @empty
+                                                    <span class="tt-free">{{ $byTeacher ? 'Free' : '—' }}</span>
+                                                @endforelse
+                                            </div>
+                                        @endif
                                     @endforeach
                                 </div>
                             @endif

@@ -567,21 +567,24 @@ class TimeTablePanelTest extends TestCase
 
         $this->assertStringContainsString('2 periods · Monday to Saturday', $text);
         $this->assertStringContainsString('Period Monday Tuesday Wednesday Thursday Friday Saturday', $text);
-        // A row a period of the school's day, a cell a day: the subject, then the
-        // teacher with their photo (initials without one); the lunch break across the week.
-        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Hindi Ravi Hindi Ravi Hindi Ravi Maths S Sonu Maths S Sonu — '
-            . 'Period 2 09:45 AM 10:30 AM — — — — — — 10:30 AM 11:00 AM Lunch break '
-            . 'Period 3 11:00 AM 11:45 AM — — — Maths S Sonu — —', $text);
-        $this->assertSame(3, substr_count($card, '<img src="https://cdn.example/ravi.jpg"'));
+        // A row a period of the school's day, a cell a day: the subject and the
+        // teacher as plain text (2026-11-27: no photos, no colours); the lunch break across the week.
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 Hindi Ravi Hindi Ravi Hindi Ravi Maths Sonu Maths Sonu — '
+            . 'Period 2 09:45 – 10:30 — — — — — — 10:30 – 11:00 Lunch break '
+            . 'Period 3 11:00 – 11:45 — — — Maths Sonu — —', $text);
+        $this->assertStringNotContainsString('<img', $card);
+        $this->assertStringNotContainsString('--tt-bg', $card);
         $this->assertStringContainsString('role="table"', $card);
-        $this->assertStringContainsString('wire:click="onEditSection(1, 1)"', $html);
+        // Edit keeps the week (no panel); Delete and Print as before.
+        $this->assertStringContainsString('wire:click="startEditing"', $html);
+        $this->assertStringNotContainsString('wire:click="onEditSection(', $html);
         $this->assertStringContainsString('wire:click="onDeleteSection(1, 1)"', $html);
         $this->assertStringContainsString('title="Print"', $html);
 
         // A day picked: that day's column alone; Weekly brings the week back.
         $page = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1')->call('toggleFilterDay', 4);
         $text = $this->text(substr($page->html(), strpos($page->html(), 'Class 5 · A</h3>')));
-        $this->assertStringContainsString('2 periods · Thu Period Thursday Period 1 09:00 AM 09:45 AM Maths S Sonu Period 2', $text);
+        $this->assertStringContainsString('2 periods · Thu Period Thursday Period 1 09:00 – 09:45 Maths Sonu Period 2', $text);
         $this->assertStringNotContainsString('Monday', $text);
         $this->assertStringContainsString('aria-pressed="false"', $page->html());
         $page->call('showWeek')->assertSet('filterDays', []);
@@ -598,11 +601,12 @@ class TimeTablePanelTest extends TestCase
 
         // One card for the teacher's week, the class beside each subject.
         $this->assertStringContainsString('Sonu 3 periods a week · Monday to Saturday', $text);
-        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Free Free Free Maths Class 5 · A Maths Class 5 · A Free', $text);
-        $this->assertStringContainsString('Lunch break Period 3 11:00 AM 11:45 AM Hindi Class 6 · A Free', $text);
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 Free Free Free Maths Class 5 · A Maths Class 5 · A Free', $text);
+        $this->assertStringContainsString('Lunch break Period 3 11:00 – 11:45 Hindi Class 6 · A Free', $text);
         $this->assertSame(1, substr_count($html, 'data-tt-week'));
         // Editing a class's timetable is the Class View's: none on the teacher's card.
         $this->assertStringNotContainsString('wire:click="onEditSection(', $html);
+        $this->assertStringNotContainsString('wire:click="startEditing"', $html);
         $this->assertStringContainsString('title="Download"', $html);
     }
 
@@ -615,7 +619,81 @@ class TimeTablePanelTest extends TestCase
         $text = $this->text(substr($html, strpos($html, 'Class 5 · A</h3>')));
 
         // The times numbered as they come.
-        $this->assertStringContainsString('Period 1 09:00 AM 09:45 AM Hindi R Ravi Hindi R Ravi Hindi R Ravi — — — Period 2 10:00 AM 10:45 AM — — — Maths S Sonu — —', $text);
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 Hindi Ravi Hindi Ravi Hindi Ravi — — — Period 2 10:00 – 10:45 — — — Maths Sonu — —', $text);
         $this->assertStringNotContainsString('Lunch break', $text);
+    }
+
+    // ───────────────────────── editing in the week itself ─────────────────────────
+
+    /** Class 5 · A's week, open in Class View. */
+    private function week()
+    {
+        return Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1');
+    }
+
+    public function test_edit_keeps_the_week_with_a_dropdown_for_each_subject_and_teacher(): void
+    {
+        $this->day();
+        $this->period(1, 1, 1, 1);   // A: Hindi with Ravi, Monday period 1
+
+        $page = $this->week()->call('startEditing')->assertSet('editing', true)->assertSet('open', false);
+        $html = $page->html();
+        $this->assertStringNotContainsString('Edit Timetable</h2>', $html);   // no slide-in panel
+        $this->assertStringContainsString('data-tt-week', $html);
+        // 3 periods × 6 days, a subject and a teacher dropdown each.
+        $this->assertSame(18, substr_count($html, 'class="tt-pick is-sub"'));
+        $this->assertSame(18, substr_count($html, 'class="tt-pick is-who"'));
+        $this->assertMatchesRegularExpression('/aria-label="Subject, Mon, Period 1" data-was="1".*?<option value="1"\s+selected\s*>Hindi<\/option>/s', $html);
+        $this->assertMatchesRegularExpression('/aria-label="Teacher, Mon, Period 1" data-was="1".*?<option value="1"\s+selected\s*>Ravi<\/option>/s', $html);
+        $this->assertStringContainsString('Save', $this->text($html));
+        $page->call('cancelEditing')->assertSet('editing', false);
+    }
+
+    public function test_what_is_picked_in_the_week_is_saved_together(): void
+    {
+        $this->day();
+        $this->period(1, 1, 1, 1);   // A: Hindi with Ravi, Monday period 1
+        $this->period(1, 1, 1, 3);   // and on Wednesday
+
+        // Monday's teacher changed to Sonu; Tuesday period 2 filled: Maths with Ravi.
+        $this->week()->call('startEditing')
+            ->call('saveCells', ['1|09:00|09:45' => ['teacher_id' => '2'], '2|09:45|10:30' => ['subject_id' => '2', 'teacher_id' => '1']])
+            ->assertSet('editing', false);
+        $this->assertSame(['1 1 3 09:00-09:45', '1 2 2 09:45-10:30', '2 1 1 09:00-09:45'], $this->periods(1));
+
+        // Only a subject picked: not saved, and still editing.
+        $this->week()->call('startEditing')->call('saveCells', ['4|09:00|09:45' => ['subject_id' => '1']])->assertSet('editing', true);
+        $this->assertCount(3, $this->periods(1));
+
+        // No subject and no teacher: a free period.
+        $this->week()->call('startEditing')->call('saveCells', ['3|09:00|09:45' => ['subject_id' => '', 'teacher_id' => '']]);
+        $this->assertSame(['1 2 2 09:45-10:30', '2 1 1 09:00-09:45'], $this->periods(1));
+
+        // A time that is neither a period nor the class's own is not taken.
+        $this->week()->call('startEditing')->call('saveCells', ['5|07:00|07:30' => ['subject_id' => '1', 'teacher_id' => '1']]);
+        $this->assertSame(['1 2 2 09:45-10:30', '2 1 1 09:00-09:45'], $this->periods(1));
+    }
+
+    public function test_a_teacher_may_take_two_sections_of_a_class_but_not_two_classes_at_once(): void
+    {
+        $this->day();
+        $this->period(4, 1, 1, 2, '09:00', '09:45', 2);   // Ravi: Class 6 A, Tuesday period 1
+        $this->period(2, 2, 2, 3);                        // Sonu: Class 5 B, Wednesday period 1
+        $this->period(1, 1, 2, 1);                        // A: Maths with Ravi, Monday period 1
+
+        $html = $this->week()->call('startEditing')->html();
+        // In the dropdown: Ravi busy in Class 6 · A on Tuesday (cannot be picked); Sonu with B on Wednesday (can).
+        $this->assertMatchesRegularExpression('/aria-label="Teacher, Tue, Period 1".*?<option value="1"\s+disabled>Ravi — busy: Class 6 · A<\/option>/s', $html);
+        $this->assertMatchesRegularExpression('/aria-label="Teacher, Wed, Period 1".*?<option value="2"\s*>Sonu — with Sec B<\/option>/s', $html);
+
+        // Ravi on Tuesday period 1 is refused; Sonu on Wednesday period 1 is saved.
+        $this->week()->call('startEditing')->call('saveCells', ['2|09:00|09:45' => ['subject_id' => '1', 'teacher_id' => '1']])->assertSet('editing', true);
+        $this->week()->call('startEditing')->call('saveCells', ['3|09:00|09:45' => ['subject_id' => '2', 'teacher_id' => '2']])->assertSet('editing', false);
+        $this->assertSame(['1 2 1 09:00-09:45', '2 2 3 09:00-09:45'], $this->periods(1));
+
+        // The week says so: "with B" after Sonu; a clash (from before) in red under the teacher.
+        $this->period(4, 1, 1, 1, '09:00', '09:45', 2);   // Ravi also in Class 6 A on Monday period 1
+        $text = $this->text($this->week()->html());
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 Maths Ravi Also in Class 6 · A — Maths Sonu · with B —', $text);
     }
 }
