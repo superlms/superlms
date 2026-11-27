@@ -569,10 +569,11 @@ class TimeTablePanelTest extends TestCase
         $this->assertStringContainsString('Period Monday Tuesday Wednesday Thursday Friday Saturday', $text);
         // A row a period of the school's day, a cell a day: the subject and the
         // teacher as plain text (2026-11-27: no photos, no colours); the lunch break across the week.
-        $this->assertStringContainsString('Period 1 09:00 – 09:45 Hindi Ravi Hindi Ravi Hindi Ravi Maths Sonu Maths Sonu — '
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 Hindi Ravi Hindi Ravi Hindi Ravi S Maths Sonu S Maths Sonu — '
             . 'Period 2 09:45 – 10:30 — — — — — — 10:30 – 11:00 Lunch break '
-            . 'Period 3 11:00 – 11:45 — — — Maths Sonu — —', $text);
-        $this->assertStringNotContainsString('<img', $card);
+            . 'Period 3 11:00 – 11:45 — — — S Maths Sonu — —', $text);
+        // The teacher's photo beside the two lines (initials without one).
+        $this->assertSame(3, substr_count($card, '<img class="tt-avi" src="https://cdn.example/ravi.jpg"'));
         $this->assertStringNotContainsString('--tt-bg', $card);
         $this->assertStringContainsString('role="table"', $card);
         // Edit keeps the week (no panel); Delete and Print as before.
@@ -584,7 +585,7 @@ class TimeTablePanelTest extends TestCase
         // A day picked: that day's column alone; Weekly brings the week back.
         $page = Livewire::test(TimeTable::class)->set('filterClass', '1')->set('filterSection', '1')->call('toggleFilterDay', 4);
         $text = $this->text(substr($page->html(), strpos($page->html(), 'Class 5 · A</h3>')));
-        $this->assertStringContainsString('2 periods · Thu Period Thursday Period 1 09:00 – 09:45 Maths Sonu Period 2', $text);
+        $this->assertStringContainsString('2 periods · Thu Period Thursday Period 1 09:00 – 09:45 S Maths Sonu Period 2', $text);
         $this->assertStringNotContainsString('Monday', $text);
         $this->assertStringContainsString('aria-pressed="false"', $page->html());
         $page->call('showWeek')->assertSet('filterDays', []);
@@ -619,7 +620,7 @@ class TimeTablePanelTest extends TestCase
         $text = $this->text(substr($html, strpos($html, 'Class 5 · A</h3>')));
 
         // The times numbered as they come.
-        $this->assertStringContainsString('Period 1 09:00 – 09:45 Hindi Ravi Hindi Ravi Hindi Ravi — — — Period 2 10:00 – 10:45 — — — Maths Sonu — —', $text);
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 R Hindi Ravi R Hindi Ravi R Hindi Ravi — — — Period 2 10:00 – 10:45 — — — S Maths Sonu — —', $text);
         $this->assertStringNotContainsString('Lunch break', $text);
     }
 
@@ -694,6 +695,6 @@ class TimeTablePanelTest extends TestCase
         // The week says so: "with B" after Sonu; a clash (from before) in red under the teacher.
         $this->period(4, 1, 1, 1, '09:00', '09:45', 2);   // Ravi also in Class 6 A on Monday period 1
         $text = $this->text($this->week()->html());
-        $this->assertStringContainsString('Period 1 09:00 – 09:45 Maths Ravi Also in Class 6 · A — Maths Sonu · with B —', $text);
+        $this->assertStringContainsString('Period 1 09:00 – 09:45 R Maths Ravi Also in Class 6 · A — S Maths Sonu · with B —', $text);
     }
 }

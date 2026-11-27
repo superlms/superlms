@@ -1548,6 +1548,7 @@ class TimeTable extends Component
                 'subject'     => $e->subject?->name ?? '—',
                 'subject_id'  => (int) $e->subject_id,
                 'teacher'     => $user?->name ?? '—',
+                'image'       => $user?->image ?: null,
                 'teacher_id'  => (int) $e->teacher_detail_id,
                 'standard_id' => (int) $e->standard_id,
                 'standard'    => $e->standard?->name ?? '—',

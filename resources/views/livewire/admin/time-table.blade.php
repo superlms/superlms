@@ -1,28 +1,36 @@
-<div class="min-h-screen bg-gray-50">
+{{-- With a week on screen, on md+ the page is the window's height and the
+     week's rows share what is left under the header (user's ask of
+     2026-11-27: no blank space under the timetable), never under 42px. --}}
+<div class="min-h-screen bg-gray-50 {{ $week ? 'md:h-dvh md:min-h-[30rem] md:flex md:flex-col' : '' }}">
     <style>
         [x-cloak]{display:none !important;}
 
         /* The week (2026-11-26): Period | Monday … Saturday, a row a period.
-           Since 2026-11-27 (user's ask) plain: white cells, the subject and
-           the teacher as text, no colours — and low rows (42px), so eight
-           periods and the lunch break fit a 1366×768 laptop without scrolling. */
-        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); background: #fff; }
+           Since 2026-11-27 (user's asks) plain: white cells, small text, none
+           of it bold, no colours; in Class View the teacher's photo (initials
+           without one) with the subject and the teacher's name beside it,
+           centred on it. The rows grow to fill the window (--tt-rows). */
+        .tt-grid { display: grid; grid-template-columns: var(--tt-cols); grid-template-rows: var(--tt-rows, none); min-height: 100%; background: #fff; }
         .tt-row { display: contents; }
         .tt-h { padding: 7px 10px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #95a39e;
             background: #fff; border-bottom: 1px solid #eef1f0; white-space: nowrap; }
         .tt-h + .tt-h { border-left: 1px solid #f0f3f2; }
         .tt-h.is-today { color: #0f766e; }
         .tt-time { display: flex; flex-direction: column; justify-content: center; min-height: 42px; padding: 3px 10px; border-bottom: 1px solid #f0f3f2; min-width: 0; }
-        .tt-no { font-size: 11px; font-weight: 600; line-height: 14px; color: #95a39e; }
-        .tt-tm { font-size: 12px; font-weight: 500; line-height: 16px; color: #2b433b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tt-no { font-size: 11px; font-weight: 500; line-height: 14px; color: #95a39e; }
+        .tt-tm { font-size: 12px; font-weight: 400; line-height: 16px; color: #2b433b; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .tt-slot { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 42px; padding: 3px 10px; min-width: 0;
             background: #fff; border-bottom: 1px solid #f0f3f2; border-left: 1px solid #f0f3f2; }
         .tt-c { min-width: 0; }
+        .tt-c.has-av { display: flex; align-items: center; gap: 8px; }
+        .tt-txt { min-width: 0; }
+        .tt-avi { width: 28px; height: 28px; flex: none; border-radius: 999px; object-fit: cover; background: #f1f4f3; box-shadow: 0 0 0 1px rgba(12,38,32,.08); }
+        .tt-avi.is-ini { display: grid; place-items: center; font-size: 10px; font-weight: 500; color: #5f716b; letter-spacing: -.02em; }
         .tt-sub, .tt-who, .tt-clash { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .tt-sub { font-size: 12.5px; font-weight: 600; line-height: 17px; color: #0c2620; }
-        .tt-who { font-size: 11.5px; line-height: 16px; color: #5f716b; }
+        .tt-sub { font-size: 12px; font-weight: 400; line-height: 16px; color: #0c2620; }
+        .tt-who { font-size: 11px; font-weight: 400; line-height: 15px; color: #6b7c76; }
         .tt-with { color: #95a39e; }
-        .tt-clash { font-size: 10.5px; font-weight: 600; line-height: 14px; color: #dc2626; }
+        .tt-clash { font-size: 10.5px; font-weight: 500; line-height: 14px; color: #dc2626; }
         .tt-free { font-size: 12px; color: #c3ccc9; }
         .tt-lunch .tt-time, .tt-lunch-bar { min-height: 0; padding-top: 3px; padding-bottom: 3px; }
         .tt-lunch-bar { grid-column: 2 / -1; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600;
@@ -36,9 +44,9 @@
             cursor: pointer; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
         #main-scroll select.tt-pick:hover, #main-scroll select.tt-pick:focus { background-color: #f3f6f5; }
         .tt-slot:has(> select.tt-pick) { gap: 2px; }
-        #main-scroll select.tt-pick.is-sub { height: 17px; font-size: 12.5px; font-weight: 600; line-height: 17px; color: #0c2620; }
-        #main-scroll select.tt-pick.is-who { height: 16px; font-size: 11.5px; font-weight: 400; line-height: 16px; color: #5f716b; }
-        #main-scroll select.tt-pick:has(option:checked[value=""]) { color: #aab5b1; font-weight: 500; }
+        #main-scroll select.tt-pick.is-sub { height: 17px; font-size: 12px; font-weight: 400; line-height: 17px; color: #0c2620; }
+        #main-scroll select.tt-pick.is-who { height: 16px; font-size: 11px; font-weight: 400; line-height: 16px; color: #6b7c76; }
+        #main-scroll select.tt-pick:has(option:checked[value=""]) { color: #aab5b1; }
         #main-scroll select.tt-pick.is-changed { color: #0f766e; }
         #main-scroll select.tt-pick option { color: #0c2620; font-weight: 400; }
     </style>
@@ -46,7 +54,7 @@
     {{-- ══════════════════════════════════════════════════
          HEADER + TABS + FILTER BAR (exams-style)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-30 flex-none">
         <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -189,7 +197,7 @@
         @endif
     </div>
 
-    <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5">
+    <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5 {{ $week ? 'md:flex-1 md:min-h-0 md:flex md:flex-col' : '' }}">
 
         @if ($viewMode === 'periods')
             {{-- ══════════════════════════════════════════════════
@@ -313,7 +321,7 @@
                     ? route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
                     : route('admin.timetable.print', array_filter(['organization' => $orgId, 'mode' => 'class', 'standard' => $week['standard_id'], 'section' => $week['section_id'], 'days' => implode(',', $filterDays)]));
             @endphp
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" data-tt-week
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col md:flex-1 md:min-h-0" data-tt-week
                 x-data="{
                     edits: {}, busy: false,
                     get n() { return Object.keys(this.edits).length },
@@ -330,7 +338,7 @@
                     },
                 }">
                 {{-- Card header: the class · section (or the teacher) and the actions, on one line --}}
-                <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 min-h-[44px] border-b border-gray-100">
+                <div class="flex-none flex items-center justify-between gap-3 px-4 sm:px-5 py-2 min-h-[44px] border-b border-gray-100">
                     <div class="min-w-0 flex items-center gap-3">
                         @if ($byTeacher)
                             @if ($week['teacher_image'])
@@ -396,9 +404,14 @@
                 </div>
 
                 {{-- The grid: Period | Monday … Saturday --}}
-                <div class="overflow-x-auto">
+                @php
+                    // The heading row, then each period sharing the height left (at least
+                    // 42px); the lunch break as tall as its line.
+                    $ttRows = 'auto ' . collect($week['rows'])->map(fn ($r) => $r['type'] === 'lunch' ? 'auto' : 'minmax(42px, 1fr)')->implode(' ');
+                @endphp
+                <div class="overflow-x-auto md:flex-1 md:min-h-0 md:overflow-y-auto">
                     <div class="tt-grid" role="table" aria-label="Weekly timetable"
-                        style="--tt-cols: 104px repeat({{ count($wkDays) }}, minmax(0, 1fr)); min-width: {{ 104 + count($wkDays) * 132 }}px">
+                        style="--tt-cols: 104px repeat({{ count($wkDays) }}, minmax(0, 1fr)); --tt-rows: {{ $ttRows }}; min-width: {{ 104 + count($wkDays) * 132 }}px">
                         <div class="tt-row" role="row">
                             <div class="tt-h" role="columnheader">Period</div>
                             @foreach ($wkDays as $d)
@@ -456,16 +469,26 @@
                                                         $at    = $byTeacher ? [] : ($elsewhere[$d][$slotKey][$c['teacher_id']] ?? []);
                                                         $clash = $byTeacher ? ($c['clash'] ? [$c['class']] : []) : array_values($at['clash'] ?? []);
                                                     @endphp
-                                                    <div class="tt-c">
-                                                        <p class="tt-sub" title="{{ $c['subject'] }}">{{ $c['subject'] }}</p>
-                                                        @if ($byTeacher)
-                                                            <p class="tt-who" title="{{ $c['class'] }}">{{ $c['class'] }}</p>
-                                                        @else
-                                                            <p class="tt-who" title="{{ $c['teacher'] }}{{ !empty($at['with']) ? ' — also takes Section ' . implode(', ', $at['with']) . ' of this class at this time' : '' }}">{{ $c['teacher'] }}@if (!empty($at['with']))<span class="tt-with"> · with {{ implode(', ', $at['with']) }}</span>@endif</p>
-                                                        @endif
-                                                        @if ($clash)
-                                                            <p class="tt-clash" title="{{ $byTeacher ? 'Two classes at the same time' : $c['teacher'] . ' is also in ' . implode(', ', $clash) . ' at this time' }}">{{ $byTeacher ? 'Clash: two classes at once' : 'Also in ' . implode(', ', $clash) }}</p>
-                                                        @endif
+                                                    <div class="tt-c {{ $byTeacher ? '' : 'has-av' }}">
+                                                        @unless ($byTeacher)
+                                                            {{-- The teacher's photo (initials without one); the two lines centred beside it. --}}
+                                                            @if ($c['image'])
+                                                                <img class="tt-avi" src="{{ $c['image'] }}" alt="" loading="lazy">
+                                                            @else
+                                                                <span class="tt-avi is-ini" aria-hidden="true">{{ $initials($c['teacher']) }}</span>
+                                                            @endif
+                                                        @endunless
+                                                        <div class="tt-txt">
+                                                            <p class="tt-sub" title="{{ $c['subject'] }}">{{ $c['subject'] }}</p>
+                                                            @if ($byTeacher)
+                                                                <p class="tt-who" title="{{ $c['class'] }}">{{ $c['class'] }}</p>
+                                                            @else
+                                                                <p class="tt-who" title="{{ $c['teacher'] }}{{ !empty($at['with']) ? ' — also takes Section ' . implode(', ', $at['with']) . ' of this class at this time' : '' }}">{{ $c['teacher'] }}@if (!empty($at['with']))<span class="tt-with"> · with {{ implode(', ', $at['with']) }}</span>@endif</p>
+                                                            @endif
+                                                            @if ($clash)
+                                                                <p class="tt-clash" title="{{ $byTeacher ? 'Two classes at the same time' : $c['teacher'] . ' is also in ' . implode(', ', $clash) . ' at this time' }}">{{ $byTeacher ? 'Clash: two classes at once' : 'Also in ' . implode(', ', $clash) }}</p>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                 @empty
                                                     <span class="tt-free">{{ $byTeacher ? 'Free' : '—' }}</span>
