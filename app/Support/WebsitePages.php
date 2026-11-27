@@ -51,7 +51,7 @@ class WebsitePages
      * admin route it is set up on].
      */
     public const LIVE = [
-        'classes'   => ['Classes, sections & subjects', 'Standard', 'admin.standard'],
+        'classes'   => ['Classes, sections & subjects', 'Classes', 'admin.standard'],
         'fees'      => ['Fee structure', 'Fee Structure', 'admin.fee-structure'],
         'rules'     => ['Rules & Regulations', 'Rules & Regulations', 'admin.rules-and-regulation'],
         'transport' => ['Transport routes', 'Transport', 'admin.transport'],

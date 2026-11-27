@@ -21,7 +21,7 @@ return [
             'prefix' => 'admin.analytics',
         ],
         [
-            'title' => 'Standard',
+            'title' => 'Classes',
             'link' => 'admin.standard',
             'icon' => 'book-open',
             'prefix' => 'admin.standard',

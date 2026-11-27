@@ -10,7 +10,9 @@
          HEADER — no tabs and no filter band (user's ask of 2026-11-25):
          the page opens on the classes; a class's arrow opens its sections
          (or, with a single section, its subjects), a section its subjects.
-         The trail and the back arrow lead back up.
+         The back arrow leads back up. Since 2026-11-27 (user's ask) the page
+         is "Classes" (it was Standard / Academic Structure) and the header
+         holds only that name — no trail.
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -21,23 +23,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                     </button>
                 @endif
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">Academic Structure</h1>
-                <nav class="std-trail hidden sm:flex items-center gap-1.5 text-sm min-w-0" aria-label="Where you are">
-                    <span class="text-gray-300">/</span>
-                    @if ($activeTab === 'standard')
-                        <span class="font-medium text-gray-700">Classes</span>
-                    @else
-                        <button type="button" wire:click="showTab('standard')" class="text-gray-500 hover:text-teal-700">Classes</button>
-                        <span class="text-gray-300">›</span>
-                        @if ($activeTab === 'subject' && $crumbClass && ($filterSubjectStandard ?? null))
-                            <button type="button" wire:click="openClass({{ (int) $filterSubjectStandard }})" class="text-gray-500 hover:text-teal-700 truncate">{{ $crumbClass }}</button>
-                            <span class="text-gray-300">›</span>
-                            <span class="font-medium text-gray-700 truncate">{{ $crumbSection }}</span>
-                        @else
-                            <span class="font-medium text-gray-700 truncate">{{ $crumbClass ?? '—' }}</span>
-                        @endif
-                    @endif
-                </nav>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">Classes</h1>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button wire:click="openAddForm"
@@ -104,18 +90,20 @@
             .sc-info { padding: 11px 14px 13px; font-size: 12.5px; line-height: 1.5; color: #6b7c76; }
             .sc-info p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .sc-info b { color: #2b433b; font-weight: 600; }
-            /* The full-width line, then the round buttons — the arrow's look. */
+            /* The full-width line, then the round buttons. Since 2026-11-27
+               (user's ask) every one in the arrow's teal, light — a pale teal
+               circle, the icon in teal — and a touch bolder under the pointer
+               (a deeper circle, a thicker line). */
             .sc-acts { display: flex; align-items: center; gap: 6px; padding: 10px 12px 11px 14px; margin-top: auto; border-top: 1px solid #eef1f0; }
             .sc-acts .sc-dot { width: 8px; height: 8px; border-radius: 999px; margin-right: 4px; flex: none; }
-            .sc-btn { width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: #fff; flex: none;
-                transition: background-color .2s, transform .2s, box-shadow .2s; box-shadow: 0 6px 14px -9px rgba(12,38,32,.55); }
+            .sc-btn { width: 32px; height: 32px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; flex: none;
+                background: #e8f6f2; color: #0f766e; transition: background-color .2s, color .2s, transform .2s; }
             .sc-btn svg { width: 16px; height: 16px; }
-            .sc-btn:hover { transform: translateY(-1px); }
+            .sc-btn svg, .sc-btn svg path { stroke-width: 2px; transition: stroke-width .15s; }
+            .sc-btn:hover { background: #cfeee6; color: #0b5f58; transform: translateY(-1px); }
+            .sc-btn:hover svg, .sc-btn:hover svg path { stroke-width: 2.6px; }
             .sc-btn:focus-visible { outline: 2px solid #b1e6db; outline-offset: 2px; }
-            .sc-view { background: #3b82f6; } .sc-view:hover { background: #2563eb; }
-            .sc-edit { background: #f59e0b; } .sc-edit:hover { background: #d97706; }
-            .sc-del  { background: #f43f5e; } .sc-del:hover  { background: #e11d48; }
-            .sc-go   { margin-left: auto; background: #0d9488; } .sc-go:hover { background: #0f766e; transform: translateX(2px); }
+            .sc-go { margin-left: auto; } .sc-go:hover { transform: translateX(2px); }
         </style>
         @endonce
         <div wire:loading.remove wire:target="{{ $listTargets }}">
@@ -294,7 +282,7 @@
                             @if ($editId)
                                 {{ $addType === 'class' ? 'Edit Class' : ($addType === 'section' ? 'Edit Section' : 'Edit Subject') }}
                             @else
-                                Add to Academic Structure
+                                Add to Classes
                             @endif
                         </h2>
                         <p class="text-xs text-gray-500 mt-0.5">

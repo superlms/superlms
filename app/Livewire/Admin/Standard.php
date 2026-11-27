@@ -1394,14 +1394,6 @@ class Standard extends Component
             'filteredSections'  => $this->activeTab === 'section' ? $list : null,
             'filteredSubjects'  => $this->activeTab === 'subject' ? $list : null,
             'subjectClassName'  => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
-            // The header's trail: Classes › the class › the section.
-            'crumbClass'        => match ($this->activeTab) {
-                'section' => $this->filterStandard ? StudentStandard::whereKey((int) $this->filterStandard)->value('name') : null,
-                'subject' => $subjectClassId ? StudentStandard::whereKey($subjectClassId)->value('name') : null,
-                default   => null,
-            },
-            'crumbSection'      => $this->activeTab === 'subject' && $this->filterSection
-                ? Section::whereKey((int) $this->filterSection)->value('name') : null,
             'allStandards'      => $this->classOptions(),
             'availableSections' => $this->getAvailableSectionsProperty(),
             // The subject form's section boxes: the class picked there.

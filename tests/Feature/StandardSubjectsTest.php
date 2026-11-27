@@ -642,6 +642,14 @@ class StandardSubjectsTest extends TestCase
         $this->assertStringContainsString('class="sc-btn sc-view"', $html);
         $this->assertStringContainsString('class="sc-btn sc-go"', $html);
         $this->assertStringContainsString('wire:click.stop="openClass(' . $two->id . ')"', $html);
+        // The page is "Classes" (2026-11-27), the header only that name — no trail;
+        // every card button in the arrow's light teal, none blue / amber / rose.
+        $this->assertStringContainsString('>Classes</h1>', $html);
+        $this->assertStringNotContainsString('Academic Structure', $html);
+        $this->assertStringNotContainsString('std-trail', $html);
+        $this->assertStringContainsString('background: #e8f6f2; color: #0f766e;', $html);
+        $this->assertStringNotContainsString('.sc-del  { background: #f43f5e; }', $html);
+        $this->assertSame('Classes', collect(config('menu.admin'))->firstWhere('link', 'admin.standard')['title']);
 
         $page->call('openClass', $two->id)->assertSet('activeTab', 'section')->assertSet('filterStandard', $two->id)
             ->assertSeeHtml('wire:click.stop="drillIntoSection(' . $twoA->id . ')"');
