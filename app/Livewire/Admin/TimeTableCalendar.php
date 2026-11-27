@@ -558,11 +558,11 @@ class TimeTableCalendar extends LivewireCalendar
             'getEventsForDay' => function ($day) {
                 return $this->getEventsForDay($day, $this->events);
             },
-            'yearlyCalendar'   => $this->yearlyCalendar,
+            // The year is only worked out when it is shown (the month's events
+            // list is the month's own events, sorted in the view).
+            'yearlyCalendar'   => $this->view === 'year' ? $this->yearlyCalendar : [],
             'view'             => $this->view,
             'startsAt'         => $this->startsAt,
-            'upcomingEvents'   => $this->upcomingEvents,
-            'completedEvents'  => $this->completedEvents,
             'eventsCount'      => $this->eventsCount,
         ]);
     }

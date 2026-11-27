@@ -76,8 +76,8 @@ class CalendarPanelTest extends TestCase
     {
         $html = Livewire::test(TimeTableCalendar::class)->html();
 
-        $this->assertMatchesRegularExpression('/^<div[^>]*class="min-h-screen bg-gray-50"/', trim($html));
-        $this->assertMatchesRegularExpression('/sticky top-0 z-50" data-lms-pin>/', $html);
+        $this->assertMatchesRegularExpression('/^<div[^>]*class="min-h-screen bg-gray-50[ "]/', trim($html));
+        $this->assertMatchesRegularExpression('/sticky top-0 z-50[^"]*" data-lms-pin>/', $html);
 
         foreach (['admin/calender', 'accounts/calendar'] as $wrapper) {
             $blade = file_get_contents(resource_path("views/livewire/{$wrapper}.blade.php"));
@@ -86,6 +86,45 @@ class CalendarPanelTest extends TestCase
         $layout = file_get_contents(resource_path('views/components/layouts/app.blade.php'));
         // A pinned header stays whole (since 22088b8, so does every Super Admin header: PIN_ALL).
         $this->assertStringContainsString("if (PIN_ALL || header.hasAttribute('data-lms-pin')) return 0;", $layout);
+    }
+
+    /**
+     * The Super Admin's Calendar look (2026-11-27): the month on the left, the
+     * month's events listed on the right; a day shows its events as plain lines
+     * (a dot, the time, the title), no background behind them.
+     */
+    public function test_the_month_on_the_left_and_its_events_listed_on_the_right(): void
+    {
+        DB::table('time_tables')->insert([
+            ['organization_id' => $this->org, 'title' => 'PTM', 'date' => '2026-10-02', 'start_time' => '11:00:00', 'end_time' => null, 'event_type' => 'meeting', 'is_all_day' => false],
+            ['organization_id' => $this->org, 'title' => 'Diwali Holiday', 'date' => '2026-10-20', 'start_time' => null, 'end_time' => null, 'event_type' => 'holiday', 'is_all_day' => true],
+            ['organization_id' => $this->org, 'title' => 'November Fair', 'date' => '2026-11-03', 'start_time' => null, 'end_time' => null, 'event_type' => 'event', 'is_all_day' => true],
+        ]);
+
+        $html = Livewire::test(TimeTableCalendar::class)->html();
+
+        // The page fits the window on a wide screen; the month and the list side by side.
+        $this->assertStringContainsString('xl:h-dvh', $html);
+        $this->assertStringContainsString('xl:grid-cols-[minmax(0,1fr)_21rem]', $html);
+        $html  = preg_replace('/<!--.*?-->/s', '', $html);   // Livewire's block markers
+        $month = substr($html, strpos($html, 'data-cal-month'), strpos($html, 'data-cal-list') - strpos($html, 'data-cal-month'));
+        $list  = substr($html, strpos($html, 'data-cal-list'));
+
+        // The day: plain lines, no tinted background.
+        $this->assertSame(3, substr_count($month, 'class="cal-ev'));
+        $this->assertStringNotContainsString('18;"', $month);
+        $this->assertMatchesRegularExpression('/<span class="font-semibold">9:00<\/span> Annual Sports Day/', $month);
+        $this->assertStringNotContainsString('November Fair', $month);
+
+        // The list: every event of October in date order, past ones marked Done.
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($list)));
+        $this->assertStringContainsString('Events October 2026 · 3 events', $text);
+        $this->assertMatchesRegularExpression('/Fri 2 PTM Done 11:00 AM · Meeting.*Sat 10 Annual Sports Day 9:00 AM – 1:00 PM · Event.*Tue 20 Diwali Holiday All day · Holiday/', $text);
+        $this->assertStringNotContainsString('November Fair', $text);
+        $this->assertStringContainsString('wire:click="onEventClick(', $list);
+
+        // The old Upcoming / Completed tables under the month are gone.
+        $this->assertStringNotContainsString('Upcoming Events', $html);
     }
 
     public function test_an_events_details_are_one_column_of_label_and_value_rows(): void

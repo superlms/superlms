@@ -1,11 +1,11 @@
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-50 {{ $view === 'month' ? 'xl:h-dvh xl:min-h-[36rem] xl:flex xl:flex-col' : '' }}">
 
     {{-- ══════════════════════════════════════════════════
          HEADER — stays whole at the top while the page scrolls
          (data-lms-pin: the layout does not slide it away; there is no
          filter bar under it to pin instead)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50" data-lms-pin>
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50 flex-none" data-lms-pin>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">School Calendar</h1>
@@ -50,249 +50,221 @@
         </div>
     </div>
 
-    <div class="p-6 space-y-6">
+    @include('livewire.super-admin.partials.dash-styles')
 
-        {{-- ══════════════════════════════════════════════════
-             FULL CALENDAR
-        ══════════════════════════════════════════════════ --}}
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    {{-- The Super Admin's Calendar look (user's ask of 2026-11-27): the month on
+         the left, every event of that month in a list on the right. A day shows
+         its events as plain lines — a small dot in the event's colour, the time,
+         the title — with no background behind them; as many as the day's height
+         holds (a container query on the day), the last line "+N more". On a
+         wide screen (xl+) the page is the window's height: the weeks share the
+         month's height and the list scrolls on its own. --}}
+    <style>
+        .cal-day { container: calday / size; }
+        .cal-ge3, .cal-ge4, .cal-l3 { display: none; }
+        @container calday (min-height: 81px) {
+            .cal-ge3, .cal-l3 { display: block; }
+            .cal-l2 { display: none; }
+        }
+        @container calday (min-height: 99px) {
+            .cal-ge4 { display: block; }
+            .cal-l3 { display: none; }
+        }
+        .cal-list::-webkit-scrollbar { width: 6px; }
+        .cal-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+        .cal-list::-webkit-scrollbar-track { background: transparent; }
+    </style>
 
-            {{-- Calendar Header --}}
-            <div
-                class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    @php
+        $isMonth = $view === 'month';
+        $navBtn  = 'inline-flex items-center justify-center w-7 h-7 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors';
+        $hm      = fn ($t) => $t ? \Carbon\Carbon::createFromFormat('H:i', $t)->format('g:i') : '';
+        $hmA     = fn ($t) => $t ? \Carbon\Carbon::createFromFormat('H:i', $t)->format('g:i A') : '';
+        $sortKey = fn ($e) => \Carbon\Carbon::parse($e['date'])->format('Y-m-d') . ' ' . (($e['is_all_day'] ?? false) ? '00:00' : ($e['start_time'] ?? '99:99'));
+        $monthList = $isMonth ? collect($events)->sortBy($sortKey)->values() : collect();
+    @endphp
 
-                {{-- View Toggle --}}
-                <div class="flex gap-2">
-                    <button wire:click="switchToMonthlyView"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all
-                               {{ $view === 'month' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' }}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Monthly
+    <div class="px-4 sm:px-6 py-3 grid grid-cols-1 gap-4 items-start {{ $isMonth ? 'xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-stretch xl:flex-1 xl:min-h-0 xl:grid-rows-[minmax(0,1fr)]' : '' }}">
+
+        {{-- ═══════════ THE MONTH (or the year) — previous / next and Monthly / Yearly on the card ═══════════ --}}
+        <div class="sa-card overflow-hidden flex flex-col {{ $isMonth ? 'xl:h-full xl:min-h-0' : '' }}" data-cal-month>
+            <div class="flex-none flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100" data-cal-nav>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" wire:click="{{ $isMonth ? 'goToPreviousMonth' : 'goToPreviousYear' }}"
+                        title="{{ $isMonth ? 'Previous month' : 'Previous year' }}" aria-label="{{ $isMonth ? 'Previous month' : 'Previous year' }}" class="{{ $navBtn }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button wire:click="switchToYearlyView"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all
-                               {{ $view === 'year' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50' }}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Yearly
+                    <h2 class="text-sm font-semibold text-gray-900 min-w-[7.5rem] text-center" wire:loading.class="opacity-60"
+                        wire:target="goToPreviousMonth,goToNextMonth,goToPreviousYear,goToNextYear,goToCurrentMonth">{{ $isMonth ? $startsAt->format('F Y') : $startsAt->format('Y') }}</h2>
+                    <button type="button" wire:click="{{ $isMonth ? 'goToNextMonth' : 'goToNextYear' }}"
+                        title="{{ $isMonth ? 'Next month' : 'Next year' }}" aria-label="{{ $isMonth ? 'Next month' : 'Next year' }}" class="{{ $navBtn }}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
-                </div>
-
-                {{-- Navigation --}}
-                <div class="flex items-center gap-3">
-                    @if ($view === 'month')
-                        <button wire:click="goToPreviousMonth"
-                            class="p-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        <h2 class="text-base font-bold text-gray-800 min-w-40 text-center">
-                            {{ $startsAt->format('F Y') }}
-                        </h2>
-                        <button wire:click="goToNextMonth"
-                            class="p-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    @else
-                        <button wire:click="goToPreviousYear"
-                            class="p-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        <h2 class="text-base font-bold text-gray-800 min-w-24 text-center">
-                            {{ $startsAt->format('Y') }}
-                        </h2>
-                        <button wire:click="goToNextYear"
-                            class="p-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
+                    @if ($isMonth && !$startsAt->isSameMonth(now()))
+                        <button type="button" wire:click="goToCurrentMonth" class="ml-1 h-7 px-2.5 text-xs font-medium rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">Today</button>
                     @endif
+                </div>
+                <div class="flex items-center gap-1">
+                    <button type="button" wire:click="switchToMonthlyView"
+                        class="px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors {{ $isMonth ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">Monthly</button>
+                    <button type="button" wire:click="switchToYearlyView"
+                        class="px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors {{ !$isMonth ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">Yearly</button>
                 </div>
             </div>
 
-            {{-- Calendar Body --}}
-            <div class="p-4">
-
-                {{-- Monthly View --}}
-                @if ($view === 'month')
-                    <div class="rounded-xl overflow-hidden border border-gray-200">
-                        <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
-                            @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $day)
-                                <div
-                                    class="py-3 text-center text-sm font-semibold text-gray-600 border-r last:border-r-0 border-gray-200">
-                                    {{ $day }}
-                                </div>
-                            @endforeach
+            @if ($isMonth)
+                <div class="grid grid-cols-7 border-b border-gray-100 bg-gray-50/60 flex-none">
+                    @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $wd)
+                        <div class="py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                            <span class="sm:hidden">{{ mb_substr($wd, 0, 1) }}</span><span class="hidden sm:inline">{{ $wd }}</span>
                         </div>
-                        <div class="grid grid-cols-7">
-                            @foreach ($monthGrid as $week)
-                                @foreach ($week as $day)
-                                    @php
-                                        $isCurrentMonth = $day->month == $startsAt->month;
-                                        $isToday = $day->isToday();
-                                        // Only the active month's cells get events — adjacent-month
-                                        // fillers stay empty.
-                                        $dayEvents = $isCurrentMonth ? $getEventsForDay($day) : [];
-                                        $eventsCount = count($dayEvents);
-                                    @endphp
-                                    {{-- Read-only: a day opens the "add event" panel, so it stops being
-                                         clickable (and stops looking clickable) when events can't be added. --}}
-                                    <div class="min-h-32 p-2 border border-gray-100 transition-all duration-200
-                                        {{ $readOnly ? '' : 'cursor-pointer' }}
-                                        {{ !$isCurrentMonth ? 'bg-gray-50/60' : ($readOnly ? 'bg-white' : 'bg-white hover:bg-blue-50/30') }}"
-                                        @if (!$readOnly) wire:click="onDayClick('{{ $day->year }}', '{{ $day->month }}', '{{ $day->day }}')" @endif>
+                    @endforeach
+                </div>
 
-                                        <div class="flex justify-between items-center mb-1.5">
-                                            <span
-                                                class="text-sm font-medium leading-none
-                                                {{ $isToday ? 'w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center' : ($isCurrentMonth ? 'text-gray-800' : 'text-gray-400') }}">
-                                                {{ $day->day }}
+                <div class="flex flex-col xl:flex-1 xl:min-h-0">
+                    @foreach ($monthGrid as $week)
+                        <div class="grid grid-cols-7 xl:flex-1 xl:min-h-0 {{ !$loop->last ? 'border-b border-gray-100' : '' }}" wire:key="cal-week-{{ $week->first()->format('Y-m-d') }}">
+                            @foreach ($week as $day)
+                                @php
+                                    $inMonth = $day->month == $startsAt->month;
+                                    // Only the month's own days get events; the days of the months
+                                    // either side stay empty.
+                                    $items = $inMonth ? $getEventsForDay($day)->sortBy($sortKey)->values() : collect();
+                                    $n     = $items->count();
+                                @endphp
+                                {{-- Read-only (accounts): a day does not open "add event", so it is not clickable. --}}
+                                <div wire:key="cal-day-{{ $day->format('Y-m-d') }}"
+                                    @if (!$readOnly) wire:click="onDayClick('{{ $day->year }}', '{{ $day->month }}', '{{ $day->day }}')" title="Add an event on {{ $day->format('d M') }}" @endif
+                                    class="cal-day group relative min-h-[3.75rem] sm:min-h-[5.25rem] xl:min-h-0 p-1 sm:p-1.5 overflow-hidden transition-colors
+                                           {{ !$loop->last ? 'border-r border-gray-100' : '' }}
+                                           {{ $readOnly ? '' : 'cursor-pointer' }}
+                                           {{ $inMonth ? ($readOnly ? 'bg-white' : 'bg-white hover:bg-gray-50') : 'bg-gray-50/70' }}">
+                                    <div class="flex items-center justify-between">
+                                        <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs
+                                                     {{ $day->isToday() ? 'bg-gray-900 text-white font-semibold' : ($inMonth ? 'text-gray-800' : 'text-gray-300') }}">{{ $day->day }}</span>
+                                        @if (!$readOnly && $inMonth)
+                                            <span class="hidden sm:group-hover:flex w-6 h-6 items-center justify-center rounded-md text-gray-400" aria-hidden="true">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" /></svg>
                                             </span>
-                                            @if ($eventsCount > 0)
-                                                <span
-                                                    class="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-                                                    {{ $eventsCount }}
-                                                </span>
-                                            @endif
-                                        </div>
+                                        @endif
+                                    </div>
 
-                                        <div class="space-y-1 max-h-24 overflow-y-auto">
-                                            @foreach ($dayEvents as $event)
-                                                <div class="text-xs px-2 py-1 rounded-lg border-l-4 truncate cursor-pointer hover:opacity-90 transition-opacity"
-                                                    style="border-left-color: {{ $event['color'] }}; background-color: {{ $event['color'] }}18;"
-                                                    wire:click.stop="onEventClick('{{ $event['id'] }}')"
-                                                    title="{{ $event['title'] }}">
-                                                    <div class="font-medium text-gray-800 truncate">
-                                                        {{ $event['title'] }}</div>
-                                                    @if ($event['start_time'] && !$event['is_all_day'])
-                                                        <div class="text-gray-500 text-xs">{{ $event['start_time'] }}
-                                                        </div>
-                                                    @endif
-                                                </div>
+                                    {{-- sm+: the events as plain lines, no background; how many show depends on
+                                         the day's height (the style at the top): 2 lines, else 3, else 4. --}}
+                                    <div class="hidden sm:block mt-0.5 space-y-px">
+                                        @foreach ($items->take(3) as $i => $event)
+                                            @php $fit = $i === 0 ? '' : ($i === 1 ? ($n <= 2 ? '' : 'cal-ge3') : ($n <= 3 ? 'cal-ge3' : 'cal-ge4')); @endphp
+                                            <div wire:key="cal-ev-{{ $event['id'] }}" wire:click.stop="onEventClick('{{ $event['id'] }}')"
+                                                title="{{ $event['title'] }}{{ ($event['start_time'] && !$event['is_all_day']) ? ' · ' . $hmA($event['start_time']) . ($event['end_time'] ? ' – ' . $hmA($event['end_time']) : '') : '' }}"
+                                                class="cal-ev {{ $fit }} truncate text-[11px] leading-[15px] px-0.5 cursor-pointer {{ $event['is_completed'] ? 'text-gray-400' : 'text-gray-700 hover:text-gray-900' }}">
+                                                <span class="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle -mt-px" style="background-color: {{ $event['color'] }}"></span>@if ($event['start_time'] && !$event['is_all_day'])<span class="font-semibold">{{ $hm($event['start_time']) }}</span> @endif{{ $event['title'] }}
+                                            </div>
+                                        @endforeach
+                                        @if ($n > 2)
+                                            <p class="cal-l2 text-[11px] leading-[15px] px-0.5 text-gray-500 font-medium">+{{ $n - 1 }} more</p>
+                                        @endif
+                                        @if ($n > 3)
+                                            <p class="cal-l3 text-[11px] leading-[15px] px-0.5 text-gray-500 font-medium">+{{ $n - 2 }} more</p>
+                                            <p class="cal-ge4 text-[11px] leading-[15px] px-0.5 text-gray-500 font-medium">+{{ $n - 3 }} more</p>
+                                        @endif
+                                    </div>
+
+                                    {{-- phones: a dot for each (up to four) --}}
+                                    @if ($n)
+                                        <div class="sm:hidden mt-1 flex flex-wrap justify-center gap-0.5">
+                                            @foreach ($items->take(4) as $event)
+                                                <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $event['color'] }}"></span>
                                             @endforeach
                                         </div>
-                                    </div>
-                                @endforeach
+                                    @endif
+                                </div>
                             @endforeach
                         </div>
-                    </div>
-                @endif
-
+                    @endforeach
+                </div>
+            @else
                 {{-- Yearly View — month thumbnails with event indicators + total count --}}
-                @if ($view === 'year')
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach ($yearlyCalendar as $month)
-                            <div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-blue-200
-                                transition-all duration-200 cursor-pointer group"
-                                wire:click="switchToMonthlyView('{{ $month['year'] }}', '{{ $month['month'] }}')">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
-                                        {{ $month['name'] }}
-                                    </h3>
-                                    <div class="flex items-center gap-2">
-                                        @if ($month['totalEvents'] > 0)
-                                            <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium">
-                                                {{ $month['totalEvents'] }} {{ $month['totalEvents'] === 1 ? 'event' : 'events' }}
-                                            </span>
-                                        @else
-                                            <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full">0 events</span>
-                                        @endif
-                                        <svg class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-7 gap-0.5 text-center text-xs">
-                                    @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $day)
-                                        <div class="font-medium text-gray-400 py-1">{{ $day }}</div>
-                                    @endforeach
-                                    @foreach ($month['days'] as $day)
-                                        <div class="py-1.5 rounded-lg relative transition-colors
-                                            {{ $day['isCurrentMonth'] ? 'text-gray-700 hover:bg-blue-50' : 'text-gray-300' }}
-                                            {{ $day['isToday'] ? 'bg-blue-100 text-blue-700 font-bold' : '' }}">
-                                            {{ $day['day'] }}
-                                            @if (($day['eventsCount'] ?? 0) > 0)
-                                                <div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"></div>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </div>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach ($yearlyCalendar as $month)
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer group"
+                            wire:click="switchToMonthlyView('{{ $month['year'] }}', '{{ $month['month'] }}')">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-sm font-semibold text-gray-800">{{ $month['name'] }}</h3>
+                                <span class="text-xs {{ $month['totalEvents'] > 0 ? 'text-gray-600 font-medium' : 'text-gray-400' }}">
+                                    {{ $month['totalEvents'] }} {{ $month['totalEvents'] === 1 ? 'event' : 'events' }}
+                                </span>
                             </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
+                            <div class="grid grid-cols-7 gap-0.5 text-center text-xs">
+                                @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $wd)
+                                    <div class="font-medium text-gray-400 py-1">{{ $wd }}</div>
+                                @endforeach
+                                @foreach ($month['days'] as $d)
+                                    <div class="py-1.5 rounded-lg relative {{ $d['isCurrentMonth'] ? 'text-gray-700' : 'text-gray-300' }} {{ $d['isToday'] ? 'bg-gray-900 text-white font-bold' : '' }}">
+                                        {{ $d['day'] }}
+                                        @if (($d['eventsCount'] ?? 0) > 0)
+                                            <div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full {{ $d['isToday'] ? 'bg-white' : 'bg-gray-500' }}"></div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
 
-        {{-- ══════════════════════════════════════════════════
-             EVENTS — Upcoming + Completed (monthly view only)
-        ══════════════════════════════════════════════════ --}}
-        @if ($view === 'month')
-        {{-- Straight on the page, as the Students list: a heading line, then
-             the table in its own white box (no container around them). --}}
-        <div class="space-y-3">
-
-            {{-- UPCOMING --}}
-            <div class="flex items-center justify-between px-1">
-                <h3 class="text-base font-semibold text-gray-900">
-                    Upcoming Events
-                    <span class="ml-1 text-xs text-gray-400 font-normal">— {{ $startsAt->format('F Y') }}</span>
-                </h3>
-                <span class="text-xs text-gray-400">{{ count($upcomingEvents) }} {{ count($upcomingEvents) === 1 ? 'event' : 'events' }}</span>
-            </div>
-
-            @if (count($upcomingEvents) > 0)
-                {{-- In the Students list's style (the old cards: _event-card) --}}
-                @include('livewire.admin._event-table', ['events' => $upcomingEvents, 'completed' => false])
-            @else
-                <div class="text-center py-10">
-                    <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+        {{-- ═══════════ THE MONTH'S EVENTS — every one, in date order; scrolls on its own beside the month ═══════════ --}}
+        @if ($isMonth)
+            <div class="sa-card overflow-hidden flex flex-col xl:h-full xl:min-h-0" data-cal-list>
+                <div class="flex-none px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="sa-card-title">Events</p>
+                        <p class="sa-card-sub">{{ $startsAt->format('F Y') }} · {{ $monthList->count() }} {{ $monthList->count() === 1 ? 'event' : 'events' }}</p>
                     </div>
-                    <p class="text-gray-500 text-sm mb-3">No upcoming events scheduled</p>
                     @if (!$readOnly)
-                        <button wire:click="onAddEvent"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
-                                   text-white text-sm font-semibold rounded-lg transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Upcoming Event
-                        </button>
+                        <button type="button" wire:click="onAddEvent"
+                            class="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 flex-shrink-0">+ Add</button>
                     @endif
                 </div>
-            @endif
-
-            {{-- COMPLETED --}}
-            @if (count($completedEvents) > 0)
-                <div class="flex items-center justify-between px-1 pt-3">
-                    <h3 class="text-base font-semibold text-gray-900">Completed</h3>
-                    <span class="text-xs text-gray-400">{{ count($completedEvents) }} {{ count($completedEvents) === 1 ? 'event' : 'events' }}</span>
+                <div class="cal-list divide-y divide-gray-100 xl:flex-1 xl:min-h-0 xl:overflow-y-auto">
+                    @forelse ($monthList as $event)
+                        @php
+                            $date = \Carbon\Carbon::parse($event['date']);
+                            $when = $event['is_all_day'] ? 'All day'
+                                : ($event['start_time'] ? $hmA($event['start_time']) . ($event['end_time'] ? ' – ' . $hmA($event['end_time']) : '') : '');
+                            $class = trim(($event['standard'] ?? '') . (($event['section'] ?? '') ? ' · ' . $event['section'] : ''));
+                            $meta  = collect([$when, ucfirst($event['event_type'] ?? ''), $class, $event['location'] ?? ''])->filter()->implode(' · ');
+                        @endphp
+                        <button type="button" wire:key="cal-list-{{ $event['id'] }}" wire:click="onEventClick('{{ $event['id'] }}')"
+                            class="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors">
+                            <span class="w-10 flex-shrink-0 text-center leading-tight {{ $date->isToday() ? 'text-gray-900' : 'text-gray-500' }}">
+                                <span class="block text-[10px] font-semibold uppercase tracking-wide">{{ $date->format('D') }}</span>
+                                <span class="block text-lg font-semibold {{ $event['is_completed'] ? 'text-gray-400' : 'text-gray-900' }}">{{ $date->format('j') }}</span>
+                            </span>
+                            <span class="min-w-0 flex-1 pt-0.5">
+                                <span class="flex items-center gap-1.5 min-w-0">
+                                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ $event['color'] }}"></span>
+                                    <span class="truncate text-sm font-medium {{ $event['is_completed'] ? 'text-gray-400' : 'text-gray-900' }}">{{ $event['title'] }}</span>
+                                    @if ($event['is_completed'])
+                                        <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Done</span>
+                                    @endif
+                                </span>
+                                @if ($meta !== '')
+                                    <span class="block mt-0.5 text-xs text-gray-500 truncate">{{ $meta }}</span>
+                                @endif
+                            </span>
+                        </button>
+                    @empty
+                        <div class="px-4 py-10 text-center">
+                            <p class="text-sm text-gray-500">No events in {{ $startsAt->format('F') }}.</p>
+                            @if (!$readOnly)
+                                <button type="button" wire:click="onAddEvent" class="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800">Add an event →</button>
+                            @endif
+                        </div>
+                    @endforelse
                 </div>
-                @include('livewire.admin._event-table', ['events' => $completedEvents, 'completed' => true])
-            @endif
-        </div>
-        @endif {{-- end view === 'month' --}}
-
+            </div>
+        @endif
     </div>
 
 
