@@ -56,7 +56,13 @@ class PanelUiTest extends TestCase
         $this->assertStringContainsString('body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)) {', $css);
         $this->assertStringContainsString('body.lms-ui #main-scroll :is(button, a, [role="button"], input[type="submit"], input[type="button"])', $css);
         $this->assertStringContainsString('html body.lms-ui #main-scroll label', $css);
-        $this->assertStringContainsString('body.lms-ui .sa-home .sk-head { height: 60px;', $css);
+        // One header height for every header row and the sidebar's logo row
+        // (50px since 2026-11-27, user's ask: 60px was too tall).
+        $this->assertStringContainsString('--sa-head-h: 50px;', $css);
+        $this->assertStringContainsString('body.lms-ui .sa-home .sk-head { height: var(--sa-head-h);', $css);
+        $this->assertStringContainsString('min-height: var(--sa-head-h);', $css);
+        $side = view('admin-components.sa-side-styles')->render();
+        $this->assertStringContainsString('height: var(--sa-head-h, 60px);', $side);
         // Only the Super Admin's list skeletons stay its own.
         $this->assertSame(1, substr_count($css, 'body.lms-sa'));
     }

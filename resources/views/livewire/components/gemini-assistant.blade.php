@@ -345,7 +345,7 @@
                 /* ── The super admin's Ask AI: the website's ask popup ── */
                 .gem-pop { font-family: 'Geist', 'Segoe UI', system-ui, sans-serif; }
                 .gem-pop .gem-shade { background: rgba(12,38,32,.06); -webkit-backdrop-filter: none; backdrop-filter: none; }
-                .gem-pop .gem-box { top: 72px; right: 20px; bottom: auto; width: min(460px, calc(100vw - 24px)); max-width: none; height: min(640px, calc(100vh - 96px));
+                .gem-pop .gem-box { top: calc(var(--sa-head-h, 60px) + 12px); right: 20px; bottom: auto; width: min(460px, calc(100vw - 24px)); max-width: none; height: min(640px, calc(100vh - 96px));
                     border-radius: 26px; border: 1px solid #e5eae8; overflow: hidden; transform-origin: 100% 0;
                     box-shadow: 0 44px 90px -30px rgba(12,38,32,.45), 0 10px 24px -12px rgba(12,38,32,.18); animation: gem-pop-in .3s cubic-bezier(.2,.7,.2,1) both; }
                 @keyframes gem-pop-in { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: none; } }

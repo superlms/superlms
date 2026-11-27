@@ -24,13 +24,13 @@
         background: #fbfcfc; border-right: 1px solid var(--sa-line); color: var(--sa-text);
     }
 
-    /* Logo · SUPERLMS, centred, a little shorter (4px less); under it a divider
-       across the sidebar's full width (user's ask of 2026-11-19). It is the
-       pages' header line itself — the same width and colour (--sa-hw /
-       --sa-hline, partials.super-admin-theme; thinner since 2026-11-27) and a
-       border like theirs, so it is drawn on the same screen pixels. The row is
-       exactly 60px, as those headers, so the two lines meet as one. */
-    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; padding: 0 18px; flex-shrink: 0; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, var(--sa-line)); }
+    /* Logo · SUPERLMS, centred; under it a divider across the sidebar's full
+       width (user's ask of 2026-11-19). It is the pages' header line itself —
+       the same width and colour (--sa-hw / --sa-hline, partials.super-admin-
+       theme) and a border like theirs, so it is drawn on the same screen
+       pixels. The row is exactly as tall as those headers (--sa-head-h, 50px
+       since 2026-11-27), so the two lines meet as one. */
+    .sa-brand { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: var(--sa-head-h, 60px); padding: 0 18px; flex-shrink: 0; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, var(--sa-line)); }
     .sa-brand-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
     .sa-brand-link img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
     .sa-brand-link span { font-size: 16px; font-weight: 700; letter-spacing: .01em; color: var(--sa-ink); white-space: nowrap; }

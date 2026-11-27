@@ -74,7 +74,8 @@
 
     /* ── Quick Links page (sk-ql), user's ask of 2026-11-18 (later): a white
           page; the header as the school admin's — one white row with a line
-          under it, 60px tall so that line runs on from the sidebar's divider
+          under it, as tall as the sidebar's logo row (--sa-head-h, 50px since
+          2026-11-27) so that line runs on from the sidebar's divider
           under the logo — holding (since 2026-11-19) "Welcome! <role>", the
           search, Ask AI, the time over the date, the school admin's session,
           then Messages and the bell in circles (Profile and Logout are on the
@@ -82,7 +83,7 @@
           pointer each lifts and fills with its own pastel (the website's
           panels), its icon turning white with a little bounce. ── */
     .sa-skin.sk-ql { background: #fff; min-height: calc(100vh - var(--lms-nav-h, 0px)); }
-    .sk-ql .sk-head { height: 60px; padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, #eef1f0); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .sk-ql .sk-head { height: var(--sa-head-h, 60px); padding: 0 20px; gap: 10px; flex-wrap: nowrap; background: #fff; border-bottom: var(--sa-hw, 1px) solid var(--sa-hline, #eef1f0); -webkit-backdrop-filter: none; backdrop-filter: none; }
     .sk-ql .sk-title { align-items: center; gap: 10px; flex: none; }
     .sk-ql .sk-clock, .sk-ql .sk-actions, .sk-ql .sk-session { flex: none; }
     /* 2026-11-19 (user's ask): "Welcome! <role>" all in the ink, not bold —

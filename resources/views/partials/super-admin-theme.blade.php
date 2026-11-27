@@ -5,10 +5,10 @@
      panels share. (The file keeps its name: it began as the Super Admin's.)
 
      1. Headers: every functionality's header row is exactly as tall as the
-        sidebar's logo band (60px), its line running on from the sidebar's
-        divider at the same height. A filter or tab row under it keeps its
-        place below that line. (Quick Links, Home and Analytics have the
-        same 60px row of their own, .sk-head.)
+        sidebar's logo band (--sa-head-h: 50px since 2026-11-27, was 60px),
+        its line running on from the sidebar's divider at the same height. A
+        filter or tab row under it keeps its place below that line. (Quick
+        Links, Home and Analytics have the same row of their own, .sk-head.)
      2. Buttons: every button a full pill. The page's main buttons (the
         panel's blue, violet, indigo, green and near-black ones) take the
         website header's "Request Demo" button: teal, white words, a soft
@@ -61,29 +61,27 @@
     body.lms-ui {
         --sa-t: #0d9488; --sa-t7: #0f766e; --sa-t50: #effaf7; --sa-t100: #d8f3ec; --sa-t200: #b1e6db;
         --sa-ink: #0c2620; --sa-line2: #d6dedb;
-        /* The one line under every header and under the sidebar's logo, the
-           same in both (user's ask of 2026-11-27: thinner than the old 1px
-           #eef1f0). A normal screen can't draw less than one pixel, so there it
-           is a third lighter; a sharp (2x) screen gets a true half-width line.
-           The sidebar (admin-components.sa-side-styles) reads these two too. */
-        --sa-hline: #f4f6f5; --sa-hw: 1px;
-    }
-    @media (min-resolution: 2dppx) {
-        body.lms-ui { --sa-hline: #eef1f0; --sa-hw: .5px; }
+        /* The height of every page's header row and of the sidebar's logo /
+           name row — one value, so the two always match and their lines meet
+           (user's ask of 2026-11-27: 60px was too tall). And the one line
+           under both. The sidebar (admin-components.sa-side-styles) and Quick
+           Links (home-skin) read these too. */
+        --sa-head-h: 50px;
+        --sa-hline: #eef1f0; --sa-hw: 1px;
     }
 
-    /* ─── 1. Header rows: 60px, the line level with the sidebar's divider ─── */
+    /* ─── 1. Header rows: --sa-head-h tall, the line level with the sidebar's divider ─── */
     @media (min-width: 768px) {
         /* The padded row (…py-3) of a page's white header that holds its
            title (the <h1>; the innermost such row): no padding of its own
-           above or below, at least 60px with a 1px line at its foot — as the
-           sidebar's .sa-brand — and the title row in it 59px, its parts
-           centred in that height. */
+           above or below, at least --sa-head-h with a 1px line at its foot —
+           as the sidebar's .sa-brand — and the title row in it 1px less, its
+           parts centred in that height. */
         body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)) {
-            padding-top: 0 !important; padding-bottom: 0 !important; min-height: 60px;
+            padding-top: 0 !important; padding-bottom: 0 !important; min-height: var(--sa-head-h);
             border-bottom: var(--sa-hw) solid var(--sa-hline) !important;
         }
-        body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)):not(.flex) > :first-child:has(h1) { min-height: 59px; }
+        body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)):not(.flex) > :first-child:has(h1) { min-height: calc(var(--sa-head-h) - var(--sa-hw)); }
         /* (only a row already laid out across at this width is centred) */
         body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)):not(.flex) > :first-child:has(h1):is(.flex:not(.flex-col), [class~="sm:flex-row"], [class~="md:flex-row"]),
         body.lms-ui #main-scroll :is(.bg-white.border-b .py-3, .bg-white.border-b.py-3):has(h1):not(:has(.py-3 h1)):is(.flex:not(.flex-col), [class~="sm:flex-row"], [class~="md:flex-row"]) { align-items: center; }
@@ -98,8 +96,8 @@
         body.lms-ui .sa-home .sk-head { border-bottom: var(--sa-hw) solid var(--sa-hline); }
     }
     @media (min-width: 1024px) {
-        /* Home and Analytics: the same 60px row (Quick Links has it already). */
-        body.lms-ui .sa-home .sk-head { height: 60px; padding-top: 0; padding-bottom: 0; flex-wrap: nowrap; }
+        /* Home and Analytics: the same row height (Quick Links has it already). */
+        body.lms-ui .sa-home .sk-head { height: var(--sa-head-h); padding-top: 0; padding-bottom: 0; flex-wrap: nowrap; }
     }
 
     /* ─── 2. Buttons: full pills; the main ones the website's teal ─── */

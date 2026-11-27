@@ -34,7 +34,7 @@
          fields showed for a moment while a page loaded — 2026-11-19). --}}
     @include('partials.panel-ui-styles')
     {{-- The website's look for the Super Admin's and (since 2026-11-20) the
-         school admin's pages: 60px header rows, teal pill buttons, the
+         school admin's pages: 50px header rows, teal pill buttons, the
          login's fields. --}}
     @include('partials.super-admin-theme')
     {{-- Every list of both panels in Home / Analytics' look (2026-11-22) —

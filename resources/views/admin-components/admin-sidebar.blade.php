@@ -30,8 +30,9 @@
 @include('admin-components.sa-side-styles')
 <style>
     /* The school's name can be long: up to two lines beside its logo, in a
-       row exactly 60px tall (as the Super Admin's brand row with its line). */
-    .sa-brand.is-school { height: 60px; padding: 0 16px; justify-content: flex-start; }
+       row exactly as tall as the Super Admin's brand row with its line
+       (--sa-head-h, partials.super-admin-theme). */
+    .sa-brand.is-school { height: var(--sa-head-h, 60px); padding: 0 16px; justify-content: flex-start; }
     .sa-brand.is-school .sa-brand-link { justify-content: flex-start; gap: 10px; width: 100%; }
     .sa-brand.is-school .sa-brand-link img { width: 32px; height: 32px; border-radius: 8px; }
     .sa-brand.is-school .sa-brand-link span { font-size: 13.5px; font-weight: 700; line-height: 1.22; letter-spacing: -.005em; white-space: normal;
