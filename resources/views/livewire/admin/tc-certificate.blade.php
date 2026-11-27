@@ -21,6 +21,11 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             Issue TC
                         </button>
+                    @elseif ($activeTab === 'character')
+                        <button wire:click="createCc" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <span class="hidden sm:inline">Issue Character Certificate</span><span class="sm:hidden">Issue</span>
+                        </button>
                     @else
                         <button wire:click="createCert" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -39,21 +44,17 @@
             </div>
         </div>
 
-        {{-- Tabs (rules-regulation style, no numbering) --}}
+        {{-- Tabs (rules-regulation style, no numbering). Since 2026-11-27:
+             Achievement and Participation are one Certificates tab (the Type
+             filter tells them apart), and Character Certificate follows TC. --}}
         <div class="border-t border-gray-200 px-4 sm:px-6">
             <nav class="flex gap-1 overflow-x-auto">
-                <button wire:click="$set('activeTab','achievement')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'achievement' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                    Achievement
-                </button>
-                <button wire:click="$set('activeTab','participation')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'participation' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                    Participation
-                </button>
-                <button wire:click="$set('activeTab','tc')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'tc' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                    Transfer Certificate
-                </button>
+                @foreach (['certificates' => 'Certificates', 'tc' => 'Transfer Certificate', 'character' => 'Character Certificate'] as $tabKey => $tabLabel)
+                    <button wire:click="$set('activeTab','{{ $tabKey }}')"
+                        class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === $tabKey ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                        {{ $tabLabel }}
+                    </button>
+                @endforeach
             </nav>
         </div>
 
@@ -65,7 +66,7 @@
                     Filter by:
                 </div>
                 <input wire:model.live.debounce.300ms="search" type="text"
-                    placeholder="{{ $activeTab === 'tc' ? 'Name / admission no / TC no…' : 'Name / admission no / certificate no…' }}"
+                    placeholder="{{ $activeTab === 'tc' ? 'Name / admission no / TC no…' : ($activeTab === 'character' ? 'Name / admission no / serial no…' : 'Name / admission no / certificate no…') }}"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 {{-- The month box reads "Select month" until a month is picked: an
                      empty month box only shows a row of dashes, so those are hidden
@@ -77,6 +78,13 @@
                         <span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-xs text-gray-500 peer-focus:hidden">Select month</span>
                     @endunless
                 </div>
+                @if ($activeTab === 'certificates')
+                    <select wire:model.live="filterType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" aria-label="Type">
+                        <option value="">All Types</option>
+                        <option value="achievement">Achievement</option>
+                        <option value="participation">Participation</option>
+                    </select>
+                @endif
                 <select wire:model.live="filterClass" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Classes</option>
                     @foreach ($this->standards as $std)
@@ -90,7 +98,7 @@
                         <option value="{{ $sec->id }}">{{ $sec->name }}</option>
                     @endforeach
                 </select>
-                @if ($search || $filterMonth || $filterClass || $filterSection)
+                @if ($search || $filterMonth || $filterClass || $filterSection || ($activeTab === 'certificates' && $filterType))
                     <button wire:click="clearFilters"
                         class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -109,7 +117,7 @@
              over the admission number, the event with its type small under it,
              who issued it with the date small under that, and the Students
              list's plain action buttons. --}}
-        @if (in_array($activeTab, ['achievement', 'participation']))
+        @if ($activeTab === 'certificates')
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -171,7 +179,7 @@
                             @empty
                                 <tr>
                                     <td colspan="5" class="px-4 py-12 text-center text-gray-400">
-                                        No {{ $activeTab }} certificates yet.
+                                        No {{ $filterType ?: '' }} certificates yet.
                                         <button wire:click="createCert" class="text-blue-600 hover:underline ml-1">Issue your first →</button>
                                     </td>
                                 </tr>
@@ -264,6 +272,92 @@
                 </div>
                 @if ($tcList->hasPages())
                     <div class="px-4 py-3 border-t border-gray-100">{{ $tcList->links() }}</div>
+                @endif
+            </div>
+        @endif
+
+        {{-- Character certificates: the student as the lists above, the book / serial
+             numbers, the class, the language it is printed in, the date. --}}
+        @if ($activeTab === 'character')
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left w-12">S.No</th>
+                                <th class="px-4 py-3 text-left">Student</th>
+                                <th class="px-4 py-3 text-left">Book / Serial No</th>
+                                <th class="px-4 py-3 text-left">Class</th>
+                                <th class="px-4 py-3 text-left">Examination</th>
+                                <th class="px-4 py-3 text-left">Language</th>
+                                <th class="px-4 py-3 text-left">Issue Date</th>
+                                <th class="px-4 py-3 text-center w-40">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($ccList as $cc)
+                                <tr wire:key="cc-{{ $cc->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $ccList->firstItem() + $loop->index }}</span></td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            @if ($cc->student?->user?->image)
+                                                <img src="{{ $cc->student->user->image }}" wire:click="showStudentPhoto({{ $cc->student->id }})" title="View photo"
+                                                    class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($cc->student->full_name ?? 'S', 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $cc->student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $cc->student->father_name ?? '' }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ $cc->book_no }} / {{ $cc->serial_no }}</td>
+                                    <td class="px-4 py-3">
+                                        <p class="text-gray-700">{{ $cc->student?->standard?->name ?? '—' }}</p>
+                                        @if ($cc->student?->section?->name)
+                                            <p class="text-xs text-gray-400">{{ $cc->student->section->name }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <p class="text-gray-700">{{ $cc->exam_name }}</p>
+                                        <p class="text-xs text-gray-400">{{ $cc->exam_year }}</p>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600">{{ \App\Models\Admin\CharacterCertificate::LANGUAGES[$cc->language] ?? 'Hindi' }}</td>
+                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $cc->issue_date->format('d M Y') }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="previewCc({{ $cc->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
+                                            <a href="{{ route('admin.cc.download', ['organization' => auth()->user()->organization_id, 'id' => $cc->id]) }}" download
+                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Download PDF">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            </a>
+                                            <button wire:click="editCc({{ $cc->id }})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            </button>
+                                            <button wire:click="deleteCc({{ $cc->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                                        No character certificates issued yet.
+                                        <button wire:click="createCc" class="text-blue-600 hover:underline ml-1">Issue the first →</button>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($ccList->hasPages())
+                    <div class="px-4 py-3 border-t border-gray-100">{{ $ccList->links() }}</div>
                 @endif
             </div>
         @endif
@@ -608,19 +702,20 @@
     </div>
     @endif
 
+    @include('livewire.admin._partials.character-certificate-form')
+
     {{-- ══════════════ VIEW SLIDE-IN PANEL (student view style) ══════════════ --}}
-    @if ($previewModal && ($previewCert || $previewTc))
+    @if ($previewModal && ($previewCert || $previewTc || $previewCc))
         @php
-            $pv     = $previewCert ?: $previewTc;
+            $pv     = $previewCert ?: ($previewTc ?: $previewCc);
             $isTc   = (bool) $previewTc;
+            $isCc   = (bool) $previewCc;
             $pvStu  = $pv->student;
-            $pvPdf = $isTc
-                ? route('admin.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id])
-                : route('admin.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id]);
+            $pvOrg  = auth()->user()->organization_id;
+            $pvKind = $isCc ? 'cc' : ($isTc ? 'tc' : 'cert');
+            $pvPdf  = route('admin.' . $pvKind . '.download', ['organization' => $pvOrg, 'id' => $pv->id]);
             // Streamed inline: the panel shows the printed certificate itself, not the fields behind it.
-            $pvView = $isTc
-                ? route('admin.tc.view', ['organization' => auth()->user()->organization_id, 'id' => $pv->id])
-                : route('admin.cert.view', ['organization' => auth()->user()->organization_id, 'id' => $pv->id]);
+            $pvView = route('admin.' . $pvKind . '.view', ['organization' => $pvOrg, 'id' => $pv->id]);
         @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePreview"></div>
@@ -630,7 +725,7 @@
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $pvStu->full_name ?? 'Certificate' }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5 truncate">
-                            {{ $isTc ? 'Transfer Certificate · ' . $pv->tc_no : ucfirst($pv->type) . ' Certificate · ' . $pv->certificate_no }}
+                            {{ $isCc ? 'Character Certificate · ' . $pv->book_no . ' / ' . $pv->serial_no : ($isTc ? 'Transfer Certificate · ' . $pv->tc_no : ucfirst($pv->type) . ' Certificate · ' . $pv->certificate_no) }}
                         </p>
                     </div>
                     <button wire:click="closePreview" type="button"
@@ -641,7 +736,7 @@
 
                 <div class="flex-1 overflow-hidden bg-gray-100">
                     <iframe src="{{ $pvView }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
-                        class="w-full h-full border-0" title="{{ $isTc ? 'Transfer Certificate' : 'Certificate' }}"></iframe>
+                        class="w-full h-full border-0" title="{{ $isCc ? 'Character Certificate' : ($isTc ? 'Transfer Certificate' : 'Certificate') }}"></iframe>
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
@@ -659,8 +754,11 @@
 
     {{-- Delete, asked the way Logout asks: a small card in the middle of the
          window over the dimmed page (lms-cover). --}}
-    @if ($pendingDeleteCertId || $pendingDeleteTcId)
-        @php $delTc = (bool) $pendingDeleteTcId; @endphp
+    @if ($pendingDeleteCertId || $pendingDeleteTcId || $pendingDeleteCcId)
+        @php
+            $delTc = (bool) $pendingDeleteTcId;
+            $delCc = (bool) $pendingDeleteCcId;
+        @endphp
         <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <div class="flex items-center gap-3 mb-4">
@@ -671,13 +769,13 @@
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-900">{{ $delTc ? 'Delete Transfer Certificate' : 'Delete Certificate' }}</h3>
+                        <h3 class="text-sm font-semibold text-gray-900">{{ $delCc ? 'Delete Character Certificate' : ($delTc ? 'Delete Transfer Certificate' : 'Delete Certificate') }}</h3>
                         <p class="text-xs text-gray-400">Certificates &amp; TC</p>
                     </div>
                 </div>
-                <p class="text-sm text-gray-500 mb-5">Are you sure you want to delete this {{ $delTc ? 'transfer certificate' : 'certificate' }}? It cannot be brought back.</p>
+                <p class="text-sm text-gray-500 mb-5">Are you sure you want to delete this {{ $delCc ? 'character certificate' : ($delTc ? 'transfer certificate' : 'certificate') }}? It cannot be brought back.</p>
                 <div class="flex items-center gap-2">
-                    <button wire:click="{{ $delTc ? 'confirmDeleteTc(' . (int) $pendingDeleteTcId . ')' : 'confirmDeleteCert(' . (int) $pendingDeleteCertId . ')' }}"
+                    <button wire:click="{{ $delCc ? 'confirmDeleteCc(' . (int) $pendingDeleteCcId . ')' : ($delTc ? 'confirmDeleteTc(' . (int) $pendingDeleteTcId . ')' : 'confirmDeleteCert(' . (int) $pendingDeleteCertId . ')') }}"
                         class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white text-sm
                                font-medium rounded-lg transition-colors">
                         Yes, Delete

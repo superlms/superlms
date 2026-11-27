@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Admin\Certificate;
+use App\Models\Admin\CharacterCertificate;
 use App\Models\Admin\TransferCertificate;
 use App\Models\Organization;
 use App\Models\Student\Section;
@@ -20,19 +21,29 @@ class TcCertificate extends Component
 {
     use WireUiActions, WithPagination;
 
-    // ─── Tabs: achievement | participation | tc ───────────────
+    // ─── Tabs: certificates | tc | character ──────────────────
+    // (2026-11-27, user's ask: Achievement and Participation are one
+    // "Certificates" tab, its Type filter telling them apart; a Character
+    // Certificate tab after TC.) Old links' achievement / participation open
+    // Certificates.
     #[Url(history: true, keep: true)]
-    public string $activeTab = 'achievement';
+    public string $activeTab = 'certificates';
+
+    /** The Certificates tab's type filter: '' (both), achievement, participation. */
+    #[Url(keep: true)]
+    public string $filterType = '';
 
     // ─── Modals ───────────────────────────────────────────────
     public bool $certModal    = false;
     public bool $tcModal      = false;
+    public bool $ccModal      = false;
     public bool $previewModal = false;
 
     public ?int   $editCertId    = null;
     public ?int   $editTcId      = null;
     public ?int   $previewId     = null;
-    public string $previewType   = 'cert'; // cert | tc
+    public string $previewType   = 'cert'; // cert | tc | cc
+    public ?int   $editCcId      = null;
 
     public string $type                  = 'achievement';
     public ?int   $student_detail_id     = null;
@@ -66,6 +77,37 @@ class TcCertificate extends Component
     public string $tc_issue_date            = '';
     public string $reason_for_leaving       = '';
     public string $tc_remarks               = '';
+
+    // ─── Character certificate form ───────────────────────────
+    public ?int   $cc_student_id       = null;
+    public string $cc_language         = 'hi';
+    public string $cc_book_no          = '';
+    public string $cc_serial_no        = '';
+    public string $cc_gender           = 'male';
+    public string $cc_student_name_hi  = '';
+    public string $cc_father_name_hi   = '';
+    public string $cc_school_name_hi   = '';
+    public string $cc_school_place_hi  = '';
+    public string $cc_from_year        = '';
+    public string $cc_to_year          = '';
+    public string $cc_exam_year        = '';
+    public string $cc_exam_name        = '';
+    public string $cc_division         = 'first';
+    public string $cc_result           = 'passed';
+    public string $cc_unlawful         = 'no';
+    public string $cc_issue_date       = '';
+    public string $ccClass             = '';
+    public string $ccSection           = '';
+    public string $ccStudentSearch     = '';
+    /** What the certificate prints from the record (father's name, date of birth) where it is blank. */
+    public array  $ccStudentFill       = [];
+    public ?int   $pendingDeleteCcId   = null;
+
+    /** The record's fields a character certificate prints: asked for (and saved) where blank. */
+    public const CC_STUDENT_FIELDS = [
+        'father_name' => "Father's Name",
+        'dob'         => 'Date of Birth',
+    ];
 
     // ─── Filters ──────────────────────────────────────────────
     #[Url(keep: true)]
@@ -128,6 +170,8 @@ class TcCertificate extends Component
         $this->issued_date      = now()->format('Y-m-d');
         $this->application_date = now()->format('Y-m-d');
         $this->tc_issue_date    = now()->format('Y-m-d');
+        $this->cc_issue_date    = now()->format('Y-m-d');
+        $this->activeTab        = $this->tabOf($this->activeTab);
         $this->loadStudents();
         $this->organization = Auth::user()?->organization;
     }
@@ -138,16 +182,26 @@ class TcCertificate extends Component
         return Auth::user()?->organization_id;
     }
 
+    /** A tab asked for (an old link's achievement / participation too), as one of the three. */
+    private function tabOf(?string $tab): string
+    {
+        return match ($tab) {
+            'tc', 'character' => $tab,
+            default           => 'certificates',
+        };
+    }
+
     #[Computed]
     public function statistics(): array
     {
         $orgId = $this->organizationId;
-        if (!$orgId) return ['achievement' => 0, 'participation' => 0, 'tc' => 0];
+        if (!$orgId) return ['achievement' => 0, 'participation' => 0, 'tc' => 0, 'character' => 0];
 
         return [
             'achievement'   => Certificate::where('organization_id', $orgId)->where('type', 'achievement')->count(),
             'participation' => Certificate::where('organization_id', $orgId)->where('type', 'participation')->count(),
             'tc'            => TransferCertificate::where('organization_id', $orgId)->count(),
+            'character'     => CharacterCertificate::where('organization_id', $orgId)->count(),
         ];
     }
 
@@ -164,8 +218,12 @@ class TcCertificate extends Component
         if ($this->activeTab === 'tc') {
             $base    = TransferCertificate::where('organization_id', $orgId);
             $dateCol = 'issue_date';
+        } elseif ($this->activeTab === 'character') {
+            $base    = CharacterCertificate::where('organization_id', $orgId);
+            $dateCol = 'issue_date';
         } else {
-            $base    = Certificate::where('organization_id', $orgId)->where('type', $this->activeTab);
+            $base    = Certificate::where('organization_id', $orgId)
+                ->when(in_array($this->filterType, ['achievement', 'participation'], true), fn ($q) => $q->where('type', $this->filterType));
             $dateCol = 'issued_date';
         }
 
@@ -220,6 +278,12 @@ class TcCertificate extends Component
         return $this->sectionsFor($this->tcClass);
     }
 
+    #[Computed]
+    public function ccSections()
+    {
+        return $this->sectionsFor($this->ccClass);
+    }
+
     private function studentsFor(string $standardId, string $sectionId, string $search)
     {
         if (!$standardId) return collect();
@@ -243,6 +307,31 @@ class TcCertificate extends Component
     public function tcIssueStudents()
     {
         return $this->studentsFor($this->tcClass, $this->tcSection, $this->tcStudentSearch);
+    }
+
+    #[Computed]
+    public function ccIssueStudents()
+    {
+        return $this->studentsFor($this->ccClass, $this->ccSection, $this->ccStudentSearch);
+    }
+
+    #[Computed]
+    public function selectedCcStudent()
+    {
+        return $this->cc_student_id
+            ? StudentDetail::with(['standard', 'section'])->where('organization_id', $this->organizationId)->find($this->cc_student_id)
+            : null;
+    }
+
+    /** The blanks among what the character certificate prints from the student's record: field => label. */
+    #[Computed]
+    public function ccMissingFields(): array
+    {
+        $student = $this->selectedCcStudent;
+
+        return $student
+            ? array_filter(self::CC_STUDENT_FIELDS, fn ($label, $key) => blank($student->{$key}), ARRAY_FILTER_USE_BOTH)
+            : [];
     }
 
     /**
@@ -351,6 +440,8 @@ class TcCertificate extends Component
     public function updatedFilterMonth(): void    { $this->resetPage(); }
     public function updatedCertClass(): void      { $this->certSection = ''; $this->student_detail_id = null; }
     public function updatedTcClass(): void        { $this->tcSection = ''; $this->tc_student_id = null; }
+    public function updatedCcClass(): void        { $this->ccSection = ''; $this->cc_student_id = null; }
+    public function updatedFilterType(): void     { $this->resetPage(); }
 
     private function loadStudents(): void
     {
@@ -381,19 +472,16 @@ class TcCertificate extends Component
 
     public function updatedActiveTab(): void
     {
+        $this->activeTab = $this->tabOf($this->activeTab);
         $this->resetPage();
         $this->search = '';
-        if (in_array($this->activeTab, ['achievement', 'participation'])) {
-            $this->type = $this->activeTab;
-        }
     }
 
     public function createCert(): void
     {
         $this->resetCertForm();
         $this->editCertId = null;
-        $this->type       = in_array($this->activeTab, ['achievement', 'participation'])
-            ? $this->activeTab : 'achievement';
+        $this->type       = $this->filterType === 'participation' ? 'participation' : 'achievement';
         $this->certModal  = true;
     }
 
@@ -465,6 +553,7 @@ class TcCertificate extends Component
     {
         $this->pendingDeleteCertId = null;
         $this->pendingDeleteTcId   = null;
+        $this->pendingDeleteCcId   = null;
     }
 
     public function confirmDeleteCert(int $id): void
@@ -487,7 +576,7 @@ class TcCertificate extends Component
     {
         $this->reset(['student_detail_id', 'event_name', 'issued_by', 'issued_by_designation', 'description',
             'certClass', 'certSection', 'certStudentSearch']);
-        $this->type        = $this->activeTab === 'participation' ? 'participation' : 'achievement';
+        $this->type        = $this->filterType === 'participation' ? 'participation' : 'achievement';
         $this->issued_date = now()->format('Y-m-d');
     }
 
@@ -725,6 +814,224 @@ class TcCertificate extends Component
         $this->tc_issue_date           = now()->format('Y-m-d');
     }
 
+    // ─── Character certificate ────────────────────────────────
+    // The school's form (चरित्र प्रमाण-पत्र): book and serial numbers, the
+    // years studied here, the examination with its division and result, the
+    // date of birth from the admission register in figures and words, and
+    // whether they took part in anything unlawful — printed in Hindi or
+    // English, the school's logo faint behind it.
+
+    public function createCc(): void
+    {
+        $this->resetCcForm();
+        $this->editCcId = null;
+        // The book goes on; the serial number follows the last one issued.
+        $last = CharacterCertificate::where('organization_id', $this->organizationId)->latest('id')->first();
+        if ($last) {
+            $this->cc_book_no         = (string) $last->book_no;
+            $this->cc_serial_no       = ctype_digit((string) $last->serial_no) ? (string) ((int) $last->serial_no + 1) : '';
+            $this->cc_language        = $last->language === 'en' ? 'en' : 'hi';
+            $this->cc_school_name_hi  = (string) $last->school_name_hi;
+            $this->cc_school_place_hi = (string) $last->school_place_hi;
+        }
+        $this->ccModal = true;
+    }
+
+    public function editCc(int $id): void
+    {
+        $cc = CharacterCertificate::where('organization_id', $this->organizationId)->findOrFail($id);
+
+        $this->resetCcForm();
+        $this->editCcId           = $cc->id;
+        $this->cc_student_id      = $cc->student_detail_id;
+        $this->cc_language        = $cc->language === 'en' ? 'en' : 'hi';
+        $this->cc_book_no         = (string) $cc->book_no;
+        $this->cc_serial_no       = (string) $cc->serial_no;
+        $this->cc_gender          = $cc->gender === 'female' ? 'female' : 'male';
+        $this->cc_student_name_hi = (string) $cc->student_name_hi;
+        $this->cc_father_name_hi  = (string) $cc->father_name_hi;
+        $this->cc_school_name_hi  = (string) $cc->school_name_hi;
+        $this->cc_school_place_hi = (string) $cc->school_place_hi;
+        $this->cc_from_year       = (string) $cc->from_year;
+        $this->cc_to_year         = (string) $cc->to_year;
+        $this->cc_exam_year       = (string) $cc->exam_year;
+        $this->cc_exam_name       = (string) $cc->exam_name;
+        $this->cc_division        = (string) ($cc->division ?? 'first');
+        $this->cc_result          = $cc->result === 'failed' ? 'failed' : 'passed';
+        $this->cc_unlawful        = $cc->took_part_unlawful ? 'yes' : 'no';
+        $this->cc_issue_date      = $cc->issue_date->format('Y-m-d');
+        $this->ccModal            = true;
+    }
+
+    public function selectCcStudent(int $id): void
+    {
+        $this->cc_student_id = $id;
+        $this->updatedCcStudentId();
+    }
+
+    /** A student picked (the picker sets cc_student_id): their gender for the wording, and the years from their admission to this year. */
+    public function updatedCcStudentId(): void
+    {
+        $this->ccStudentFill = [];
+        $this->resetValidation();
+        unset($this->selectedCcStudent, $this->ccMissingFields);
+
+        $student = $this->selectedCcStudent;
+        if ($student) {
+            $this->cc_gender    = CharacterCertificate::genderOf($student->gender);
+            $this->cc_from_year = $this->cc_from_year ?: (string) ($student->date_of_admission?->year ?? '');
+            $this->cc_to_year   = $this->cc_to_year ?: (string) now()->year;
+            $this->cc_exam_year = $this->cc_exam_year ?: (string) now()->year;
+        }
+    }
+
+    public function clearCcStudent(): void
+    {
+        $this->cc_student_id = null;
+        $this->ccStudentFill = [];
+    }
+
+    public function saveCc(): void
+    {
+        $year  = 'required|digits:4|integer|min:1950|max:2100';
+        $rules = [
+            'cc_student_id' => 'required|exists:student_details,id',
+            'cc_language'   => 'required|in:hi,en',
+            'cc_book_no'    => 'required|string|max:50',
+            'cc_serial_no'  => 'required|string|max:50',
+            'cc_gender'     => 'required|in:male,female',
+            'cc_from_year'  => $year,
+            'cc_to_year'    => $year . '|gte:cc_from_year',
+            'cc_exam_year'  => $year,
+            'cc_exam_name'  => 'required|string|max:100',
+            'cc_result'     => 'required|in:passed,failed',
+            'cc_division'   => $this->cc_result === 'passed' ? 'required|in:first,second,third' : 'nullable',
+            'cc_unlawful'   => 'required|in:yes,no',
+            'cc_issue_date' => 'required|date',
+            'cc_student_name_hi' => 'nullable|string|max:255',
+            'cc_father_name_hi'  => 'nullable|string|max:255',
+            'cc_school_name_hi'  => 'nullable|string|max:255',
+            'cc_school_place_hi' => 'nullable|string|max:255',
+        ];
+        foreach (array_keys($this->ccMissingFields) as $key) {
+            $rules['ccStudentFill.' . $key] = $key === 'dob' ? 'required|date|before:today' : 'required|string|max:255';
+        }
+
+        $this->validate($rules, [
+            'cc_student_id.required' => 'Pick the student.',
+            'cc_to_year.gte'         => 'The last year cannot be before the first.',
+        ], [
+            'cc_book_no'    => 'book no.',
+            'cc_serial_no'  => 'serial no.',
+            'cc_from_year'  => 'from year',
+            'cc_to_year'    => 'to year',
+            'cc_exam_year'  => 'examination year',
+            'cc_exam_name'  => 'examination',
+            'cc_division'   => 'division',
+            'cc_issue_date' => 'date of issue',
+            'ccStudentFill.father_name' => "father's name",
+            'ccStudentFill.dob'         => 'date of birth',
+        ]);
+
+        $student = StudentDetail::where('organization_id', $this->organizationId)->find($this->cc_student_id);
+        if (! $student) {
+            $this->addError('cc_student_id', 'Pick the student.');
+            return;
+        }
+
+        $data = [
+            'organization_id'    => $this->organizationId,
+            'student_detail_id'  => $student->id,
+            'language'           => $this->cc_language,
+            'book_no'            => trim($this->cc_book_no),
+            'serial_no'          => trim($this->cc_serial_no),
+            'gender'             => $this->cc_gender,
+            'student_name_hi'    => trim($this->cc_student_name_hi) ?: null,
+            'father_name_hi'     => trim($this->cc_father_name_hi) ?: null,
+            'school_name_hi'     => trim($this->cc_school_name_hi) ?: null,
+            'school_place_hi'    => trim($this->cc_school_place_hi) ?: null,
+            'from_year'          => $this->cc_from_year,
+            'to_year'            => $this->cc_to_year,
+            'exam_year'          => $this->cc_exam_year,
+            'exam_name'          => trim($this->cc_exam_name),
+            'division'           => $this->cc_result === 'passed' ? $this->cc_division : null,
+            'result'             => $this->cc_result,
+            'took_part_unlawful' => $this->cc_unlawful === 'yes',
+            'issue_date'         => $this->cc_issue_date,
+        ];
+
+        try {
+            // The blanks of the record, typed here, go onto it — never over a value.
+            $fill = [];
+            foreach (array_keys($this->ccMissingFields) as $key) {
+                $value = trim((string) ($this->ccStudentFill[$key] ?? ''));
+                if ($value !== '' && blank($student->{$key})) {
+                    $fill[$key] = $value;
+                }
+            }
+            if ($fill) {
+                $student->update($fill);
+            }
+
+            $this->editCcId
+                ? CharacterCertificate::where('organization_id', $this->organizationId)->findOrFail($this->editCcId)->update($data)
+                : CharacterCertificate::create($data);
+
+            unset($this->statistics, $this->analytics);
+            $this->notification()->success(
+                title: 'Success!',
+                description: $this->editCcId ? 'Character certificate updated.' : 'Character certificate issued.'
+            );
+            $this->closeCcModal();
+        } catch (\Exception $e) {
+            $this->notification()->error(title: 'Error!', description: $e->getMessage());
+        }
+    }
+
+    public function deleteCc(int $id): void
+    {
+        $this->cancelDelete();
+        $this->pendingDeleteCcId = $id;
+    }
+
+    public function confirmDeleteCc(int $id): void
+    {
+        $this->cancelDelete();
+        CharacterCertificate::where('organization_id', $this->organizationId)->findOrFail($id)->delete();
+        unset($this->statistics, $this->analytics);
+        $this->notification()->success(title: 'Deleted!', description: 'Character certificate removed.');
+    }
+
+    public function closeCcModal(): void
+    {
+        $this->ccModal  = false;
+        $this->editCcId = null;
+        $this->resetCcForm();
+        $this->resetValidation();
+    }
+
+    private function resetCcForm(): void
+    {
+        $this->reset([
+            'cc_student_id', 'cc_book_no', 'cc_serial_no', 'cc_student_name_hi', 'cc_father_name_hi',
+            'cc_school_name_hi', 'cc_school_place_hi', 'cc_from_year', 'cc_to_year', 'cc_exam_year', 'cc_exam_name',
+            'ccClass', 'ccSection', 'ccStudentSearch', 'ccStudentFill',
+        ]);
+        $this->cc_language   = 'hi';
+        $this->cc_gender     = 'male';
+        $this->cc_division   = 'first';
+        $this->cc_result     = 'passed';
+        $this->cc_unlawful   = 'no';
+        $this->cc_issue_date = now()->format('Y-m-d');
+    }
+
+    public function previewCc(int $id): void
+    {
+        $this->previewId    = $id;
+        $this->previewType  = 'cc';
+        $this->previewModal = true;
+    }
+
     public function previewCert(int $id): void
     {
         $this->previewId   = $id;
@@ -749,8 +1056,36 @@ class TcCertificate extends Component
     {
         $certificates = collect();
         $tcList       = collect();
+        $ccList       = collect();
 
-        if ($this->activeTab === 'tc') {
+        if ($this->activeTab === 'character') {
+            $q = CharacterCertificate::with(['student.user', 'student.standard', 'student.section'])
+                ->where('organization_id', $this->organizationId);
+
+            if ($this->search) {
+                $q->where(function ($sq) {
+                    $sq->where('serial_no', 'like', '%' . $this->search . '%')
+                        ->orWhereHas(
+                            'student',
+                            fn($s) => $s->where(
+                                fn($n) => $n->where('full_name', 'like', '%' . $this->search . '%')
+                                    ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                            )
+                        );
+                });
+            }
+            if ($this->filterClass) {
+                $q->whereHas('student', fn($s) => $s->where('standard_id', $this->filterClass));
+            }
+            if ($this->filterSection) {
+                $q->whereHas('student', fn($s) => $s->where('section_id', $this->filterSection));
+            }
+            if ($this->filterMonth) {
+                [$fy, $fm] = array_pad(explode('-', $this->filterMonth), 2, null);
+                if ($fy && $fm) $q->whereYear('issue_date', $fy)->whereMonth('issue_date', $fm);
+            }
+            $ccList = $q->tap(fn ($q) => NameOrder::byStudent($q, 'character_certificates'))->paginate($this->perPage);
+        } elseif ($this->activeTab === 'tc') {
             $q = TransferCertificate::with(['student.user', 'student.standard', 'student.section'])
                 ->where('organization_id', $this->organizationId);
 
@@ -782,7 +1117,7 @@ class TcCertificate extends Component
         } else {
             $q = Certificate::with('student.user')
                 ->where('organization_id', $this->organizationId)
-                ->where('type', $this->activeTab);
+                ->when(in_array($this->filterType, ['achievement', 'participation'], true), fn ($q) => $q->where('type', $this->filterType));
 
             if ($this->search) {
                 $q->where(function ($sq) {
@@ -815,9 +1150,14 @@ class TcCertificate extends Component
         // Preview data
         $previewCert = null;
         $previewTc   = null;
+        $previewCc   = null;
 
         if ($this->previewModal && $this->previewId) {
-            if ($this->previewType === 'tc') {
+            if ($this->previewType === 'cc') {
+                $previewCc = CharacterCertificate::with(['student.standard', 'student.section'])
+                    ->where('organization_id', $this->organizationId)
+                    ->find($this->previewId);
+            } elseif ($this->previewType === 'tc') {
                 $previewTc = TransferCertificate::with(['student.standard', 'student.section', 'organization'])
                     ->where('organization_id', $this->organizationId)
                     ->find($this->previewId);
@@ -830,7 +1170,7 @@ class TcCertificate extends Component
 
         return view(
             'livewire.admin.tc-certificate',
-            compact('certificates', 'tcList', 'previewCert', 'previewTc')
+            compact('certificates', 'tcList', 'ccList', 'previewCert', 'previewTc', 'previewCc')
         );
     }
 }

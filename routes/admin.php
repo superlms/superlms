@@ -206,6 +206,12 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/tc/{id}/view', [CertificatePdfController::class, 'viewTc'])
             ->name('admin.tc.view');
 
+        // Character certificate (चरित्र प्रमाण-पत्र), in Hindi or English
+        Route::get('/character-certificate/{id}/download', [CertificatePdfController::class, 'downloadCc'])
+            ->name('admin.cc.download');
+        Route::get('/character-certificate/{id}/view', [CertificatePdfController::class, 'viewCc'])
+            ->name('admin.cc.view');
+
         // Report Card PDF Routes
         Route::get('/report-card/{id}/download', [ReportCardController::class, 'download'])
             ->name('admin.report-card.download');

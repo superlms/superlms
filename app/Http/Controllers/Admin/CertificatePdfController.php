@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admin\Certificate;
+use App\Models\Admin\CharacterCertificate;
 use App\Models\Admin\SchoolInfo;
 use App\Models\Admin\TransferCertificate;
 use App\Models\Organization;
@@ -196,5 +197,75 @@ class CertificatePdfController extends Controller
 
         return $this->render('pdf.admin.tc-certificate', $this->tcData($tc))
             ->stream('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
+    }
+
+    // ─── Character certificate (चरित्र प्रमाण-पत्र) ───────────────────────
+
+    private function findCc(int $id): CharacterCertificate|Response
+    {
+        $cc = CharacterCertificate::with(['student.standard', 'organization'])->find($id);
+
+        return (! $cc || $cc->organization_id !== Auth::user()?->organization_id)
+            ? $this->notFound('character certificate', $id, CharacterCertificate::class, 'character_certificates')
+            : $cc;
+    }
+
+    /** As the TC: the student's class's school name and logo, and the masthead's contact line. */
+    private function ccData(CharacterCertificate $cc): array
+    {
+        $cc->setRelation('organization', \App\Support\SchoolBrand::org($cc->organization, $cc->student?->standard_id));
+
+        return [
+            'cc'      => $cc,
+            'contact' => $this->contactLine($cc->organization_id, $cc->organization),
+        ];
+    }
+
+    /**
+     * The character certificate is set in Poppins — the faces that carry the
+     * shaped Hindi — so they are embedded (App\Support\PdfFonts) and dompdf
+     * keeps their metrics in its font cache.
+     */
+    private function ccPdf(CharacterCertificate $cc): \Barryvdh\DomPDF\PDF
+    {
+        $fontDir = \App\Support\PdfFonts::cacheDir();
+        $fontCss = rescue(fn () => \App\Support\PdfFonts::faceCss(), '', false);
+
+        return Pdf::loadView('pdf.admin.character-certificate', $this->ccData($cc) + compact('fontCss'))
+            ->setPaper('a4', 'portrait')
+            ->setOption('dpi', 150)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontDir)
+            ->setOption('fontCache', $fontDir)
+            ->setOption('defaultFont', 'DejaVu Sans');
+    }
+
+    private function ccFile(CharacterCertificate $cc): string
+    {
+        return 'Character_Certificate_' . preg_replace('/[^A-Za-z0-9_-]+/', '-', ($cc->book_no . '-' . $cc->serial_no)) . '.pdf';
+    }
+
+    /** Route: GET /{organization}/character-certificate/{id}/download */
+    public function downloadCc($organization, int $id): Response
+    {
+        $cc = $this->findCc($id);
+        if ($cc instanceof Response) {
+            return $cc;
+        }
+
+        return $this->ccPdf($cc)->download($this->ccFile($cc));
+    }
+
+    /** Route: GET /{organization}/character-certificate/{id}/view — streamed for the View panel. */
+    public function viewCc($organization, int $id): Response
+    {
+        $cc = $this->findCc($id);
+        if ($cc instanceof Response) {
+            return $cc;
+        }
+
+        return $this->ccPdf($cc)->stream($this->ccFile($cc));
     }
 }

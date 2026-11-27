@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Livewire\Accounts\TcCertificate as AccountsTcCertificatePage;
 use App\Livewire\Admin\TcCertificate as AdminTcCertificatePage;
 use App\Models\Admin\Certificate;
+use App\Models\Admin\CharacterCertificate;
 use App\Models\Admin\TransferCertificate;
+use App\Support\DateInWords;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
@@ -61,6 +63,7 @@ class TcCertificatePanelTest extends TestCase
             $t->string('admission_no')->nullable();
             $t->string('appar_id')->nullable();
             $t->string('pen_no')->nullable();
+            $t->string('gender')->nullable();
             $t->softDeletes();
             $t->timestamps();
         });
@@ -91,6 +94,8 @@ class TcCertificatePanelTest extends TestCase
             $t->string('certificate_no')->nullable();
             $t->timestamps();
         });
+        // The migration itself (character certificates, 2026-11-27).
+        (require database_path('migrations/2026_11_27_140000_create_character_certificates_table.php'))->up();
         Schema::create('transfer_certificates', function (Blueprint $t) {
             $t->id();
             $t->unsignedBigInteger('organization_id');
@@ -655,5 +660,133 @@ class TcCertificatePanelTest extends TestCase
 
         // Edit brings the caste back.
         $page->call('editTc', $tc->id)->assertSet('caste', 'SC');
+    }
+
+    // ───────────────────────── one Certificates tab, and the character certificate ─────────────────────────
+
+    public function test_achievement_and_participation_are_one_certificates_tab_then_tc_then_character(): void
+    {
+        $asha = $this->student('Asha', 'Ramesh');
+        $this->certificate($asha);
+        $this->certificate($asha, ['type' => 'participation', 'event_name' => 'Sports Day']);
+
+        $page = Livewire::test(AdminTcCertificatePage::class)->assertSet('activeTab', 'certificates');
+        $html = $page->html();
+        preg_match_all("/wire:click=\"\\\$set\('activeTab','(\w+)'\)\"/", $html, $tabs);
+        $this->assertSame(['certificates', 'tc', 'character'], $tabs[1]);
+        $this->assertStringContainsString('Character Certificate', $html);
+        $this->assertStringNotContainsString(">\n                    Achievement\n", $html);
+
+        // Both kinds in the one list; the Type filter tells them apart.
+        $this->assertCount(2, $page->viewData('certificates')->items());
+        $this->assertSame(['Sports Day'], collect($page->set('filterType', 'participation')->viewData('certificates')->items())->pluck('event_name')->all());
+        $page->call('createCert')->assertSet('type', 'participation');
+
+        // An old link's tab opens Certificates.
+        Livewire::withQueryParams(['activeTab' => 'participation'])->test(AdminTcCertificatePage::class)->assertSet('activeTab', 'certificates');
+    }
+
+    /** A complete character certificate form for $student. */
+    private function filledCc($page, int $student)
+    {
+        return $page->set('ccClass', '1')->set('cc_student_id', $student)
+            ->set('cc_book_no', '10')->set('cc_serial_no', '23')
+            ->set('cc_from_year', '2019')->set('cc_to_year', '2026')
+            ->set('cc_exam_year', '2026')->set('cc_exam_name', 'हाईस्कूल')
+            ->set('cc_result', 'passed')->set('cc_division', 'first');
+    }
+
+    public function test_a_character_certificate_is_issued_with_every_detail_of_the_form(): void
+    {
+        $bina = $this->student('Bina', 'Suresh', 1, null, null, ['gender' => 'Female', 'dob' => null]);
+
+        $page = Livewire::test(AdminTcCertificatePage::class)->set('activeTab', 'character')->call('createCc')
+            ->assertSet('ccModal', true)->assertSet('cc_language', 'hi');
+        $this->assertStringContainsString('wire:click="createCc"', $page->html());
+
+        // Picking the student brings their gender and the years.
+        $page->set('ccClass', '1')->set('cc_student_id', $bina)
+            ->assertSet('cc_gender', 'female')->assertSet('cc_from_year', '2021')->assertSet('cc_to_year', '2026');
+        $panel = $this->panel($page->html(), 'Character Certificate</h2>');
+        $this->assertStringContainsString('wire:model.defer="ccStudentFill.dob"', $panel);     // the record has no date of birth
+        $this->assertStringNotContainsString('ccStudentFill.father_name', $panel);
+        $this->assertStringContainsString('wire:model.defer="cc_student_name_hi"', $panel);   // Hindi: the names in Hindi
+
+        // Every field is needed; the date of birth too.
+        $page->call('saveCc')->assertHasErrors(['cc_book_no', 'cc_serial_no', 'cc_exam_name', 'ccStudentFill.dob']);
+        $this->assertSame(0, CharacterCertificate::count());
+
+        $this->filledCc($page, $bina)->set('ccStudentFill.dob', '2010-08-05')->set('cc_student_name_hi', 'बीना')
+            ->set('cc_school_name_hi', 'आदर्श सत्यदेव इण्टर कालिज')->set('cc_school_place_hi', 'मालव (अलीगढ़)')
+            ->call('saveCc')->assertHasNoErrors()->assertSet('ccModal', false);
+
+        $cc = CharacterCertificate::first();
+        $this->assertSame(['hi', '10', '23', 'female', '2019', '2026', 'हाईस्कूल', 'first', 'passed', false],
+            [$cc->language, $cc->book_no, $cc->serial_no, $cc->gender, $cc->from_year, $cc->to_year, $cc->exam_name, $cc->division, $cc->result, $cc->took_part_unlawful]);
+        $this->assertSame('2010-08-05', substr(DB::table('student_details')->where('id', $bina)->value('dob'), 0, 10));
+
+        // The next one goes on in the same book, the serial number after; the school's Hindi name is kept.
+        $page->call('createCc')->assertSet('cc_book_no', '10')->assertSet('cc_serial_no', '24')
+            ->assertSet('cc_school_name_hi', 'आदर्श सत्यदेव इण्टर कालिज');
+
+        // Listed, and edited back.
+        $page->call('closeCcModal');
+        $row = $this->table($page->html());
+        $this->assertStringContainsString('10 / 23', $row);
+        $this->assertStringContainsString('wire:click="previewCc(' . $cc->id . ')"', $row);
+        $page->call('editCc', $cc->id)->assertSet('cc_serial_no', '23')->assertSet('cc_student_name_hi', 'बीना');
+
+        // Deleted, after a yes.
+        $page->call('closeCcModal')->call('deleteCc', $cc->id)->assertSet('pendingDeleteCcId', $cc->id)->call('confirmDeleteCc', $cc->id);
+        $this->assertSame(0, CharacterCertificate::count());
+    }
+
+    public function test_the_printed_character_certificate_in_hindi_and_in_english(): void
+    {
+        $bina = $this->student('Bina', 'Suresh', 1, null, null, ['gender' => 'female', 'dob' => '2010-08-05']);
+        $cc = CharacterCertificate::create([
+            'organization_id' => $this->org, 'student_detail_id' => $bina, 'language' => 'hi', 'book_no' => '10', 'serial_no' => '23',
+            'gender' => 'female', 'student_name_hi' => 'बीना', 'father_name_hi' => 'सुरेश', 'school_name_hi' => 'आदर्श सत्यदेव इण्टर कालिज',
+            'school_place_hi' => 'मालव (अलीगढ़)', 'from_year' => '2019', 'to_year' => '2026', 'exam_year' => '2026',
+            'exam_name' => 'हाईस्कूल', 'division' => 'first', 'result' => 'passed', 'issue_date' => '2026-11-27',
+        ])->load('student', 'organization');
+
+        $text = fn () => $this->text(view('pdf.admin.character-certificate', ['cc' => $cc->fresh(['student', 'organization'])])->render());
+
+        $hi = $text();
+        $this->assertStringContainsString('आदर्श सत्यदेव इण्टर कालिज मालव (अलीगढ़)', $hi);
+        $this->assertStringContainsString('चरित्र प्रमाण-पत्र', $hi);
+        $this->assertStringContainsString('पुस्तक संख्या: 10 क्रम संख्या: 23 दिनांक: 27/11/2026', $hi);
+        $this->assertStringContainsString('मुझे प्रमाणित करते हुए हर्ष है कि कु० बीना आत्मजा श्री सुरेश सन् 2019 से 2026 तक इस संस्था के छात्रा रही हैं। आप सन् 2026 की हाईस्कूल परीक्षा में प्रथम श्रेणी में उत्तीर्ण हुईं।', $hi);
+        $this->assertStringContainsString('छात्रा प्रवेश रजिस्टर के अनुसार आपकी जन्मतिथि 05/08/2010 (शब्दों में) पाँच अगस्त दो हज़ार दस है।', $hi);
+        $this->assertStringContainsString('किसी अवैधानिक कार्य में भाग नहीं लिया है। मैं आपके उज्ज्वल भविष्य की कामना करता हूँ।', $hi);
+        $this->assertStringContainsString('प्रधानाचार्य', $hi);
+
+        $cc->update(['language' => 'en', 'gender' => 'male', 'exam_name' => 'High School', 'division' => 'second', 'took_part_unlawful' => true]);
+        $en = $text();
+        $this->assertStringContainsString('Test School', $en);
+        $this->assertStringContainsString('CHARACTER CERTIFICATE', $en);
+        $this->assertStringContainsString('Book No.: 10 Serial No.: 23 Date: 27/11/2026', $en);
+        $this->assertStringContainsString('It gives me pleasure to certify that Mr. Bina, son of Mr. Suresh, was a student of this institution from 2019 to 2026. He passed the High School examination of 2026 in the Second division.', $en);
+        $this->assertStringContainsString('his date of birth is 05/08/2010 (in words: Fifth August Two Thousand Ten).', $en);
+        $this->assertStringContainsString('he had taken part in an unlawful activity during his period of study.', $en);
+        $this->assertStringContainsString('Principal', $en);
+
+        $cc->update(['result' => 'failed', 'division' => null]);
+        $this->assertStringContainsString('appeared in the High School examination of 2026 but did not pass.', $text());
+
+        // The logo, faint behind the words.
+        $style = view('pdf.admin.character-certificate', ['cc' => $cc->fresh(['student', 'organization'])])->render();
+        $this->assertStringContainsString('.mark img { width: 118mm; opacity: 0.07; }', $style);
+    }
+
+    public function test_a_date_in_words_in_hindi_and_english(): void
+    {
+        $this->assertSame('पाँच अगस्त दो हज़ार नौ', DateInWords::hindi(Carbon::parse('2009-08-05')));
+        $this->assertSame('इकतीस दिसम्बर उन्नीस सौ अट्ठानवे', DateInWords::hindi(Carbon::parse('1998-12-31')));
+        $this->assertSame('एक जनवरी दो हज़ार', DateInWords::hindi(Carbon::parse('2000-01-01')));
+        $this->assertSame('Fifth August Two Thousand Nine', DateInWords::english(Carbon::parse('2009-08-05')));
+        $this->assertSame('Thirty-First December Nineteen Ninety-Eight', DateInWords::english(Carbon::parse('1998-12-31')));
+        $this->assertSame('Twenty-Second March Two Thousand Fifteen', DateInWords::english(Carbon::parse('2015-03-22')));
     }
 }
