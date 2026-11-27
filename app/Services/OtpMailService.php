@@ -107,6 +107,16 @@ class OtpMailService
         }
         $sentOnWhatsApp = in_array(true, array_column($delivery['whatsapp'], 'ok'), true);
 
+        // No address on record (a student whose school gave only a phone):
+        // the WhatsApp copy is the only way the code can go.
+        if (!filled($user->email)) {
+            $delivery['email']['error'] = 'this account has no email address';
+            if ($sentOnWhatsApp) {
+                return $challenge;
+            }
+            throw new OtpDeliveryException("Couldn't send the OTP right now. Please try again in a moment.", $challenge, $otp);
+        }
+
         // ── Primary: ZeptoMail template ──
         try {
             self::sendViaZeptoMail($user, $panelName, $otp);

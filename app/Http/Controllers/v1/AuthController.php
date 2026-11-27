@@ -21,6 +21,7 @@ use App\Services\OtplessService;
 use App\Services\OtpMailService;
 use App\Services\ResponseService;
 use App\Support\AdminAppOtp;
+use App\Support\AppResetOtp;
 use App\Support\LoginIdentifier;
 use Carbon\Carbon;
 use Exception;
@@ -312,10 +313,12 @@ class AuthController extends Controller
      * POST /api/v1/forgot-password
      *
      * The code that starts a password reset, mailed to the address the school
-     * has for that account. Identified as at login: a student's admission
-     * number, a teacher's username, a staff email (`identifier`; the older
-     * `email` field still works). The reply says which address it went to, so
-     * the app can show it without the account ever giving it away in full.
+     * has for that account and sent on WhatsApp to its registered mobile
+     * (App\Support\AppResetOtp — student, teacher and admin alike). Identified
+     * as at login: a student's admission number, a teacher's username, a staff
+     * email (`identifier`; the older `email` field still works). The reply says
+     * where it went (`email`, `mobile`, each half hidden or null), so the app
+     * can show it without the account ever giving it away in full.
      */
     public function forgotPassword(Request $request)
     {
@@ -338,29 +341,35 @@ class AuthController extends Controller
             return $this->responseService->errorResponse($why, 404);
         }
 
-        if (!$user->email) {
+        // The code goes by email and on WhatsApp to the registered mobile
+        // (App\Support\AppResetOtp); either one is enough.
+        $whatsAppTo = AppResetOtp::whatsAppTo($user);
+
+        if (!$user->email && !$whatsAppTo) {
             return $this->responseService->errorResponse(
-                'This account has no email address on record. Please ask the school to add one.',
+                'This account has no email address or mobile number on record. Please ask the school to add one.',
                 422
             );
         }
 
         try {
-            $panelName = $user->role === 'teacher' ? 'Teacher App' : 'Student App';
-            $otpToken  = OtpMailService::sendOtp($user, $panelName);
+            $otpToken = OtpMailService::sendOtp($user, AppResetOtp::panel($user), null, $whatsAppTo, $delivery);
+            $sentTo   = AppResetOtp::sentTo($delivery);
 
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
-                    // Said as ra****ta@gmail.com — an admission number alone
-                    // must not hand out somebody's address.
-                    'email'      => LoginIdentifier::maskEmail($user->email),
+                    // Said as ra****ta@gmail.com / +91 ••••••5914 — an admission
+                    // number alone must not hand out somebody's address. Only
+                    // where the code really went.
+                    'email'      => $sentTo['email'],
+                    'mobile'     => $sentTo['mobile'],
                     'expires_in' => 120, // seconds
                     // Send back with verify-otp / resend-otp / change-password:
                     // this request's code is the only one they accept.
                     'otp_token'  => $otpToken,
                 ],
-                'OTP sent successfully to your email address.'
+                AppResetOtp::sentMessage($sentTo)
             );
         } catch (Exception $e) {
             return $this->responseService->errorResponse(
@@ -435,17 +444,18 @@ class AuthController extends Controller
         }
 
         try {
-            $panelName = $user->role === 'teacher' ? 'Teacher App' : 'Student App';
-            $otpToken  = OtpMailService::sendOtp($user, $panelName, $otpToken);
+            $otpToken = OtpMailService::sendOtp($user, AppResetOtp::panel($user), $otpToken, AppResetOtp::whatsAppTo($user), $delivery);
+            $sentTo   = AppResetOtp::sentTo($delivery);
 
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
-                    'email'      => LoginIdentifier::maskEmail($user->email),
+                    'email'      => $sentTo['email'],
+                    'mobile'     => $sentTo['mobile'],
                     'expires_in' => 120,
                     'otp_token'  => $otpToken,
                 ],
-                'OTP resent successfully to your email address.'
+                AppResetOtp::sentMessage($sentTo, resent: true)
             );
         } catch (Exception $e) {
             return $this->responseService->errorResponse(

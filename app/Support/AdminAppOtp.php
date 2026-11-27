@@ -64,13 +64,15 @@ class AdminAppOtp
     public static function challenge(User $user, string $purpose): array
     {
         // By email and on WhatsApp to the registered mobile, as on the web.
-        $otpToken = OtpMailService::sendOtp($user, self::PANEL, null, SchoolAdminOtp::whatsAppTo($user));
+        $otpToken = OtpMailService::sendOtp($user, self::PANEL, null, SchoolAdminOtp::whatsAppTo($user), $delivery);
         self::remember($user, $purpose, $otpToken);
 
         return [
             'otp_required' => true,
             'user_id'      => $user->id,
             'email'        => $user->email,
+            // The WhatsApp the code also went to, half hidden, or null.
+            'mobile'       => AppResetOtp::sentTo($delivery)['mobile'],
             'user_type'    => 'admin',
             'otp_token'    => $otpToken,
             'expires_in'   => OtpMailService::CODE_TTL_SECONDS,
