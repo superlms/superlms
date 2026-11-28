@@ -69,6 +69,8 @@ use App\Http\Controllers\v1\SyllabusController;
 use App\Http\Controllers\v1\SwitchAccountController;
 use App\Http\Controllers\v1\TeacherContactController;
 use App\Http\Controllers\v1\TeacherController;
+use App\Http\Controllers\v1\TeacherSalaryController;
+use App\Http\Controllers\v1\StudentComplaintController;
 use App\Http\Controllers\v1\TimeTableController;
 use App\Http\Controllers\v1\TransportController;
 use App\Http\Controllers\v1\UserController;
@@ -153,6 +155,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/subject', [SubjectController::class, 'getTeacherSubject']);
             Route::get('/dashboard', [DashboardController::class, 'teacherDashboard']); // home
             Route::get('/analytics', [AnalyticsController::class, 'teacherAnalytics']);
+            // Salaries: the teacher's own salary account (Payroll's months, read only)
+            Route::get('/salaries', [TeacherSalaryController::class, 'index']);
 
             //Admin Api
             Route::prefix('admin')->group(function () {
@@ -316,6 +320,8 @@ Route::middleware('auth:sanctum')->group(function () {
             // Aggregated home-screen data
             Route::get('/dashboard', [DashboardController::class, 'studentDashboard']);
             Route::get('/analytics', [AnalyticsController::class, 'studentAnalytics']);
+            // Complaints: what the school has recorded about the student (read only)
+            Route::get('/complaints', [StudentComplaintController::class, 'index']);
 
             Route::prefix('marks')->group(function () {
                 Route::get('/',                    [StudentMarksController::class, 'index']);
